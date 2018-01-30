@@ -1,0 +1,42 @@
+{
+  "name": "xnatapp",
+  "version": "0.0.1",
+  "description": "XNAT desktop application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --debug",
+    "dist-win": "build --win -p always",
+    "dist-mac": "build --mac -p always",
+    "dist-linux": "build --linux -p always",
+    "package-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --icon=assets/icons/mac/icon.icns --prune=true --out=release-builds",
+    "package-win": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=win32 --arch=ia32 --icon=assets/icons/win/icon.ico --prune=true --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"Electron XNAT App\"",
+    "package-linux": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=linux --arch=x64 --icon=assets/icons/png/icon.png --prune=true --out=release-builds"
+  },
+  "author": "UAR",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.17.1",
+    "electron-settings": "^3.1.4",
+    "glob": "^7.1.2"
+  },
+  "devDependencies": {
+    "devtron": "^1.4.0",
+    "electron": "^1.7.11",
+    "electron-builder": "^19.55.2",
+    "electron-packager": "^10.1.2"
+  },
+  "build": {
+    "appId": "com.xnatapp.app",
+    "productName": "XNAT Desktop App",
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
