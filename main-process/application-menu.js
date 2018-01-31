@@ -1,6 +1,6 @@
 const electron = require('electron');
 const path = require('path')
-const {app, BrowserWindow, Menu, shell, Tray} = electron;
+const {app, BrowserWindow, Menu, shell, Tray, nativeImage} = electron;
 
 const version = app.getVersion();
 
@@ -80,9 +80,9 @@ app.on('ready', function () {
     Menu.setApplicationMenu(menu);
 
 
-    const iconPath = path.join(__dirname, '../assets/icons/png/icon.png');
+    let icon = nativeImage.createFromPath(path.join(__dirname, '../assets/icons/png/tray-icon-256.png')) ;
     // Tray icon and menu
-    let appIcon = new Tray(iconPath);
+    let appIcon = new Tray(icon);
     appIcon.setToolTip("XNAT app");
     appIcon.setContextMenu(menu);
 })
