@@ -17,8 +17,11 @@
   "license": "ISC",
   "dependencies": {
     "axios": "^0.17.1",
+    "bootstrap": "^4.0.0",
     "electron-settings": "^3.1.4",
-    "glob": "^7.1.2"
+    "font-awesome": "^4.7.0",
+    "glob": "^7.1.2",
+    "jquery": "^3.3.1"
   },
   "devDependencies": {
     "devtron": "^1.4.0",

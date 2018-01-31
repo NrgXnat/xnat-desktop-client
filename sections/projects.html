@@ -1,0 +1,26 @@
+<template class="task-template">
+    <section id="projects-section" class="section js-section u-category-native-ui">
+
+        <h2>Projects Page</h2>
+        <p>Hello, <span id="username"></span></p>
+
+        <button id="get_projects" class="btn btn-info">Get Projects</button>
+
+        <div id="output">
+            <ul id="projects">
+
+            </ul>
+            <div id="subject_data"></div>
+        </div>
+
+        <br><br>
+        <button type="submit" class="btn btn-small" id="logout"><i class="fa fa-sign-out"></i> Logout</button>
+
+        <script type="text/javascript">
+            
+            require('./renderer-process/projects')
+
+        </script>
+
+    </section>
+</template>

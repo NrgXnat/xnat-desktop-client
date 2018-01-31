@@ -1,5 +1,6 @@
 const electron = require('electron');
-const {app, BrowserWindow, Menu} = electron;
+const path = require('path')
+const {app, BrowserWindow, Menu, shell, Tray} = electron;
 
 const version = app.getVersion();
 
@@ -8,18 +9,18 @@ let template = [
     {
         label: 'File',
         submenu: [
-            {
-                label: 'Add Item',
-                click(){
-                    createNewWindow();
-                }
-            },
-            {
-                label: 'Clear Items',
-                click: function(){
-                    mainWindow.webContents.send('item:clear');
-                }
-            },
+            // {
+            //     label: 'Add Item',
+            //     click(){
+            //         createNewWindow();
+            //     }
+            // },
+            // {
+            //     label: 'Clear Items',
+            //     click: function(){
+            //         mainWindow.webContents.send('item:clear');
+            //     }
+            // },
             {
                 label: 'Visit XNAT.ORG',
                 click: function() {
@@ -77,4 +78,11 @@ function isMac() {
 app.on('ready', function () {
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
+
+
+    const iconPath = path.join(__dirname, '../assets/icons/png/icon.png');
+    // Tray icon and menu
+    let appIcon = new Tray(iconPath);
+    appIcon.setToolTip("XNAT app");
+    appIcon.setContextMenu(menu);
 })

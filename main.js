@@ -3,7 +3,7 @@ const glob = require('glob')
 const electron = require('electron')
 //const autoUpdater = require('./auto-updater')
 
-const {app, BrowserWindow} = electron;
+const {app, BrowserWindow, ipcMain, shell} = electron;
 
 //SET ENV
 //process.env.NODE_ENV = 'production';
@@ -40,7 +40,7 @@ function initialize () {
     }
 
     mainWindow = new BrowserWindow(windowOptions)
-    mainWindow.loadURL(path.join('file://', __dirname, '/index.html'))
+    mainWindow.loadURL(path.join('file://', __dirname, '/index3.html'))
 
     // Launch fullscreen with DevTools open, usage: npm run debug
     if (debug) {
@@ -101,4 +101,9 @@ function loadDemos () {
   //autoUpdater.updateMenu()
 }
 
-initialize()
+initialize();
+
+// Catch Item Add
+ipcMain.on('redirect', (e, item) =>{
+  mainWindow.webContents.send('load:page', item);
+})
