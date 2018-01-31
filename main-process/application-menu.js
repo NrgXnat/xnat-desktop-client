@@ -80,7 +80,7 @@ app.on('ready', function () {
     Menu.setApplicationMenu(menu);
 
 
-    let icon = nativeImage.createFromPath(path.join(__dirname, '../assets/icons/png/tray-icon-256.png')) ;
+    let icon = nativeImage.createFromPath(path.join(__dirname, '../assets/icons/png/tray-icon.png')) ;
     // Tray icon and menu
     let appIcon = new Tray(icon);
     appIcon.setToolTip("XNAT app");
