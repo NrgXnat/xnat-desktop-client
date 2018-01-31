@@ -43,7 +43,7 @@ function login() {
         // Notification code
         const notification = {
             title: 'XNAT Login Info',
-            body: 'You have successfully logged in into your XNAT instance.',
+            body: "Server: " + xnat_server + "\nUser: " + user_auth.username,
             icon: path.join(__dirname, '../assets/icons/png/icon.png')
         };
 
@@ -90,7 +90,8 @@ function login() {
           }
           //console.log(error.config);
 
-          error_holder.classList.remove("hidden");
+          console.log(error_holder);
+          document.getElementById('login_feedback').classList.remove("hidden");
           document.getElementById('login_error_message').innerHTML = msg;
     });
 }

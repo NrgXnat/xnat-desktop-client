@@ -32,6 +32,7 @@ function loadPage(page) {
             // while (contentContainer.firstChild) {
             //     contentContainer.removeChild(contentContainer.firstChild);
             // }
+            console.log(clone);
             contentContainer.appendChild(clone)
 
             settings.set('active_page', page); 

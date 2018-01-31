@@ -1,25 +1,45 @@
 <template class="task-template">
     <section id="projects-section" class="section js-section u-category-native-ui">
 
-        <h2>Projects Page</h2>
-        <p>Hello, <span id="username"></span></p>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-2"></div>
+                <div class="col-md-8">
+                    <h2>Projects Page</h2>
 
-        <button id="get_projects" class="btn btn-info">Get Projects</button>
+                    <p>
+                        Server: <span id="server_name"></span><br> User: <span id="username"></span>
+                    </p>
 
-        <div id="output">
-            <ul id="projects">
+                    <button id="get_projects" class="btn btn-info">Get Projects</button>
+                    <br><br>
+                    <div id="output">
+                        <ol id="projects">
 
-            </ul>
-            <div id="subject_data"></div>
+                        </ol>
+                        <div id="subject_data"></div>
+                    </div>
+
+                    <br><br>
+                    <button type="submit" class="btn btn-small" id="logout"><i class="fa fa-sign-out"></i> Logout</button>
+
+                </div>
+                <div class="col-md-2"></div>
+            </div>
         </div>
 
-        <br><br>
-        <button type="submit" class="btn btn-small" id="logout"><i class="fa fa-sign-out"></i> Logout</button>
+
 
         <script type="text/javascript">
-            
+            user = require('electron-settings').get('user_auth');
+            document.getElementById('username').innerHTML = user.username;
+
+            serverName = require('electron-settings').get('xnat_server')
+            document.getElementById('server_name').innerHTML = serverName;
+
             require('./renderer-process/projects')
 
+            //let Xsettings = (typeof Xsettings == 'undefined') ? require('electron-settings') : Xsettings;
         </script>
 
     </section>

@@ -3,7 +3,7 @@ const glob = require('glob')
 const electron = require('electron')
 //const autoUpdater = require('./auto-updater')
 
-const {app, BrowserWindow, ipcMain, shell} = electron;
+const {app, BrowserWindow, ipcMain, shell, Tray} = electron;
 
 //SET ENV
 //process.env.NODE_ENV = 'production';
@@ -11,7 +11,7 @@ const {app, BrowserWindow, ipcMain, shell} = electron;
 
 const debug = /--debug/.test(process.argv[2])
 
-const iconPath = path.join(__dirname, 'assets/icons/png/icon.png');
+const iconPath = path.join(__dirname, 'assets/icons/png/tray-icon.png');
 
 //process.mas - A Boolean. For Mac App Store build, this property is true, for other builds it is undefined.
 if (process.mas) app.setName('XNAT App')
