@@ -1,0 +1,12 @@
+directories:
+  output: dist
+  buildResources: build
+appId: com.xnatapp.app
+productName: XNAT Desktop App
+win:
+  target: nsis
+mac:
+  target: dmg
+linux:
+  target: AppImage
+electronVersion: 1.8.1
