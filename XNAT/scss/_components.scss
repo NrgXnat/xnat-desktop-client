@@ -1,0 +1,32 @@
+///MODAL
+.modal-content {
+	border-radius: 0;
+	padding: 0 40px;
+	.modal-header {
+		border: none;
+		.modal-title {
+			width: 100%;
+			text-align: center;
+			font-family: $ptsans;
+			font-size: 24px;
+			color: $dark-blue;
+			font-weight: 700;
+		}
+	}
+	.modal-footer {
+		border: none;
+	}
+}
+
+
+////FORMS
+
+input[type=text], input[type=password] {
+	@include linearGradient($input-top, $input-bottom);
+	border-color: $input-border;
+}
+label {
+	font-size: 18px;
+	color: $label-color;
+	font-weight: 700;
+}
