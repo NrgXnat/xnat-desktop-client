@@ -9,4 +9,4 @@ mac:
   target: dmg
 linux:
   target: AppImage
-electronVersion: 1.8.1
+electronVersion: 1.7.11
