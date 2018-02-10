@@ -5,4 +5,12 @@ $(document).ready(function() {
 	$(".user").click(function(){
 	    $(".user-dropdown").toggle();
 	});
+	$(document).click(function(){
+	  $(".menu-dropdown").hide();
+	  $(".user-dropdown").hide();
+	});
+	$(".menu-holder, .user-holder").click(function(e){
+	  e.stopPropagation();
+	});
+
 });

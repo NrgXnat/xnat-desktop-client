@@ -4,7 +4,6 @@
 <body>
 
   <header>
-   <div class="container-fluid">
     <a href="#" class="logo-header"><img src="assets/images/logo-header.png"></a>
     <div class="menu-holder">
       <a href="#" class="menu">MENU</a>
@@ -26,9 +25,8 @@
      <button class="btn btn-darkblue">Logout</button>
     </div>
     </div>
-  </div>	
 </header>
-<div class="container">
+<div class="container-fluid">
 	<div class="logo text-center col-md-12">
 		<img src="assets/images/xnat_logo.jpg"/>
 	</div>

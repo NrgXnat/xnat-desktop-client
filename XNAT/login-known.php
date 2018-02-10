@@ -4,11 +4,9 @@
 <body>
 
 <header>
-	<div class="container-fluid">
 		<a href="#" class="settings"><i class="fas fa-cog"></i></a>
-	</div>	
 </header>
-<div class="container">
+<div class="container-fluid">
 	<div class="logo text-center col-md-12">
 		<img src="assets/images/xnat_logo.jpg"/>
 	</div>
