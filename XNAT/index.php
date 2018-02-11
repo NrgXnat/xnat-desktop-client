@@ -5,7 +5,7 @@
 
 <header>
 	<div class="container-fluid">
-		<a href="#" class="settings"><i class="fas fa-cog"></i></a>
+		<a href="connection-settings.php" class="settings"><i class="fas fa-cog"></i></a>
 	</div>	
 </header>
 <div class="container">

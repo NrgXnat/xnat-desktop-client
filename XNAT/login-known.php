@@ -4,7 +4,7 @@
 <body>
 
 <header>
-		<a href="#" class="settings"><i class="fas fa-cog"></i></a>
+		<a href="connection-settings.php" class="settings"><i class="fas fa-cog"></i></a>
 </header>
 <div class="container-fluid">
 	<div class="logo text-center col-md-12">
@@ -15,7 +15,7 @@
 		<div class="col"></div>
 		<div class="col-8">
 			<button class="connect btn btn-known-user btn-lg btn-block" type="button" data-toggle="modal" data-target="#known-user-login"><img src="assets/images/xnat-avatar.jpg" /><div >XNAT Central</br><span class="user-name">User: Will</span></div></button>
-			<button class="connect btn btn-green btn-lg btn-block" type="button"><span class="plus"></span><span class="db"></span> ADD NEW XNAT SERVER</button>
+			<a href="connection-settings.php" class="connect btn btn-green btn-lg btn-block"><span class="plus"></span><span class="db"></span> ADD NEW XNAT SERVER</a>
 		</div>
 		<div class="col"></div>
 		</div>

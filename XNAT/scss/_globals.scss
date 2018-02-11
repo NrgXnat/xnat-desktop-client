@@ -9,20 +9,16 @@ body {
 	height: 100vh;
 }
 header {
-	background: #03509e; /* Old browsers */
-	background: -moz-linear-gradient(top, #03509e 0%, #1e3a6c 100%); /* FF3.6-15 */
-	background: -webkit-linear-gradient(top, #03509e 0%,#1e3a6c 100%); /* Chrome10-25,Safari5.1-6 */
-	background: linear-gradient(to bottom, #03509e 0%,#1e3a6c 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
-	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#03509e', endColorstr='#1e3a6c',GradientType=0 ); /* IE6-9 */
+	@include linearGradient($header-top, $header-bottom );
 	width:100%;
 	height:40px;
 	.settings {
-		color:#e7e2e6;
+		color: $menu-items;
 		font-size: 20px;
 		float: right;
 		padding: 5px 10px;
-		border-left: 1px solid #1c3a6c;
-		border-right:1px solid #1c3a6c;
+		border-left: 1px solid $header-separator;
+		border-right:1px solid $header-separator;
 		&:hover {
 			color:$white;
 			text-decoration: none;
@@ -32,11 +28,11 @@ header {
 		position: relative;
 		float: right;
 		.user {
-			color:#e7e2e6;
+			color:$menu-items;
 			font-size: 20px;
 			float: right;
 			padding: 5px 10px;
-			border-left: 1px solid #1c3a6c;
+			border-left: 1px solid $header-separator;
 			.name {
 				font-size: 16px;
 				font-weight:700;
@@ -88,11 +84,11 @@ header {
 		}
 	}
 	.logo-header {
-		color:#e7e2e6;
+		color: $menu-items;
 		font-size: 20px;
 		float: left;
 		padding: 0 10px;
-		border-left: 1px solid #1c3a6c;
+		border-left: 1px solid $header-separator;
 		.name {
 			font-size: 16px;
 			font-weight:700;
@@ -106,11 +102,11 @@ header {
 		position: relative;
 		float: left;
 		.menu {
-			color:#e7e2e6;
+			color:$menu-items;
 			float: left;
 			padding: 7px 30px 5px 10px;
-			border-left: 1px solid #1c3a6c;
-			border-right:1px solid #1c3a6c;
+			border-left: 1px solid $header-separator;
+			border-right:1px solid $header-separator;
 			font-size: 16px;
 			font-weight:700;
 			position: relative;
@@ -120,7 +116,7 @@ header {
 			}
 			&::after {
 				content: "\f107";
-		  		font-family: "Font Awesome 5 Free";
+		  		font-family: $awesome;
 		  		font-weight: 900;
 		  		font-size:20px;
 				position: absolute;
@@ -167,6 +163,15 @@ header {
 .alert {
 	line-height: 1.2;
     font-size: 18px;
+}
+
+////TYPO
+h2.main-title {
+	color: $title-color;
+	font-size: 24px;
+	line-height: 1.2;
+	margin:20px 0;
+	font-weight: 700;
 }
 
 

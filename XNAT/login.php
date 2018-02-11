@@ -4,7 +4,7 @@
 <body>
 
 <header>
-    <a href="#" class="settings"><i class="fas fa-cog"></i></a>
+    <a href="connection-settings.php" class="settings"><i class="fas fa-cog"></i></a>
 </header>
 <div class="container-fluid">
 	<div class="logo text-center col-md-12">
@@ -30,10 +30,10 @@
       </div>
       <div class="modal-body">
       <div class="alert alert-secondary text-center" role="alert">
-      	<h2 class="red-title"><i class="fas fa-exclamation-triangle"></i> Warning login failed !</h2>
-		  Upload / Download for user (user name) on server (server) failed.</br>
-			After (NN) login attempts, your user account will be locked.
-		</div>
+        <h2 class="red-title"><i class="fas fa-exclamation-triangle"></i> Warning login failed !</h2>
+        Upload / Download for user (user name) on server (server) failed.</br>
+        After (NN) login attempts, your user account will be locked.
+      </div>
          <form>
           <div class="form-group">
             <label for="server-name" class="col-form-label">Server:</label>

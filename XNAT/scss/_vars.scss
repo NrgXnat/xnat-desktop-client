@@ -1,9 +1,14 @@
 @import url('https://use.fontawesome.com/releases/v5.0.6/css/all.css');
 @import url('https://fonts.googleapis.com/css?family=PT+Sans');
 $ptsans: 'PT Sans', sans-serif;
+$awesome: "Font Awesome 5 Free";
 
 $black:#000000;
 $white: #ffffff;
+$header-top: #03509e;
+$header-bottom: #1e3a6c;
+$header-separator: #1c3a6c;
+$menu-items: #e7e2e6;
 $green-button-border: #04733b;
 $green-button-top: #1cb24d;
 $green-button-bottom: #068241;
@@ -15,7 +20,6 @@ $blue-button-bottom: #0069ab;
 $darkblue-button-border: #1d2352;
 $darkblue-button-top: #03519d;
 $darkblue-button-bottom: #1d3a6e;
-
 
 $lightblue-button-border: #006aab;
 $lightblue-button-top: #76c5ee;
@@ -29,6 +33,11 @@ $login-blue-button-border: #006aab;
 $login-blue-button-top: #77c6ef;
 $login-blue-button-bottom: #1b83c6;
 
+$btn-known-user-border: #cccccc;
+$btn-known-user-top: #ffffff;
+$btn-known-user-bottom: #ececec;
+
+
 $dark-blue: #1d3b6f;
 $input-bottom: #e9ebe8;
 $input-top: #ffffff;
@@ -40,3 +49,5 @@ $menu-border: #1d3a6c;
 $menu-item: #1d3a6d;
 $user-dropdown-background: #f6f6f6;
 $user-dropdown-border: #c7c5c4;
+$title-color: $dark-blue;
+$search-icon: #aeadad;

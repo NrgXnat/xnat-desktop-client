@@ -30,3 +30,48 @@ label {
 	color: $label-color;
 	font-weight: 700;
 }
+.alert-dismissible {
+	margin-bottom: 50px;
+}
+
+
+////TABLES
+.bootstrap-table {
+	margin-bottom: 30px;
+}
+.th-inner {
+	color: $label-color;
+}
+.bootstrap-table .table thead>tr>th {
+	vertical-align: baseline;
+}
+.fixed-table-toolbar {
+	display: none;
+}
+.action {
+	.edit{
+		margin-right: 10px;
+	}
+}
+.fht-cell {
+	.filterControl {
+		position: relative;
+		input {
+			background: $white;
+			padding-left: 30px;
+			height: 30px;
+		}
+		&::before {
+			content: "\f002";
+	  		font-family: "Font Awesome 5 Free";
+	  		font-weight: 900;
+	  		font-size: 16px;
+	  		color: $search-icon;
+	  		pointer-events: none;
+	  		position: absolute;
+	  		left: 8px;
+	  		top:4px;
+
+		}
+	}
+}

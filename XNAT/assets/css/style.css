@@ -6,7 +6,7 @@
 .btn-known-user {
   color: #1d3b6f;
   font-weight: 700;
-  border: 2px solid #ccc;
+  border: 2px solid #cccccc;
   padding: 0;
   background: #ffffff;
   /* Old browsers */
@@ -320,6 +320,12 @@
   font-weight: 700;
   border-radius: 0;
   padding: 15px !important; }
+  @media (max-width: 1200px) {
+    .connect {
+      font-size: 36px; } }
+  @media (max-width: 992px) {
+    .connect {
+      font-size: 28px; } }
   .connect .plus {
     position: relative;
     width: 30px;
@@ -333,11 +339,27 @@
       position: absolute;
       top: -7px;
       left: 0; }
+      @media (max-width: 1200px) {
+        .connect .plus::before {
+          font-size: 27px;
+          top: -4px; } }
+      @media (max-width: 992px) {
+        .connect .plus::before {
+          font-size: 27px;
+          top: -2px; } }
   .connect .db {
     position: relative;
     width: 48px;
     display: inline-block;
     height: 48px; }
+    @media (max-width: 1200px) {
+      .connect .db {
+        width: 42px;
+        height: 42px; } }
+    @media (max-width: 992px) {
+      .connect .db {
+        width: 40px;
+        height: 37px; } }
     .connect .db::before {
       content: "\f1c0";
       font-family: "Font Awesome 5 Free";
@@ -346,6 +368,12 @@
       position: absolute;
       top: -5px;
       left: 3px; }
+      @media (max-width: 1200px) {
+        .connect .db::before {
+          font-size: 44px; } }
+      @media (max-width: 992px) {
+        .connect .db::before {
+          font-size: 40px; } }
   .connect.btn-known-user {
     font-size: 36px;
     line-height: 1.2;
@@ -367,6 +395,23 @@
       position: absolute;
       right: 40px;
       top: 33px; }
+  .connect.settings-small {
+    font-size: 18px;
+    padding: 10px 20px !important; }
+    .connect.settings-small .plus {
+      width: 20px;
+      height: 14px; }
+      .connect.settings-small .plus::before {
+        font-size: 18px;
+        top: -7px;
+        left: 0; }
+    .connect.settings-small .db {
+      width: 30px;
+      height: 17px; }
+      .connect.settings-small .db::before {
+        font-size: 24px;
+        top: -8px;
+        left: 3px; }
 
 .home-button {
   font-size: 24px;
@@ -429,6 +474,41 @@ label {
   color: #04539d;
   font-weight: 700; }
 
+.alert-dismissible {
+  margin-bottom: 50px; }
+
+.bootstrap-table {
+  margin-bottom: 30px; }
+
+.th-inner {
+  color: #04539d; }
+
+.bootstrap-table .table thead > tr > th {
+  vertical-align: baseline; }
+
+.fixed-table-toolbar {
+  display: none; }
+
+.action .edit {
+  margin-right: 10px; }
+
+.fht-cell .filterControl {
+  position: relative; }
+  .fht-cell .filterControl input {
+    background: #ffffff;
+    padding-left: 30px;
+    height: 30px; }
+  .fht-cell .filterControl::before {
+    content: "\f002";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    font-size: 16px;
+    color: #aeadad;
+    pointer-events: none;
+    position: absolute;
+    left: 8px;
+    top: 4px; }
+
 body {
   font-family: "PT Sans", sans-serif; }
 
@@ -443,12 +523,18 @@ header {
   background: #03509e;
   /* Old browsers */
   background: -moz-linear-gradient(top, #03509e 0%, #1e3a6c 100%);
-  /* FF3.6-15 */
+  /* FF3.6+ */
+  background: -webkit-gradient(linear, left top, left bottom, color-stop(0%, #03509e), color-stop(100%, #1e3a6c));
+  /* Chrome,Safari4+ */
   background: -webkit-linear-gradient(top, #03509e 0%, #1e3a6c 100%);
-  /* Chrome10-25,Safari5.1-6 */
+  /* Chrome10+,Safari5.1+ */
+  background: -o-linear-gradient(top, #03509e 0%, #1e3a6c 100%);
+  /* Opera 11.10+ */
+  background: -ms-linear-gradient(top, #03509e 0%, #1e3a6c 100%);
+  /* IE10+ */
   background: linear-gradient(to bottom, #03509e 0%, #1e3a6c 100%);
-  /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
-  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#03509e', endColorstr='#1e3a6c',GradientType=0 );
+  /* W3C */
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#000000',GradientType=0 );
   /* IE6-9 */
   width: 100%;
   height: 40px; }
@@ -581,5 +667,12 @@ header {
 .alert {
   line-height: 1.2;
   font-size: 18px; }
+
+h2.main-title {
+  color: #1d3b6f;
+  font-size: 24px;
+  line-height: 1.2;
+  margin: 20px 0;
+  font-weight: 700; }
 
 /*# sourceMappingURL=style.css.map */

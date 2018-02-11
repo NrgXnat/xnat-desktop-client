@@ -12,5 +12,5 @@ $(document).ready(function() {
 	$(".menu-holder, .user-holder").click(function(e){
 	  e.stopPropagation();
 	});
-
+	$('.alert').alert()
 });
