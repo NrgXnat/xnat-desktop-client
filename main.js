@@ -27,7 +27,7 @@ function initialize () {
   function createWindow () {
     var windowOptions = {
       width: 1080,
-      minWidth: 680,
+      minWidth: 768,
       height: 840,
       title: app.getName(),
       icon: iconPath
