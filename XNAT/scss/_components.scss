@@ -1,35 +1,35 @@
 ///MODAL
 .modal-content {
 	border-radius: 0;
-	padding: 0 40px;
 	.modal-header {
-		border: none;
+		background: #f0f0f0;
+		border-bottom: 1px solid #e0e0e0;
+		padding: 10px 15px;
 		.modal-title {
 			width: 100%;
-			text-align: center;
 			font-family: $ptsans;
-			font-size: 24px;
-			color: $dark-blue;
-			font-weight: 700;
+			color: $black;
+
+
 		}
 	}
 	.modal-footer {
-		border: none;
+		border-top: 1px solid #e0e0e0;
+		background: #f0f0f0;
+		padding: 10px 15px;
+	}
+	.close {
+		background: $white;
+		padding: 0;
+		margin:0;
 	}
 }
 
 
 ////FORMS
 
-input[type=text], input[type=password] {
-	@include linearGradient($input-top, $input-bottom);
-	border-color: $input-border;
-}
-label {
-	font-size: 18px;
-	color: $label-color;
-	font-weight: 700;
-}
+
+
 .alert-dismissible {
 	margin-bottom: 50px;
 }
@@ -39,9 +39,7 @@ label {
 .bootstrap-table {
 	margin-bottom: 30px;
 }
-.th-inner {
-	color: $label-color;
-}
+
 .bootstrap-table .table thead>tr>th {
 	vertical-align: baseline;
 }
@@ -49,21 +47,34 @@ label {
 	display: none;
 }
 .action {
+	text-align: center;
 	.edit{
 		margin-right: 10px;
+		padding:5px 7px;
+		font-size: 14px;
+		@extend .btn-gray;
+		border-radius: 3px;
 	}
+	.trash {
+		padding:5px 7px;
+		font-size: 14px;
+		@extend .btn-gray;
+		border-radius: 3px;
+	}
+}
+.th-inner {
+	
 }
 .fht-cell {
 	.filterControl {
 		position: relative;
 		input {
-			background: $white;
 			padding-left: 30px;
 			height: 30px;
 		}
 		&::before {
 			content: "\f002";
-	  		font-family: "Font Awesome 5 Free";
+	  		font-family: $awesome;
 	  		font-weight: 900;
 	  		font-size: 16px;
 	  		color: $search-icon;

@@ -8,13 +8,13 @@
 </header>
 <div class="container-fluid">
 	<div class="logo text-center col-md-12">
-		<img src="assets/images/xnat_logo.jpg"/>
+		<img src="assets/images/xnat_logo.svg"/>
 	</div>
 	<div class="col-md-12">
 		<div class="row">
 		<div class="col"></div>
 		<div class="col-8">
-			<button class="connect btn btn-green btn-lg btn-block" type="button" data-toggle="modal" data-target="#login"><span class="plus"></span><span class="db"></span> CONNECT TO XNAT SERVER</button>
+			<button class="connect btn btn-bigfriendly btn-lg btn-block" type="button" data-toggle="modal" data-target="#login"><span class="plus"></span><span class="db"></span> CONNECT TO XNAT SERVER</button>
 		</div>
 		<div class="col"></div>
 		</div>
@@ -26,10 +26,12 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="exampleModalLongTitle">User login</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <i class="far fa-window-close"></i>
         </button>
       </div>
       <div class="modal-body">
-      <div class="alert alert-secondary text-center" role="alert">
+      <div class="alert alert-danger text-center" role="alert">
         <h2 class="red-title"><i class="fas fa-exclamation-triangle"></i> Warning login failed !</h2>
         Upload / Download for user (user name) on server (server) failed.</br>
         After (NN) login attempts, your user account will be locked.
@@ -51,7 +53,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-gray" data-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-blue">Verify</button>
+        <button type="button" class="btn btn-blue">Login</button>
       </div>
     </div>
   </div>

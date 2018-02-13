@@ -10,7 +10,7 @@
 </header>
 <div class="container">
 	<div class="logo text-center col-md-12">
-		<img src="assets/images/xnat_logo.jpg"/>
+		<img src="assets/images/xnat_logo.svg"/>
 	</div>
 	<div class="col-md-12">
 		<div class="row">

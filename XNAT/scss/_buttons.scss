@@ -30,25 +30,25 @@
 		color: $dark-blue;
 	}
 }
-.btn-green {
+.btn-bigfriendly {
 	color: $white;
-	border: 2px solid $green-button-border;
-	@include linearGradient($green-button-top, $green-button-bottom);
+	border: 2px solid $bigfriendly-button-border;
+	@include linearGradient($bigfriendly-button-top, $bigfriendly-button-bottom);
 	&:hover {
 		color: $white;
-		@include linearGradient($green-button-bottom, $green-button-top);
+		@include linearGradient($bigfriendly-button-bottom, $bigfriendly-button-top);
 	}
 	&:active {
 		color: $white;
-		background-color: $green-button-bottom;
+		background-color: $bigfriendly-button-bottom;
 		-webkit-box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
     	box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
 	}
 	&:focus {
 		color: $white;
-		outline: 5px auto $green-button-top;
+		outline: 5px auto $bigfriendly-button-top;
 	    outline-offset: -2px;
-	    box-shadow: 0 0 0 0.2rem rgba(6,174,75,.25);
+	    box-shadow: 0 0 0 0.2rem rgba(136,209,244,.25);
 	    transition: none;
 	}	
 	&:visited {
@@ -58,21 +58,21 @@
 .btn-blue {
 	color: $white;
 	font-weight: 700;
-	border: 1px solid $blue-button-border;
-	@include linearGradient($blue-button-top, $blue-button-bottom);
+	border: 1px solid $primaryaction-button-border;
+	@include linearGradient($primaryaction-button-top, $primaryaction-button-bottom);
 	&:hover {
 		color: $white;
-		@include linearGradient($blue-button-bottom, $blue-button-top);
+		@include linearGradient($primaryaction-button-bottom, $primaryaction-button-top);
 	}
 	&:active {
 		color: $white;
-		background-color: $blue-button-bottom;
+		background-color: $primaryaction-button-bottom;
 		-webkit-box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
     	box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
 	}
 	&:focus {
 		color: $white;
-		outline: 5px auto $blue-button-top;
+		outline: 5px auto $primaryaction-button-top;
 	    outline-offset: -2px;
 	    box-shadow: 0 0 0 0.2rem rgba(66,165,220,.25);
 	    transition: none;
@@ -83,82 +83,36 @@
 }
 
 .btn-darkblue {
-	color: $white;
-	font-weight: 700;
-	border: 1px solid $darkblue-button-border;
-	@include linearGradient($darkblue-button-top, $darkblue-button-bottom);
-	&:hover {
-		color: $white;
-		@include linearGradient($darkblue-button-bottom, $darkblue-button-top);
-	}
-	&:active {
-		color: $white;
-		background-color: $darkblue-button-bottom;
-		-webkit-box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
-    	box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
-	}
-	&:focus {
-		color: $white;
-		outline: 5px auto $darkblue-button-top;
-	    outline-offset: -2px;
-	    box-shadow: 0 0 0 0.2rem rgba(66,165,220,.25);
-	    transition: none;
-	}	
-	&:visited {
-		color: $white;
-	}
+	@extend .btn-blue
 }
 
 .btn-lightblue {
-	color: $white;
-	font-weight: 700;
-	border: 1px solid $lightblue-button-border;
-	@include linearGradient($lightblue-button-top, $lightblue-button-bottom);
-	&:hover {
-		color: $white;
-		@include linearGradient($lightblue-button-bottom, $lightblue-button-top);
-	}
-	&:active {
-		color: $white;
-		background-color: $lightblue-button-bottom;
-		-webkit-box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
-    	box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
-	}
-	&:focus {
-		color: $white;
-		outline: 5px auto $lightblue-button-top;
-	    outline-offset: -2px;
-	    box-shadow: 0 0 0 0.2rem rgba(66,165,220,.25);
-	    transition: none;
-	}	
-	&:visited {
-		color: $white;
-	}
+	@extend .btn-blue
 }
 .btn-gray {
-	color: $white;
+	color: $dark-gray;
 	font-weight: 700;
 	border: 1px solid $gray-button-border;
 	@include linearGradient($gray-button-top, $gray-button-bottom);
 	&:hover {
-		color: $white;
+		color: $dark-gray;
 		@include linearGradient($gray-button-bottom, $gray-button-top);
 	}
 	&:active {
-		color: $white;
+		color: $dark-gray;
 		background-color: $gray-button-bottom;
 		-webkit-box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
     	box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
 	}
 	&:focus {
-		color: $white;
+		color: $dark-gray;
 		outline: 5px auto $gray-button-top;
 	    outline-offset: -2px;
 	    box-shadow: 0 0 0 0.2rem rgba(187,187,187,.25);
 	    transition: none;
 	}	
 	&:visited {
-		color: $white;
+		color: $dark-gray;
 	}
 }
 
@@ -242,15 +196,6 @@
 		.user-name {
 			font-weight: normal;
 		}
-		&::after {
-			content: "\f2f6";
-	  		font-family: $awesome;
-	  		font-weight: 900;
-	  		font-size: 48px;
-	  		position: absolute;
-			right: 40px;
-			top: 33px;
-		}
 	}
 	&.settings-small {
 		font-size: 18px;
@@ -278,16 +223,18 @@
 
 .home-button {
 	font-size: 24px;
-	font-weight: 700;
-	padding:10px;
-	margin-bottom: 40px;
-	border: 2px solid $lightblue-button-border;
+    font-weight: 700;
+    padding: 10px;
+    margin-bottom: 40px;
+    height: 300px;
+	border: 2px solid $bigfriendly-button-border;
 	.upload {
 		&::after {
 			content: "\f093";
 	  		font-family: $awesome;
 	  		font-weight: 900;
-	  		font-size: 24px;
+			font-size: 80px;
+			display: block;
 
 		}
 	}
@@ -296,7 +243,8 @@
 			content: "\f019";
 	  		font-family: $awesome;
 	  		font-weight: 900;
-	  		font-size: 24px;
+			font-size: 80px;
+			display: block;
 		}
 	}
 	.history {
@@ -304,7 +252,8 @@
 			content: "\f1da";
 	  		font-family: $awesome;
 	  		font-weight: 900;
-	  		font-size: 24px;
+			font-size: 80px;
+			display: block;
 		}
 	}
 }

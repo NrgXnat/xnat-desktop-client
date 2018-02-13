@@ -1,6 +1,6 @@
 @import url('https://use.fontawesome.com/releases/v5.0.6/css/all.css');
-@import url('https://fonts.googleapis.com/css?family=PT+Sans');
-$ptsans: 'PT Sans', sans-serif;
+@import url('https://fonts.googleapis.com/css?family=Roboto');
+$ptsans: 'Roboto', sans-serif;
 $awesome: "Font Awesome 5 Free";
 
 $black:#000000;
@@ -9,35 +9,28 @@ $header-top: #03509e;
 $header-bottom: #1e3a6c;
 $header-separator: #1c3a6c;
 $menu-items: #e7e2e6;
-$green-button-border: #04733b;
-$green-button-top: #1cb24d;
-$green-button-bottom: #068241;
 
-$blue-button-border: #005c96;
-$blue-button-top: #42a5dc;
-$blue-button-bottom: #0069ab;
+$bigfriendly-button-border: #2688c7;
+$bigfriendly-button-top: #4aa6d9;
+$bigfriendly-button-bottom: #88d1f4;
 
-$darkblue-button-border: #1d2352;
-$darkblue-button-top: #03519d;
-$darkblue-button-bottom: #1d3a6e;
+$primaryaction-button-border: #085895;
+$primaryaction-button-top: #3C8BC7;
+$primaryaction-button-bottom: #1A75BB;
 
-$lightblue-button-border: #006aab;
-$lightblue-button-top: #76c5ee;
-$lightblue-button-bottom: #2085c7;
-
-$gray-button-border: #c0bfbe;
-$gray-button-top: #e0e0df;
-$gray-button-bottom: #bbbbbb;
-
-$login-blue-button-border: #006aab;
-$login-blue-button-top: #77c6ef;
-$login-blue-button-bottom: #1b83c6;
+$gray-button-border: #a0a0a0;
+$gray-button-top: #ffffff;
+$gray-button-bottom: #f0f0f0;
 
 $btn-known-user-border: #cccccc;
 $btn-known-user-top: #ffffff;
 $btn-known-user-bottom: #ececec;
 
+$table-header-top: #fcfcfc;
+$table-header-bottom: #dbdbdb;
+$table-control: #f3f3f3;
 
+$dark-gray: #666666;
 $dark-blue: #1d3b6f;
 $input-bottom: #e9ebe8;
 $input-top: #ffffff;

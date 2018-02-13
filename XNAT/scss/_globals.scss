@@ -24,6 +24,15 @@ header {
 			text-decoration: none;
 		}
 	}
+	.server-name {
+		position: absolute;
+		width: 100%;
+		text-align: center;
+		color: white;
+		pointer-events: none;
+		top: 6px;
+		font-weight: 700;
+	}
 	.user-holder {
 		position: relative;
 		float: right;
@@ -155,6 +164,9 @@ header {
 }
 .logo {
 	margin: 50px 0;
+	img {
+		width:500px;
+	}
 }
 .red-title {
 	color: $alert;

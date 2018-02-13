@@ -8,14 +8,14 @@
 </header>
 <div class="container-fluid">
 	<div class="logo text-center col-md-12">
-		<img src="assets/images/xnat_logo.jpg"/>
+		<img src="assets/images/xnat_logo.svg"/>
 	</div>
 	<div class="col-md-12">
 		<div class="row">
 		<div class="col"></div>
 		<div class="col-8">
 			<button class="connect btn btn-known-user btn-lg btn-block" type="button" data-toggle="modal" data-target="#known-user-login"><img src="assets/images/xnat-avatar.jpg" /><div >XNAT Central</br><span class="user-name">User: Will</span></div></button>
-			<a href="connection-settings.php" class="connect btn btn-green btn-lg btn-block"><span class="plus"></span><span class="db"></span> ADD NEW XNAT SERVER</a>
+			<a href="connection-settings.php" class="connect btn btn-bigfriendly btn-lg btn-block"><span class="plus"></span><span class="db"></span> ADD NEW XNAT SERVER</a>
 		</div>
 		<div class="col"></div>
 		</div>
@@ -27,6 +27,8 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="exampleModalLongTitle">User login</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <i class="far fa-window-close"></i>
         </button>
       </div>
       <div class="modal-body">
@@ -38,8 +40,8 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-blue" type="button" data-dismiss="modal" data-toggle="modal" data-target="#login">New User</button>
-        <button type="button" class="btn btn-darkblue" data-dismiss="modal">LOGIN</button>
+        <button type="button" class="btn btn-gray" type="button" data-dismiss="modal" data-toggle="modal" data-target="#login">New User</button>
+        <button type="button" class="btn btn-darkblue" data-dismiss="modal">Login</button>
       </div>
     </div>
   </div>
@@ -50,6 +52,8 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="exampleModalLongTitle">User login</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <i class="far fa-window-close"></i>
         </button>
       </div>
       <div class="modal-body">
@@ -70,7 +74,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-gray" data-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-blue">Verify</button>
+        <button type="button" class="btn btn-blue">Login</button>
       </div>
     </div>
   </div>

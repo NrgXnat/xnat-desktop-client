@@ -72,7 +72,7 @@
 </table>
 
 <div class="col-12 text-center">
-<button class="connect btn btn-green settings-small" type="button" data-toggle="modal" data-target="#new-connection"><span class="plus"></span><span class="db"></span> ADD NEW XNAT SERVER</button>
+<button class="connect btn btn-bigfriendly settings-small" type="button" data-toggle="modal" data-target="#new-connection"><span class="plus"></span><span class="db"></span> ADD NEW XNAT SERVER</button>
 </div>
 </div>
 <!-- Modal -->
