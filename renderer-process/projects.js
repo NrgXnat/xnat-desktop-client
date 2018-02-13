@@ -4,6 +4,12 @@ const ipc = require('electron').ipcRenderer
 
 let xnat_server, user_auth;
 
+window.$ = window.jQuery = require('jquery');
+
+$('#menu--logout').on('click', function(){
+    logout();
+})
+
 if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     ipc.send('redirect', 'login.html');
 } else {
@@ -17,17 +23,7 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
                     get_projects();
                     break;
                 case 'logout':
-                    settings.delete('user_auth')
-                    settings.delete('xnat_server')
-
-                    axios.get(xnat_server + '/app/action/LogoutUser')
-                    .then(res => {
-                        console.log('Logout: ', res);
-                        ipc.send('redirect', 'login.html');
-                    })
-                    .catch(err => {
-                        console.log(err)
-                    });
+                    logout()
 
                     
     
@@ -39,7 +35,26 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     
     });
     
+}
+
+function logout() {
     
+    settings.delete('user_auth')
+    settings.delete('xnat_server')
+
+    axios.get(xnat_server + '/app/action/LogoutUser')
+    .then(res => {
+        console.log('Logout: ', res);
+
+        $('.hidden-by-default').each(function(){
+            $(this).addClass('hidden');
+        })
+
+        ipc.send('redirect', 'login.html');
+    })
+    .catch(err => {
+        console.log(err)
+    });
 }
 
 

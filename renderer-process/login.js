@@ -12,6 +12,7 @@ let user_auth = {
     password: ''
 }
 
+
 document.addEventListener('submit', function(e) {
     switch (e.target.id) {
         case 'loginForm':
@@ -22,6 +23,7 @@ document.addEventListener('submit', function(e) {
                 username: document.getElementById('username').value,
                 password: document.getElementById('password').value
             }
+            console.log(user_auth);
             login();
             break;
         default:
@@ -50,6 +52,43 @@ function login() {
         function notify() {
             const myNotification = new window.Notification(notification.title, notification);
         }
+
+        let logins = settings.get('logins');
+
+        let found = -1;
+        logins.forEach(function(el, i) {
+            if (el.server === xnat_server && el.username === user_auth.username) {
+                found = i;
+            }
+        })
+
+
+        if (found == -1) { // not found
+            logins.unshift({
+                server: xnat_server,
+                username: user_auth.username
+            });
+        } else if (found == 0) { // found first
+            // do nothing
+        } else { // found not first
+            logins.splice(found, 1)
+            logins.unshift({
+                server: xnat_server,
+                username: user_auth.username
+            });
+        }
+        settings.set('logins', logins);
+
+        
+        
+
+        $('#login').modal('hide')
+        $("#header_menu .hidden").each(function(){
+            $(this).removeClass('hidden');
+        })
+        $("#menu--server").html(xnat_server);
+        $("#menu--username").html(user_auth.username);
+        $('#menu--username-server').html(user_auth.username + '@' + xnat_server);
 
         setTimeout(notify, 100);
 

@@ -1,94 +1,127 @@
 <template class="task-template">
-    <section id="login-section" class="section js-section u-category-native-ui">
-
-        <div class="container">
-                
-
-            <form class="form-horizontal" role="form" id="loginForm">
-                <div class="row">
-                    <div class="col-md-3"></div>
-                    <div class="col-md-6">
-                        <h2>Please Login</h2>
-                        <hr>
+    <!-- <section id="login-section" class="section js-section u-category-native-ui"> -->
+    <div class="container-fluid">
+        <div class="logo text-center col-md-12">
+            <img src="assets/images/xnat_logo.svg" />
+        </div>
+        <div class="col-md-12">
+            <div class="row">
+                <div class="col"></div>
+                <div class="col-8">
+                    <div id="known-users">
+                        <!--<button data-username="darko" data-server="https://xw2017-01.xnat.org" class="connect btn btn-known-user btn-lg btn-block" type="button" data-toggle="modal" data-target="#login"><img src="assets/images/xnat-avatar.jpg" /><div >XNAT Central</br><span class="user-name">User: darko</span></div></button>
+                        <button data-username="marko" data-server="https://xw2017-01.xnat.org" class="connect btn btn-known-user btn-lg btn-block" type="button" data-toggle="modal" data-target="#login"><img src="assets/images/xnat-avatar.jpg" /><div >XNAT Central</br><span class="user-name">User: marko</span></div></button>-->
                     </div>
+                    
+                    <!-- <a href="connection-settings.php" class="connect btn btn-bigfriendly btn-lg btn-block"><span class="plus"></span><span class="db"></span> ADD NEW XNAT SERVER</a> -->
+                    <button class="connect btn btn-bigfriendly btn-lg btn-block" type="button" data-toggle="modal" data-target="#login"><span class="plus"></span><span class="db"></span> ADD NEW XNAT SERVER</button>
+                    <br><br><br>
                 </div>
-
-                <div class="row">
-                    <div class="col-md-3"></div>
-                    <div class="col-md-6">
+                <div class="col"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal 
+    <div class="modal fade" id="known-user-login" tabindex="-1" role="dialog" aria-labelledby="known-user-loginTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLongTitle">User login</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                          <i class="far fa-window-close"></i>
+                        </button>
+                </div>
+                <div class="modal-body">
+                    <form>
                         <div class="form-group">
-                            <label class="sr-only" for="server">XNAT Server</label>
-                            <div class="input-group mb-2 mr-sm-2 mb-sm-0">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fa fa-server"></i></span>
-                                </div>
-                                <input type="text" value="https://xw2017-01.xnat.org" name="server" class="form-control" id="server" placeholder="http(s)://xnat-server-url" required>
-                            </div>
-                            
+                            <label for="password" class="col-form-label">Enter password for user Will:</label>
+                            <input type="password" class="form-control" id="password">
                         </div>
-                    </div>
-                    <div class="col-md-3"></div>
+                    </form>
                 </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-gray" type="button" data-dismiss="modal" data-toggle="modal" data-target="#login">New User</button>
+                    <button type="button" class="btn btn-darkblue" data-dismiss="modal">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    -->
 
-                <div class="row">
-                    <div class="col-md-3"></div>
-                    <div class="col-md-6">
-                        <div class="form-group has-danger">
-                            <label class="sr-only" for="username">User</label>
-                            <div class="input-group mb-2 mr-sm-2 mb-sm-0">
-                                
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fa fa-user"></i></span>
-                                </div>
-                                <input type="text" name="username" class="form-control" id="username" placeholder="Username" required autofocus>
+    <!-- Modal -->
+    <div class="modal fade" id="login" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <form action="" id="loginForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLongTitle">User login</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <i class="far fa-window-close"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger text-center hidden" id="login_feedback" role="alert">
+                            <h2 class="red-title"><i class="fas fa-exclamation-triangle"></i> Warning login failed !</h2>
+                            <span id="login_error_message"></span>
+                        </div>
+                        
+                            <div class="form-group">
+                                <label for="server" class="col-form-label">Server:</label>
+                                <input type="text" class="form-control" name="server" id="server" placeholder="http(s)://xnat-server-url" required>
                             </div>
-                            
-                        </div>
-                    </div>
-                    <div class="col-md-3"></div>
-                </div>
-                <div class="row">
-                    <div class="col-md-3"></div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label class="sr-only" for="password">Password</label>
-                            <div class="input-group mb-2 mr-sm-2 mb-sm-0">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fa fa-key"></i></span>
-                                </div>
-                                <input type="password" name="password" class="form-control" id="password" placeholder="Password" required>
+                            <div class="form-group">
+                                <label for="username" class="col-form-label">Username:</label>
+                                <input type="text" class="form-control" name="username" id="username">
                             </div>
-                            
-                        </div>
-                    </div>
-                    <div class="col-md-3"></div>
-                </div>
-
-
-                <div class="row hidden" id="login_feedback">
-                    <div class="col-md-3"></div>
-                    <div class="col-md-6" style="padding-top: .35rem">
-                        <div class="form-control-feedback">
-                            <span class="text-danger align-middle">
-                                <i class="fa fa-info"></i> <span id="login_error_message">asdf</span>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <div class="row" style="padding-top: 1rem">
-                    <div class="col-md-3"></div>
-                    <div class="col-md-6">
-                        <button type="submit" class="btn btn-block btn-success"><i class="fa fa-sign-in"></i> Login</button>
+                            <div class="form-group">
+                                <label for="password" class="col-form-label">Password:</label>
+                                <input type="password" class="form-control" name="password" id="password">
+                            </div>
                         
                     </div>
-                </div>
-            </form>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-gray" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-blue">Login</button>
+                    </div>
+                </form>
+            </div>
         </div>
+    </div>
 
 
-        <script type="text/javascript">
-            require('./renderer-process/login')
-        </script>
 
-    </section>
+    <script type="text/javascript">
+        window.$ = window.jQuery = require('jquery');
+        require('./renderer-process/login')
+    </script>
+
+
+    <script>
+        $(document).on('show.bs.modal', '#login', function(e) {
+            console.log(e)
+            //get data-id attribute of the clicked element
+            var username = $(e.relatedTarget).data('username');
+            $(e.currentTarget).find('input[name="username"]').val(username);
+
+            
+            var server = $(e.relatedTarget).data('server');
+            $(e.currentTarget).find('input[name="server"]').val(server);
+        });
+
+        my_settings = require('electron-settings')
+        
+        logins = my_settings.get('logins');
+        console.log(logins);
+        if (logins.length) {
+            
+            logins.forEach(function(el) {
+                var server_name = el.server.split('//');
+                $('#known-users').append('<button data-username="'+el.username+'" data-server="'+el.server+'" class="connect btn btn-known-user btn-lg btn-block" type="button" data-toggle="modal" data-target="#login"><img src="assets/images/xnat-avatar.jpg" /><div >'+server_name[1]+'</br><span class="user-name">User: '+el.username+'</span></div></button>')
+            })
+        }
+    </script>
+    
+
+    <!-- </section> -->
 </template>

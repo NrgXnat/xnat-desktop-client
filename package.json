@@ -1,6 +1,6 @@
 {
   "name": "xnatapp",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "XNAT desktop application",
   "main": "main.js",
   "scripts": {
@@ -18,11 +18,13 @@
   "dependencies": {
     "axios": "^0.17.1",
     "bootstrap": "^4.0.0",
+    "bootstrap-table": "^1.11.2",
     "electron-settings": "^3.1.4",
     "font-awesome": "^4.7.0",
     "glob": "^7.1.2",
     "jquery": "^3.3.1",
-    "popper.js": "^1.12.9"
+    "popper.js": "^1.12.9",
+    "x-editable": "^1.5.1"
   },
   "devDependencies": {
     "devtron": "^1.4.0",

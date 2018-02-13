@@ -3,11 +3,30 @@ const ipc = require('electron').ipcRenderer
 
 const links = document.querySelectorAll('link[rel="import"]')
 
-let active_page;
+let active_page, logins;
 if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     active_page = 'login.html'
 } else {
     active_page = settings.has('active_page') ? settings.get('active_page') : 'login.html';
+}
+
+logins = settings.has('logins') ? settings.get('logins') : [];
+settings.set('logins', logins);
+
+
+window.$ = window.jQuery = require('jquery');
+
+if (!settings.has('user_auth')) {
+    $('.hidden-by-default').each(function(){
+        $(this).addClass('hidden');
+    })
+} else {
+    $('.hidden-by-default').each(function(){
+        $(this).removeClass('hidden');
+    })
+    $("#menu--server").html(settings.get('xnat_server'));
+    $("#menu--username").html(settings.get('user_auth').username);
+    $('#menu--username-server').html(settings.get('user_auth').username + '@' + settings.get('xnat_server'));
 }
 
 //let active_page = settings.has('active_page') ? settings.get('active_page') : 'login.html';
