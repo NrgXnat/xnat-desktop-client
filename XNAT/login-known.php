@@ -41,7 +41,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-gray" type="button" data-dismiss="modal" data-toggle="modal" data-target="#login">New User</button>
-        <button type="button" class="btn btn-darkblue" data-dismiss="modal">Login</button>
+        <button type="button" class="btn btn-blue">Login</button>
       </div>
     </div>
   </div>

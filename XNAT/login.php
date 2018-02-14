@@ -32,7 +32,7 @@
       </div>
       <div class="modal-body">
       <div class="alert alert-danger text-center" role="alert">
-        <h2 class="red-title"><i class="fas fa-exclamation-triangle"></i> Warning login failed !</h2>
+        <h2 class="red-title"><i class="fas fa-minus-circle"></i> Warning login failed !</h2>
         Upload / Download for user (user name) on server (server) failed.</br>
         After (NN) login attempts, your user account will be locked.
       </div>

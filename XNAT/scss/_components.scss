@@ -27,11 +27,31 @@
 
 
 ////FORMS
-
-
-
 .alert-dismissible {
 	margin-bottom: 50px;
+}
+.tab-pane {
+	padding: 20px 10px;
+}
+.tab-content {
+	border: 1px solid $dark-blue;
+}
+
+.nav-tabs .nav-link.active {
+    color: $white;
+    @include linearGradient($header-top, $header-bottom );
+    border-color: $dark-blue;
+    border-radius: 0;
+}
+.nav-tabs .nav-link{
+    color: $white;
+    @include linearGradient($bigfriendly-button-top, $bigfriendly-button-bottom );
+    border-color: $dark-blue;
+    border-radius: 0;
+}
+.settings-input {
+	height: 32px;
+	border-radius: .25rem;
 }
 
 

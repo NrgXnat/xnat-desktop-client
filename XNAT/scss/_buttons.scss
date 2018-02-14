@@ -81,38 +81,30 @@
 		color: $white;
 	}
 }
-
-.btn-darkblue {
-	@extend .btn-blue
-}
-
-.btn-lightblue {
-	@extend .btn-blue
-}
 .btn-gray {
-	color: $dark-gray;
+	color: $dark-text;
 	font-weight: 700;
 	border: 1px solid $gray-button-border;
 	@include linearGradient($gray-button-top, $gray-button-bottom);
 	&:hover {
-		color: $dark-gray;
+		color: $dark-text;
 		@include linearGradient($gray-button-bottom, $gray-button-top);
 	}
 	&:active {
-		color: $dark-gray;
+		color: $dark-text;
 		background-color: $gray-button-bottom;
 		-webkit-box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
     	box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
 	}
 	&:focus {
-		color: $dark-gray;
+		color: $dark-text;
 		outline: 5px auto $gray-button-top;
 	    outline-offset: -2px;
 	    box-shadow: 0 0 0 0.2rem rgba(187,187,187,.25);
 	    transition: none;
 	}	
 	&:visited {
-		color: $dark-gray;
+		color:$dark-text;
 	}
 }
 
