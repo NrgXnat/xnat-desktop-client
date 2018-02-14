@@ -4,9 +4,7 @@
 <body>
 
 <header>
-	<div class="container-fluid">
-		<a href="connection-settings.php" class="settings"><i class="fas fa-cog"></i></a>
-	</div>	
+    <a href="connection-settings.php" class="settings"><i class="fas fa-cog"></i></a>
 </header>
 <div class="container">
 <h2 class="main-title">Connection settings</h2>
@@ -81,6 +79,8 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="exampleModalLongTitle">Add new connection</h5>
+         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <i class="far fa-window-close"></i>
         </button>
       </div>
       <div class="modal-body">
