@@ -169,12 +169,15 @@ header {
 	}
 }
 .red-title {
-	color: $alert;
-	font-size: 30px;
+	i{
+		color: $alert;
+		font-size: 30px;
+	}
 }
 .alert {
 	line-height: 1.2;
     font-size: 18px;
+    color:$dark-text;
 }
 
 ////TYPO

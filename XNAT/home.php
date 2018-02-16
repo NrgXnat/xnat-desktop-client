@@ -22,7 +22,7 @@
      <span class="username">
      admin@xw2017-01.xnat.org
      </span>
-     <button class="btn btn-darkblue">Logout</button>
+     <a class="btn btn-blue" href="login-known.php">Logout</a>
     </div>
     </div>
 </header>
@@ -38,7 +38,7 @@
         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
-          <h2 class="red-title"><i class="fas fa-exclamation-triangle"></i> Warning upload / download session failed !</h2>
+          <h2 class="red-title"><i class="fas fa-minus-circle"></i> Warning upload / download session failed !</h2>
           Upload / Download for user (user name) on server (server) failed.</br>
           Please check your monitor/log for details.
         </div>
