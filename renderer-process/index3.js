@@ -1,6 +1,10 @@
 const settings = require('electron-settings')
 const ipc = require('electron').ipcRenderer
 
+const swal = require('sweetalert');
+
+
+
 const links = document.querySelectorAll('link[rel="import"]')
 
 let active_page, logins;

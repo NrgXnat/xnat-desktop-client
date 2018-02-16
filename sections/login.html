@@ -50,7 +50,7 @@
     -->
 
     <!-- Modal -->
-    <div class="modal fade" id="login" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+    <div class="modal fade" id="login" tabindex="-1" role="dialog" data-keyboard="false" aria-labelledby="loginTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
                 <form action="" id="loginForm">
@@ -81,6 +81,7 @@
                         
                     </div>
                     <div class="modal-footer">
+                        <button type="button" id="remove_login" class="btn btn-link mr-auto">Remove From List</button>
                         <button type="button" class="btn btn-gray" data-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-blue">Login</button>
                     </div>
@@ -107,6 +108,17 @@
             
             var server = $(e.relatedTarget).data('server');
             $(e.currentTarget).find('input[name="server"]').val(server);
+
+            if (typeof username == 'undefined') {
+                $('#remove_login').hide();
+            } else {
+                $('#remove_login').show();
+            }
+        });
+
+        $(document).on('hide.bs.modal', '#login', function(e) {
+            $('#login_feedback').addClass('hidden');
+            $(e.currentTarget).find('input[name="password"]').val('');
         });
 
         my_settings = require('electron-settings')
@@ -117,9 +129,20 @@
             
             logins.forEach(function(el) {
                 var server_name = el.server.split('//');
-                $('#known-users').append('<button data-username="'+el.username+'" data-server="'+el.server+'" class="connect btn btn-known-user btn-lg btn-block" type="button" data-toggle="modal" data-target="#login"><img src="assets/images/xnat-avatar.jpg" /><div >'+server_name[1]+'</br><span class="user-name">User: '+el.username+'</span></div></button>')
+                $('#known-users').append(`
+                    <button data-username="${el.username}" data-server="${el.server}" 
+                        class="connect btn btn-known-user btn-lg btn-block" type="button" 
+                        data-toggle="modal" data-target="#login">
+                        <img src="assets/images/xnat-avatar.jpg" />
+                        <div >${server_name[1]}</br>
+                            <span class="user-name">User: ${el.username}</span>
+                        </div>
+                    </button>
+                `)
             })
         }
+
+        
     </script>
     
 

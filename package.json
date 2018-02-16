@@ -24,6 +24,7 @@
     "glob": "^7.1.2",
     "jquery": "^3.3.1",
     "popper.js": "^1.12.9",
+    "sweetalert": "^2.1.0",
     "x-editable": "^1.5.1"
   },
   "devDependencies": {

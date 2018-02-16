@@ -32,6 +32,57 @@ document.addEventListener('submit', function(e) {
     }
 });
 
+$(document).on('click', '#remove_login', function(e){
+    swal({
+        title: "Remove stored connection?",
+        text: "Are you sure you want to remove it from the list?",
+        icon: "warning",
+        buttons: [true, 'Remove'],
+        closeOnEsc: false,
+        dangerMode: true
+    })
+    .then((doRemove) => {
+        if (doRemove) {
+
+            xnat_server = $('#server').val();
+            user_auth = {
+                username: $('#username').val(),
+                password: $('#password').val()
+            }
+            console.log('--------', xnat_server, user_auth)
+
+            let logins = settings.get('logins');
+            
+            let found = -1;
+            logins.forEach(function(el, i) {
+                if (el.server === xnat_server && el.username === user_auth.username) {
+                    found = i;
+                }
+            })
+
+            console.log('FOUND: ' + found);
+    
+            if (found >= 0) { // not found
+                logins.splice(found, 1)
+            }
+            settings.set('logins', logins);
+
+
+            swal({
+                title: "Connection data removed",
+                text: "Connection data removed from the list of stored connections",
+                icon: "success",
+                closeOnEsc: false
+            })
+            .then((ok) => {
+                
+                $('#login').modal('hide');
+                ipc.send('redirect', 'login.html');
+            });
+        }
+    });
+});
+
 
 function login() {
     console.log(xnat_server, user_auth);
