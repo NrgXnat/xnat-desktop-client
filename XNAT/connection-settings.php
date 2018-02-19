@@ -24,8 +24,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
     <table class="table table-bordered" id="table"        
     data-toggle="table"
     data-filter-control="true" 
-    data-click-to-select="true"
-    data-height="300">
+    data-click-to-select="true">
   <thead>
     <tr>
       <th data-field="server" data-filter-control="input" data-sortable="true">Server</th>

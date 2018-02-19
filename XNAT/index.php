@@ -14,10 +14,15 @@
 		<div class="row">
 		<div class="col"></div>
 		<div class="col-8">
-    <a href="login.php" style="display: block">Login first time</a>
-    <a href="login-known.php" style="display: block">Login repeated</a>
-    <a href="connection-settings.php" style="display: block">Connection settings</a>
-		<a href="home.php" style="display: block">Home</a>
+			<a href="login.php" style="display: block">Login first time</a>
+			<a href="login-known.php" style="display: block">Login repeated</a>
+			<a href="connection-settings.php" style="display: block">Connection settings</a>
+			<a href="home.php" style="display: block">Home</a>
+			<a href="upload-1.php" style="display: block">Upload step 1</a>
+			<a href="upload-2.php" style="display: block">Upload step 2</a>
+			<a href="upload-3.php" style="display: block">Upload step 3</a>
+			<a href="upload-4.php" style="display: block">Upload step 4</a>
+			<a href="upload-5.php" style="display: block">Upload step 5</a>
 		</div>
 		<div class="col"></div>
 		</div>
