@@ -346,14 +346,78 @@
     padding: 0;
     margin: 0; }
 
+.btn {
+  border-radius: 0; }
+
 .alert-dismissible {
   margin-bottom: 50px; }
+
+.quality-holder {
+  position: relative;
+  text-align: center;
+  width: 80%;
+  margin: 0 auto; }
+  .quality-holder select {
+    border: 1px solid;
+    border-radius: 2px;
+    background: #3C8BC7;
+    /* Old browsers */
+    background: -moz-linear-gradient(top, #3C8BC7 0%, #1A75BB 100%);
+    /* FF3.6+ */
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%, #3C8BC7), color-stop(100%, #1A75BB));
+    /* Chrome,Safari4+ */
+    background: -webkit-linear-gradient(top, #3C8BC7 0%, #1A75BB 100%);
+    /* Chrome10+,Safari5.1+ */
+    background: -o-linear-gradient(top, #3C8BC7 0%, #1A75BB 100%);
+    /* Opera 11.10+ */
+    background: -ms-linear-gradient(top, #3C8BC7 0%, #1A75BB 100%);
+    /* IE10+ */
+    background: linear-gradient(to bottom, #3C8BC7 0%, #1A75BB 100%);
+    /* W3C */
+    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#000000',GradientType=0 );
+    /* IE6-9 */
+    border-color: #085895;
+    padding: 5px 35px 5px 5px;
+    font-size: 16px;
+    font-weight: 700;
+    height: 34px;
+    -webkit-appearance: none;
+    appearance: none;
+    color: #ffffff;
+    width: 100%; }
+  .quality-holder::after {
+    content: " ";
+    background: #1d3b6f;
+    width: 1px;
+    height: 32px;
+    pointer-events: none;
+    position: absolute;
+    right: 30px;
+    top: 1px; }
+  .quality-holder::before {
+    content: "\f0d7";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    font-size: 16px;
+    color: #ffffff;
+    pointer-events: none;
+    position: absolute;
+    right: 10px;
+    top: 6px; }
+
+textarea {
+  width: 100%;
+  padding: 8px; }
 
 .tab-pane {
   padding: 20px 10px; }
 
 .tab-content {
-  border: 1px solid #1d3b6f; }
+  border: 1px solid #1d3b6f;
+  width: 100%; }
+
+.nav-link {
+  padding: .3rem 1rem; }
 
 .nav-tabs .nav-link.active {
   color: #ffffff;
@@ -396,10 +460,32 @@
   /* IE6-9 */
   border-color: #1d3b6f;
   border-radius: 0; }
+  .nav-tabs .nav-link.disabled {
+    background: #f0f1f0;
+    /* Old browsers */
+    background: -moz-linear-gradient(top, #f0f1f0 0%, #dddddd 100%);
+    /* FF3.6+ */
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%, #f0f1f0), color-stop(100%, #dddddd));
+    /* Chrome,Safari4+ */
+    background: -webkit-linear-gradient(top, #f0f1f0 0%, #dddddd 100%);
+    /* Chrome10+,Safari5.1+ */
+    background: -o-linear-gradient(top, #f0f1f0 0%, #dddddd 100%);
+    /* Opera 11.10+ */
+    background: -ms-linear-gradient(top, #f0f1f0 0%, #dddddd 100%);
+    /* IE10+ */
+    background: linear-gradient(to bottom, #f0f1f0 0%, #dddddd 100%);
+    /* W3C */
+    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#000000',GradientType=0 );
+    /* IE6-9 */
+    border-color: #c7c6c5;
+    color: #868384; }
 
 .settings-input {
   height: 32px;
   border-radius: .25rem; }
+
+.button-row {
+  margin-bottom: 15px; }
 
 .bootstrap-table {
   margin-bottom: 30px; }
@@ -437,6 +523,44 @@
     position: absolute;
     left: 8px;
     top: 4px; }
+
+.filter-control {
+  position: relative;
+  padding: 10px 0; }
+  .filter-control input {
+    padding-left: 30px;
+    border-radius: 0; }
+  .filter-control::before {
+    content: "\f002";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    font-size: 16px;
+    color: #aeadad;
+    pointer-events: none;
+    position: absolute;
+    left: 8px;
+    top: 17px; }
+
+.choose-list {
+  /* Remove default list styling */
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #ced4da;
+  margin-bottom: 30px;
+  height: 162px;
+  overflow-y: scroll; }
+
+.choose-list li a {
+  margin-top: -1px;
+  padding: 3px 12px;
+  text-decoration: none;
+  font-size: 18px;
+  color: #373737;
+  display: block; }
+
+.choose-list li a:hover:not(.header) {
+  background-color: #a9dbf6; }
 
 body {
   font-family: "Roboto", sans-serif; }
@@ -608,11 +732,54 @@ header {
   font-size: 18px;
   color: #444444; }
 
+.folder-name {
+  position: relative;
+  padding-left: 30px; }
+  .folder-name::before {
+    content: "\f07b";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    font-size: 16px;
+    color: #a0a0a0;
+    pointer-events: none;
+    position: absolute;
+    left: 4px;
+    top: 0px; }
+
+#table1 .fixed-table-body {
+  height: 256px; }
+
+.date-holder {
+  position: relative; }
+  .date-holder::before {
+    content: "\f073";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    font-size: 25px;
+    color: #88d1f4;
+    pointer-events: none;
+    position: absolute;
+    right: 25px;
+    top: 0px; }
+
 h2.main-title {
   color: #1d3b6f;
   font-size: 24px;
   line-height: 1.2;
-  margin: 20px 0;
+  margin: 20px 0 10px;
   font-weight: 700; }
+
+h2.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #373737; }
+
+h3.step-description {
+  width: 100%;
+  font-size: 18px;
+  line-height: 1.2;
+  margin: 0 0 20px;
+  font-weight: 700;
+  color: #373737; }
 
 /*# sourceMappingURL=style.css.map */

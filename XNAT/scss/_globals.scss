@@ -183,14 +183,62 @@ header {
     font-size: 18px;
     color:$dark-text;
 }
+.folder-name {
+	position: relative;
+	padding-left: 30px;
+	&::before{
+		content: "\f07b";
+	    font-family: "Font Awesome 5 Free";
+	    font-weight: 900;
+	    font-size: 16px;
+	    color: $gray-button-border;
+	    pointer-events: none;
+	    position: absolute;
+	    left: 4px;
+	    top: 0px;
+	}
+}
+#table1 {
+	.fixed-table-body {
+	    height: 256px;
+	}
+}
+.date-holder {
+	position: relative;
+	&::before{
+		content: "\f073";
+	    font-family: "Font Awesome 5 Free";
+	    font-weight: 900;
+	    font-size: 25px;
+	    color: $bigfriendly-button-bottom;
+	    pointer-events: none;
+	    position: absolute;
+	    right: 25px;
+	    top: 0px;
+	}
+}
 
 ////TYPO
 h2.main-title {
 	color: $title-color;
 	font-size: 24px;
 	line-height: 1.2;
-	margin:20px 0;
+	margin:20px 0 10px;
 	font-weight: 700;
+}
+h2.section-title {
+	font-size: 18px;
+	font-weight: 700;
+	color: $section-title;
+}
+h3.step-description {
+	width:100%;
+	font-size: 18px;
+	line-height: 1.2;
+	margin:0 0 20px;
+	font-weight: 700;
+	color: $section-title;
+
 }
 
 
