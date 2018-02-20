@@ -1,5 +1,6 @@
 const settings = require('electron-settings')
 const ipc = require('electron').ipcRenderer
+const axios = require('axios');
 
 const swal = require('sweetalert');
 
@@ -72,17 +73,39 @@ function loadPage(page) {
 }
 
 // ===============
-document.addEventListener('click', function(e){
-    if (e.target.tagName.toLowerCase() === "a") {
-        const href = e.target.getAttribute('href')
-        
-        if (href.indexOf('http') !== 0) {
-            e.preventDefault();
-            loadPage(href);
-        }
+$(document).on('click', 'a', function(e){
+    const href = $(this).attr('href');
+    if (href.indexOf('http') !== 0 && href !== '#') {
+        e.preventDefault();
+        loadPage(href);
     }
-    
-});
+})
+
+$(document).on('click', '#menu--logout', function(){
+    logout();
+})
+
+function logout() {
+    let xnat_server = settings.get('xnat_server');
+
+    axios.get(xnat_server + '/app/action/LogoutUser')
+    .then(res => {
+        settings.delete('user_auth')
+        settings.delete('xnat_server')
+
+        console.log('Logout: ', res);
+
+        $('.hidden-by-default').each(function(){
+            $(this).addClass('hidden');
+        })
+
+        loadPage('login.html')
+        //ipc.send('redirect', 'login.html');
+    })
+    .catch(err => {
+        console.log(err)
+    });
+}
 
 ipc.on('load:page',function(e, item){
     console.log('Loading page ... ' + item)

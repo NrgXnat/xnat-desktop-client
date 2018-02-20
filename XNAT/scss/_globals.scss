@@ -10,7 +10,7 @@ body {
 	height: 100vh;
 }
 .container {
-	height: 100vh;
+	//height: 100vh;
 }
 header {
 	@include linearGradient($header-top, $header-bottom );

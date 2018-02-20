@@ -24,7 +24,7 @@ document.addEventListener('submit', function(e) {
                 password: document.getElementById('password').value
             }
             console.log(user_auth);
-            login();
+            login(xnat_server, user_auth);
             break;
         default:
             break;
@@ -84,7 +84,7 @@ $(document).on('click', '#remove_login', function(e){
 });
 
 
-function login() {
+function login(xnat_server, user_auth) {
     console.log(xnat_server, user_auth);
     axios.get(xnat_server + '/data/auth', {
         auth: user_auth
@@ -143,7 +143,7 @@ function login() {
 
         setTimeout(notify, 100);
 
-        ipc.send('redirect', 'projects.html');
+        ipc.send('redirect', 'home.html');
     })
     .catch(error => {
         

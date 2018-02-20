@@ -6,9 +6,6 @@ let xnat_server, user_auth;
 
 window.$ = window.jQuery = require('jquery');
 
-$('#menu--logout').on('click', function(){
-    logout();
-})
 
 if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     ipc.send('redirect', 'login.html');
@@ -16,46 +13,13 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     xnat_server = settings.get('xnat_server');
     user_auth = settings.get('user_auth');
     console.log(xnat_server, user_auth);
-    
-    document.addEventListener('click', function(e){
-        switch (e.target.id) {
-                case 'get_projects':
-                    get_projects();
-                    break;
-                case 'logout':
-                    logout()
 
-                    
+    $(document).on('click', '#get_projects', get_projects);
     
-                    break;
-                default:
-                    break;
-            
-        }
-    
-    });
-    
+
 }
 
-function logout() {
-    
-    settings.delete('user_auth')
-    settings.delete('xnat_server')
 
-    axios.get(xnat_server + '/app/action/LogoutUser')
-    .then(res => {
-        console.log('Logout: ', res);
-
-        $('.hidden-by-default').each(function(){
-            $(this).addClass('hidden');
-        })
-
-        ipc.send('redirect', 'login.html');
-    })
-    .catch(err => {
-        console.log(err)
-    });
-}
 
 
 function get_projects() {

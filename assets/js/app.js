@@ -13,11 +13,12 @@ $(function () {
 		$(".user-dropdown").hide();
 	});
 
-	$(".menu-holder, .user-holder").click(function (e) {
+	$(".menu-holder > a, .user-holder > a").click(function (e) {
 		e.stopPropagation();
 	});
 
 	$('.alert').alert();
+
 
 
 	$(document).on('change', ':file', function () {
@@ -28,7 +29,7 @@ $(function () {
 	});
 
 	// We can watch for our custom `fileselect` event like this
-	$(':file').on('fileselect', function (event, numFiles, label) {
+	$(document).on('fileselect', ':file', function (event, numFiles, label) {
 		var input = $(this).parents('.input-group').find(':text'),
 			log = numFiles > 1 ? numFiles + ' files selected' : label;
 
@@ -38,5 +39,52 @@ $(function () {
 			if (log) alert(log);
 		}
 	});
+
+
+	//Filter list
+	$(document).on("keyup", "#upload-project-filter", function () {
+		var value = $(this).val().toLowerCase();
+		$("#upload-project li a").filter(function () {
+			$(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+		});
+	});
+
+	$(document).on("keyup", "#subject-session-filter", function () {
+		var value = $(this).val().toLowerCase();
+		$("#subject-session li a").filter(function () {
+			$(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+		});
+	});
 	
+	$("#datepicker").datepicker({
+		changeMonth: true,
+		changeYear: true,
+		beforeShow: function (input, inst) {
+			var dp = $(inst.dpDiv);
+			var offset = $(input).outerWidth(false) - dp.outerWidth(false);
+			dp.css('margin-right', offset);
+		}
+	});
+
+	/*
+	//upload ?
+	(function () {
+		var files,
+			file,
+			extension,
+			input = document.getElementById("fileURL"),
+			output = document.getElementById("fileOutput");
+
+		input.addEventListener("change", function (e) {
+			files = e.target.files;
+			output.innerHTML = "";
+
+			for (var i = 0, len = files.length; i < len; i++) {
+				file = files[i];
+				extension = file.name.split(".").pop();
+				output.innerHTML += "<li class='type-" + extension + "'>" + file.name + "</li>";
+			}
+		}, false);
+	})();
+	*/
 });

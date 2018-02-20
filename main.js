@@ -13,8 +13,10 @@ const debug = /--debug/.test(process.argv[2])
 
 const iconPath = path.join(__dirname, 'assets/icons/png/tray-icon-256.png');
 
+app.setName('XNAT Desktop Client v' + app.getVersion());
+
 //process.mas - A Boolean. For Mac App Store build, this property is true, for other builds it is undefined.
-if (process.mas) app.setName('XNAT App')
+if (process.mas) app.setName('XNAT Desktop Client v' + app.getVersion())
 
 var mainWindow = null
 
