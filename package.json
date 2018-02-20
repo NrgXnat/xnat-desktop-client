@@ -1,6 +1,6 @@
 {
   "name": "xnatapp",
-  "version": "0.2.0",
+  "version": "1.0.1",
   "description": "XNAT desktop application",
   "main": "main.js",
   "scripts": {
@@ -36,11 +36,10 @@
     "x-editable": "^1.5.1"
   },
   "devDependencies": {
-    "devtron": "^1.4.0",
     "electron": "^1.7.11",
+    "devtron": "^1.4.0",
     "electron-builder": "^19.55.2",
     "electron-packager": "^10.1.2",
-    "electron-rebuild": "^1.7.3",
     "node-sass-chokidar": "^0.0.3",
     "npm-run-all": "^4.1.2"
   },
