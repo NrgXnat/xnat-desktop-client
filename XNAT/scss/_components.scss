@@ -196,18 +196,23 @@ textarea
     border: 1px solid $list-border;
     margin-bottom: 30px;
     height: 162px;
-    overflow-y: scroll;
+	overflow-y: scroll;
+	
+	li a {
+		margin-top: -1px; 
+		padding: 3px 12px;
+		text-decoration: none; 
+		font-size: 18px; 
+		color: $list-items; 
+		display: block; 
+
+		&.selected {
+			background-color: darken($list-highlight, 15%)
+		}
+
+		&:hover:not(.header) {
+			background-color: $list-highlight;
+		}
+	}
 }
 
-.choose-list li a {
-    margin-top: -1px; 
-   	padding: 3px 12px;
-    text-decoration: none; 
-    font-size: 18px; 
-    color: $list-items; 
-    display: block; 
-}
-
-.choose-list li a:hover:not(.header) {
-    background-color: $list-highlight;
-}

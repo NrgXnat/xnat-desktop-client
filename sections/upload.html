@@ -7,8 +7,8 @@
                 <nav>
                     <div class="nav nav-tabs" id="nav-tab" role="tablist">
                         <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Subject Selected</a>
-                        <a class="nav-item nav-link" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false">Select Folder</a>
-                        <a class="nav-item nav-link" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Verify Visit Date</a>
+                        <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false">Select Folder</a>
+                        <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Verify Visit Date</a>
                         <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Review and Verify Selected Session Information</a>
                         <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Summary</a>
                     </div>
@@ -20,27 +20,13 @@
                             <input type="text" id="upload-project-filter" onkeyup="myFunction()" placeholder="Filter" class="form-control">
                         </div>
                         <ul id="upload-project" class="choose-list">
-                            <li><a href="#">XNAT_1</a></li>
-                            <li><a href="#">XNAT_2</a></li>
-                            <li><a href="#">XNAT_3</a></li>
-                            <li><a href="#">XNAT_4</a></li>
-                            <li><a href="#">XNAT_5</a></li>
-                            <li><a href="#">XNAT_6</a></li>
-                            <li><a href="#">XNAT_7</a></li>
+                            
                         </ul>
                         <h2 class="section-title">Select the subject for the session to be upload</h2>
                         <div class="filter-control">
                             <input type="text" id="subject-session-filter" onkeyup="myFunction()" placeholder="Filter" class="form-control">
                         </div>
-                        <ul id="subject-session" class="choose-list">
-                            <li><a href="#">Subject_1</a></li>
-                            <li><a href="#">Subject_2</a></li>
-                            <li><a href="#">Subject_3</a></li>
-                            <li><a href="#">Subject_4</a></li>
-                            <li><a href="#">Subject_5</a></li>
-                            <li><a href="#">Subject_6</a></li>
-                            <li><a href="#">Subject_7</a></li>
-                        </ul>
+                        <ul id="subject-session" class="choose-list"></ul>
                         <div class="row">
                             <div class="col text-right button-row">
                                 <button class="btn btn-blue" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
@@ -48,8 +34,8 @@
                         </div>
                         <div class="row">
                             <div class="col text-right button-row">
-                                <button type="button" class="btn btn-gray" type="button">Cancel</button>
-                                <button type="button" class="btn btn-blue">Next <i class="fas fa-angle-right"></i></button>
+                                <button type="button" class="btn btn-gray" data-href="home.html" type="button">Cancel</button>
+                                <button type="button" class="btn btn-blue js_next disabled">Next <i class="fas fa-angle-right"></i></button>
                             </div>
                         </div>
                     </div>
@@ -58,8 +44,8 @@
                         <input type="file" multiple webkitdirectory id="fileURL" />
                         <ul id="fileOutput"></ul>
                         <div class="col text-right button-row">
-                            <button type="button" class="btn btn-gray">Cancel</button>
-                            <button type="button" class="btn btn-gray" type="button"><i class="fas fa-angle-left"></i> Prev</button>
+                            <button type="button"  data-href="home.html" class="btn btn-gray">Cancel</button>
+                            <button type="button" class="btn btn-gray js_prev"><i class="fas fa-angle-left"></i> Prev</button>
                             <button type="button" class="btn btn-blue">Next <i class="fas fa-angle-right"></i></button>
                         </div>
                     </div>
@@ -85,7 +71,7 @@
                             ex ea commodi consequatur. Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse
                             quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur.</p>
                         <div class="col text-right button-row">
-                            <button type="button" class="btn btn-gray">Cancel</button>
+                            <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
                             <button type="button" class="btn btn-gray" type="button"><i class="fas fa-angle-left"></i> Prev</button>
                             <button type="button" class="btn btn-blue">Next <i class="fas fa-angle-right"></i></button>
                         </div>
@@ -254,9 +240,9 @@
                    </div>
                    <div class="row">
                      <div class="col text-right button-row">
-                       <button type="button" class="btn btn-gray">Cancel</button>
-                                        <button type="button" class="btn btn-gray" type="button"><i class="fas fa-angle-left"></i> Prev</button>
-                                        <button type="button" class="btn btn-blue">Upload</button>
+                       <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                        <button type="button" class="btn btn-gray" type="button"><i class="fas fa-angle-left"></i> Prev</button>
+                        <button type="button" class="btn btn-blue">Upload</button>
                     </div>
                 </div>
             </div>
@@ -269,8 +255,8 @@
                 </div>
                 <div class="row">
                     <div class="col text-right button-row">
-                        <button type="button" class="btn btn-gray" type="button">Cancel</button>
-                        <button type="button" class="btn btn-gray" type="button">Home</button>
+                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                        <button type="button" class="btn btn-gray">Home</button>
                         <button type="button" class="btn btn-blue">Finish</button>
                     </div>
                 </div>
@@ -371,6 +357,8 @@
             function myFunction() {
                 
             }
+
+            $('#upload-section').trigger('page:load');
         </script>
 
     </section>
