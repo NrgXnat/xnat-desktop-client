@@ -81,7 +81,9 @@
       </div>
       <div class="tab-pane fade show active" id="nav-folder" role="tabpanel" aria-labelledby="nav-folder-tab"> 
         <h2 class="section-title">Select folder of files to upload</h2>
+
         <input type="file" multiple webkitdirectory id="fileURL"/>
+        
         <ul id="fileOutput"></ul>
         <div class="col text-right button-row">
           <button type="button" class="btn btn-gray">Cancel</button>
@@ -156,7 +158,7 @@
                 </select>
               </div>
             </td>
-            <td><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Add note</td>
+            <td><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Add note</button></td>
             <td>9</td>
             <td>1.16 MB</td>
           </tr>
@@ -174,7 +176,7 @@
               </select>
             </div>
           </td>
-          <td><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Add note</td>
+          <td><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Add note</button></td>
           <td>11</td>
           <td>1.15 MB</td>
         </tr>
@@ -192,7 +194,7 @@
               </select>
             </div>
           </td>
-          <td><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Add note</td>
+          <td><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Add note</button></td>
           <td>4</td>
           <td>1.14 MB</td>
         </tr>
@@ -210,7 +212,7 @@
               </select>
             </div>
           </td>
-          <td><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Add note</td>
+          <td><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Add note</button></td>
           <td>7</td>
           <td>1.13 MB</td>
         </tr>
@@ -246,7 +248,7 @@
             </select>
           </div>
         </td>
-        <td><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Add note</td>
+        <td><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Add note</button></td>
         <td>3</td>
         <td>1.13 MB</td>
       </tr>
@@ -266,7 +268,7 @@
     <div class="col">
       <div class="form-group">
         <label><b>Session notes</b></label>
-        <textarea placeholder="Add Note" rows="4"></textarea>
+        <textarea placeholder="Add note</button>" rows="4"></textarea>
       </div>
     </div>
   </div>
@@ -351,7 +353,7 @@
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="exampleModalLongTitle">Add Note</h5>
+        <h5 class="modal-title" id="exampleModalLongTitle">Add note</button></h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <i class="far fa-window-close"></i>
         </button>
@@ -360,13 +362,13 @@
        <form>
          <div class="row">
           <div class="col">
-            <textarea placeholder="Add Note" rows="5"></textarea>
+            <textarea placeholder="Add note</button>" rows="5"></textarea>
           </div>
         </div>
       </form>
     </div>
     <div class="modal-footer">
-      <button type="button" class="btn btn-blue">Add Note</button>
+      <button type="button" class="btn btn-blue">Add note</button></button>
     </div>
   </div>
 </div>

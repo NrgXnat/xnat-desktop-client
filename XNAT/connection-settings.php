@@ -21,10 +21,11 @@
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. </p>
 
 
-    <table class="table table-bordered" id="table"        
+    <table class="table table-bordered filtered-table" id="table"        
     data-toggle="table"
     data-filter-control="true" 
-    data-click-to-select="true">
+    data-click-to-select="true"
+    data-height="300">
   <thead>
     <tr>
       <th data-field="server" data-filter-control="input" data-sortable="true">Server</th>

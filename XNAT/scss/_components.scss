@@ -196,23 +196,52 @@ textarea
     border: 1px solid $list-border;
     margin-bottom: 30px;
     height: 162px;
-	overflow-y: scroll;
-	
-	li a {
-		margin-top: -1px; 
-		padding: 3px 12px;
-		text-decoration: none; 
-		font-size: 18px; 
-		color: $list-items; 
-		display: block; 
-
-		&.selected {
-			background-color: darken($list-highlight, 15%)
-		}
-
-		&:hover:not(.header) {
-			background-color: $list-highlight;
-		}
+    overflow-y: scroll;
+    
+    &.list-selectable {
+    	li {
+    		a {
+    			position: relative;
+    			padding-left: 35px;
+    			input.checkbox {
+				    position: absolute;
+				    top: 9px;
+				    left: 10px;
+				}
+				label {
+					margin:0;
+					display: block;
+				}
+			}
+    	}
+    }
+}
+.select-all-control,
+.inline-control {
+	display: inline-block;
+}
+.select-all-control {
+	width:70px;
+	.select-format, 
+	.select-type {
+		margin-right: 5px;
+		margin-left:10px;
 	}
 }
+.inline-control {
+	width: calc(100% - 75px);
+}
 
+
+.choose-list li a {
+    margin-top: -1px; 
+   	padding: 3px 12px;
+    text-decoration: none; 
+    font-size: 18px; 
+    color: $list-items; 
+    display: block; 
+}
+
+.choose-list li a:hover:not(.header) {
+    background-color: $list-highlight;
+}
