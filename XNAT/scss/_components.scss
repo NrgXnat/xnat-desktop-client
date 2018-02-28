@@ -24,6 +24,14 @@
 		margin:0;
 	}
 }
+.log-text {
+	height: 150px;
+	overflow-y: scroll;
+	width:100%;
+}
+.session-id {
+	font-size: 1rem;
+}
 
 
 ////FORMS
@@ -149,20 +157,18 @@ textarea
 .fht-cell {
 	.filterControl {
 		position: relative;
-		input {
+		input,
+		select.form-control:not([size]):not([multiple]) {
 			padding-left: 30px;
 			height: 30px;
 		}
-		&::before {
-			content: "\f002";
-	  		font-family: $awesome;
-	  		font-weight: 900;
+		i {
 	  		font-size: 16px;
 	  		color: $search-icon;
 	  		pointer-events: none;
 	  		position: absolute;
 	  		left: 8px;
-	  		top:4px;
+	  		top: 8px;
 
 		}
 	}
@@ -211,6 +217,11 @@ textarea
 				label {
 					margin:0;
 					display: block;
+				}
+				.file_count {
+					position: absolute;
+					right:10px;
+					top:3px;
 				}
 			}
     	}

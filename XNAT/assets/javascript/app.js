@@ -123,9 +123,10 @@ $(':file').on('fileselect', function(event, numFiles, label) {
 
   // Datepicker
 
-  $( "#datepicker" ).datepicker({
+  $( "#datepicker, .bootstrap-table-filter-control-date, .bootstrap-table-filter-control-transfer-date" ).datepicker({
     changeMonth: true,
     changeYear: true,
+    dateFormat: "yy/mm/dd",
     beforeShow:function( input, inst )
     {
       var dp = $(inst.dpDiv);
@@ -140,27 +141,16 @@ $(':file').on('fileselect', function(event, numFiles, label) {
     $('.datalist-2').checkboxall('select-type');
 
 
-  // Upload
 
-    (function(){
-      var files, 
-      file, 
-      extension,
-      input = document.getElementById("fileURL"), 
-      output = document.getElementById("fileOutput");
-
-      input.addEventListener("change", function(e) {
-        files = e.target.files;
-        console.log(e);
-        output.innerHTML = "";
-
-        for (var i = 0, len = files.length; i < len; i++) {
-          file = files[i];
-          extension = file.name.split(".").pop();
-          output.innerHTML += "<li class='type-" + extension + "'>" + webkitdirectory + "</li>";
-        }
-      }, false);
-    })();
+$('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+  e.target // newly activated tab
+  e.relatedTarget // previous active tab
+  $('table').bootstrapTable('resetView');
+})
+  
+  $( "<i class=' fas fa-search'></i>" ).insertBefore( $( ".fht-cell .filterControl input:not(.bootstrap-table-filter-control-date):not(.bootstrap-table-filter-control-transfer-date)" ) );
+  $( "<i class=' far fa-calendar-alt'></i>" ).insertBefore( $( ".fht-cell .filterControl input.bootstrap-table-filter-control-date" ) );
+  $( "<i class=' far fa-calendar-alt'></i>" ).insertBefore( $( ".fht-cell .filterControl input.bootstrap-table-filter-control-transfer-date" ) );
 
     
 

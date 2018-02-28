@@ -29,16 +29,17 @@
  <div class="container-fluid">
    <div class="row">
      <h2 class="main-title">Download Image Session from ( XNAT Name )</h2>
+     <h3 class="step-description">Project: ( Project name ), ( NNN ) Sessions Selected, ( NNN ) Scans Selected, Assessors Selected, ( NNN ) Resource Collections Selected</h3>
      <nav>
       <div class="nav nav-tabs" id="nav-tab" role="tablist">
-        <a class="nav-item nav-link active"  data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Select Project</a>
-        <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false">Select Sessions</a>
-        <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Select Scans</a>
-        <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Finalize Download Request</a>
+        <a class="nav-item nav-link"  data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Select Project</a>
+        <a class="nav-item nav-link" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false">Select Sessions</a>
+        <a class="nav-item nav-link" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Select Scans</a>
+        <a class="nav-item nav-link active" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Finalize Download Request</a>
       </div>
     </nav>
     <div class="tab-content" id="nav-tabContent">
-      <div class="tab-pane fade show active" id="nav-project" role="tabpanel" aria-labelledby="nav-home-tab">
+      <div class="tab-pane fade" id="nav-project" role="tabpanel" aria-labelledby="nav-home-tab">
         <h2 class="section-title">Select project to download from</h2>
         <div class="filter-control">
           <input type="text" id="upload-project-filter" onkeyup="myFunction()" placeholder="Filter" class="form-control">
@@ -198,7 +199,7 @@
   </div>
 </div>
 </div>
-<div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
+<div class="tab-pane fade show active" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
   <h2 class="section-title">Select Local Directory</h2>
 
   <div class="row">

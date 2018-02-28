@@ -346,6 +346,14 @@
     padding: 0;
     margin: 0; }
 
+.log-text {
+  height: 150px;
+  overflow-y: scroll;
+  width: 100%; }
+
+.session-id {
+  font-size: 1rem; }
+
 .btn {
   border-radius: 0; }
 
@@ -510,19 +518,17 @@ textarea {
 
 .fht-cell .filterControl {
   position: relative; }
-  .fht-cell .filterControl input {
+  .fht-cell .filterControl input,
+  .fht-cell .filterControl select.form-control:not([size]):not([multiple]) {
     padding-left: 30px;
     height: 30px; }
-  .fht-cell .filterControl::before {
-    content: "\f002";
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900;
+  .fht-cell .filterControl i {
     font-size: 16px;
     color: #aeadad;
     pointer-events: none;
     position: absolute;
     left: 8px;
-    top: 4px; }
+    top: 8px; }
 
 .filter-control {
   position: relative;
@@ -560,6 +566,10 @@ textarea {
     .choose-list.list-selectable li a label {
       margin: 0;
       display: block; }
+    .choose-list.list-selectable li a .file_count {
+      position: absolute;
+      right: 10px;
+      top: 3px; }
 
 .select-all-control,
 .inline-control {

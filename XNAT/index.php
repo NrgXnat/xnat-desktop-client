@@ -23,6 +23,11 @@
 			<a href="upload-3.php" style="display: block">Upload step 3</a>
 			<a href="upload-4.php" style="display: block">Upload step 4</a>
 			<a href="upload-5.php" style="display: block">Upload step 5</a>
+			<a href="download-1.php" style="display: block">Download step 1</a>
+			<a href="download-2.php" style="display: block">Download step 2</a>
+			<a href="download-3.php" style="display: block">Download step 3</a>
+			<a href="download-4.php" style="display: block">Download step 4</a>
+			<a href="progress-monitor.php" style="display: block">Progress Monitor</a>
 		</div>
 		<div class="col"></div>
 		</div>
