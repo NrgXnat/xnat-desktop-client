@@ -67,6 +67,19 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
         $(this).addClass('selected')
         let project_id = $(this).data('project_id')
 
+        promise_subjects(project_id)
+            .then(res => {
+                let subjects = res.data.ResultSet.Result;
+                console.log(subjects.length);
+                console.log(res.data.ResultSet.Result[0]);
+
+                subjects.forEach(append_subject_row)
+
+            })
+            .catch(err => {
+                console.log(err)
+            });
+
         
         promise_require_date(project_id)
             .then(res => {
@@ -82,20 +95,17 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
                 console.log(err)
             })
         
-
-        promise_subjects(project_id)
+        
+        promise_project_experiments(project_id)
             .then(res => {
-                let subjects = res.data.ResultSet.Result;
-                console.log(subjects.length);
-                console.log(res.data.ResultSet.Result[0]);
-
-                subjects.forEach(append_subject_row)
-
-                
+                console.log('----------------promise_project_experiments------------------------');
+                console.log(res)
+                console.log('-----------------------------------------------------------');
             })
             .catch(err => {
                 console.log(err)
-            });
+            })
+        
         
     });
 
@@ -162,8 +172,14 @@ function promise_require_date(project_id) {
 }
 
 function promise_projects() {
-    return axios.get(xnat_server + '/data/projects?permissions=read', {
+    return axios.get(xnat_server + '/data/projects?permissions=edit&dataType=xnat:subjectData', {
     //return axios.get(xnat_server + '/data/projects?accessible=true', {
+        auth: user_auth
+    });
+}
+
+function promise_project_experiments(project_id) {
+    return axios.get(xnat_server + '/data/projects/'+project_id+'/experiments?columns==ID,label,xnat:experimentData/meta/status', {
         auth: user_auth
     });
 }
@@ -182,7 +198,7 @@ function promise_project_subject(project_id, subject_label) {
 }
 
 function promise_create_project_subject(project_id, subject_label, group) {
-    return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group='+group, {
+    return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group=' + group + '&event_reason=XNAT+Application', {
         auth: user_auth
     })
 }
