@@ -213,8 +213,11 @@ header {
 	    color: $bigfriendly-button-bottom;
 	    pointer-events: none;
 	    position: absolute;
-	    right: 25px;
+	    left: 25px;
 	    top: 0px;
+	}
+	input[type=date] {
+		padding-left: 2.5rem;
 	}
 }
 

@@ -20,14 +20,16 @@ $(function () {
 	$('.alert').alert();
 
 
-
+	/*
 	$(document).on('change', ':file', function () {
 		var input = $(this),
 			numFiles = input.get(0).files ? input.get(0).files.length : 1,
 			label = input.val().replace(/\\/g, '/').replace(/.*\//, '');
 		input.trigger('fileselect', [numFiles, label]);
 	});
+	*/
 
+	/*
 	// We can watch for our custom `fileselect` event like this
 	$(document).on('fileselect', ':file', function (event, numFiles, label) {
 		var input = $(this).parents('.input-group').find(':text'),
@@ -39,7 +41,7 @@ $(function () {
 			if (log) alert(log);
 		}
 	});
-
+	*/
 
 	//Filter list
 	$(document).on("keyup", "#upload-project-filter", function () {
@@ -64,6 +66,10 @@ $(function () {
 			var offset = $(input).outerWidth(false) - dp.outerWidth(false);
 			dp.css('margin-right', offset);
 		}
+	});
+
+	$(document).on('click', '.js_modal_form_submit', function(e){
+		$(this).closest('.modal').find('form').eq(0).trigger('submit');
 	});
 
 	/*
