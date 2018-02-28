@@ -566,6 +566,10 @@ textarea {
     .choose-list.list-selectable li a label {
       margin: 0;
       display: block; }
+    .choose-list.list-selectable li a .file_count {
+      position: absolute;
+      right: 10px;
+      top: 3px; }
 
 .select-all-control,
 .inline-control {
