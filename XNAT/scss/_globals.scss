@@ -209,15 +209,25 @@ header {
 	    color: $bigfriendly-button-bottom;
 	    pointer-events: none;
 	    position: absolute;
-	    left: 25px;
+	    right: 25px;
 	    top: 0px;
-	}
-	input[type=date] {
-		padding-left: 2.5rem;
 	}
 }
 
 .fixed-table-container .fixed-table-header thead th .th-inner {
+	padding: 5px 8px 11px;
+	&::before{
+		content: '';
+	    height: 40px;
+	   	@include linearGradient($table-top, $table-bottom);
+	    width: 100%;
+	    position: absolute;
+	    z-index: -1;
+	    top: 0;
+	    left: 0;
+	}
+}
+.fixed-table-container thead th .th-inner {
 	padding: 5px 8px 11px;
 	&::before{
 		content: '';

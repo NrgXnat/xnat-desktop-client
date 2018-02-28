@@ -823,6 +823,33 @@ header {
     top: 0;
     left: 0; }
 
+.fixed-table-container thead th .th-inner {
+  padding: 5px 8px 11px; }
+  .fixed-table-container thead th .th-inner::before {
+    content: '';
+    height: 40px;
+    background: #fcfcfc;
+    /* Old browsers */
+    background: -moz-linear-gradient(top, #fcfcfc 0%, #aaaaaa 100%);
+    /* FF3.6+ */
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%, #fcfcfc), color-stop(100%, #aaaaaa));
+    /* Chrome,Safari4+ */
+    background: -webkit-linear-gradient(top, #fcfcfc 0%, #aaaaaa 100%);
+    /* Chrome10+,Safari5.1+ */
+    background: -o-linear-gradient(top, #fcfcfc 0%, #aaaaaa 100%);
+    /* Opera 11.10+ */
+    background: -ms-linear-gradient(top, #fcfcfc 0%, #aaaaaa 100%);
+    /* IE10+ */
+    background: linear-gradient(to bottom, #fcfcfc 0%, #aaaaaa 100%);
+    /* W3C */
+    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#000000',GradientType=0 );
+    /* IE6-9 */
+    width: 100%;
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    left: 0; }
+
 .fixed-table-container .filtered-table thead th .fht-cell::before {
   content: '';
   height: 40px;
