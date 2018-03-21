@@ -40,7 +40,7 @@
     </nav>
     <div class="tab-content" id="nav-tabContent">
       <div class="tab-pane fade" id="nav-project" role="tabpanel" aria-labelledby="nav-home-tab">
-        <h2 class="section-title">Select project to download from</h2>
+        <h2 class="section-title">Select Scan Formats</h2>
         <div class="filter-control">
           <input type="text" id="upload-project-filter" onkeyup="myFunction()" placeholder="Filter" class="form-control">
         </div>
@@ -61,7 +61,7 @@
         </div>
       </div>
       <div class="tab-pane fade" id="nav-folder" role="tabpanel" aria-labelledby="nav-folder-tab"> 
-        <h2 class="section-title">Select folder of files to download</h2>
+        <h2 class="section-title">Select Scan Types</h2>
         
         <table class="table table-bordered filtered-table" id="table2"        
         data-toggle="table"
@@ -160,7 +160,7 @@
 </div>
 </div>
 <div class="tab-pane fade show active" id="nav-date" role="tabpanel" aria-labelledby="nav-date-tab">
- <h2 class="section-title">Select project to download from</h2>
+ <h2 class="section-title">Select Scan Formats</h2>
  <div class="datalist-1">
   <div class="select-all-control"><input type="checkbox" name="selectall" id="selectall" class="select-format" value="1"> <label for="selectall2">All</label></div>
   <div class="filter-control inline-control">
@@ -176,7 +176,7 @@
     <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="7" id="format7"> <label for="format7">Scan format G</label></a></li>
   </ul>
 </div>
-<h2 class="section-title">Select project to download from</h2>
+<h2 class="section-title">Select Scan Types</h2>
 <div class="datalist-2">
   <div class="select-all-control"><input type="checkbox" name="selectall2" id="selectall2" class="select-type" value="1"> <label for="selectall2">All</label></div>
   <div class="filter-control inline-control">
@@ -195,6 +195,7 @@
 <div class="row">
   <div class="col text-right button-row">
     <button type="button" class="btn btn-gray" type="button" >Cancel</button>
+    <button type="button" class="btn btn-gray" type="button" ><i class="fas fa-angle-left"></i> Prev</button>
     <button type="button" class="btn btn-blue">Next <i class="fas fa-angle-right"></i></button>
   </div>
 </div>

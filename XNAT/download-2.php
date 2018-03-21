@@ -160,7 +160,7 @@
 </div>
 </div>
 <div class="tab-pane fade" id="nav-date" role="tabpanel" aria-labelledby="nav-date-tab">
- <h2 class="section-title">Select project to download from</h2>
+ <h2 class="section-title">Select Scan Formats</h2>
  <div class="datalist-1">
   <div class="select-all-control"><input type="checkbox" name="selectall" id="selectall" class="select-format" value="1"> <label for="selectall2">All</label></div>
   <div class="filter-control inline-control">
@@ -176,25 +176,26 @@
     <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="7" id="format7"> <label for="format7">Scan format G</label></a></li>
   </ul>
 </div>
-<h2 class="section-title">Select project to download from</h2>
+<h2 class="section-title">Select Scan Types</h2>
 <div class="datalist-2">
   <div class="select-all-control"><input type="checkbox" name="selectall2" id="selectall2" class="select-type" value="1"> <label for="selectall2">All</label></div>
   <div class="filter-control inline-control">
     <input type="text" id="file-type-filter" onkeyup="typeFilter()" placeholder="Filter" class="form-control">
   </div>
-  <ul id="scan-type" class="choose-list list-selectable">
-    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="1" id="type1"> <label for="type1">Scan type A</label></a></li>
-    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="2" id="type2"> <label for="type2">Scan type B</label></a></li>
-    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="3" id="type3"> <label for="type3">Scan type C</label></a></li>
-    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="4" id="type4"> <label for="type4">Scan type D</label></a></li>
-    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="5" id="type5"> <label for="type5">Scan type E</label></a></li>
-    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="6" id="type6"> <label for="type6">Scan type F</label></a></li>
-    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="7" id="type7"> <label for="type7">Scan type G</label></a></li>
+   <ul id="scan-type" class="choose-list list-selectable">
+    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="1" id="type1"> <label for="type1">Scan type A</label> <span class="file_count">(20)</span></a></li>
+    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="2" id="type2"> <label for="type2">Scan type B</label> <span class="file_count">(12)</span></a></li>
+    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="3" id="type3"> <label for="type3">Scan type C</label> <span class="file_count">(3)</span></a></li>
+    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="4" id="type4"> <label for="type4">Scan type D</label> <span class="file_count">(17)</span></a></li>
+    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="5" id="type5"> <label for="type5">Scan type E</label> <span class="file_count">(25)</span></a></li>
+    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="6" id="type6"> <label for="type6">Scan type F</label> <span class="file_count">(44)</span></a></li>
+    <li><a href="#"><input type="checkbox" name="check[]" class="checkbox" value="7" id="type7"> <label for="type7">Scan type G</label> <span class="file_count">(7)</span></a></li>
   </ul>
 </div>
 <div class="row">
   <div class="col text-right button-row">
     <button type="button" class="btn btn-gray" type="button" >Cancel</button>
+    <button type="button" class="btn btn-gray" type="button" ><i class="fas fa-angle-left"></i> Prev</button>
     <button type="button" class="btn btn-blue">Next <i class="fas fa-angle-right"></i></button>
   </div>
 </div>
