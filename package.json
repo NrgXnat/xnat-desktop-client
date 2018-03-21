@@ -29,6 +29,7 @@
     "bootstrap-table": "^1.11.2",
     "electron-settings": "^3.1.4",
     "font-awesome": "^4.7.0",
+    "get-folder-size": "^1.0.1",
     "glob": "^7.1.2",
     "jquery": "^3.3.1",
     "popper.js": "^1.12.9",
@@ -36,8 +37,8 @@
     "x-editable": "^1.5.1"
   },
   "devDependencies": {
-    "electron": "^1.7.11",
     "devtron": "^1.4.0",
+    "electron": "^1.7.11",
     "electron-builder": "^19.55.2",
     "electron-packager": "^10.1.2",
     "node-sass-chokidar": "^0.0.3",

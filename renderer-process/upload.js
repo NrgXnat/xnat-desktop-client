@@ -1,3 +1,5 @@
+const fs = require('fs');
+const getSize = require('get-folder-size');
 const axios = require('axios');
 const settings = require('electron-settings');
 const ipc = require('electron').ipcRenderer;
@@ -121,7 +123,7 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
         let active_tab_index = $('.nav-item').index($('.nav-item.active'));
         $('.nav-item').eq(active_tab_index + 1).removeClass('disabled').trigger('click');
         setTimeout(function() {
-            swal('Disabling NEXT button');
+            //swal('Disabling NEXT button');
             $('.tab-pane.active .js_next').addClass('disabled');
         }, 100)
     })
@@ -134,11 +136,94 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     })
 
     $(document).on('change', '#file_upload_folder', function(e) {
+        
+        console.log(this.files.length);
+        
+        
         if (this.files.length) {
             $('#upload_folder').val(this.files[0].path);
             $('.tab-pane.active .js_next').removeClass('disabled');
+
+
+            $('#table1 tbody').html('');
+
+            let pth = this.files[0].path;
+
+            fs.readdir(pth, (err, files) => {
+                'use strict';
+                //if (err) throw err;
+
+                console.log(files.length, files);
+
+                if (files.length) {
+                    
+                    let i = 0
+                    for (let file of files) {
+                        let theID = `${pth}/${file}`;
+                        i++;
+
+                        fs.stat(theID, (err, stats) => {
+                            //console.log(stats);
+                            if (err) {
+                                //throw err;
+                            }
+                            else if (stats.isDirectory()) {
+                                
+                                
+                                getSize(theID, function(err, size) {
+                                    if (err) { 
+                                        //throw err; 
+                                    }
+                                    let folder_size = (size / 1024 / 1024).toFixed(2);
+                                    console.log(theID, folder_size + ' MB');
+
+                                    fs.readdir(theID, (err, files) => {
+                                        let files_count = files.length;
+
+                                        $('#table1 tbody').append(`
+                                        <tr data-index="${i}">
+                                            <td class="bs-checkbox "><input data-index="${i}" name="btSelectItem_${i}" type="checkbox"></td>
+                                            <td style=""><div class="folder-name">${file}</div></td>
+                                            <td style="">
+                                            <div class="quality-holder">
+                                                <select name="quality_${i}">
+                                                    <option value="" disabled="" selected="">Quality label</option>
+                                                    <option value="Excellent">Excellent</option>
+                                                    <option value="Good">Good</option>
+                                                    <option value="Medium">Medium</option>
+                                                    <option value="Bad">Bad</option>
+                                                </select>
+                                            </div>
+                                            </td>
+                                            <td style="text-align: center; "><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Edit note</button></td>
+                                            <td style="">${files_count}</td>
+                                            <td style="">${folder_size} MB</td>
+                                        </tr>
+
+                                        `)
+                                    })
+
+                                    
+                                });
+                                
+                            }
+                            else {
+                                $('#upload_folder').closest('div').append(`<p style="width: 100%">FILE: ${file}</p><hr>`)
+                            }
+        
+                        });
+                    }
+                    
+                }
+                else {
+                    swal('Empty Folder')
+                }
+            });
+
         }
     })
+
+
 
     $(document).on('input', '#upload_session_date', function(e) {
         if (this.validity.valid) {
@@ -149,6 +234,49 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
             $('.tab-pane.active .js_next').addClass('disabled');
         }
     })
+    
+}
+
+let file_size = 0, file_count = 0;
+function get_file_size_and_count(pth) {
+    
+
+    fs.readdir(pth, (err, files) => {
+        'use strict';
+
+        if (files.length) {
+            for (let file of files) {
+                let file_path = `${pth}${file}`;
+                console.log(file_path)
+                fs.stat(file_path, (err, stats) => {
+                    if (err) {
+                        //throw err;
+                        console.error(err)
+                    }
+                    else if (stats.isDirectory()) {
+                        
+                        let all_files = get_file_size_and_count(file_path)
+
+                        file_size += all_files.file_size;
+                        file_count +=  all_files.file_count;
+                    }
+                    else {
+                        file_size += stats.size;
+                        file_count++;
+                    }
+
+                });
+            }
+            
+        }
+
+        return {
+            file_size: file_size,
+            file_count: file_count
+        }
+
+    });
+
     
 }
 
