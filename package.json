@@ -1,6 +1,6 @@
 {
   "name": "xnatapp",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "XNAT desktop application",
   "main": "main.js",
   "scripts": {
@@ -19,19 +19,28 @@
     "dist-linux": "build --linux -p always",
     "package-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --icon=assets/icons/mac/icon.icns --prune=true --out=release-builds",
     "package-win": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=win32 --arch=ia32 --icon=assets/icons/win/icon.ico --prune=true --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"Electron XNAT App\"",
-    "package-linux": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=linux --arch=x64 --icon=assets/icons/png/icon.png --prune=true --out=release-builds"
+    "package-linux": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=linux --arch=x64 --icon=assets/icons/png/icon.png --prune=true --out=release-builds",
+    "postinstall": "electron-builder install-app-deps"
   },
   "author": "UAR",
   "license": "ISC",
   "dependencies": {
+    "archiver": "^2.1.1",
     "axios": "^0.17.1",
     "bootstrap": "^4.0.0",
     "bootstrap-table": "^1.11.2",
+    "dicom-parser": "^1.7.6",
     "electron-settings": "^3.1.4",
     "font-awesome": "^4.7.0",
     "get-folder-size": "^1.0.1",
     "glob": "^7.1.2",
+    "is-online": "^7.0.0",
+    "java": "^0.9.0",
     "jquery": "^3.3.1",
+    "lodash": "^4.17.5",
+    "lokijs": "^1.5.3",
+    "mime-types": "^2.1.18",
+    "nprogress": "^0.2.0",
     "popper.js": "^1.12.9",
     "sweetalert": "^2.1.0",
     "x-editable": "^1.5.1"

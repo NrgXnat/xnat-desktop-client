@@ -15,6 +15,7 @@
                 </nav>
                 <div class="tab-content" id="nav-tabContent">
                     <div class="tab-pane fade show active" id="nav-project" role="tabpanel" aria-labelledby="nav-home-tab">
+                        
                         <h2 class="section-title">Select project to which you will upload session</h2>
                         <div class="filter-control">
                             <input type="text" id="upload-project-filter" onkeyup="myFunction()" placeholder="Filter" class="form-control">
@@ -54,6 +55,11 @@
                                 </div>
                             </div>
                         </div>
+
+                        <button class="btn btn-blue" id="test-upload" type="button">Test upload</button>
+
+                        <progress id="dicom_parse_progress" value="0" max="100"></progress>
+                        
                         <!--
                         <input type="file" multiple webkitdirectory id="fileURL" />
                         <ul id="fileOutput"></ul>
@@ -99,8 +105,10 @@
                                 <tr>
                                     <th data-field="select" data-checkbox="true">Upload</th>
                                     <th data-field="description" data-sortable="true">Series Description</th>
+                                    <!--
                                     <th data-field="quality" data-sortable="false" data-escape="false">Quality label</th>
                                     <th data-field="note" data-escape="false" data-escape="false" data-align="center">Scan-level notes</th>
+                                    -->
                                     <th data-field="count" data-sortable="true">File count</th>
                                     <th data-field="size" data-sortable="true">Size (bytes)</th>
                                 </tr>

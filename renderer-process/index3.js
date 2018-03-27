@@ -1,6 +1,7 @@
 const settings = require('electron-settings')
 const ipc = require('electron').ipcRenderer
 const axios = require('axios');
+const isOnline = require('is-online');
 
 const swal = require('sweetalert');
 
@@ -90,21 +91,83 @@ function logout() {
 
     axios.get(xnat_server + '/app/action/LogoutUser')
     .then(res => {
-        settings.delete('user_auth')
-        settings.delete('xnat_server')
-
-        console.log('Logout: ', res);
-
-        $('.hidden-by-default').each(function(){
-            $(this).addClass('hidden');
-        })
-
-        loadPage('login.html')
-        //ipc.send('redirect', 'login.html');
+        clearLoginSession();
     })
-    .catch(err => {
-        console.log(err)
+    .catch(error => {
+        let msg;
+
+        let error_check = new Promise(function(resove, reject){
+            
+        });
+
+
+        isOnline()
+            .then(onlineStatus => {
+                console.log(onlineStatus);
+                //=> true
+                if (onlineStatus) {
+                    if (error.response) {
+                        // The request was made and the server responded with a status code
+                        // that falls out of the range of 2xx
+                        //console.log(error.response.status);
+                        //console.log(error.response.data);
+                        //console.log(error.response.headers);
+                        switch (error.response.status) {
+                            case 401:
+                                msg = 'Invalid username or password!';
+                                break;
+                            case 404:
+                                msg = 'Invalid XNAT server address';
+                                break;
+                            default:
+                                msg = 'An error occured. Please try again.'
+                        }
+            
+                    } else if (error.request) {
+                        // The request was made but no response was received
+                        // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
+                        // http.ClientRequest in node.js
+                        //console.log(error.request);
+                        msg = 'XNAT server address (' + xnat_server + ') is not accessible.'
+                    } else {
+                        // Something happened in setting up the request that triggered an Error
+                        console.log('Error', error.message);
+                        msg = error.message;
+                    }
+                } else {
+                    msg = 'You computer seems to be offline!';
+                }
+
+                console.log('Error: ' + msg);
+                swal({
+                    title: 'Connection error',
+                    text: msg,
+                    icon: "warning",
+                    buttons: ['Stay on this page', 'Force logout'],
+                    dangerMode: true
+                })
+                .then((proceed) => {
+                    if (proceed) {
+                        clearLoginSession();
+                    }
+                });
+            })
+        
+       
+
     });
+}
+
+function clearLoginSession() {
+    settings.delete('user_auth')
+    settings.delete('xnat_server')
+
+    $('.hidden-by-default').each(function(){
+        $(this).addClass('hidden');
+    })
+
+    loadPage('login.html');
+    //ipc.send('redirect', 'login.html');
 }
 
 ipc.on('load:page',function(e, item){

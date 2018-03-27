@@ -1,0 +1,38 @@
+$nprogress_color: #12BB00; 
+
+body #nprogress {
+    .bar {
+        z-index: 99999;
+        height: 4px;
+        background: $nprogress_color;
+    }
+
+    &:after {
+        content: "";
+        width: 100%;
+        position: fixed;
+        background: #E9E9E9;
+        height: 4px;
+        top: 0;
+        box-shadow: 0 0 4px rgba(0,0,0,0.3);
+    }
+
+    .peg {
+        display: none;
+    }
+
+    .spinner {
+        left: 15px;
+    }
+
+    .spinner-icon {
+        border-top-color: $nprogress_color;
+        border-left-color: $nprogress_color;
+        border-width: 4px;
+    }
+}
+
+
+body .swal-modal {
+    width: 800px;
+}
