@@ -8,7 +8,7 @@ console.log(__dirname);
 const _app_path = __dirname;
 
 /*
-fs.writeFileSync('mizer.js.txt', "MizerLibs: " + path.resolve(_app_path, '..', 'app.asar.unpacked', 'libs') + "/", (err) => {
+fs.writeFileSync('mizer.js.txt', "MizerLibs: [" + _app_path +  "]" + path.resolve(_app_path, '..', 'app.asar.unpacked', 'libs') + "/", (err) => {
     if (err) throw err;
     console.log('Error writing mizer.js.txt');
 });

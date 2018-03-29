@@ -975,6 +975,10 @@ $(document).on('click', '.js_upload', function() {
     }
 });
 
+function getUserHome() {
+    return process.env[(process.platform == 'win32') ? 'USERPROFILE' : 'HOME'];
+}
+
 function copy_and_anonymize(filePaths) {
     let _timer = performance.now();
 
@@ -982,7 +986,7 @@ function copy_and_anonymize(filePaths) {
     NProgress.start();
 
     return new Promise(function(resolve, reject){
-        let dicom_temp_folder_path = path.join(process.env['HOME'], 'DICOM_TEMP');
+        let dicom_temp_folder_path = path.join(getUserHome(), 'DICOM_TEMP');
 
         if (!fs.existsSync(dicom_temp_folder_path)) {
             fs.mkdirSync(dicom_temp_folder_path);

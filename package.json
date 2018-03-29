@@ -14,6 +14,7 @@
     "sass": "npm-run-all -s sass:build sass:watch",
     "sass:build": "node-sass-chokidar XNAT/scss/style.scss assets/css/style.css --output-style compressed --source-map true",
     "sass:watch": "node-sass-chokidar XNAT/scss/ -o assets/css/ -w -r --output-style compressed --source-map true",
+    "test-pack": "build --win --ia32 --dir",
     "dist-win": "build --win -p always",
     "dist-mac": "build --mac -p always",
     "dist-linux": "build --linux -p always",
@@ -56,6 +57,11 @@
   "build": {
     "appId": "com.xnatapp.app",
     "productName": "XNAT Desktop App",
+    "asarUnpack": [
+      "node_modules/java/**/*",
+      "node_modules/async/**/*",
+      "libs/**/*"
+    ],
     "win": {
       "target": "nsis"
     },

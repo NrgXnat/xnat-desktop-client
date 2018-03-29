@@ -1,0 +1,1 @@
+MizerLibs: [D:\xampp\htdocs\_UAR_\real_xnat_app]D:\xampp\htdocs\_UAR_\app.asar.unpacked\libs/
