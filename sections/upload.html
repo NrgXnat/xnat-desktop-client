@@ -56,7 +56,7 @@
                             </div>
                         </div>
 
-                        <button class="btn btn-blue" id="test-upload" type="button">Test upload</button>
+                        <!--<button class="btn btn-blue" id="test-upload" type="button">Test upload</button>-->
 
                         <progress id="dicom_parse_progress" value="0" max="100"></progress>
                         
@@ -94,7 +94,7 @@
                             quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur.</p>
                         <div class="col text-right button-row">
                             <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                            <button type="button" class="btn btn-gray" type="button"><i class="fas fa-angle-left"></i> Prev</button>
+                            <button type="button" class="btn btn-gray js_prev" type="button"><i class="fas fa-angle-left"></i> Prev</button>
                             <button type="button" class="btn btn-blue js_next disabled">Next <i class="fas fa-angle-right"></i></button>
                         </div>
                     </div>
@@ -111,6 +111,8 @@
                                     -->
                                     <th data-field="count" data-sortable="true">File count</th>
                                     <th data-field="size" data-sortable="true">Size (bytes)</th>
+                                    <th data-field="series_id" data-visible="false">Series ID</th>
+
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -119,35 +121,43 @@
                    <div class="row">
                      <div class="col">
                        <p><b>Session summary</b></p>
-                       <p>DICOM_session MR1<br/>
-                         Accession: Flith<br/>
-                         Description: XNAT_01<br/>
-                         Modality: MR<br/>
-                         10 scans in 84 files ( 11.0 MB )
-                       </p>
+                       <p id="session_info"></p>
                      </div>
                      <div class="col">
                        <div class="form-group">
+                           
+                         <label><b>Experiment Label</b></label>
+                         <input type="text" name="experiment_label" id="experiment_label" value="" required>
+                         <br><br>
+                         <!--
                          <label><b>Session notes</b></label>
                          <textarea placeholder="Add Note" rows="4"></textarea>
+                         -->
                        </div>
                      </div>
                    </div>
                    <div class="row">
                      <div class="col text-right button-row">
                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                        <button type="button" class="btn btn-gray" type="button"><i class="fas fa-angle-left"></i> Prev</button>
-                        <button type="button" class="btn btn-blue">Upload</button>
+                        <button type="button" class="btn btn-gray js_prev" type="button"><i class="fas fa-angle-left"></i> Prev</button>
+                        <button type="button" class="btn btn-blue js_upload">Upload</button>
                     </div>
                 </div>
             </div>
             <div class="tab-pane fade" id="nav-summary" role="tabpanel" aria-labelledby="nav-profile-tab">
-                <h2 class="section-title">XNAT_01_01 was successfuly uploaded to the archive</h2>
+                <h2 class="section-title">Summary</h2>
+                
+                <div class="row">
+                    <br><br>
+                    <div class="col" id="summary_info"></div>
+                </div>
+                <!--
                 <div class="row">
                     <div class="col button-row">
                         <button class="btn btn-blue" type="button" data-toggle="modal" data-target="#new-subject">Click here to finish archiving the data</button>
                     </div>
                 </div>
+                
                 <div class="row">
                     <div class="col text-right button-row">
                         <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
@@ -155,6 +165,7 @@
                         <button type="button" class="btn btn-blue">Finish</button>
                     </div>
                 </div>
+                -->
             </div>
         </div>
 

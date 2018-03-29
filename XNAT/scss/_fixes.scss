@@ -36,3 +36,51 @@ body #nprogress {
 body .swal-modal {
     width: 800px;
 }
+
+body #upload_session_date {
+    &::-webkit-calendar-picker-indicator{
+        color: rgba(255,255,255,0);
+        background-color: rgba(255,255,255,0);
+        width: 10px;
+        height: 21px;
+        right: -3px;
+        position: relative;
+    }
+    &:hover::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+    }
+    &::-webkit-inner-spin-button {
+        display: none;
+        -webkit-appearance: none;
+    }
+}
+
+progress[value] {
+    -webkit-appearance: none;
+    appearance: none;
+ 
+    width: 500px;
+    height: 20px;
+    text-align: center;
+
+    &::-webkit-progress-bar {
+        background-color: #eee;
+        border-radius: 2px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25) inset;
+    }
+
+    &::before {
+        content: attr(value) "/" attr(max)
+    }
+
+    &::after {
+        content: '';
+        width: 6px;
+        height: 6px;
+        position: absolute;
+        border-radius: 100%;
+        right: 7px;
+        top: 7px;
+        background-color: white;
+    }
+}

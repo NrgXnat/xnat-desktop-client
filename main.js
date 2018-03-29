@@ -1,4 +1,5 @@
 const path = require('path')
+const mizer = require('./mizer');
 const glob = require('glob')
 const electron = require('electron')
 //const autoUpdater = require('./auto-updater')
@@ -109,3 +110,7 @@ initialize();
 ipcMain.on('redirect', (e, item) =>{
   mainWindow.webContents.send('load:page', item);
 })
+
+exports.anonymize = (source, script, variables) => {
+  mizer.anonymize(source, script, variables);
+};

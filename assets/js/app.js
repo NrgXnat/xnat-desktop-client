@@ -72,6 +72,12 @@ $(function () {
 		$(this).closest('.modal').find('form').eq(0).trigger('submit');
 	});
 
+	$('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+		e.target // newly activated tab
+		e.relatedTarget // previous active tab
+		$('table').bootstrapTable('resetView');
+	})
+
 	/*
 	//upload ?
 	(function () {
