@@ -1,6 +1,6 @@
 {
   "name": "xnatapp",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "XNAT desktop application",
   "main": "main.js",
   "scripts": {
@@ -15,13 +15,16 @@
     "sass:build": "node-sass-chokidar XNAT/scss/style.scss assets/css/style.css --output-style compressed --source-map true",
     "sass:watch": "node-sass-chokidar XNAT/scss/ -o assets/css/ -w -r --output-style compressed --source-map true",
     "test-pack": "build --win --ia32 --dir",
+    "dist-win-x64": "build --win --x64 -p always",
     "dist-win": "build --win -p always",
     "dist-mac": "build --mac -p always",
     "dist-linux": "build --linux -p always",
+    "dist-linux-x64": "build --linux --x64 -p always",
     "package-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --icon=assets/icons/mac/icon.icns --prune=true --out=release-builds",
     "package-win": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=win32 --arch=ia32 --icon=assets/icons/win/icon.ico --prune=true --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"Electron XNAT App\"",
     "package-linux": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=linux --arch=x64 --icon=assets/icons/png/icon.png --prune=true --out=release-builds",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "modify-file": "node modify.js"
   },
   "author": "UAR",
   "license": "ISC",
@@ -60,16 +63,46 @@
     "asarUnpack": [
       "node_modules/java/**/*",
       "node_modules/async/**/*",
+      "node_modules/lodash/**/*",
       "libs/**/*"
     ],
+    "directories": {
+      "buildResources": "build_resources",
+      "output": "dist"
+    },
     "win": {
-      "target": "nsis"
+      "icon": "assets/icons/win/icon.ico",
+      "target": "nsis",
+      "extraResources": [
+        {
+          "from": "build_resources/jre/win-${arch}/jre1.8.0_162",
+          "to": "jre"
+        }
+      ]
     },
     "mac": {
-      "target": "dmg"
+      "icon": "assets/icons/mac/icon.icns",
+      "target": "dmg",
+      "extraResources": [
+        {
+          "from": "build_resources/jre/mac/jre1.8.0_162",
+          "to": "jre"
+        }
+      ]
     },
     "linux": {
-      "target": "AppImage"
+      "icon": "assets/icons/png/icon.png",
+      "target": "AppImage",
+      "extraResources": [
+        {
+          "from": "build_resources/jre/linux-${arch}/jre1.8.0_162",
+          "to": "jre"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": "false",
+      "allowToChangeInstallationDirectory": "true"
     }
   }
 }
