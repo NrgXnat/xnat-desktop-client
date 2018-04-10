@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const dicomParser = require('dicom-parser');
-const loki = require('lokijs');
 const getSize = require('get-folder-size');
 const axios = require('axios');
 const settings = require('electron-settings');
@@ -10,6 +9,8 @@ const swal = require('sweetalert');
 const archiver = require('archiver');
 const mime = require('mime-types');
 
+const remote = require('electron').remote;
+const mainProcess = remote.require('./main.js');
 
 const NProgress = require('nprogress');
 NProgress.configure({ 
@@ -19,28 +20,20 @@ NProgress.configure({
     minimum: 0.03
 });
 
-const remote = require('electron').remote;
-const mainProcess = remote.require('./main.js');
-//const mainProcess = require('../mizer');
 
-/*
-let session_map = new Map();
-let selected_session_id = null;
-let global_date_required, date_required;
-let global_anon_script = '(0008,0070) := "Electron changed this"', project_anon_script;
-let defined_project_exp_labels = [];
-*/
-
-
-
-const db = new loki('xnat_dc.json');
-const studies = db.addCollection('studies', {'unique': ['studyInstanceUid'], 'autoupdate': true});
-
-
-let session_map, selected_session_id, global_anon_script, defined_project_exp_labels, resseting_functions;
+let xnat_server, user_auth, session_map, selected_session_id, global_anon_script, defined_project_exp_labels, resseting_functions;
 let global_date_required, date_required, project_anon_script;
 
 function _init_variables() {
+    xnat_server = settings.get('xnat_server');
+    user_auth = settings.get('user_auth');
+    
+    console.log('----------------------------------------------------');
+    console.log(xnat_server);
+    console.log(user_auth);
+    console.log('----------------------------------------------------');
+
+
     session_map = new Map();
     selected_session_id = null;
     
@@ -48,6 +41,9 @@ function _init_variables() {
 
     defined_project_exp_labels = [];
     
+
+
+    // RESETTING TABS
     resseting_functions = new Map();
 
     // browse files
@@ -95,7 +91,7 @@ function _init_variables() {
         console.log('resseting values in tab 4')
     });
 
-} 
+}
 
 
 
@@ -103,410 +99,528 @@ function _init_variables() {
 
 if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     ipc.send('redirect', 'login.html');
-} else {
-    xnat_server = settings.get('xnat_server');
-    user_auth = settings.get('user_auth');
-
-    $(document).on('page:load', '#upload-section', function(e){
-        console.log('Upload page:load triggered');
-        
-        _init_variables();
-        resetSubsequentTabs();
-        
+    return;
+}
 
 
-        global_allow_create_subject().then(handle_create_subject_response).catch(handle_error);
-        global_require_date().then(handle_global_require_date).catch(handle_error);
-
-        /*
-        get_global_anon_script().then(resp => {
-            global_anon_script = resp.data.ResultSet.Result[0].contents;
-            console.log(resp.data.ResultSet.Result[0].contents);
-        }).catch(handle_error);
-        */
-        
+$(document).on('page:load', '#upload-section', function(e){
+    console.log('Upload page:load triggered');
+    
+    _init_variables();
+    resetSubsequentTabs();
+    
 
 
-        promise_projects()
-            .then(function(resp) {
-                let totalRecords = resp.data.ResultSet.Result.length;
+    global_allow_create_subject().then(handle_create_subject_response).catch(handle_error);
+    global_require_date().then(handle_global_require_date).catch(handle_error);
 
-                let projects = (totalRecords === 1) ? [resp.data.ResultSet.Result[0]] : resp.data.ResultSet.Result;
-                //let projects = resp.data.ResultSet.Result;
+    /*
+    get_global_anon_script().then(resp => {
+        global_anon_script = resp.data.ResultSet.Result[0].contents;
+        console.log(resp.data.ResultSet.Result[0].contents);
+    }).catch(handle_error);
+    */
+    
 
-                console.log(projects)
 
-                $('#upload-project').html('')
+    promise_projects()
+        .then(function(resp) {
+            let totalRecords = resp.data.ResultSet.Result.length;
+
+            let projects = (totalRecords === 1) ? [resp.data.ResultSet.Result[0]] : resp.data.ResultSet.Result;
+            //let projects = resp.data.ResultSet.Result;
+
+            console.log(projects)
+
+            $('#upload-project').html('')
 
 
-                for (let i = 0, len = projects.length; i < len; i++) {
-                    console.log('---', projects[i].id)
-                    $('#upload-project').append(`
-                        <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} [ID:${projects[i].id}]</a></li>
-                    `)
-                }
+            for (let i = 0, len = projects.length; i < len; i++) {
+                console.log('---', projects[i].id)
+                $('#upload-project').append(`
+                    <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} [ID:${projects[i].id}]</a></li>
+                `)
+            }
 
-                // for (let i = 0, len = projects.length; i < len; i++) {
-                //     console.log('---', projects[i].id)
-                //     $('#upload-project').append(`
-                //         <li><a href="javascript:void(0)" data-project_id="${projects[i].ID}">${projects[i].name} [ID:${projects[i].ID}]</a></li>
-                //     `)
-                // }
-
-                
-                // projects.forEach(function(project){
-                //     $('#upload-project').append(`
-                //         <li><a href="javascript:void(0)" data-project_id="${project.ID}">${project.name} [ID:${project.ID}]</a></li>
-                //     `)
-                // })
-                //console.log(resp.data.ResultSet.Result)
-            })
-            .catch(function(err) {
-                console.log(err.message);
-            })
-        
-
-        $('#upload_session_date')
-            .attr('min', '1990-01-01')
-            .attr('max', new Date().toISOString().split('T')[0])
+            // for (let i = 0, len = projects.length; i < len; i++) {
+            //     console.log('---', projects[i].id)
+            //     $('#upload-project').append(`
+            //         <li><a href="javascript:void(0)" data-project_id="${projects[i].ID}">${projects[i].name} [ID:${projects[i].ID}]</a></li>
+            //     `)
+            // }
 
             
-    });
-
-    $(document).on('click', 'a[data-project_id]', function(e){
-        resetSubsequentTabs();
-        
-        $('#subject-session').html('');
-        $('.tab-pane.active .js_next').addClass('disabled');
-
-        $(this).closest('ul').find('a').removeClass('selected');
-        $(this).addClass('selected')
-        let project_id = $(this).data('project_id')
-
-        promise_subjects(project_id)
-            .then(res => {
-                let subjects = res.data.ResultSet.Result;
-                console.log(subjects.length);
-                console.log(res.data.ResultSet.Result[0]);
-
-                subjects.forEach(append_subject_row)
-
-            })
-            .catch(handle_error);
-
-        project_allow_create_subject(project_id).then(handle_create_subject_response).catch(handle_error);
-        project_require_date(project_id).then(handle_require_date).catch(handle_error);
-
-        /*
-        get_project_anon_script(project_id).then(resp => {
-            project_anon_script = resp.data.ResultSet.Result[0].contents;
-            console.log(resp.data.ResultSet.Result[0].contents);
-        }).catch(handle_error);
-        */
-
-        promise_project_experiments(project_id)
-            .then(res => {
-                console.log('----------------promise_project_experiments------------------------');
-                console.log(res.data.ResultSet.totalRecords, res.data.ResultSet.Result)
-                if (res.data.ResultSet.totalRecords) {
-                    defined_project_exp_labels = res.data.ResultSet.Result.map(function(item){
-                        return item.label;
-                    });
-                    console.log(defined_project_exp_labels);
-                }
-                console.log('-----------------------------------------------------------');
-            })
-            .catch(handle_error);
-    });
-
-    $(document).on('click', 'a[data-subject_id]', function(e){
-        $(this).closest('ul').find('a').removeClass('selected');
-        $(this).addClass('selected')
-        
-        $('.tab-pane.active .js_next').removeClass('disabled');
-        
-    });
-
-    $(document).on('click', '.js_next:not(.disabled)', function() {
-        let active_tab_index = $('.nav-item').index($('.nav-item.active'));
-        $('.nav-item').eq(active_tab_index + 1).removeClass('disabled').trigger('click');
-        setTimeout(function() {
-            //swal('Disabling NEXT button');
-            $('.tab-pane.active .js_next').addClass('disabled');
-        }, 100)
-    })
-
+            // projects.forEach(function(project){
+            //     $('#upload-project').append(`
+            //         <li><a href="javascript:void(0)" data-project_id="${project.ID}">${project.name} [ID:${project.ID}]</a></li>
+            //     `)
+            // })
+            //console.log(resp.data.ResultSet.Result)
+        })
+        .catch(function(err) {
+            console.log(err.message);
+        })
     
-    $(document).on('click', '.js_prev', function() {
-        let active_tab_index = $('.nav-item').index($('.nav-item.active'));
-        $('.nav-item').eq(active_tab_index - 1).trigger('click');
-    })
 
+    $('#upload_session_date')
+        .attr('min', '1990-01-01')
+        .attr('max', new Date().toISOString().split('T')[0])
+
+        
+});
+
+$(document).on('click', 'a[data-project_id]', function(e){
+    resetSubsequentTabs();
+    
+    $('#subject-session').html('');
+    $('.tab-pane.active .js_next').addClass('disabled');
+
+    $(this).closest('ul').find('a').removeClass('selected');
+    $(this).addClass('selected')
+    let project_id = $(this).data('project_id')
+
+    promise_subjects(project_id)
+        .then(res => {
+            let subjects = res.data.ResultSet.Result;
+            console.log(subjects.length);
+            console.log(res.data.ResultSet.Result[0]);
+
+            subjects.forEach(append_subject_row)
+
+        })
+        .catch(handle_error);
+
+    project_allow_create_subject(project_id).then(handle_create_subject_response).catch(handle_error);
+    project_require_date(project_id).then(handle_require_date).catch(handle_error);
+
+    /*
+    get_project_anon_script(project_id).then(resp => {
+        project_anon_script = resp.data.ResultSet.Result[0].contents;
+        console.log(resp.data.ResultSet.Result[0].contents);
+    }).catch(handle_error);
+    */
+
+    promise_project_experiments(project_id)
+        .then(res => {
+            console.log('----------------promise_project_experiments------------------------');
+            console.log(res.data.ResultSet.totalRecords, res.data.ResultSet.Result)
+            if (res.data.ResultSet.totalRecords) {
+                defined_project_exp_labels = res.data.ResultSet.Result.map(function(item){
+                    return item.label;
+                });
+                console.log(defined_project_exp_labels);
+            }
+            console.log('-----------------------------------------------------------');
+        })
+        .catch(handle_error);
+});
+
+$(document).on('click', 'a[data-subject_id]', function(e){
+    $(this).closest('ul').find('a').removeClass('selected');
+    $(this).addClass('selected')
+    
+    $('.tab-pane.active .js_next').removeClass('disabled');
+    
+});
+
+$(document).on('click', '.js_next:not(.disabled)', function() {
+    let active_tab_index = $('.nav-item').index($('.nav-item.active'));
+    $('.nav-item').eq(active_tab_index + 1).removeClass('disabled').trigger('click');
+    setTimeout(function() {
+        //swal('Disabling NEXT button');
+        $('.tab-pane.active .js_next').addClass('disabled');
+    }, 100)
+});
+
+$(document).on('click', '.js_prev', function() {
+    let active_tab_index = $('.nav-item').index($('.nav-item.active'));
+    $('.nav-item').eq(active_tab_index - 1).trigger('click');
+});
+
+$(document).on('change', '#file_upload_folder', function(e) {
     let _files = [];
-    $(document).on('change', '#file_upload_folder', function(e) {
-        resetSubsequentTabs();
+    resetSubsequentTabs();
+    
+    console.log(this.files.length);
 
-        console.log(this.files.length);
-        
-        
-        if (this.files.length) {
-            $('#upload_folder').val(this.files[0].path);
+    if (this.files.length) {
+        $('#upload_folder').val(this.files[0].path);
 
-            //$('#table1 tbody').html('');
-
-            let pth = this.files[0].path;
+        let pth = this.files[0].path;
 
 
-            getSizeAsPromised(pth)
-                .then(function(response){
-                    console.log(response);
+        getSizeAsPromised(pth)
+            .then(function(response){
+                console.log(response);
 
-                    if (response > 1000) {
-                        swal({
-                            title: `Are you sure?`,
-                            text: `This folder is ${response} MB in size! Continue?`,
-                            icon: "warning",
-                            buttons: ['Cancel', 'Continue'],
-                            dangerMode: true
-                        })
-                        .then((proceed) => {
-                            if (proceed) {
-                                _files = walkSync(pth);
-                                console.log(_files);
-
-                                dicomParse(_files)
-                                //generate_dicom_html(pth);
-                            } else {
-                                $('#upload_folder, #file_upload_folder').val('');
-                            }
-                        });
-                    } else {
-                        _files = walkSync(pth);
-                        console.log(_files);
-
-                        setTimeout(function() {
-                            dicomParse(_files)
-                        }, 0)
-                        //dicomParse(_files)
-                        //generate_dicom_html(pth);
-                    }
-
-                    
-                })
-                .catch(function(err) {
-                    $('#upload_folder, #file_upload_folder').val('');
-                    
+                if (response > 1000) {
                     swal({
-                        title: `Error`,
-                        text: `You can't select this folder.\n${err.message}`,
-                        icon: "error",
+                        title: `Are you sure?`,
+                        text: `This folder is ${response} MB in size! Continue?`,
+                        icon: "warning",
+                        buttons: ['Cancel', 'Continue'],
                         dangerMode: true
                     })
-                });
-            
-        }
-    })
+                    .then((proceed) => {
+                        if (proceed) {
+                            _files = walkSync(pth);
+                            console.log(_files);
 
-    $(document).on('click', '#test-upload', function () {
-        let project_id = $('a[data-project_id].selected').data('project_id');
-        let subject_id = $('a[data-subject_id].selected').data('subject_id');
-        let expt_label = project_id + '__' + subject_id + '___2009';
+                            dicomParse(_files);
+                        } else {
+                            $('#upload_folder, #file_upload_folder').val('');
+                        }
+                    });
+                } else {
+                    _files = walkSync(pth);
+                    console.log(_files);
 
-
-        swal(project_id + "\n" + subject_id + "\nFiles: " + _files.length);
-
-
-        /*
-        
-        let errors = 0;
-        let warnings = 0;
-
-        for (let i = 0; i < _files.length; i++) {
-            let file = _files[i];
-            displayMessage(`---Reading file ${file}:`);
-
-            try {
-                const dicomFile = fs.readFileSync(file);
-                const dicom = dicomParser.parseDicom(dicomFile, { untilTag: '0x00324000' });
-                const studyDescription = dicom.string('x00081030');
-                const studyInstanceUid = dicom.string('x0020000d');
-
-                const seriesDescription = dicom.string('x0008103e');
-                const seriesInstanceUid = dicom.string('x0020000e');
-                const seriesNumber = dicom.string('x00200011');
-
-                // ++++
-                const modality = dicom.string('x00080060');
-                // ++++
-                console.info({
-                    studyDescription: studyDescription,
-                    studyInstanceUid: studyInstanceUid,
-                    modality: modality
+                    setTimeout(function() {
+                        dicomParse(_files)
+                    }, 0)
+                }
+                
+            })
+            .catch(function(err) {
+                $('#upload_folder, #file_upload_folder').val('');
+                
+                swal({
+                    title: `Error`,
+                    text: `You can't select this folder.\n${err.message}`,
+                    icon: "error",
+                    dangerMode: true
                 })
-
-                //console.log(`studyDescription: "${studyDescription}"`, `studyInstanceUid: ${studyInstanceUid}`, `modality: ${modality}`);
-
-                //saveStudy(studyInstanceUid, studyDescription, sourceFolder, seriesNumber, seriesInstanceUid, seriesDescription, file);
-            } catch (error) {
-                handleError(`There was an error processing the file ${file}`, error);
-                errors++;
-            }
-        }
-        */
+            });
         
-        if (true) {
-            // **********************************************************
-            // create a file to stream archive data to.
-            let zip_path = path.join('C:', 'Temp', 'dicom', 'file_' + Math.random() + '.zip');
+    }
+});
 
-            var output = fs.createWriteStream(zip_path);
-            var archive = archiver('zip', {
-                zlib: { level: 9 } // Sets the compression level.
+$(document).on('input', '#upload_session_date', function(e) {
+    resetSubsequentTabs();
+
+    if (this.validity.valid) {
+        console.log('Valid')
+        console.log(session_map, selected_session_id, session_map.get(selected_session_id), session_map.get(selected_session_id).date);
+        if (date_required) {
+            if ($('#upload_session_date').val().split("-").join('') === session_map.get(selected_session_id).date) {
+                $('.tab-pane.active .js_next').removeClass('disabled');
+            } else {
+                swal({
+                    title: `Error`,
+                    text: 'Entered session date doesn\'t match with date from session!',
+                    icon: "error",
+                    dangerMode: true
+                })
+                $('.tab-pane.active .js_next').addClass('disabled');
+            }
+        } else {
+            $('.tab-pane.active .js_next').removeClass('disabled');
+        }
+        
+        
+    } else {
+        console.log('INVALID')
+        $('.tab-pane.active .js_next').addClass('disabled');
+    }
+});
+
+$(document).on('click', '.js_upload', function() {
+    let selected = $('#table1').bootstrapTable('getSelections');
+    if (selected.length) {
+        let selected_series = selected.map(function(item){
+            return item.series_id;
+        });
+        
+        let expt_label_val = $('#experiment_label').val();
+
+        let url_data = {
+            expt_label: expt_label_val ? expt_label_val : get_default_expt_label(),
+            project_id: $('a[data-project_id].selected').data('project_id'),
+            subject_id: $('a[data-subject_id].selected').data('subject_id')
+        };
+        doUpload(url_data, selected_session_id, selected_series);
+
+    } else {
+        swal({
+            title: `Selection error`,
+            text: `You must select at least one scan series`,
+            icon: "warning",
+            dangerMode: true
+        })
+    }
+});
+
+$(document).on('show.bs.modal', '#new-subject', function(e) {
+    console.log(e)
+
+    let project_id = $('#upload-project a.selected').data('project_id');
+
+    if (!project_id) {
+        swal({
+            text: 'You must select a project first!',
+            icon: "warning",
+            dangerMode: true
+        })
+        .then(value => {
+            $('#new-subject').modal('hide');                
+        });
+
+    } else {
+        $('#new_subject_project_id').html(project_id)
+        $('#form_new_subject input[name=project_id]').val(project_id)
+        $('#form_new_subject input[name=subject_label]').val('')
+        $('#form_new_subject input[name=group]').val('')
+    }
+
+});
+
+$(document).on('submit', '#form_new_subject', function(e) {
+    e.preventDefault();
+    //$('#login_feedback').addClass('hidden')
+
+    let project_id, subject_label, group;
+
+    project_id = $('#form_new_subject input[name=project_id]').val();
+    subject_label = $('#form_new_subject input[name=subject_label]').val();
+    group = $('#form_new_subject input[name=group]').val();
+
+    promise_create_project_subject(project_id, subject_label, group)
+        .then(res => {           
+            console.log(res);
+
+            append_subject_row({
+                ID: res.data,
+                URI: '/data/subjects/' + res.data,
+                insert_date: '',
+                label: subject_label,
+                group: group
             });
 
-            // listen for all archive data to be written
-            // 'close' event is fired only when a file descriptor is involved
-            output.on('close', function () {
-                console.log(archive.pointer() + ' total bytes');
-                console.log('archiver has been finalized and the output file descriptor has closed.');
+            $('#subject-session li:last-child a').trigger('click');
+
+            $('#new-subject').modal('hide');
+
+        })
+        .catch(err => {
+            console.log(err)
+        });
+});
+
+$(document).on('click', 'button[data-session_id]', function(e){
+    $('.tab-pane.active .js_next').removeClass('disabled');
+    selected_session_id = $(this).data('session_id');
+
+    let session_id = selected_session_id,
+        selected_session = session_map.get(session_id),
+        total_files = 0,
+        total_size = 0,
+        table_rows = [];
+
+    selected_session.scans.forEach(function(scan, key) {
+        let scan_size = scan.reduce(function(prevVal, elem) {
+            return prevVal + elem.filesize;
+        }, 0);
+        total_size += scan_size;
+        total_files += scan.length;
+        
+        // use scan description from the last one (or any other from the batch)
+        let scans_description = scan[0].seriesDescription;
+
+        table_rows.push({
+            select: false,
+            series_id: key,
+            description: scans_description,
+            count: scan.length,
+            size: `${(scan_size / 1024 / 1024).toFixed(2)}MB`
+        })
+        
+    });
+
+    console.log('-----------------------------------------------------------');
+    
+    console.log(table_rows);
+    console.log('-----------------------------------------------------------');
+
+    //$('#table1').bootstrapTable('resetView');
+    $('#table1')
+    .bootstrapTable('removeAll')    
+    .bootstrapTable('append', table_rows)
+    .bootstrapTable('resetView');
+
+    console.log(selected_session.studyDescription);
+    console.log(selected_session.modality);
+    console.log(selected_session.studyInstanceUid);
+
+    let expt_label = get_default_expt_label();
+    
+    $('#experiment_label').val(expt_label);
+    
+    $('#session_info').html('')
+    .append(`Accession: ${selected_session.accession}<br>`)
+    .append('Description: ' + selected_session.studyDescription + '<br>')
+    .append(`Modality: ${selected_session.modality}<br>`)
+    .append(`${selected_session.scans.size} scans in ${total_files} files (${(total_size / 1024 / 1024).toFixed(2)}MB)`);
+    
+    swal.close();
+});
+
+// TODO - test code (removal OK)
+$(document).on('click', '#test-upload', function () {
+    let project_id = $('a[data-project_id].selected').data('project_id');
+    let subject_id = $('a[data-subject_id].selected').data('subject_id');
+    let expt_label = project_id + '__' + subject_id + '___2009';
 
 
-                // let zipReadStream = fs.createReadStream(zip_path);
-                // zipReadStream.on('error', function(err) {
-                //     console.log(err);
-                // })
-                // zipReadStream.on('data', function(data){
-                //     console.log(data)
-                // });
+    swal(project_id + "\n" + subject_id + "\nFiles: " + _files.length);
 
 
-                fs.readFile(zip_path, (err, zip_content) => {
-                    if (err) throw err;
-                    axios({
-                        method: 'post',
-                        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive`,
-                        auth: user_auth,
-                        onUploadProgress: function (progressEvent) {
-                            // Do whatever you want with the native progress event
-                            console.log('=======', progressEvent, '===========');
+    /*
+    
+    let errors = 0;
+    let warnings = 0;
 
-                        },
-                        headers: {
-                            'Content-Type': 'application/zip'
-                        },
-                        data: zip_content
-                    })
-                        .then(res => {
-                            console.log('---' + res.data + '---', res);
+    for (let i = 0; i < _files.length; i++) {
+        let file = _files[i];
+        displayMessage(`---Reading file ${file}:`);
 
-                            let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader';
-                            //let commit_url = xnat_server + `/data/prearchive/projects/${project_id}/${subject_id}/${expt_label}?action=commit&SOURCE=uploader`;
+        try {
+            const dicomFile = fs.readFileSync(file);
+            const dicom = dicomParser.parseDicom(dicomFile, { untilTag: '0x00324000' });
+            const studyDescription = dicom.string('x00081030');
+            const studyInstanceUid = dicom.string('x0020000d');
 
-                            axios.post(commit_url, {
-                                auth: user_auth
-                            })
-                            .then(commit_res => {
-                                console.log(commit_res)
-                            })
-                            .catch(err => {
-                                console.log(err)
-                            });
-                            
+            const seriesDescription = dicom.string('x0008103e');
+            const seriesInstanceUid = dicom.string('x0020000e');
+            const seriesNumber = dicom.string('x00200011');
+
+            // ++++
+            const modality = dicom.string('x00080060');
+            // ++++
+            console.info({
+                studyDescription: studyDescription,
+                studyInstanceUid: studyInstanceUid,
+                modality: modality
+            })
+
+            //console.log(`studyDescription: "${studyDescription}"`, `studyInstanceUid: ${studyInstanceUid}`, `modality: ${modality}`);
+
+            
+        } catch (error) {
+            handleError(`There was an error processing the file ${file}`, error);
+            errors++;
+        }
+    }
+    */
+    
+    if (true) {
+        // **********************************************************
+        // create a file to stream archive data to.
+        let zip_path = path.join('C:', 'Temp', 'dicom', 'file_' + Math.random() + '.zip');
+
+        var output = fs.createWriteStream(zip_path);
+        var archive = archiver('zip', {
+            zlib: { level: 9 } // Sets the compression level.
+        });
+
+        // listen for all archive data to be written
+        // 'close' event is fired only when a file descriptor is involved
+        output.on('close', function () {
+            console.log(archive.pointer() + ' total bytes');
+            console.log('archiver has been finalized and the output file descriptor has closed.');
+
+
+            // let zipReadStream = fs.createReadStream(zip_path);
+            // zipReadStream.on('error', function(err) {
+            //     console.log(err);
+            // })
+            // zipReadStream.on('data', function(data){
+            //     console.log(data)
+            // });
+
+
+            fs.readFile(zip_path, (err, zip_content) => {
+                if (err) throw err;
+                axios({
+                    method: 'post',
+                    url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive`,
+                    auth: user_auth,
+                    onUploadProgress: function (progressEvent) {
+                        // Do whatever you want with the native progress event
+                        console.log('=======', progressEvent, '===========');
+
+                    },
+                    headers: {
+                        'Content-Type': 'application/zip'
+                    },
+                    data: zip_content
+                })
+                    .then(res => {
+                        console.log('---' + res.data + '---', res);
+
+                        let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader';
+                        //let commit_url = xnat_server + `/data/prearchive/projects/${project_id}/${subject_id}/${expt_label}?action=commit&SOURCE=uploader`;
+
+                        axios.post(commit_url, {
+                            auth: user_auth
+                        })
+                        .then(commit_res => {
+                            console.log(commit_res)
                         })
                         .catch(err => {
                             console.log(err)
                         });
-                });
-
-
-            });
-
-            // This event is fired when the data source is drained no matter what was the data source.
-            // It is not part of this library but rather from the NodeJS Stream API.
-            // @see: https://nodejs.org/api/stream.html#stream_event_end
-            output.on('end', function () {
-                console.log('Data has been drained');
-            });
-
-            // good practice to catch warnings (ie stat failures and other non-blocking errors)
-            archive.on('warning', function (err) {
-                if (err.code === 'ENOENT') {
-                    // log warning
-                } else {
-                    // throw error
-                    throw err;
-                }
-            });
-
-            // good practice to catch this error explicitly
-            archive.on('error', function (err) {
-                throw err;
-            });
-
-            // pipe archive data to the file
-            archive.pipe(output);
-
-
-            for (let i = 0; i < _files.length; i++) {
-                archive.file(_files[i], { name: path.basename(_files[i]) });
-            }
-
-
-            // finalize the archive (ie we are done appending files but streams have to finish yet)
-            // 'close', 'end' or 'finish' may be fired right after calling this method so register to them beforehand
-            archive.finalize();
-            // **********************************************************
-
-        }
-
-
-    })
-
-
-    $(document).on('input', '#upload_session_date', function(e) {
-        resetSubsequentTabs();
-
-        if (this.validity.valid) {
-            console.log('Valid')
-            console.log(session_map, selected_session_id, session_map.get(selected_session_id), session_map.get(selected_session_id).date);
-            if (date_required) {
-                if ($('#upload_session_date').val().split("-").join('') === session_map.get(selected_session_id).date) {
-                    $('.tab-pane.active .js_next').removeClass('disabled');
-                } else {
-                    swal({
-                        title: `Error`,
-                        text: 'Entered session date doesn\'t match with date from session!',
-                        icon: "error",
-                        dangerMode: true
+                        
                     })
-                    $('.tab-pane.active .js_next').addClass('disabled');
-                }
-            } else {
-                $('.tab-pane.active .js_next').removeClass('disabled');
-            }
-            
-            
-        } else {
-            console.log('INVALID')
-            $('.tab-pane.active .js_next').addClass('disabled');
-        }
-    })
-    
-}
+                    .catch(err => {
+                        console.log(err)
+                    });
+            });
 
-function getSizeAsPromised(pth) {
-    return new Promise(function(resolve, reject) {
-        getSize(pth, function(err, size) {
-            if (err) { 
-                reject(err);
+
+        });
+
+        // This event is fired when the data source is drained no matter what was the data source.
+        // It is not part of this library but rather from the NodeJS Stream API.
+        // @see: https://nodejs.org/api/stream.html#stream_event_end
+        output.on('end', function () {
+            console.log('Data has been drained');
+        });
+
+        // good practice to catch warnings (ie stat failures and other non-blocking errors)
+        archive.on('warning', function (err) {
+            if (err.code === 'ENOENT') {
+                // log warning
             } else {
-                let folder_size = (size / 1024 / 1024).toFixed(2);
-                console.log('--->', pth, folder_size + ' MB');
-                resolve(Math.round(size / 1024 / 1024));
+                // throw error
+                throw err;
             }
         });
-    });
-}
+
+        // good practice to catch this error explicitly
+        archive.on('error', function (err) {
+            throw err;
+        });
+
+        // pipe archive data to the file
+        archive.pipe(output);
+
+
+        for (let i = 0; i < _files.length; i++) {
+            archive.file(_files[i], { name: path.basename(_files[i]) });
+        }
+
+
+        // finalize the archive (ie we are done appending files but streams have to finish yet)
+        // 'close', 'end' or 'finish' may be fired right after calling this method so register to them beforehand
+        archive.finalize();
+        // **********************************************************
+
+    }
+
+
+});
+
+
 
 $.queue = {
     _timer: null,
@@ -542,13 +656,27 @@ $.queue = {
     }
 };
 
+function getSizeAsPromised(pth) {
+    return new Promise(function(resolve, reject) {
+        getSize(pth, function(err, size) {
+            if (err) { 
+                reject(err);
+            } else {
+                let folder_size = (size / 1024 / 1024).toFixed(2);
+                console.log('--->', pth, folder_size + ' MB');
+                resolve(Math.round(size / 1024 / 1024));
+            }
+        });
+    });
+}
+
+// TODO - remove (not used)
 function dicomParseMime(_files) {
     let mime_types = [];
     for (let i = 0; i < _files.length; i++) {
         let file = _files[i]
         console.log(path.basename(file) + ':' + mime.lookup(file));
     }
-
 }
 
 function dicomParse(_files) {
@@ -761,7 +889,7 @@ function dicomParse(_files) {
         
         
                     //console.log(`studyDescription: "${studyDescription}"`, `studyInstanceUid: ${studyInstanceUid}`, `modality: ${modality}`);
-                    //saveStudy(studyInstanceUid, studyDescription, sourceFolder, seriesNumber, seriesInstanceUid, seriesDescription, file);
+                    
                 } catch (error) {
                     handleError(`There was an error processing the file ${file}`, error);
                     errors++;
@@ -874,64 +1002,6 @@ function dicomParse(_files) {
 
 }
 
-$(document).on('click', 'button[data-session_id]', function(e){
-    $('.tab-pane.active .js_next').removeClass('disabled');
-    selected_session_id = $(this).data('session_id');
-
-    let session_id = selected_session_id,
-        selected_session = session_map.get(session_id),
-        total_files = 0,
-        total_size = 0,
-        table_rows = [];
-
-    selected_session.scans.forEach(function(scan, key) {
-        let scan_size = scan.reduce(function(prevVal, elem) {
-            return prevVal + elem.filesize;
-        }, 0);
-        total_size += scan_size;
-        total_files += scan.length;
-        
-        // use scan description from the last one (or any other from the batch)
-        let scans_description = scan[0].seriesDescription;
-
-        table_rows.push({
-            select: false,
-            series_id: key,
-            description: scans_description,
-            count: scan.length,
-            size: `${(scan_size / 1024 / 1024).toFixed(2)}MB`
-        })
-        
-    });
-
-    console.log('-----------------------------------------------------------');
-    
-    console.log(table_rows);
-    console.log('-----------------------------------------------------------');
-
-    //$('#table1').bootstrapTable('resetView');
-    $('#table1')
-    .bootstrapTable('removeAll')    
-    .bootstrapTable('append', table_rows)
-    .bootstrapTable('resetView');
-
-    console.log(selected_session.studyDescription);
-    console.log(selected_session.modality);
-    console.log(selected_session.studyInstanceUid);
-
-    let expt_label = get_default_expt_label();
-    
-    $('#experiment_label').val(expt_label);
-    
-    $('#session_info').html('')
-    .append(`Accession: ${selected_session.accession}<br>`)
-    .append('Description: ' + selected_session.studyDescription + '<br>')
-    .append(`Modality: ${selected_session.modality}<br>`)
-    .append(`${selected_session.scans.size} scans in ${total_files} files (${(total_size / 1024 / 1024).toFixed(2)}MB)`);
-    
-    swal.close();
-});
-
 function get_default_expt_label() {
     let subject_id = $('a[data-subject_id].selected').data('subject_id');
     let modality = session_map.get(selected_session_id).modality;
@@ -948,32 +1018,6 @@ function get_default_expt_label() {
 
     return expt_label;
 }
-
-$(document).on('click', '.js_upload', function() {
-    let selected = $('#table1').bootstrapTable('getSelections');
-    if (selected.length) {
-        let selected_series = selected.map(function(item){
-            return item.series_id;
-        });
-        
-        let expt_label_val = $('#experiment_label').val();
-
-        let url_data = {
-            expt_label: expt_label_val ? expt_label_val : get_default_expt_label(),
-            project_id: $('a[data-project_id].selected').data('project_id'),
-            subject_id: $('a[data-subject_id].selected').data('subject_id')
-        };
-        doUpload(url_data, selected_session_id, selected_series);
-
-    } else {
-        swal({
-            title: `Selection error`,
-            text: `You must select at least one scan series`,
-            icon: "warning",
-            dangerMode: true
-        })
-    }
-});
 
 function getUserHome() {
     return process.env[(process.platform == 'win32') ? 'USERPROFILE' : 'HOME'];
@@ -1336,123 +1380,6 @@ const walkSync = (dir, fileList = []) => {
     return fileList;
 }
 
-function generate_dicom_html(pth) {
-    fs.readdir(pth, (err, files) => {
-        'use strict';
-        //if (err) throw err;
-
-        console.log(files.length, files);
-
-        if (files.length) {
-            
-            let i = 0
-            for (let file of files) {
-                let theID = `${pth}/${file}`;
-                i++;
-
-                fs.stat(theID, (err, stats) => {
-                    //console.log(stats);
-                    if (err) {
-                        //throw err;
-                    }
-                    else if (stats.isDirectory()) {
-                        
-                        
-                        getSize(theID, function(err, size) {
-                            if (err) { 
-                                //throw err; 
-                            }
-                            let folder_size = (size / 1024 / 1024).toFixed(2);
-                            console.log(theID, folder_size + ' MB');
-
-                            fs.readdir(theID, (err, files) => {
-                                let files_count = files.length;
-
-                                $('#table1 tbody').append(`
-                                <tr data-index="${i}">
-                                    <td class="bs-checkbox "><input data-index="${i}" name="btSelectItem_${i}" type="checkbox"></td>
-                                    <td style=""><div class="folder-name">${file}</div></td>
-                                    <td style="">
-                                    <div class="quality-holder">
-                                        <select name="quality_${i}">
-                                            <option value="" disabled="" selected="">Quality label</option>
-                                            <option value="Excellent">Excellent</option>
-                                            <option value="Good">Good</option>
-                                            <option value="Medium">Medium</option>
-                                            <option value="Bad">Bad</option>
-                                        </select>
-                                    </div>
-                                    </td>
-                                    <td style="text-align: center; "><button class="btn btn-blue" type="button" data-toggle="modal" data-target="#note">Edit note</button></td>
-                                    <td style="">${files_count}</td>
-                                    <td style="">${folder_size} MB</td>
-                                </tr>
-
-                                `)
-                            })
-
-                            
-                        });
-                        
-                    }
-                    else {
-                        $('#upload_folder').closest('div').append(`<p style="width: 100%">FILE: ${file}</p><hr>`)
-                    }
-
-                });
-            }
-            
-        }
-        else {
-            swal('Empty Folder')
-        }
-    });
-
-}
-
-let file_size = 0, file_count = 0;
-function get_file_size_and_count(pth) {
-    
-
-    fs.readdir(pth, (err, files) => {
-        'use strict';
-
-        if (files.length) {
-            for (let file of files) {
-                let file_path = `${pth}${file}`;
-                console.log(file_path)
-                fs.stat(file_path, (err, stats) => {
-                    if (err) {
-                        //throw err;
-                        console.error(err)
-                    }
-                    else if (stats.isDirectory()) {
-                        
-                        let all_files = get_file_size_and_count(file_path)
-
-                        file_size += all_files.file_size;
-                        file_count +=  all_files.file_count;
-                    }
-                    else {
-                        file_size += stats.size;
-                        file_count++;
-                    }
-
-                });
-            }
-            
-        }
-
-        return {
-            file_size: file_size,
-            file_count: file_count
-        }
-
-    });
-
-    
-}
-
 function append_subject_row(subject){
     $('#subject-session').append(`
         <li>
@@ -1465,8 +1392,6 @@ function append_subject_row(subject){
         </li>
     `)
 }
-
-
 
 // global anon script
 function get_global_anon_script() {
@@ -1488,7 +1413,6 @@ function global_allow_create_subject() {
         auth: user_auth
     });
 }
-
 
 function project_allow_create_subject(project_id) {
     return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/allow-create-subject?contents=true&accept-not-found=true', {
@@ -1581,202 +1505,6 @@ function promise_create_project_subject(project_id, subject_label, group) {
 }
 
 
-$(document).on('show.bs.modal', '#new-subject', function(e) {
-    console.log(e)
-
-    let project_id = $('#upload-project a.selected').data('project_id');
-
-    if (!project_id) {
-        swal({
-            text: 'You must select a project first!',
-            icon: "warning",
-            dangerMode: true
-        })
-        .then(value => {
-            $('#new-subject').modal('hide');                
-        });
-
-    } else {
-        $('#new_subject_project_id').html(project_id)
-        $('#form_new_subject input[name=project_id]').val(project_id)
-        $('#form_new_subject input[name=subject_label]').val('')
-        $('#form_new_subject input[name=group]').val('')
-    }
-
-});
-
-
-$(document).on('submit', '#form_new_subject', function(e) {
-    e.preventDefault();
-    //$('#login_feedback').addClass('hidden')
-
-    let project_id, subject_label, group;
-
-    project_id = $('#form_new_subject input[name=project_id]').val();
-    subject_label = $('#form_new_subject input[name=subject_label]').val();
-    group = $('#form_new_subject input[name=group]').val();
-
-    promise_create_project_subject(project_id, subject_label, group)
-        .then(res => {           
-            console.log(res);
-
-            /*
-            promise_project_subject(project_id, subject_label)
-                .then(res => {
-                    console.log(res, res.data.items[0].data_fields);
-                    append_subject_row(res.data.items[0].data_fields)
-                })
-            */
-            append_subject_row({
-                ID: res.data,
-                URI: '/data/subjects/' + res.data,
-                insert_date: '',
-                label: subject_label,
-                group: group
-            });
-
-            $('#subject-session li:last-child a').trigger('click');
-
-            $('#new-subject').modal('hide');
-
-        })
-        .catch(err => {
-            console.log(err)
-        });
-})
-
-function get_projects() {
-    axios.get(xnat_server + '/data/projects', {
-        auth: user_auth
-    })
-    .then(res => {
-        const projects = res.data.ResultSet.Result;
-
-        console.log('Projects', projects);
-
-        projects.forEach(function(project) {
-            console.log(project);
-            let li = document.createElement('li');
-            li.innerHTML = project.name + '<br>(ID: ' + project.ID + ')';
-            document.getElementById('projects').appendChild(li);
-        });
-
-        if (projects.length) {
-            document.getElementById('subject_data').innerHTML = '<i class="fa fa-spinner fa-spin"></i> Loading subject data...';
-
-            axios.get(xnat_server + '/data/projects/' + projects[0].ID + '/subjects', {
-                auth: user_auth
-            })
-            .then(res => {
-                console.log('First Subject', res.data.ResultSet.Result[0]);
-                let total_subjects_text = '<b>Total subjects: ' + res.data.ResultSet.Result.length + '</b><br>';
-                document.getElementById('subject_data').innerHTML = total_subjects_text + 'First Subject data:<br>' + JSON.stringify(res.data.ResultSet.Result[0]);
-            })
-            .catch(err => {
-                console.log(err)
-            });
-        } else {
-            let text = document.createTextNode('No projects with read permissions')
-            document.getElementById('output').appendChild(text);
-        }
-
-        
-    })
-    .catch(err => {
-        console.log(err)
-    });
-}
-
-
-
-/**
- * Indicates whether the particular study instance UID exists in the database.
- *
- * @param studyInstanceUid The study instance UID to search for.
- * @returns {boolean}
- */
-const hasStudy = (studyInstanceUid) => {
-    return getStudyCount(studyInstanceUid) > 0;
-};
-
-
-
-/**
- * Returns the number of studies in the database. If a study instance UID is specified, the result will be either 0 or
- * 1. This is used by the {@link #hasStudy()} method.
- *
- * @param studyInstanceUid An optional study instance UID.
- *
- * @returns {int}
- */
-const getStudyCount = (studyInstanceUid = '') => {
-    return studyInstanceUid ? studies.count({'studyInstanceUid': studyInstanceUid}) : studies.count();
-};
-
-
-/**
- * Returns all file paths stored in the database. If one or more study instance UIDs is specified, only file paths
- * associated with those sessions are returned.
- *
- * @param studyInstanceUids One or more study instance UIDs (optional).
- */
-const getFilePaths = (studyInstanceUids = []) => {
-    // Base query on whether or not we got any studies.
-    let results = studyInstanceUids.length > 0 ? studies.find({'studyInstanceUid': {'$in': studyInstanceUids}}) : studies.find();
-    return results.map(study => study.series)
-        .map(series => Object.values(series))
-        .reduce((acc, cur) => acc.concat(cur), [])
-        .reduce((acc, cur) => acc.concat(cur.files), []);
-};
-
-const saveStudy = (studyInstanceUid, studyDescription, sourceFolder, seriesNumber, seriesInstanceUid, seriesDescription, file) => {
-    displayMessage(`Saving study ${studyDescription} series ${seriesNumber}: ${seriesDescription}`);
-    const study = getOrCreateStudy(studyInstanceUid, studyDescription, sourceFolder);
-    const series = study['series'];
-    const relative = path.relative(sourceFolder, file);
-    if (!(seriesNumber in series)) {
-        series[seriesNumber] = {
-            'seriesNumber': seriesNumber,
-            'seriesInstanceUid': seriesInstanceUid,
-            'seriesDescription': seriesDescription,
-            'files': [relative]
-        };
-    } else {
-        series[seriesNumber].files.push(relative);
-    }
-
-    // Don't need to do explicit update if we have the study already because autoupdate is on.
-    if (!hasStudy(studyInstanceUid)) {
-        studies.insert(study);
-    }
-};
-
-const getOrCreateStudy = (studyInstanceUid, studyDescription, sourceFolder) => {
-    const existing = studies.findOne({'studyInstanceUid': studyInstanceUid});
-    return existing || {
-        'studyInstanceUid': studyInstanceUid,
-        'studyDescription': studyDescription,
-        'sourceFolder': sourceFolder,
-        'series': new Map()
-    };
-};
-
-
-const renderStudies = () => {
-    try {
-        sessions.innerHTML = hasStudies() ? studies.find().map(convertToElement).join('') : '(no sessions found)';
-        if (hasStudies) {
-            sessions.classList.remove('none');
-        } else {
-            sessions.classList.add('none');
-        }
-        displayMessage('');
-        clearSessionsButton.disabled = !hasStudies;
-    } catch (error) {
-        displayMessage("There was an error trying to render the studies list || " + JSON.stringify(error), true);
-    }
-};
-
 const displayMessage = (text = '', isError = false) => {
     if (isError) {
         console.error(text)
@@ -1794,11 +1522,6 @@ const handleError = (message, error = '') => {
         displayMessage(`${message}: ${error.message}`.trim(), true);
     }
 };
-
-
-const clearStudies = () => {
-    studies.clear();
-}
 
 function resetSubsequentTabs() {
     console.log('resseting tabs after: ' + $('#upload-section #nav-tab .nav-link.active').index());

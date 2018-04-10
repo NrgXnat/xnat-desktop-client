@@ -30,9 +30,10 @@
   "license": "ISC",
   "dependencies": {
     "archiver": "^2.1.1",
-    "axios": "^0.17.1",
+    "axios": "^0.18.0",
+    "blockui-npm": "^1.0.0",
     "bootstrap": "^4.0.0",
-    "bootstrap-table": "^1.11.2",
+    "bootstrap-table": "^1.12.1",
     "dicom-parser": "^1.7.6",
     "electron-settings": "^3.1.4",
     "font-awesome": "^4.7.0",
@@ -46,6 +47,7 @@
     "mime-types": "^2.1.18",
     "nprogress": "^0.2.0",
     "popper.js": "^1.12.9",
+    "promise.prototype.finally": "^3.1.0",
     "sweetalert": "^2.1.0",
     "x-editable": "^1.5.1"
   },
@@ -85,7 +87,7 @@
       "target": "dmg",
       "extraResources": [
         {
-          "from": "build_resources/jre/mac/jre1.8.0_162",
+          "from": "build_resources/jre/mac/jre1.8.0_162.jre",
           "to": "jre"
         }
       ]

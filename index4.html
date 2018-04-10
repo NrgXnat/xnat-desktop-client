@@ -1,32 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
 
-  <title>XNAT Desktop Client</title>
-  <!-- <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+<head>
+    <meta charset="utf-8">
+
+    <title>XNAT Desktop Client</title>
+    <!-- <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="node_modules/font-awesome/css/font-awesome.min.css">
   <link rel="stylesheet" href="assets/css/global.css"> -->
 
 
-  
-  <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="node_modules/bootstrap-table/dist/bootstrap-table.min.css">
-  <link rel="stylesheet" href="node_modules/x-editable/dist/bootstrap3-editable/css/bootstrap-editable.css">
-  <link rel="stylesheet" href="node_modules/nprogress/nprogress.css">
 
-  <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/cupertino/jquery-ui.css">
-  
-  <link href="assets/css/style.css" rel="stylesheet">
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="node_modules/bootstrap-table/dist/bootstrap-table.min.css">
 
-  <link rel="import" href="sections/login.html">
-  <link rel="import" href="sections/projects.html">
-  <link rel="import" href="sections/settings.html">
-  
-  <link rel="import" href="sections/home.html">
-  <link rel="import" href="sections/upload.html">
+    <link rel="stylesheet" href="node_modules/x-editable/dist/bootstrap3-editable/css/bootstrap-editable.css">
+    <link rel="stylesheet" href="node_modules/nprogress/nprogress.css">
+
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/cupertino/jquery-ui.css">
+
+    <link href="assets/css/style.css" rel="stylesheet">
+
+    <link rel="import" href="sections/login.html">
+    <link rel="import" href="sections/projects.html">
+    <link rel="import" href="sections/settings.html">
+    <link rel="import" href="sections/home.html">
+    <link rel="import" href="sections/upload.html">
 
 </head>
+
 <body>
 
     <header id="header_menu">
@@ -38,13 +40,15 @@
                 <a href="upload.html">Upload</a>
                 <a href="#">Download</a>
                 <a href="#" class="monitor">Monitor</a>
-                <a href="projects.html" class="">Projects</a>
+                <!-- <a href="projects.html" class="">Projects</a> -->
             </div>
         </div>
-        <div class="server-name hidden-by-default hidden" id="menu--server">XNATserver1.com</div>
+        <div class="server-name hidden-by-default hidden" id="menu--server"></div>
         <a href="sections/settings.html" class="settings"><i class="fas fa-cog"></i></a>
         <div class="user-holder hidden-by-default hidden">
-            <a href="#" class="user"><span class="name">Welcome <span id="menu--username"></span></span> <i class="fas fa-user"></i></a>
+            <a href="#" class="user"><span class="name">Welcome <span id="menu--username"></span></span> 
+                <i class="fas fa-user"></i>
+            </a>
             <div class="user-dropdown">
                 <span class="username" id="menu--username-server"></span>
                 <button class="btn btn-darkblue" id="menu--logout">Logout</button>
@@ -52,35 +56,66 @@
         </div>
     </header>
 
-  <main class="content js-content"></main>
-
-  <script>
-    require('./renderer-process/index3')
-  </script>
+    <main class="content js-content"></main>
 
 
-<!-- Bootstrap core JavaScript
+
+
+    <!-- Bootstrap core JavaScript
   ================================================== -->
-  <script>window.$ = window.jQuery = require('jquery');</script>
+    <script>
+        window.$ = window.jQuery = require('jquery');
+        Helper = require('./assets/js/helpers');
+    </script>
+    <script src="node_modules/blockui-npm/jquery.blockUI.js"></script>
+
+    <script src="node_modules/popper.js/dist/umd/popper.min.js"></script>
+    <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script src="node_modules/bootstrap-table/dist/bootstrap-table.js"></script>
+    <!-- <script src="node_modules/bootstrap-table/dist/extensions/flat-json/bootstrap-table-flat-json.min.js"></script> -->
+
+    <script src="node_modules/bootstrap-table/dist/extensions/filter-control/bootstrap-table-filter-control.min.js"></script>
+
+    <!-- <script src="node_modules/nprogress/nprogress.js"></script> -->
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+
+    <script src="assets/js/app.js"></script>
+
+    <script>
+        $.blockUI.defaults.message = '<h3><i class="fas fa-circle-notch fa-spin"></i> Processing...</h3>';
+        $.blockUI.defaults.css = {
+            padding: '10px 10px 5px',
+            margin: 0,
+            width: '30%',
+            top: '40%',
+            left: '35%',
+            textAlign: 'center',
+            color: '#03509e',
+            border: '3px solid #f4f4f4',
+            borderRadius: '10px',
+            backgroundColor: '#f4f4f4',
+            cursor: 'wait'
+        };
+        $.blockUI.defaults.overlayCSS = {
+            backgroundColor: '#fff',
+            opacity: 0.6,
+            cursor: 'wait'
+        };
+        // z-index for the blocking overlay 
+        $.blockUI.defaults.baseZ = 1000;
+
+        $.blockUI.defaults.fadeIn = 0;
+        $.blockUI.defaults.fadeOut = 100;
+
+        $.blockUI.defaults.ignoreIfBlocked = true;
+    </script>
 
 
-  <script src="node_modules/popper.js/dist/umd/popper.min.js"></script>
-  <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
-  <script src="node_modules/bootstrap-table/dist/bootstrap-table.js"></script>
-  <script src="node_modules/bootstrap-table/dist/extensions/flat-json/bootstrap-table-flat-json.min.js"></script>
-  
-  <script src="node_modules/bootstrap-table/dist/extensions/filter-control/bootstrap-table-filter-control.min.js"></script>
-
-  <!-- <script src="node_modules/nprogress/nprogress.js"></script> -->
-
-  <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
-
-  <script src="assets/js/app.js"></script>
-
-  <script>
-      
-  </script>
-  
+    <script>
+        require('./renderer-process/index3')
+    </script>
 
 </body>
+
 </html>

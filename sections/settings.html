@@ -22,7 +22,12 @@
                     </p>
 
 
-                    <table class="table table-bordered" id="user_table" data-toggle="table" data-filter-control="true" data-click-to-select="true">
+                    <!--
+                    <table class="table table-bordered" 
+                        id="user_table" 
+                        data-toggle="table" 
+                        data-filter-control="false" 
+                        data-click-to-select="true">
                         <thead>
                             <tr>
                                 <th data-field="server" data-filter-control="input" data-sortable="true">Server</th>
@@ -30,10 +35,12 @@
                                 <th data-field="actions" data-escape="false">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-
-                        </tbody>
+                        <tbody></tbody>
                     </table>
+
+                    -->
+                    
+                    <table class="table table-bordered filtered-table" id="user_table"></table>
 
                     <div class="col-12 text-center">
                         <button class="connect btn btn-bigfriendly settings-small" type="button" data-toggle="modal" data-target="#user_connection"><span class="plus"></span><span class="db"></span> ADD NEW XNAT SERVER</button>
@@ -138,15 +145,10 @@
     </script>
 
     <script type="text/javascript">
-        //window.$ = window.jQuery = require('jquery');
-        var renderer = require('./renderer-process/settings')
-        var { mile_voli_disko, mile_voli_kolo } = renderer;
+        require('./renderer-process/settings')
 
-        //console.log($('#user-table > tbody').children().length)
-        $('#settings-section').trigger('page:load');
-
-
-        mile_voli_disko('Marko')
-        mile_voli_kolo('Darko')
+        //$('#settings-section').trigger('page:load');
+        Helper.pageLoadTrigger('#settings-section'); 
+        
     </script>
 </template>

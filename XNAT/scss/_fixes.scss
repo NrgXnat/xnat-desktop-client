@@ -1,5 +1,9 @@
 $nprogress_color: #12BB00; 
 
+.hidden {
+    display: none;
+}
+
 body #nprogress {
     .bar {
         z-index: 99999;
@@ -83,4 +87,19 @@ progress[value] {
         top: 7px;
         background-color: white;
     }
+}
+
+#user_table {
+    .filter-control {
+        padding: 0 4px 4px 4px;
+        input {
+            padding: .125rem .75rem .125rem 30px;
+            border-radius: .25rem;
+        }
+        &::before {
+            left: 11px;
+            top: 4px;
+        }
+    }
+	
 }

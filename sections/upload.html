@@ -18,14 +18,14 @@
                         
                         <h2 class="section-title">Select project to which you will upload session</h2>
                         <div class="filter-control">
-                            <input type="text" id="upload-project-filter" onkeyup="myFunction()" placeholder="Filter" class="form-control">
+                            <input type="text" id="upload-project-filter" onkeyup="" placeholder="Filter" class="form-control">
                         </div>
                         <ul id="upload-project" class="choose-list">
                             
                         </ul>
                         <h2 class="section-title">Select the subject for the session to be upload</h2>
                         <div class="filter-control">
-                            <input type="text" id="subject-session-filter" onkeyup="myFunction()" placeholder="Filter" class="form-control">
+                            <input type="text" id="subject-session-filter" onkeyup="" placeholder="Filter" class="form-control">
                         </div>
                         <ul id="subject-session" class="choose-list"></ul>
                         <div class="row">
@@ -263,11 +263,9 @@
             //     }
             // });
 
-            function myFunction() {
-                
-            }
 
-            $('#upload-section').trigger('page:load');
+            //$('#upload-section').trigger('page:load');
+            Helper.pageLoadTrigger('#upload-section'); 
         </script>
 
     </section>

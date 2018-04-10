@@ -4,8 +4,6 @@ const settings = require('electron-settings')
 const ipc = require('electron').ipcRenderer
 
 
-const error_holder = document.getElementById('login_feedback');
-
 let xnat_server = '';
 let user_auth = {
     username: '',
@@ -13,23 +11,66 @@ let user_auth = {
 }
 
 
-document.addEventListener('submit', function(e) {
-    switch (e.target.id) {
-        case 'loginForm':
-            e.preventDefault();
-            error_holder.classList.add('hidden');
-            xnat_server = document.getElementById('server').value;
-            user_auth = {
-                username: document.getElementById('username').value,
-                password: document.getElementById('password').value
-            }
-            console.log(user_auth);
-            login(xnat_server, user_auth);
-            break;
-        default:
-            break;
-        
+$(document).on('page:load', '#login-section', function(e){
+    let logins = settings.get('logins');
+
+    if (logins.length) {
+        logins.forEach(function(el) {
+            var server_name = el.server.split('//');
+            $('#known-users').append(`
+                <button data-username="${el.username}" data-server="${el.server}" 
+                    class="connect btn btn-known-user btn-lg btn-block" type="button" 
+                    data-toggle="modal" data-target="#login">
+                    <img src="assets/images/xnat-avatar.jpg" />
+                    <div >${server_name[1]}</br>
+                        <span class="user-name">User: ${el.username}</span>
+                    </div>
+                </button>
+            `)
+        })
     }
+
+});
+
+$(document).on('show.bs.modal', '#login', function(e) {
+    //get data-id attribute of the clicked element
+    let username = $(e.relatedTarget).data('username');
+    $(e.currentTarget).find('input[name="username"]').val(username);
+
+    let server = $(e.relatedTarget).data('server');
+    $(e.currentTarget).find('input[name="server"]').val(server);
+
+    let focused_field = server && username ? '#password' : '#server';
+    setTimeout(function(){
+        $(focused_field).focus();
+    }, 500);
+
+    if (typeof username == 'undefined') {
+        $('#remove_login').hide();
+    } else {
+        $('#remove_login').show();
+    }
+});
+
+$(document).on('hide.bs.modal', '#login', function(e) {
+    $('#login_feedback').addClass('hidden');
+    $(e.currentTarget).find('input[name="password"]').val('');
+});
+
+$(document).on('submit', '#loginForm', function(e){
+    Helper.blockModal('#login');
+    e.preventDefault();
+
+    $('#login_feedback').addClass('hidden');
+
+    let my_xnat_server = $('#server').val();
+
+    let my_user_auth = {
+        username: $('#username').val(),
+        password: $('#password').val()
+    }
+
+    login(my_xnat_server, my_user_auth);
 });
 
 $(document).on('click', '#remove_login', function(e){
@@ -85,11 +126,11 @@ $(document).on('click', '#remove_login', function(e){
 
 
 function login(xnat_server, user_auth) {
-    console.log(xnat_server, user_auth);
     axios.get(xnat_server + '/data/auth', {
         auth: user_auth
     })
     .then(res => {
+        console.log(res);
         settings.set('xnat_server', xnat_server);
         settings.set('user_auth', user_auth);
 
@@ -122,33 +163,51 @@ function login(xnat_server, user_auth) {
         } else if (found == 0) { // found first
             // do nothing
         } else { // found not first
-            logins.splice(found, 1)
+            logins.splice(found, 1);
             logins.unshift({
                 server: xnat_server,
                 username: user_auth.username
             });
         }
-        settings.set('logins', logins);
-
+        settings.set('logins', logins);      
         
-        
+        Helper.unblockModal('#login');
+        $('#login').modal('hide');
 
-        $('#login').modal('hide')
-        $("#header_menu .hidden").each(function(){
-            $(this).removeClass('hidden');
-        })
-        $("#menu--server").html(xnat_server);
-        $("#menu--username").html(user_auth.username);
-        $('#menu--username-server').html(user_auth.username + '@' + xnat_server);
+        Helper.UI.userMenuShow();
 
         setTimeout(notify, 100);
-
         ipc.send('redirect', 'home.html');
+
+        /*
+        axios.get(xnat_server + '/data/JSESSION', {
+            auth: user_auth
+        })
+        .then(res => {
+            console.log('JSESSION: ', res.data);
+
+            axios.get(xnat_server + '/data/token;jsessionid='+res.data, {
+                auth: user_auth
+            })
+            .then(res => {
+                console.log('TOKEN', res);
+                
+                setTimeout(notify, 100);
+                ipc.send('redirect', 'home.html');
+            })
+            .catch(err => {
+                console.log(err, err.response);
+            });
+            
+        })
+        .catch(err => {
+            console.log(err, err.response);
+        });
+        */
+        
     })
     .catch(error => {
-        
         let msg;
-
 
         if (error.response) {
             // The request was made and the server responded with a status code
@@ -179,10 +238,10 @@ function login(xnat_server, user_auth) {
             msg = error.message;
           }
           //console.log(error.config);
+          Helper.unblockModal('#login');
 
-          console.log(error_holder);
-          document.getElementById('login_feedback').classList.remove("hidden");
-          document.getElementById('login_error_message').innerHTML = msg;
+          $('#login_feedback').removeClass('hidden');
+          $('#login_error_message').html(msg);
     });
 }
 

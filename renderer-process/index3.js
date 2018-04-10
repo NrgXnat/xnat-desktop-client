@@ -20,22 +20,20 @@ logins = settings.has('logins') ? settings.get('logins') : [];
 settings.set('logins', logins);
 
 
-window.$ = window.jQuery = require('jquery');
 
 if (!settings.has('user_auth')) {
-    $('.hidden-by-default').each(function(){
-        $(this).addClass('hidden');
-    })
+    Helper.UI.userMenuHide();
 } else {
-    $('.hidden-by-default').each(function(){
-        $(this).removeClass('hidden');
-    })
-    $("#menu--server").html(settings.get('xnat_server'));
-    $("#menu--username").html(settings.get('user_auth').username);
-    $('#menu--username-server').html(settings.get('user_auth').username + '@' + settings.get('xnat_server'));
+    Helper.UI.userMenuShow();
+
+    // $("#menu--server").html(settings.get('xnat_server'));
+    // $("#menu--username").html(settings.get('user_auth').username);
+    // $('#menu--username-server').html(settings.get('user_auth').username + '@' + settings.get('xnat_server'));
+    
 }
 
-//let active_page = settings.has('active_page') ? settings.get('active_page') : 'login.html';
+console.log('ACTIVE PAGE: ', active_page);
+
 
 
 
@@ -73,18 +71,6 @@ function loadPage(page) {
 
 }
 
-// ===============
-$(document).on('click', 'a', function(e){
-    const href = $(this).attr('href');
-    if (href.indexOf('http') !== 0 && href !== '#') {
-        e.preventDefault();
-        loadPage(href);
-    }
-})
-
-$(document).on('click', '#menu--logout', function(){
-    logout();
-})
 
 function logout() {
     let xnat_server = settings.get('xnat_server');
@@ -162,18 +148,28 @@ function clearLoginSession() {
     settings.delete('user_auth')
     settings.delete('xnat_server')
 
-    $('.hidden-by-default').each(function(){
-        $(this).addClass('hidden');
-    })
+    Helper.UI.userMenuHide();
 
     loadPage('login.html');
     //ipc.send('redirect', 'login.html');
 }
 
+// ===============
+$(document).on('click', 'a', function(e){
+    const href = $(this).attr('href');
+    if (href.indexOf('http') !== 0 && href !== '#') {
+        e.preventDefault();
+        loadPage(href);
+    }
+})
+
+$(document).on('click', '#menu--logout', function(){
+    logout();
+})
+
+
 ipc.on('load:page',function(e, item){
     console.log('Loading page ... ' + item)
     loadPage(item)
 });
-
-
 
