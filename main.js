@@ -13,17 +13,17 @@ const {app, BrowserWindow, ipcMain, shell, Tray} = electron;
 //process.env.NODE_ENV = 'production';
 
 
-
 const debug = /--debug/.test(process.argv[2])
-
 const iconPath = path.join(__dirname, 'assets/icons/png/tray-icon-256.png');
-
 app.setName('XNAT Desktop Client v' + app.getVersion());
 
 //process.mas - A Boolean. For Mac App Store build, this property is true, for other builds it is undefined.
 if (process.mas) app.setName('XNAT Desktop Client v' + app.getVersion())
 
 var mainWindow = null
+
+var downloadWindow = null;
+var uploadWindow = null;
 
 function initialize () {
   var shouldQuit = makeSingleInstance()
@@ -38,7 +38,14 @@ function initialize () {
       height: 840,
       title: app.getName(),
       icon: iconPath
-    }
+    };
+
+    var childOptions = {
+      width: 1200,
+      height: 700,
+      alwaysOnTop: true,
+      show: false
+    };
 
     
 
@@ -49,16 +56,42 @@ function initialize () {
     mainWindow = new BrowserWindow(windowOptions)
     mainWindow.loadURL(path.join('file://', __dirname, '/index4.html'))
 
+    
+    childOptions.top = mainWindow;
+
+    console.log(childOptions);
+    
+    
+    uploadWindow = new BrowserWindow(childOptions)
+    uploadWindow.on('closed', function () {
+      uploadWindow = null
+    });
+    uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload.html'));
+    //uploadWindow.show();
+
+    /*
+    downloadWindow = new BrowserWindow(childOptions)
+    downloadWindow.on('closed', function () {
+      downloadWindow = null
+    });
+    downloadWindow.loadURL(path.join('file://', __dirname, '/sections/_download.html'));
+    downloadWindow.show();
+    */
+
     // Launch fullscreen with DevTools open, usage: npm run debug
     if (debug) {
       mainWindow.webContents.openDevTools()
       mainWindow.maximize()
       require('devtron').install()
+
+      uploadWindow.webContents.openDevTools()
+      //uploadWindow.webContents.maximize()
     }
 
     mainWindow.on('closed', function () {
       mainWindow = null
-    })
+    });
+
   }
 
   app.on('ready', function () {
@@ -113,6 +146,10 @@ initialize();
 // Catch Item Add
 ipcMain.on('redirect', (e, item) =>{
   mainWindow.webContents.send('load:page', item);
+})
+
+ipcMain.on('log', (e, item) =>{
+  mainWindow.webContents.send('console:log', item);
 })
 
 exports.anonymize = (source, script, variables) => {
@@ -171,3 +208,8 @@ function fix_java_path() {
 
   }
 }
+
+global.test_var = [{
+  value: 1,
+  file: __filename
+}]

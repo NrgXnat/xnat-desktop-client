@@ -227,6 +227,9 @@ header {
 	    left: 0;
 	}
 }
+.fixed-table-container .fixed-table-header thead th.right-aligned .th-inner {
+	padding: 5px 22px 11px 0;
+}
 .fixed-table-container thead th .th-inner {
 	padding: 5px 8px 11px;
 	&::before{

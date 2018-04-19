@@ -26,6 +26,8 @@
     <link rel="import" href="sections/settings.html">
     <link rel="import" href="sections/home.html">
     <link rel="import" href="sections/upload.html">
+    <link rel="import" href="sections/download.html">
+    <link rel="import" href="sections/progress.html">
 
 </head>
 
@@ -38,8 +40,8 @@
             <div class="menu-dropdown">
                 <a href="home.html">Home</a>
                 <a href="upload.html">Upload</a>
-                <a href="#">Download</a>
-                <a href="#" class="monitor">Monitor</a>
+                <a href="download.html">Download</a>
+                <a href="progress.html" class="monitor">Monitor</a>
                 <!-- <a href="projects.html" class="">Projects</a> -->
             </div>
         </div>
@@ -65,6 +67,7 @@
   ================================================== -->
     <script>
         window.$ = window.jQuery = require('jquery');
+        store = require('store2');
         Helper = require('./assets/js/helpers');
     </script>
     <script src="node_modules/blockui-npm/jquery.blockUI.js"></script>
@@ -106,7 +109,7 @@
         $.blockUI.defaults.baseZ = 1000;
 
         $.blockUI.defaults.fadeIn = 0;
-        $.blockUI.defaults.fadeOut = 100;
+        $.blockUI.defaults.fadeOut = 0; // jquery throws an error on modal block if this value is > 0
 
         $.blockUI.defaults.ignoreIfBlocked = true;
     </script>

@@ -173,3 +173,9 @@ ipc.on('load:page',function(e, item){
     loadPage(item)
 });
 
+
+ipc.on('console:log',function(e, item){
+    console.log('================ console:log ================');
+    console.log(item);
+});
+

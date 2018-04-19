@@ -1,6 +1,6 @@
 {
   "name": "xnatapp",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "XNAT desktop application",
   "main": "main.js",
   "scripts": {
@@ -45,11 +45,14 @@
     "lodash": "^4.17.5",
     "lokijs": "^1.5.3",
     "mime-types": "^2.1.18",
+    "mkdir-recursive": "^0.4.0",
     "nprogress": "^0.2.0",
     "popper.js": "^1.12.9",
     "promise.prototype.finally": "^3.1.0",
+    "store2": "^2.7.0",
     "sweetalert": "^2.1.0",
-    "x-editable": "^1.5.1"
+    "x-editable": "^1.5.1",
+    "xml2js": "^0.4.19"
   },
   "devDependencies": {
     "devtron": "^1.4.0",
@@ -105,6 +108,16 @@
     "nsis": {
       "oneClick": "false",
       "allowToChangeInstallationDirectory": "true"
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          ".xnt",
+          ".xml"
+        ],
+        "description": "XNAT file",
+        "role": "none"
+      }
+    ]
   }
 }

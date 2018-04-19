@@ -90,7 +90,9 @@ $(function () {
 		$('table').bootstrapTable('resetView');
 	})
 	*/
-
+	$(document).on('shown.bs.tab', function (e) {
+		$('.bootstrap-table table').bootstrapTable('resetView');
+	});
 	
 	/*
 	//upload ?

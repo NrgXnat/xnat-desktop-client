@@ -3,6 +3,7 @@ const path = require('path');
 const dicomParser = require('dicom-parser');
 const getSize = require('get-folder-size');
 const axios = require('axios');
+require('promise.prototype.finally').shim();
 const settings = require('electron-settings');
 const ipc = require('electron').ipcRenderer;
 const swal = require('sweetalert');
@@ -61,7 +62,7 @@ function _init_variables() {
     resseting_functions.set(2, function(){
         console.log('resseting values in tab 2')
 
-        $('#upload_session_date').val('')
+        $('#upload_session_date').val('');
 
         if (date_required != undefined) {
             $('#upload_session_date').prop('required', date_required);
@@ -91,6 +92,60 @@ function _init_variables() {
         console.log('resseting values in tab 4')
     });
 
+    _init_img_sessions_table();
+    _UI();
+}
+
+function _UI() {
+    let server_name = xnat_server.split('//')[1];
+    $('#server_name_tlbr').text(`[${server_name}]`);
+}
+
+function _init_img_sessions_table() {
+    $('#image_session').bootstrapTable({
+        height: 300,
+        columns: [
+            {
+                field: 'select',
+                title: 'Upload',
+                checkbox: true
+            }, 
+            {
+                field: 'description',
+                title: 'Series Description',
+                sortable: true
+            }, 
+            {
+                field: 'count',
+                title: 'File Count',
+                sortable: true,
+                align: 'right',
+                class: 'right-aligned'
+            }, 
+            {
+                field: 'size',
+                title: 'Size (bytes)',
+                sortable: true,
+                align: 'right',
+                class: 'right-aligned',
+                formatter: function(value, row, index, field) {
+                    return `${(value / 1024 / 1024).toFixed(2)} MB`;
+                }
+            }, 
+            {
+                field: 'series_id',
+                title: 'Series ID',
+                visible: false
+            }
+        ],
+        data: [{
+            select: false,
+            description: 'Some text',
+            count: 12,
+            size: 1526257,
+            series_id: '12345678'
+        }]
+    });
 }
 
 
@@ -169,7 +224,7 @@ $(document).on('page:load', '#upload-section', function(e){
         
 });
 
-$(document).on('click', 'a[data-project_id]', function(e){
+$(document).on('click', '#upload-section a[data-project_id]', function(e){
     resetSubsequentTabs();
     
     $('#subject-session').html('');
@@ -325,7 +380,7 @@ $(document).on('input', '#upload_session_date', function(e) {
 });
 
 $(document).on('click', '.js_upload', function() {
-    let selected = $('#table1').bootstrapTable('getSelections');
+    let selected = $('#image_session').bootstrapTable('getSelections');
     if (selected.length) {
         let selected_series = selected.map(function(item){
             return item.series_id;
@@ -376,34 +431,47 @@ $(document).on('show.bs.modal', '#new-subject', function(e) {
 
 $(document).on('submit', '#form_new_subject', function(e) {
     e.preventDefault();
-    //$('#login_feedback').addClass('hidden')
+    let $form = $(e.target);
 
-    let project_id, subject_label, group;
+    if ($form.data('processing') !== true) {
+        $form.data('processing', true);
 
-    project_id = $('#form_new_subject input[name=project_id]').val();
-    subject_label = $('#form_new_subject input[name=subject_label]').val();
-    group = $('#form_new_subject input[name=group]').val();
-
-    promise_create_project_subject(project_id, subject_label, group)
-        .then(res => {           
-            console.log(res);
-
-            append_subject_row({
-                ID: res.data,
-                URI: '/data/subjects/' + res.data,
-                insert_date: '',
-                label: subject_label,
-                group: group
+        let modal_id = '#' + $(this).closest('.modal').attr('id');
+        Helper.blockModal(modal_id);
+    
+        
+    
+        let project_id, subject_label, group;
+    
+        project_id = $('#form_new_subject input[name=project_id]').val();
+        subject_label = $('#form_new_subject input[name=subject_label]').val();
+        group = $('#form_new_subject input[name=group]').val();
+    
+        promise_create_project_subject(project_id, subject_label, group)
+            .then(res => {
+                console.log(res);
+    
+                append_subject_row({
+                    ID: res.data,
+                    URI: '/data/subjects/' + res.data,
+                    insert_date: '',
+                    label: subject_label,
+                    group: group
+                });
+    
+                $('#subject-session li:last-child a').trigger('click');
+    
+                $('#new-subject').modal('hide');
+    
+            })
+            .catch(handle_error)
+            .finally(() => {
+                Helper.unblockModal(modal_id);
+                $form.data('processing', false);
             });
-
-            $('#subject-session li:last-child a').trigger('click');
-
-            $('#new-subject').modal('hide');
-
-        })
-        .catch(err => {
-            console.log(err)
-        });
+    }
+    
+    
 });
 
 $(document).on('click', 'button[data-session_id]', function(e){
@@ -431,7 +499,7 @@ $(document).on('click', 'button[data-session_id]', function(e){
             series_id: key,
             description: scans_description,
             count: scan.length,
-            size: `${(scan_size / 1024 / 1024).toFixed(2)}MB`
+            size: scan_size
         })
         
     });
@@ -441,8 +509,7 @@ $(document).on('click', 'button[data-session_id]', function(e){
     console.log(table_rows);
     console.log('-----------------------------------------------------------');
 
-    //$('#table1').bootstrapTable('resetView');
-    $('#table1')
+    $('#image_session')
     .bootstrapTable('removeAll')    
     .bootstrapTable('append', table_rows)
     .bootstrapTable('resetView');

@@ -5,6 +5,8 @@ const settings = require('electron-settings')
 const ipc = require('electron').ipcRenderer
 const swal = require('sweetalert');
 
+const remote = require('electron').remote;
+
 //const blockUI = require('blockui-npm');
 
 
@@ -13,7 +15,7 @@ $(document).on('page:load', '#settings-section', function(e){
     
     render_users();
     show_default_email_address();
-    show_default_local_storage();
+    show_default_local_storage();  
 
 });
 

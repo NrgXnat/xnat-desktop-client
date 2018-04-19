@@ -25,15 +25,20 @@
             -->
             <div class="row">
                 <div class="col-sm"><button data-href="upload.html" class="btn btn-bigfriendly btn-lg btn-block home-button" type="button"><span class="upload"></span> Upload files</button></div>
-                <div class="col-sm"><button class="btn btn-bigfriendly btn-lg btn-block home-button" type="button"><span class="download"></span> Download files</button></div>
-                <div class="col-sm"><button class="btn btn-bigfriendly btn-lg btn-block home-button" type="button"><span class="history"></span> Transfer history</button></div>
+                <div class="col-sm">
+                    <button data-manifest="#xnt_manifest_file" class="btn btn-bigfriendly btn-lg btn-block home-button" type="button">
+                        <span class="download"></span> Download files
+                    </button>
+                    <input type="file" id="xnt_manifest_file" accept=".xnt,.xml" style="display: none">
+                </div>
+                <div class="col-sm"><button data-href="progress.html" class="btn btn-bigfriendly btn-lg btn-block home-button" type="button"><span class="history"></span> Transfer history</button></div>
             </div>
         </div>
 
     </section>
 
     <script type="text/javascript">
-        //window.$ = window.jQuery = require('jquery');
-        require('./renderer-process/home')
+        require('./renderer-process/home');
+        Helper.pageLoadTrigger('#home-section');
     </script>
 </template>
