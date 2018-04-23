@@ -1,7 +1,7 @@
 {
   "name": "xnatapp",
-  "version": "1.0.6",
-  "description": "XNAT desktop application",
+  "version": "1.0.7",
+  "description": "XNAT_desktop_application",
   "main": "main.js",
   "scripts": {
     "start": "npm-run-all -s sass:build electron-start",
@@ -67,7 +67,7 @@
   },
   "build": {
     "appId": "com.xnatapp.app",
-    "productName": "XNAT Desktop App",
+    "productName": "XNAT-Desktop-App",
     "asarUnpack": [
       "node_modules/java/**/*",
       "node_modules/async/**/*",
