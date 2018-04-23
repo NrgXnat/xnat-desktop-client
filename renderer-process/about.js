@@ -1,1 +1,2 @@
-console.log('from renderer-process/about.js')
+console.log('from renderer-process/about.js');
+// test
