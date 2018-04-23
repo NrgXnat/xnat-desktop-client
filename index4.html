@@ -40,7 +40,7 @@
             <div class="menu-dropdown">
                 <a href="home.html">Home</a>
                 <a href="upload.html">Upload</a>
-                <a href="download.html">Download</a>
+                <a href="#" id="trigger_download">Download</a>
                 <a href="progress.html" class="monitor">Monitor</a>
                 <!-- <a href="projects.html" class="">Projects</a> -->
             </div>
@@ -86,7 +86,7 @@
     <script src="assets/js/app.js"></script>
 
     <script>
-        $.blockUI.defaults.message = '<h3><i class="fas fa-circle-notch fa-spin"></i> Processing...</h3>';
+        $.blockUI.defaults.message = '<h3><i class="fas fa-circle-notch fa-spin"></i> <span id="block_message">Processing...</span></h3>';
         $.blockUI.defaults.css = {
             padding: '10px 10px 5px',
             margin: 0,
@@ -112,6 +112,12 @@
         $.blockUI.defaults.fadeOut = 0; // jquery throws an error on modal block if this value is > 0
 
         $.blockUI.defaults.ignoreIfBlocked = true;
+        $.blockUI.defaults.onBlock = function() { 
+            $('body').css('overflow', 'hidden');
+        }
+        $.blockUI.defaults.onUnblock = function() { 
+            $('body').css('overflow', 'visible');
+        }
     </script>
 
 

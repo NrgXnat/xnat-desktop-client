@@ -55,7 +55,7 @@ function loadPage(page) {
             // while (contentContainer.firstChild) {
             //     contentContainer.removeChild(contentContainer.firstChild);
             // }
-            console.log(clone);
+            //console.log(clone);
             contentContainer.appendChild(clone)
 
             settings.set('active_page', page); 
@@ -163,12 +163,20 @@ $(document).on('click', 'a', function(e){
     }
 })
 
+$(document).on('click', '#trigger_download', function(){
+    setTimeout(function(){
+        $('button[data-manifest]').trigger('click');
+    }, 300);
+    ipc.send('redirect', 'home.html');
+})
+
 $(document).on('click', '#menu--logout', function(){
     logout();
 })
 
 
 ipc.on('load:page',function(e, item){
+    console.log('EVENTTT', e);
     console.log('Loading page ... ' + item)
     loadPage(item)
 });

@@ -38,6 +38,40 @@ let Helper = {
                 $(this).removeClass('hidden');
             })
         }
+    },
+    errorMessage: (error) => {
+        let msg;
+        
+        if (error.response) {
+            // The request was made and the server responded with a status code
+            // that falls out of the range of 2xx
+            //console.log(error.response.status);
+            //console.log(error.response.data);
+            //console.log(error.response.headers);
+            switch (error.response.status) {
+                case 401:
+                    msg = 'Invalid username or password!';
+                    break;
+                case 404:
+                    msg = 'Invalid XNAT server address (' + settings.get('xnat_server') + ')';
+                    break;
+                default:
+                    msg = 'An error occured. Please try again.'
+            }
+
+        } else if (error.request) {
+            // The request was made but no response was received
+            // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
+            // http.ClientRequest in node.js
+            console.log(error.request);
+            msg = 'Please check XNAT server address (and your internet connection).'
+        } else {
+            // Something happened in setting up the request that triggered an Error
+            console.log('Error', error.message);
+            msg = error.message;
+        }
+
+        return msg;
     }
 }
 

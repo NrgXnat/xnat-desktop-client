@@ -21,7 +21,7 @@ NProgress.configure({
     minimum: 0.03
 });
 
-
+let csrfToken = '';
 let xnat_server, user_auth, session_map, selected_session_id, global_anon_script, defined_project_exp_labels, resseting_functions;
 let global_date_required, date_required, project_anon_script;
 
@@ -109,7 +109,14 @@ function _init_img_sessions_table() {
                 field: 'select',
                 title: 'Upload',
                 checkbox: true
-            }, 
+            },
+            {
+                field: 'series_number',
+                title: 'Series Number',
+                sortable: true,
+                align: 'right',
+                class: 'right-aligned'
+            },
             {
                 field: 'description',
                 title: 'Series Description',
@@ -140,6 +147,7 @@ function _init_img_sessions_table() {
         ],
         data: [{
             select: false,
+            series_number: 1234,
             description: 'Some text',
             count: 12,
             size: 1526257,
@@ -164,7 +172,27 @@ $(document).on('page:load', '#upload-section', function(e){
     _init_variables();
     resetSubsequentTabs();
     
+    get_csrf_token()
+        .then(resp => {
+            const regex = /var csrfToken = '(.+?)';/g;
+            const str = resp.data;
+            let m;
+            
+            while ((m = regex.exec(str)) !== null) {
+                // This is necessary to avoid infinite loops with zero-width matches
+                if (m.index === regex.lastIndex) {
+                    regex.lastIndex++;
+                }
 
+                csrfToken = m[1];
+            }
+
+            console.log('csrfToken: ' + csrfToken);
+            
+        })
+        .catch(Helper.errorMessage);
+
+        
 
     global_allow_create_subject().then(handle_create_subject_response).catch(handle_error);
     global_require_date().then(handle_global_require_date).catch(handle_error);
@@ -493,9 +521,12 @@ $(document).on('click', 'button[data-session_id]', function(e){
         
         // use scan description from the last one (or any other from the batch)
         let scans_description = scan[0].seriesDescription;
-
+        let series_number = scan[0].seriesNumber
+        console.log(scan);
+        
         table_rows.push({
             select: false,
+            series_number: series_number,
             series_id: key,
             description: scans_description,
             count: scan.length,
@@ -521,10 +552,25 @@ $(document).on('click', 'button[data-session_id]', function(e){
     let expt_label = get_default_expt_label();
     
     $('#experiment_label').val(expt_label);
+
+    let studyDate = selected_session.date ? 
+        selected_session.date.substr(0, 4) + '-' +
+        selected_session.date.substr(4, 2) + '-' +
+        selected_session.date.substr(6, 2) + ' ' + 
+        
+        (selected_session.time ?
+            selected_session.time.substr(0, 2) + ':' +
+            selected_session.time.substr(2, 2) + ':' +
+            selected_session.time.substr(4, 2) :
+            ''
+        ) : 
+        'N/A';
     
     $('#session_info').html('')
+    .append(`Study ID: ${selected_session.studyId}<br>`)
     .append(`Accession: ${selected_session.accession}<br>`)
     .append('Description: ' + selected_session.studyDescription + '<br>')
+    .append('Date: ' + studyDate + '<br>')
     .append(`Modality: ${selected_session.modality}<br>`)
     .append(`${selected_session.scans.size} scans in ${total_files} files (${(total_size / 1024 / 1024).toFixed(2)}MB)`);
     
@@ -609,7 +655,7 @@ $(document).on('click', '#test-upload', function () {
                 if (err) throw err;
                 axios({
                     method: 'post',
-                    url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive`,
+                    url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
                     auth: user_auth,
                     onUploadProgress: function (progressEvent) {
                         // Do whatever you want with the native progress event
@@ -624,7 +670,7 @@ $(document).on('click', '#test-upload', function () {
                     .then(res => {
                         console.log('---' + res.data + '---', res);
 
-                        let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader';
+                        let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader' + '&XNAT_CSRF=' + csrfToken;
                         //let commit_url = xnat_server + `/data/prearchive/projects/${project_id}/${subject_id}/${expt_label}?action=commit&SOURCE=uploader`;
 
                         axios.post(commit_url, {
@@ -802,24 +848,30 @@ function dicomParse(_files) {
                         
                         if (typeof studyInstanceUid !== 'undefined') {
                             const studyDescription = dicom.string('x00081030');
+                            const studyId = dicom.string('x00200010');
                             
                             const seriesDescription = dicom.string('x0008103e');
                             const seriesInstanceUid = dicom.string('x0020000e');
                             const seriesNumber = dicom.string('x00200011');
+                            
                             // ++++
                             const modality = dicom.string('x00080060');
-                            const session_date = dicom.string('x00080020')
+                            const study_date = dicom.string('x00080020');
+                            const study_time = dicom.string('x00080030');
+
                             const accession = dicom.string('x00080050');
                             // ++++
                 
     
                             if (!session_map.has(studyInstanceUid)) {
                                 session_map.set(studyInstanceUid, {
+                                    studyId: studyId,
                                     studyInstanceUid: studyInstanceUid,
                                     studyDescription: studyDescription,
                                     modality: modality,
                                     accession: accession,
-                                    date: session_date,
+                                    date: study_date,
+                                    time: study_time,
                                     scans: new Map()
                                 });
                             }
@@ -1290,7 +1342,7 @@ function zip_and_upload(dirname, _files, url_data) {
 
             axios({
                 method: 'post',
-                url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive`,
+                url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
                 auth: user_auth,
                 onUploadProgress: function (progressEvent) {
                     // Do whatever you want with the native progress event
@@ -1312,7 +1364,7 @@ function zip_and_upload(dirname, _files, url_data) {
                 console.log('---' + res.data + '---', res);
                 swal(`${_files.length} files were successfully uploaded.`);
 
-                let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader';
+                let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader' + '&XNAT_CSRF=' + csrfToken;
                 
                 axios.post(commit_url, {
                     auth: user_auth
@@ -1565,8 +1617,14 @@ function promise_project_subject(project_id, subject_label) {
     })
 }
 
+function get_csrf_token() {
+    return axios.get(xnat_server + '/', {
+        auth: user_auth
+    });
+}
+
 function promise_create_project_subject(project_id, subject_label, group) {
-    return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group=' + group + '&event_reason=XNAT+Application', {
+    return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group=' + group + '&event_reason=XNAT+Application' + '&XNAT_CSRF=' + csrfToken, {
         auth: user_auth
     })
 }
