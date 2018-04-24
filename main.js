@@ -165,11 +165,14 @@ function fix_java_path() {
 
   let java_config_path, java_jre_path;
   let jvm_file, jre_search_path;
+  let path_separator = ':';
+
 
   if (path.extname(_app_path) === '.asar') {
     java_config_path = path.resolve(_app_path, '..', 'app.asar.unpacked', 'node_modules', 'java', 'build', 'jvm_dll_path.json');
 
     if (process.platform === 'win32') {
+      path_separator = ';'
       jre_search_path = jre_search_base + '/**/jvm.dll';
       jvm_file = glob.sync(jre_search_path)[0];
       java_jre_path = path.resolve(jvm_file, '..');
@@ -178,6 +181,14 @@ function fix_java_path() {
       jre_search_path = jre_search_base + '/**/libjvm.dylib';
       jvm_file = glob.sync(jre_search_path)[0];
       java_jre_path = path.resolve(jvm_file, '..');
+      
+      // to fix @rpath error on Mac
+      if (!fs.existsSync('/usr/local/lib/libjvm.dylib')) {
+        fs.symlinkSync(java_jre_path + '/libjvm.dylib', '/usr/local/lib/libjvm.dylib');
+        console.log('libjvm.dylib link created');
+      } else {
+        console.log('libjvm.dylib already exists');
+      }
 
     } else { // linux
       if (process.arch === 'x64') {
@@ -185,7 +196,7 @@ function fix_java_path() {
       } else {
         jre_search_path = jre_search_base + '/lib/i386/**/libjvm.so';
       }
-      
+
       jvm_file = glob.sync(jre_search_path)[0];
       java_jre_path = path.resolve(jvm_file, '..');
     }
@@ -196,14 +207,13 @@ function fix_java_path() {
         console.log('The file has been saved!');
     });
     */
-
     //java_jre_path = path.resolve(_app_path, '..', 'jre', 'bin', 'client');
 
-    java_jre_path = '";' + java_jre_path.replace(/\\/g, '\\\\') + '"';
-    
+    java_jre_path = '"' + path_separator + java_jre_path.replace(/\\/g, '\\\\') + '"';
+
     fs.writeFileSync(java_config_path, java_jre_path, (err) => {
-        if (err) throw err;
-        console.log('The file has been saved!');
+      if (err) throw err;
+      console.log('The file has been saved!');
     });
 
   }
