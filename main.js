@@ -158,6 +158,7 @@ exports.anonymize = (source, script, variables) => {
 
 function fix_java_path() {
   const fs = require('fs');
+  const isSymlink = require('is-symlink');
   const glob = require('glob');
 
   const _app_path = __dirname;
@@ -183,8 +184,9 @@ function fix_java_path() {
       java_jre_path = path.resolve(jvm_file, '..');
       
       // to fix @rpath error on Mac
-      if (!fs.existsSync('/usr/local/lib/libjvm.dylib')) {
-        fs.symlinkSync(java_jre_path + '/libjvm.dylib', '/usr/local/lib/libjvm.dylib');
+      let libjvm_symlink = '/usr/local/lib/libjvm.dylib';
+      if (!isSymlink.sync(libjvm_symlink)) {
+        fs.symlinkSync(java_jre_path + '/libjvm.dylib', libjvm_symlink);
         console.log('libjvm.dylib link created');
       } else {
         console.log('libjvm.dylib already exists');
