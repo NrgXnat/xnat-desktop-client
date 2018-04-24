@@ -62,11 +62,11 @@ function initialize () {
     console.log(childOptions);
     
     
-    uploadWindow = new BrowserWindow(childOptions)
-    uploadWindow.on('closed', function () {
-      uploadWindow = null
-    });
-    uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload.html'));
+    // uploadWindow = new BrowserWindow(childOptions)
+    // uploadWindow.on('closed', function () {
+    //   uploadWindow = null
+    // });
+    // uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload.html'));
     //uploadWindow.show();
 
     /*
@@ -84,7 +84,7 @@ function initialize () {
       mainWindow.maximize()
       require('devtron').install()
 
-      uploadWindow.webContents.openDevTools()
+      //uploadWindow.webContents.openDevTools()
       //uploadWindow.webContents.maximize()
     }
 
