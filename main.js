@@ -187,9 +187,6 @@ function fix_java_path() {
       let libjvm_symlink = '/usr/local/lib/libjvm.dylib';
       if (!isSymlink.sync(libjvm_symlink)) {
         fs.symlinkSync(java_jre_path + '/libjvm.dylib', libjvm_symlink);
-        console.log('libjvm.dylib link created');
-      } else {
-        console.log('libjvm.dylib already exists');
       }
 
     } else { // linux
