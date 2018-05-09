@@ -89,12 +89,16 @@ progress[value] {
     }
 }
 
-#user_table {
+#user_table, #upload_monitor_table, #download_monitor_table {
     .filter-control {
         padding: 0 4px 4px 4px;
         input {
             padding: .125rem .75rem .125rem 30px;
             border-radius: .25rem;
+        }
+        select {
+            height: 1.875rem;
+            padding: 0 0.25rem 0 1.5rem;
         }
         &::before {
             left: 11px;

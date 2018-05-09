@@ -5,7 +5,19 @@ const isOnline = require('is-online');
 
 const swal = require('sweetalert');
 
+/*
+let mile_counter = 0;
+setInterval(function(){
+    mile_counter++;
+    settings.set('mile.test', mile_counter);
+    console.log('mile_counter: '+mile_counter);
+}, 500);
+*/
 
+let transfers = store.namespace('transfers');
+if (!transfers.has('downloads')) {
+    transfers.set('downloads', []);
+}
 
 const links = document.querySelectorAll('link[rel="import"]')
 
@@ -33,8 +45,6 @@ if (!settings.has('user_auth')) {
 }
 
 console.log('ACTIVE PAGE: ', active_page);
-
-
 
 
 loadPage(active_page)

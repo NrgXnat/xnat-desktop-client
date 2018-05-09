@@ -2,7 +2,6 @@ const ipc = require('electron').ipcRenderer;
 const shell = require('electron').shell;
 
 const fs = require('fs');
-var fx = require('mkdir-recursive');
 
 const path = require('path');
 const settings = require('electron-settings');
@@ -20,6 +19,8 @@ const zlib = require('zlib');
 
 const unzipper = require('unzipper');
 const sha1 = require('sha1');
+
+
 
 
 let xnat_server, user_auth, default_local_storage;
@@ -67,7 +68,7 @@ $(document).on('change', '#xnt_manifest_file', function(e){
         let file_path = this.files[0].path;
     
         let parser = new xml2js.Parser({
-            explicitArray: false,
+            explicitArray: true,
             normalizeTags: true,
             tagNameProcessors: [
                 function(str) {
@@ -80,7 +81,10 @@ $(document).on('change', '#xnt_manifest_file', function(e){
         fs.readFile(file_path, function(err, data) {
             parser.parseString(data,
                 function (err, result) {
-                    console.dir(result);
+                    console.log(result);
+
+                    //result.catalog.sets[i].entryset[j].sets[k].entryset[l].entries[m].entry[n]
+                    
                     
                     let catalog_description = result.catalog.$.description ? result.catalog.$.description : '';
                     let has_project = catalog_description.indexOf('projectIncludedInPath') !== -1;
@@ -89,23 +93,57 @@ $(document).on('change', '#xnt_manifest_file', function(e){
                     
                     manifest_urls = new Map();
                     
-                    let my_sets = result.catalog.sets.entryset;
+                    let my_sets = result.catalog.sets[0].entryset;
+
+                    let download_digest = {
+                        id: Helper.uuidv4(),
+                        basename: path.basename(file_path),
+                        server: xnat_server,
+                        user: user_auth.username,
+                        user_auth: user_auth,
+                        transfer_start: time_converter(),
+                        sessions: []
+                    }
 
                     for (let i = 0; i < my_sets.length; i++) {
                         console.log('=====================================')
-                        let entries = my_sets[i].sets.entryset.entries.entry;
+
+                        let session = {
+                            name: my_sets[i].$.description,
+                            files: []
+                        }
+                        
+                        let entries = my_sets[i].sets[0].entryset[0].entries[0].entry;
                         
                         for (let j = 0; j < entries.length; j++) {
                             let uri_data = entries[j].$;
                             let real_uri = uri_data.URI.replace(/^\/archive\//, '/data/') + '?format=zip';
                             console.log(uri_data.name);
-                            manifest_urls.set(uri_data.name, real_uri)
+                            manifest_urls.set(uri_data.name, real_uri);
+                            
+                            session.files.push({
+                                name: uri_data.name,
+                                uri: real_uri,
+                                status: 0
+                            })
                         }
-                    }
-    
-                    //console.log(manifest_urls);
-                    //console.log(manifest_urls.size);
 
+                        download_digest.sessions.push(session)
+                    }
+
+                    console.log(download_digest);
+                    let my_transfers = store.transfers.get('downloads');
+                    my_transfers.push(download_digest);
+                    store.transfers.set('downloads', my_transfers);
+                    
+    
+                    console.log(manifest_urls);
+                    console.log(manifest_urls.size);
+
+                    ipc.send('start_download');
+
+                    ipc.send('redirect', 'progress.html');
+                    return;
                     NProgress.start();
                     $.blockUI();
                     
@@ -130,110 +168,20 @@ function _init_variables() {
     default_local_storage = settings.get('default_local_storage')
 }
 
-function download_items(xnat_server, manifest_urls, manifest_urls_count, create_dir_structure = false) {
-    console.log('SIZE: ' + manifest_urls.size);
 
-    let temp_zip_path = path.resolve(default_local_storage, '_temp');
-    let real_path = path.resolve(default_local_storage, xnat_server.split('//')[1]);
-    
-    if (manifest_urls.size == 0) {
-        NProgress.done();
-        $.unblockUI();
-        
-        swal({
-            title: `Download successful`,
-            text: `Files downloaded: ${manifest_urls_count}`,
-            icon: 'success'
-        });
-
-        shell.openItem(real_path)
-        return;
-    }
-
-    if (create_dir_structure) {
-        fx.mkdirSync(temp_zip_path, function (err) {
-            if (err) throw err;
-            console.log('--done--');
-        });
-    }
-
-    // progress calculation
-    let processed_count = manifest_urls_count - manifest_urls.size;
-    let progress = processed_count / manifest_urls_count;
-    NProgress.set(progress);
-
-    $('#block_message').text(`Downloading images (${processed_count}/${manifest_urls_count})`);
-    
-
-    let dir = manifest_urls.keys().next().value;
-    let uri = manifest_urls.get(dir);
-
-    console.log(dir, uri);
-
-    axios.get(xnat_server + uri, {
-        auth: user_auth,
-        responseType: 'arraybuffer'
-    })
-    .then(resp => {
-        //console.log(resp)
-        let zip_path = path.resolve(temp_zip_path, sha1(xnat_server + uri) + '--' + Math.random() + '.zip');
-
-        // create zip file
-        fs.writeFileSync(zip_path, Buffer.from(new Uint8Array(resp.data)));
-
-        fs.createReadStream(zip_path)
-            .pipe(unzipper.Parse())
-            .on('entry', function (entry) {
-                // console.log(entry); // !important
-                
-                if (entry.type === 'File') {
-                    // file basename
-                    let basename = path.basename(entry.path);
-
-                    // extract path where file will end up
-                    let extract_path = path.resolve(real_path, dir);
-
-                    // create directory structure recursively
-                    fx.mkdirSync(extract_path, function (err) {
-                        if (err) throw err;
-                        console.log('--done--');
-                    });
-
-                    // write file to path
-                    entry.pipe(fs.createWriteStream(path.resolve(extract_path, basename)));
-                } else {
-                    entry.autodrain();
-                }
-            })
-            .on('finish', () => {
-                console.log('************************');
-                
-                fs.unlink(zip_path, (err) => {
-                    if (err) throw err;
-                    console.log('----' + zip_path + ' was deleted');
-                });
-            });
-
-        // delete item from url map
-        manifest_urls.delete(dir);
-        download_items(xnat_server, manifest_urls, manifest_urls_count);
-    })
-    .catch(err => {
-        console.log(Helper.errorMessage(err));
-        
-        NProgress.done();
-        $.unblockUI();
-        swal({
-            title: `Error`,
-            text: Helper.errorMessage(err),
-            icon: "error",
-            dangerMode: true
-        })
-    })
-    .finally(() => {
-        // NProgress.done();
-        // $.unblockUI();        
-        // swal('All Done');
-    });
+const unix_timestamp = () => {
+    return Math.round((new Date()).getTime() / 1000);
 }
 
+const time_converter = (UNIX_timestamp = false) => {
+    let UT = (UNIX_timestamp === false) ? unix_timestamp() : UNIX_timestamp;
+    var a = new Date(UT * 1000);
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var year = a.getFullYear();
+    var month = months[a.getMonth()];
+    var date = a.getDate();
+    var hour = a.getHours() < 10 ? '0' + a.getHours() : a.getHours();
+    var min = a.getMinutes() < 10 ? '0' + a.getMinutes() : a.getMinutes();
+    var sec = a.getSeconds() < 10 ? '0' + a.getSeconds() : a.getSeconds();
+    return date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
+}

@@ -7,7 +7,7 @@ const glob = require('glob')
 const electron = require('electron')
 //const autoUpdater = require('./auto-updater')
 
-const {app, BrowserWindow, ipcMain, shell, Tray} = electron;
+const {app, BrowserWindow, ipcMain, shell, Tray, dialog} = electron;
 
 //SET ENV
 //process.env.NODE_ENV = 'production';
@@ -43,7 +43,7 @@ function initialize () {
     var childOptions = {
       width: 1200,
       height: 700,
-      alwaysOnTop: true,
+      alwaysOnTop: false,
       show: false
     };
 
@@ -62,21 +62,20 @@ function initialize () {
     console.log(childOptions);
     
     
-    // uploadWindow = new BrowserWindow(childOptions)
-    // uploadWindow.on('closed', function () {
-    //   uploadWindow = null
-    // });
-    // uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload.html'));
-    //uploadWindow.show();
+    uploadWindow = new BrowserWindow(childOptions)
+    uploadWindow.on('closed', function () {
+      uploadWindow = null
+    });
+    uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload.html'));
 
-    /*
+   
     downloadWindow = new BrowserWindow(childOptions)
     downloadWindow.on('closed', function () {
       downloadWindow = null
     });
     downloadWindow.loadURL(path.join('file://', __dirname, '/sections/_download.html'));
-    downloadWindow.show();
-    */
+
+    
 
     // Launch fullscreen with DevTools open, usage: npm run debug
     if (debug) {
@@ -85,10 +84,20 @@ function initialize () {
       require('devtron').install()
 
       //uploadWindow.webContents.openDevTools()
+      downloadWindow.show()
+      downloadWindow.webContents.openDevTools()
       //uploadWindow.webContents.maximize()
     }
 
     mainWindow.on('closed', function () {
+      //showErrorBox('mainWindow Closed', 'mainWindow closed!');
+      if (uploadWindow) {
+        uploadWindow.close();
+      }
+      if (downloadWindow) {
+        downloadWindow.close();
+      }
+      
       mainWindow = null
     });
 
@@ -100,6 +109,7 @@ function initialize () {
   })
 
   app.on('window-all-closed', function () {
+    showErrorBox('All Closed', 'All windows closed!');
     if (process.platform !== 'darwin') {
       app.quit()
     }
@@ -151,6 +161,27 @@ ipcMain.on('redirect', (e, item) =>{
 ipcMain.on('log', (e, item) =>{
   mainWindow.webContents.send('console:log', item);
 })
+
+
+ipcMain.on('download_progress', (e, item) =>{
+  mainWindow.webContents.send('download_progress', item);
+})
+
+
+
+ipcMain.on('start_upload', (e, item) =>{
+  uploadWindow.webContents.send('start_upload', item);
+})
+
+ipcMain.on('start_download', (e, item) =>{
+  mainWindow.webContents.send('console:log', 'start_download event (main.js)');
+  downloadWindow.webContents.send('start_download', item);
+})
+
+
+
+
+
 
 exports.anonymize = (source, script, variables) => {
   mizer.anonymize(source, script, variables);
@@ -217,6 +248,24 @@ function fix_java_path() {
 
   }
 }
+
+const showErrorBox = (title, msg) => {
+  dialog.showErrorBox(title, msg)
+};
+
+// can be displayed only after app.ready
+const showMessageBox = (options) => {
+  let my_options = options ? options : {
+    type: 'info',
+    title: 'Naslov',
+    message: 'message',
+    detail: 'Detailed explanation',
+    buttons: ['Okay', 'Nope']
+  };
+
+  dialog.showMessageBox(my_options);
+};
+
 
 global.test_var = [{
   value: 1,

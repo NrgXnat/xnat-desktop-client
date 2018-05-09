@@ -1,6 +1,5 @@
 <template class="task-template">
     <section id="progress-section" class="section js-section u-category-native-ui">
-
         <div class="container">
             <h2 class="main-title">Progress Monitor</h2>
             <div class="row hidden">
@@ -9,7 +8,7 @@
                     <div class="alert alert-danger text-center alert-dismissible fade show" role="alert">
                         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
-                          </button>
+                            </button>
                         <h2 class="red-title"><i class="fas fa-minus-circle"></i> Warning upload / download session failed !</h2>
                         Upload / Download for user (user name) on server (server) failed.</br>
                         Please check your monitor/log for details.
@@ -17,127 +16,32 @@
                 </div>
                 <div class="col"></div>
             </div>
+
+
             <div class="row">
                 <div class="col button-row">
                     <button type="button" class="btn btn-blue"><i class="far fa-pause-circle"></i> Pause All</button>
                     <button type="button" class="btn btn-blue"><i class="far fa-times-circle"></i> Cancel All</button>
                 </div>
             </div>
-            <!--
-            <table class="table table-bordered filtered-table" id="progress_monitor_tbl" data-toggle="table" data-filter-control="true" data-click-to-select="true"
-                data-filter-show-clear="true">
-                <thead>
-                    <tr>
-                        <th data-field="date" data-filter-control="input" data-sortable="true">Date</th>
-                        <th data-field="session" data-filter-control="input" data-sortable="true">Session</th>
-                        <th data-field="process" data-filter-control="select" data-sortable="true">Process</th>
-                        <th data-field="transfer-date" data-filter-control="input" data-sortable="true">Transfer Date</th>
-                        <th data-field="transfer-status" data-filter-control="select" data-sortable="true">Status</th>
-                        <th data-field="actions" data-escape="false">Log download</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>2018/02/05</td>
-                        <td>001012_mr_v1</td>
-                        <td>Upload</td>
-                        <td>2018/02/05 2:20 PM</td>
-                        <td>
-                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="90" aria-valuemin="0" aria-valuemax="100" style="width:90%; height:25px;">
-                                <span class="sr-only">In progress</span>
-                            </div>
-                        </td>
-                        <td><button class="btn btn-block btn-info" data-toggle="modal" data-target="#upload-details"><i class="fas fa-upload"></i> Details</button></td>
-                    </tr>
-                    <tr>
-                        <td>2018/02/06</td>
-                        <td>001012_mr_v1</td>
-                        <td>Download</td>
-                        <td>2018/02/06 2:20 PM</td>
-                        <td>
-                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100" style="width:70%; height:25px;">
-                                <span class="sr-only">In progress</span>
-                            </div>
-                        </td>
-                        <td><button class="btn btn-block btn-info" data-toggle="modal" data-target="#download-details"><i class="fas fa-download"></i> Details</button></td>
-                    </tr>
-                    <tr>
-                        <td>2018/02/07</td>
-                        <td>001012_mr_v1</td>
-                        <td>Upload</td>
-                        <td>2018/02/07 2:20 PM</td>
-                        <td>Finished</td>
-                        <td><button class="btn btn-block btn-success" data-toggle="modal" data-target="#success-log"><i class="fas fa-download"></i> Log</button></td>
-                    </tr>
-                    <tr>
-                        <td>2018/02/08</td>
-                        <td>001012_mr_v1</td>
-                        <td>Download</td>
-                        <td>2018/02/08 2:20 PM</td>
-                        <td><i class="fas fa-exclamation-triangle"></i> XNAT Error</td>
-                        <td><button class="btn btn-block btn-danger" data-toggle="modal" data-target="#error-log"><i class="fas fa-exclamation-triangle"></i> Log</button></td>
-                    </tr>
-                    <tr>
-                        <td>2018/02/09</td>
-                        <td>001012_mr_v1</td>
-                        <td>Upload</td>
-                        <td>2018/02/09 2:20 PM</td>
-                        <td>Queued</td>
-                        <td><button class="btn btn-block btn-warning" disabled><i class="far fa-pause-circle"></i> Queued</button></td>
-                    </tr>
-                    <tr>
-                        <td>2018/02/05</td>
-                        <td>001012_mr_v1</td>
-                        <td>Upload</td>
-                        <td>2018/02/05 2:20 PM</td>
-                        <td><i class="fas fa-exclamation-triangle"></i> XNAT Error</td>
-                        <td><button class="btn btn-block btn-danger" data-toggle="modal" data-target="#error-log"><i class="fas fa-exclamation-triangle"></i> Log</button></td>
-                    </tr>
-                    <tr>
-                        <td>2018/02/06</td>
-                        <td>001012_mr_v1</td>
-                        <td>Download</td>
-                        <td>2018/02/06 2:20 PM</td>
-                        <td>
-                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="30" aria-valuemin="0" aria-valuemax="100" style="width:30%; height:25px;">
-                                <span class="sr-only">In progress</span>
-                            </div>
-                        </td>
-                        <td><button class="btn btn-block btn-info" data-toggle="modal" data-target="#download-details"><i class="fas fa-download"></i> Details</button></td>
-                    </tr>
-                    <tr>
-                        <td>2018/02/07</td>
-                        <td>001012_mr_v1</td>
-                        <td>Upload</td>
-                        <td>2018/02/07 2:20 PM</td>
-                        <td>Finished</td>
-                        <td><button class="btn btn-block btn-success" data-toggle="modal" data-target="#success-log"><i class="fas fa-download"></i> Log</button></td>
-                    </tr>
-                    <tr>
-                        <td>2018/02/08</td>
-                        <td>001012_mr_v1</td>
-                        <td>Download</td>
-                        <td>2018/02/08 2:20 PM</td>
-                        <td>Finished</td>
-                        <td><button class="btn btn-block btn-success" data-toggle="modal" data-target="#success-log"><i class="fas fa-download"></i> Log</button></td>
-                    </tr>
-                    <tr>
-                        <td>2018/02/09</td>
-                        <td>001012_mr_v1</td>
-                        <td>Upload</td>
-                        <td>2018/02/09 2:20 PM</td>
-                        <td>Finished</td>
-                        <td><button class="btn btn-block btn-success" data-toggle="modal" data-target="#success-log"><i class="fas fa-download"></i> Log</button></td>
-                    </tr>
-                </tbody>
-            </table>
-            -->
 
-            <table class="table table-bordered filtered-table" id="progress_monitor_tbl"></table>
+            <nav>
+                <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                    <a class="nav-item nav-link active" id="nav-download-tab" data-toggle="tab" href="#nav-download" role="tab" aria-controls="nav-download"
+                        aria-selected="true">Download Progress</a>
+                    <a class="nav-item nav-link" id="nav-upload-tab" data-toggle="tab" href="#nav-upload" role="tab" aria-controls="nav-upload"
+                        aria-selected="false">Upload Progress</a>
+                </div>
+            </nav>
+            <div class="tab-content" id="nav-tabContent">
+                <div class="tab-pane fade show active" id="nav-download" role="tabpanel" aria-labelledby="nav-download-tab">
+                    <table class="table table-bordered filtered-table" id="download_monitor_table"></table>
+                </div>
+                <div class="tab-pane fade" id="nav-upload" role="tabpanel" aria-labelledby="nav-upload-tab">
+                    <table class="table table-bordered filtered-table" id="upload_monitor_table"></table>
+                </div>
+            </div>
         </div>
-
-
-
 
 
         <!-- Modal -->
@@ -223,6 +127,101 @@
 
         <!-- Modal -->
         <div class="modal fade" id="upload-details" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLongTitle">Session transfer details <br> <span class="session-id">001012_mr_v1</span></h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <i class="far fa-window-close"></i>
+                          </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="process-details">
+                            <table class="table table-bordered" id="table" data-toggle="table" data-click-to-select="true">
+                                <thead>
+                                    <tr>
+                                        <th data-field="scan-type" data-sortable="true">Scan Type</th>
+                                        <th data-field="series-number" data-sortable="true">S/N</th>
+                                        <th data-field="upload-progress">Upload Progress</th>
+                                        <th data-field="file-count" data-sortable="true">File Count</th>
+                                        <th data-field="size" data-sortable="true">Size (bytes)</th>
+
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Lorem ipsum dolor sit amet</td>
+                                        <td>97841</td>
+                                        <td>
+                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100" style="width:70%; height:25px;">
+                                                <span class="sr-only">In progress</span>
+                                            </div>
+                                        </td>
+                                        <td>8</td>
+                                        <td>1.19 MB</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Lorem ipsum dolor sit amet</td>
+                                        <td>97842</td>
+                                        <td>
+                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="90" aria-valuemin="0" aria-valuemax="100" style="width:90%; height:25px;">
+                                                <span class="sr-only">In progress</span>
+                                            </div>
+                                        </td>
+                                        <td>2</td>
+                                        <td>1.12 MB</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Lorem ipsum dolor sit amet</td>
+                                        <td>97843</td>
+                                        <td>
+                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100" style="width:40%; height:25px;">
+                                                <span class="sr-only">In progress</span>
+                                            </div>
+                                        </td>
+                                        <td>5</td>
+                                        <td>1.10 MB</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Lorem ipsum dolor sit amet</td>
+                                        <td>97844</td>
+                                        <td>
+                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width:60%; height:25px;">
+                                                <span class="sr-only">In progress</span>
+                                            </div>
+                                        </td>
+                                        <td>7</td>
+                                        <td>1.11 MB</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Lorem ipsum dolor sit amet</td>
+                                        <td>97845</td>
+                                        <td>
+                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100" style="width:20%; height:25px;">
+                                                <span class="sr-only">In progress</span>
+                                            </div>
+                                        </td>
+                                        <td>8</td>
+                                        <td>1.13 MB</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p>
+                                Estimated time left: 3min 45sec <br/> Transfer rate: 100KB/sec
+                            </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-gray" disabled>Go to summary</button>
+                        <button type="button" class="btn btn-blue"><i class="far fa-pause-circle"></i> Pause</button>
+                        <button type="button" class="btn btn-blue"><i class="far fa-stop-circle"></i> Stop</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal -->
+        <div class="modal fade" id="download-details" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
