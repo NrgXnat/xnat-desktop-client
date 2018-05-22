@@ -75,7 +75,7 @@ let Helper = {
     },
     uuidv4: () => {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
     },
@@ -83,6 +83,33 @@ let Helper = {
         return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
             (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
         )
+    },
+
+    unix_timestamp: () => {
+        return Math.round((new Date()).getTime() / 1000);
+    },
+    
+    time_converter: (UNIX_timestamp = false) => {
+        let UT = (UNIX_timestamp === false) ? this.unix_timestamp() : UNIX_timestamp;
+        let a = new Date(UT * 1000);
+        let months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        let year = a.getFullYear();
+        let month = months[a.getMonth()];
+        let date = a.getDate();
+        let hour = a.getHours() < 10 ? '0' + a.getHours() : a.getHours();
+        let min = a.getMinutes() < 10 ? '0' + a.getMinutes() : a.getMinutes();
+        let sec = a.getSeconds() < 10 ? '0' + a.getSeconds() : a.getSeconds();
+        return date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
+    },
+
+    current_date: (UNIX_timestamp = false) => {
+        let UT = (UNIX_timestamp === false) ? this.unix_timestamp() : UNIX_timestamp;
+        let a = new Date(UT * 1000);
+        let year = a.getFullYear();
+        let month = a.getMonth();
+        //let month = a.getMonth() < 10 ? '0' + a.getMonth() : a.getMonth();
+        let date = a.getDate();
+        return date + ' ' + month + ' ' + year;
     }
 }
 

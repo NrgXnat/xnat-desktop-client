@@ -84,8 +84,10 @@ function initialize () {
       require('devtron').install()
 
       //uploadWindow.webContents.openDevTools()
-      downloadWindow.show()
-      downloadWindow.webContents.openDevTools()
+      //downloadWindow.show()
+      //downloadWindow.webContents.openDevTools()
+      uploadWindow.show()
+      uploadWindow.webContents.openDevTools()
       //uploadWindow.webContents.maximize()
     }
 
@@ -167,6 +169,10 @@ ipcMain.on('download_progress', (e, item) =>{
   mainWindow.webContents.send('download_progress', item);
 })
 
+
+ipcMain.on('upload_progress', (e, item) =>{
+  mainWindow.webContents.send('upload_progress', item);
+})
 
 
 ipcMain.on('start_upload', (e, item) =>{

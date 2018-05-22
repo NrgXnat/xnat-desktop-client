@@ -101,31 +101,38 @@ $(document).on('change', '#xnt_manifest_file', function(e){
                         server: xnat_server,
                         user: user_auth.username,
                         user_auth: user_auth,
-                        transfer_start: time_converter(),
+                        transfer_start: Helper.ime_converter(),
                         sessions: []
                     }
+
+store.transfers.set('downloads', []);
 
                     for (let i = 0; i < my_sets.length; i++) {
                         console.log('=====================================')
 
                         let session = {
                             name: my_sets[i].$.description,
+                            id: Helper.uuidv4(),
                             files: []
                         }
-                        
-                        let entries = my_sets[i].sets[0].entryset[0].entries[0].entry;
-                        
-                        for (let j = 0; j < entries.length; j++) {
-                            let uri_data = entries[j].$;
-                            let real_uri = uri_data.URI.replace(/^\/archive\//, '/data/') + '?format=zip';
-                            console.log(uri_data.name);
-                            manifest_urls.set(uri_data.name, real_uri);
+
+                        let entrysets = my_sets[i].sets[0].entryset;
+
+                        for (let k = 0; k < entrysets.length; k++) {
+                            let entries = entrysets[k].entries[0].entry;
                             
-                            session.files.push({
-                                name: uri_data.name,
-                                uri: real_uri,
-                                status: 0
-                            })
+                            for (let j = 0; j < entries.length; j++) {
+                                let uri_data = entries[j].$;
+                                let real_uri = uri_data.URI.replace(/^\/archive\//, '/data/') + '?format=zip';
+                                //console.log(uri_data.name);
+                                manifest_urls.set(uri_data.name, real_uri);
+                                
+                                session.files.push({
+                                    name: uri_data.name,
+                                    uri: real_uri,
+                                    status: 0
+                                })
+                            }
                         }
 
                         download_digest.sessions.push(session)
@@ -139,7 +146,7 @@ $(document).on('change', '#xnt_manifest_file', function(e){
     
                     console.log(manifest_urls);
                     console.log(manifest_urls.size);
-
+//return;
                     ipc.send('start_download');
 
                     ipc.send('redirect', 'progress.html');
@@ -169,19 +176,3 @@ function _init_variables() {
 }
 
 
-const unix_timestamp = () => {
-    return Math.round((new Date()).getTime() / 1000);
-}
-
-const time_converter = (UNIX_timestamp = false) => {
-    let UT = (UNIX_timestamp === false) ? unix_timestamp() : UNIX_timestamp;
-    var a = new Date(UT * 1000);
-    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var year = a.getFullYear();
-    var month = months[a.getMonth()];
-    var date = a.getDate();
-    var hour = a.getHours() < 10 ? '0' + a.getHours() : a.getHours();
-    var min = a.getMinutes() < 10 ? '0' + a.getMinutes() : a.getMinutes();
-    var sec = a.getSeconds() < 10 ? '0' + a.getSeconds() : a.getSeconds();
-    return date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
-}

@@ -22,8 +22,8 @@ NProgress.configure({
 });
 
 let csrfToken = '';
-let xnat_server, user_auth, session_map, selected_session_id, defined_project_exp_labels, resseting_functions;
-let global_date_required, date_required, selected_session_data;
+let xnat_server, user_auth, session_map, selected_session_id, global_anon_script, defined_project_exp_labels, resseting_functions;
+let global_date_required, date_required, project_anon_script;
 
 function _init_variables() {
     xnat_server = settings.get('xnat_server');
@@ -38,6 +38,7 @@ function _init_variables() {
     session_map = new Map();
     selected_session_id = null;
     
+    global_anon_script = '(0008,0070) := "Electron changed this"';
 
     defined_project_exp_labels = [];
     
@@ -195,6 +196,13 @@ $(document).on('page:load', '#upload-section', function(e){
 
     global_allow_create_subject().then(handle_create_subject_response).catch(handle_error);
     global_require_date().then(handle_global_require_date).catch(handle_error);
+
+    /*
+    get_global_anon_script().then(resp => {
+        global_anon_script = resp.data.ResultSet.Result[0].contents;
+        console.log(resp.data.ResultSet.Result[0].contents);
+    }).catch(handle_error);
+    */
     
 
 
@@ -268,6 +276,12 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
     project_allow_create_subject(project_id).then(handle_create_subject_response).catch(handle_error);
     project_require_date(project_id).then(handle_require_date).catch(handle_error);
 
+    /*
+    get_project_anon_script(project_id).then(resp => {
+        project_anon_script = resp.data.ResultSet.Result[0].contents;
+        console.log(resp.data.ResultSet.Result[0].contents);
+    }).catch(handle_error);
+    */
 
     promise_project_experiments(project_id)
         .then(res => {
@@ -407,8 +421,7 @@ $(document).on('click', '.js_upload', function() {
             project_id: $('a[data-project_id].selected').data('project_id'),
             subject_id: $('a[data-subject_id].selected').data('subject_id')
         };
-        //doUpload(url_data, selected_session_id, selected_series);
-        storeUpload(url_data, selected_session_id, selected_series);
+        doUpload(url_data, selected_session_id, selected_series);
 
     } else {
         swal({
@@ -1125,18 +1138,122 @@ function get_default_expt_label() {
     return expt_label;
 }
 
-function storeUpload(url_data, session_id, series_ids) {
+function getUserHome() {
+    return process.env[(process.platform == 'win32') ? 'USERPROFILE' : 'HOME'];
+}
+
+function copy_and_anonymize(filePaths) {
+    let _timer = performance.now();
+
+    swal('Copy & anonymize...');
+    NProgress.start();
+
+    return new Promise(function(resolve, reject){
+        let dicom_temp_folder_path = path.join(getUserHome(), 'DICOM_TEMP');
+
+        if (!fs.existsSync(dicom_temp_folder_path)) {
+            fs.mkdirSync(dicom_temp_folder_path);
+        }
+        
+
+        let new_dirname = 'dir_' + new Date() / 1; // eg. dir_1522274921704
+        let new_dirpath = path.join(dicom_temp_folder_path, new_dirname);
+    
+        fs.mkdirSync(new_dirpath);
+    
+        let response = {
+                directory: new_dirpath,
+                copy_success: [],
+                copy_error: []
+            }, files_processed = 0;
+    
+        filePaths.forEach(filePath => {
+            const source = filePath;
+            const target = path.join(new_dirpath, path.basename(filePath));
+            const targetDir = path.parse(target)['dir'];
+    
+    
+            console.log(source, target, targetDir);
+            
+            // Make sure the target directory exists.
+            if (!fs.existsSync(targetDir)) {
+                console.log("An error occurred trying to create the directory " + targetDir);
+                return;
+            }
+    
+            let readStream = fs.createReadStream(source);
+    
+            readStream.once('error', (error) => {
+                handleError(`An error occurred trying to copy the file ${source} to ${targetDir}`, error);
+            });
+    
+            readStream.once('end', () => {
+                console.log(source, 'readStream:END event')
+            });
+    
+            let writeStream = fs.createWriteStream(target);
+    
+            writeStream.on('finish', () => {
+                files_processed++;
+
+                NProgress.set(files_processed / filePaths.length);
+                console.log(target)
+                console.log('writeStream:END event')
+                displayMessage(`Copied ${source} to ${targetDir}`);
+    
+                try {
+                    console.log('BEFORE ANON');
+                    mainProcess.anonymize(target, global_anon_script);
+                    console.log('AFTER ANON');
+                    
+                    response.copy_success.push(target);
+
+                    if (files_processed === filePaths.length) {
+                        NProgress.done();
+                        
+                        let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
+                        summary_add(`${_time_took}sec`, 'Anonymization time');
+
+                        resolve(response);
+                    }
+                } catch (error) {
+                    console.log("An error occurred during anonymization: ", error);
+
+                    response.copy_error.push({
+                        file: source,
+                        error: error
+                    });
+
+                    if (files_processed === filePaths.length) {
+                        NProgress.done();
+
+                        let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
+                        summary_add(`${_time_took}sec`, 'Anonymization time');
+
+                        resolve(response);
+                    }
+                }
+            });
+    
+            readStream.pipe(writeStream);
+        });
+    
+    });
+    
+    
+}
+
+function doUpload(url_data, session_id, series_ids) {
     let project_id = url_data.project_id;
     let subject_id = url_data.subject_id;
     let expt_label = url_data.expt_label;
 
     let _files = [];
-    let series = [];
+    
 
     let total_size = 0;
     for (let i = 0; i < series_ids.length; i++) {
         let scan_series = session_map.get(session_id).scans.get(series_ids[i]);
-        series.push(scan_series)
         
         total_size = scan_series.reduce(function(prevVal, item) {
             return prevVal + item.filesize;
@@ -1147,92 +1264,6 @@ function storeUpload(url_data, session_id, series_ids) {
         });
         _files = _files.concat(files);
     }
-    // -----------------------------------------------------
-
-    selected_session = session_map.get(session_id);
-    table_rows = [];
-    selected_session.scans.forEach(function(scan, key) {
-        console.log(key);
-        
-        if (series_ids.indexOf(key) >= 0) {
-            let scan_size = scan.reduce(function(prevVal, elem) {
-                return prevVal + elem.filesize;
-            }, 0);
-            total_size += scan_size;
-            //total_files += scan.length;
-            
-            // use scan description from the last one (or any other from the batch)
-            let scans_description = scan[0].seriesDescription;
-            let series_number = scan[0].seriesNumber
-            console.log(scan);
-            
-            table_rows.push({
-                id: Helper.uuidv4(),
-                series_number: series_number,
-                series_id: key,
-                description: scans_description,
-                count: scan.length,
-                size: scan_size
-            })
-        } else {
-            console.log('Preskacemo ' + key);
-        }       
-        
-    });
-
-    let studyDate = selected_session.date ? 
-        selected_session.date.substr(0, 4) + '-' +
-        selected_session.date.substr(4, 2) + '-' +
-        selected_session.date.substr(6, 2) : '';
-    
-    let studyTime = selected_session.time ? 
-        selected_session.time.substr(0, 2) + ':' +
-        selected_session.time.substr(2, 2) + ':' +
-        selected_session.time.substr(4, 2) : '';
-
-
-    let upload_digest = {
-        id: Helper.uuidv4(),
-        url_data: url_data,
-        session_id: session_id,
-        session_data: {
-            studyId: selected_session.studyId,
-            accession: selected_session.accession,
-            studyDescription: selected_session.studyDescription,
-            studyDate: studyDate,
-            studyTime: studyTime,
-            scans_count: selected_session.scans.size
-        },
-        series_ids: series_ids,
-        series: series,
-        _files: _files,
-        total_size: total_size,
-        //copy_and_anonymize_res: res,
-        user_auth: user_auth,
-        xnat_server: xnat_server,
-        csrfToken: csrfToken,
-        transfer_start: new Date() / 1,
-        table_rows: table_rows
-    };
-
-    let my_transfers = store.get('transfers.uploads');
-
-    my_transfers.push(upload_digest);
-    store.set('transfers.uploads', my_transfers);
-    
-    ipc.send('start_upload');
-    
-    ipc.send('redirect', 'progress.html');
-
-    setTimeout(function(){
-        $('#nav-upload-tab').trigger('click');
-    }, 40);
-    
-    return;
-
-    // -----------------------------------------------------
-
-
 
     summary_add(project_id, 'PROJECT_ID');
     summary_add(subject_id, 'SUBJECT_ID');
@@ -1246,8 +1277,6 @@ function storeUpload(url_data, session_id, series_ids) {
     
 
     //swal(project_id + "\n" + subject_id + "\nFiles: " + _files.length);
-
-    
 
     copy_and_anonymize(_files)
         .then((res) => {
@@ -1275,7 +1304,179 @@ function storeUpload(url_data, session_id, series_ids) {
     
 }
 
+function zip_and_upload(dirname, _files, url_data) {
+    let _timer = performance.now();
 
+    swal('Zipping ...')
+    NProgress.start();
+    let zipped_count = 0;
+
+    let project_id = url_data.project_id;
+    let subject_id = url_data.subject_id;
+    let expt_label = url_data.expt_label;
+    
+    // **********************************************************
+    // create a file to stream archive data to.
+    let zip_path = path.join(dirname, 'file_' + Math.random() + '.zip');
+    
+    var output = fs.createWriteStream(zip_path);
+    var archive = archiver('zip', {
+        zlib: { level: 9 } // Sets the compression level.
+    });
+
+    // listen for all archive data to be written
+    // 'close' event is fired only when a file descriptor is involved
+    output.on('close', function () {
+        let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
+        summary_add(`${_time_took}sec`, 'ZIP time');
+        _timer = performance.now();
+
+        swal('Uploading zip file ...')
+        NProgress.start();
+
+        console.log(archive.pointer() + ' total bytes');
+        console.log('archiver has been finalized and the output file descriptor has closed.');
+
+        fs.readFile(zip_path, (err, zip_content) => {
+            if (err) throw err;
+
+            axios({
+                method: 'post',
+                url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
+                auth: user_auth,
+                onUploadProgress: function (progressEvent) {
+                    // Do whatever you want with the native progress event
+                    console.log('=======', progressEvent, '===========');
+                    console.log(progressEvent.loaded, progressEvent.total);
+                    NProgress.set(progressEvent.loaded/progressEvent.total);
+                },
+                headers: {
+                    'Content-Type': 'application/zip'
+                },
+                data: zip_content
+            })
+            .then(res => {
+                fs.unlink(zip_path, (err) => {
+                    if (err) throw err;
+                    console.log(`-- ZIP file "${zip_path}" was deleted.`);
+                });
+
+                console.log('---' + res.data + '---', res);
+                swal(`${_files.length} files were successfully uploaded.`);
+
+                let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader' + '&XNAT_CSRF=' + csrfToken;
+                
+                axios.post(commit_url, {
+                    auth: user_auth
+                })
+                .then(commit_res => {
+                    console.log(commit_res)
+                    swal(`Session commited.`);
+                    NProgress.done();
+
+                    let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
+                    summary_add(`${_time_took}sec`, 'UPLOAD time');
+
+                    // dies with 301
+                    swal({
+                        title: "Success",
+                        text: `Session commited`,
+                        icon: "success"
+                    })
+                    .then((value) => {
+                        // go to summary page
+                        $('#nav-tab a[href="#nav-summary"]').removeClass('disabled').trigger('click');
+                    });
+                })
+                .catch(err => {
+                    NProgress.done();
+                    let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
+                    summary_add(`${_time_took}sec`, 'UPLOAD time');
+
+                    console.log(err, err.response);
+
+                    let opt = {
+                        title: "Error",
+                        text: `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`,
+                        icon: "error"
+                    };
+
+                    if (err.response.status == 301) {
+                        opt = {
+                            title: "Success",
+                            text: `Session commited (with status code: ${err.response.status} - "${err.response.statusText}").`,
+                            icon: "success"
+                        }
+                    }
+
+                    // dies with 301
+                    swal(opt)
+                    .then((value) => {
+                        // go to summary page
+                        $('#nav-tab a[href="#nav-summary"]').removeClass('disabled').trigger('click');
+                    });
+                });
+                
+            })
+            .catch(err => {
+                console.log(err)
+            });
+        });
+
+
+    });
+
+    // This event is fired when the data source is drained no matter what was the data source.
+    // It is not part of this library but rather from the NodeJS Stream API.
+    // @see: https://nodejs.org/api/stream.html#stream_event_end
+    output.on('end', function () {
+        console.log('Data has been drained');
+    });
+
+    // good practice to catch warnings (ie stat failures and other non-blocking errors)
+    archive.on('warning', function (err) {
+        if (err.code === 'ENOENT') {
+            // log warning
+        } else {
+            // throw error
+            throw err;
+        }
+    });
+
+    // good practice to catch this error explicitly
+    archive.on('error', function (err) {
+        throw err;
+    });
+
+    archive.on('entry', function (entry_data){
+        zipped_count++;
+
+        if (zipped_count == _files.length) {
+            NProgress.done();
+        } else {
+            NProgress.set(zipped_count/_files.length);
+        }
+
+        fs.unlink(entry_data.sourcePath, (err) => {
+            if (err) throw err;
+            console.log(`-- File ${entry_data.name} was deleted.`);
+        });
+        
+    })
+
+    // pipe archive data to the file
+    archive.pipe(output);
+
+
+    for (let i = 0; i < _files.length; i++) {
+        archive.file(_files[i], { name: path.basename(_files[i]) });
+    }
+
+    // finalize the archive (ie we are done appending files but streams have to finish yet)
+    // 'close', 'end' or 'finish' may be fired right after calling this method so register to them beforehand
+    archive.finalize();
+    // **********************************************************
+}
 
 function getFilesizeInBytes(filename) {
     const stats = fs.statSync(filename)
@@ -1311,6 +1512,19 @@ function append_subject_row(subject){
     `)
 }
 
+// global anon script
+function get_global_anon_script() {
+    return axios.get(xnat_server + '/data/config/anon/script?format=json', {
+        auth: user_auth
+    });
+}
+
+// TODO - doesn't work
+function get_project_anon_script(project_id) {
+    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/anon/script?format=json', {
+        auth: user_auth
+    });
+}
 
 // allow_create_subject
 function global_allow_create_subject() {
@@ -1318,7 +1532,6 @@ function global_allow_create_subject() {
         auth: user_auth
     });
 }
-
 
 function project_allow_create_subject(project_id) {
     return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/allow-create-subject?contents=true&accept-not-found=true', {

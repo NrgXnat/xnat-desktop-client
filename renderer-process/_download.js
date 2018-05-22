@@ -12,6 +12,8 @@ const unzipper = require('unzipper');
 const shell = require('electron').shell;
 
 
+const filesize = require('filesize');
+
 
 
 let transfering = false;
@@ -41,6 +43,12 @@ function console_log(log_this) {
 }
 
 ipc.on('start_download',function(e, item){
+    do_transfer();
+
+});
+
+
+function do_transfer() {
     if (transfering) {
         return;
     }
@@ -69,13 +77,8 @@ ipc.on('start_download',function(e, item){
 
         // start download
         download_items(xnat_server, user_auth, transfer_id, manifest_urls, manifest_urls.size, true);
-    });
-
-
-
-    
-
-});
+    });  
+}
 
 function download_items(xnat_server, user_auth, transfer_id, manifest_urls, manifest_urls_count, create_dir_structure = false) {
     console.log('SIZE: ' + manifest_urls.size);
@@ -89,11 +92,21 @@ function download_items(xnat_server, user_auth, transfer_id, manifest_urls, mani
         // all done
 
         ipc.send('download_progress', {
-            id: transfer_id,
-            row: {
-                status: 100
+            table: '#download_monitor_table',
+            data: {
+                id: transfer_id,
+                row: {
+                    status: 'finished'
+                }
             }
         });
+
+        // ipc.send('download_progress', {
+        //     selector: '#download_path',
+        //     html: path.basename(real_path)
+        // });
+
+        //move_to_archive(transfer_id);
         return;
     }
 
@@ -109,9 +122,12 @@ function download_items(xnat_server, user_auth, transfer_id, manifest_urls, mani
     let progress = processed_count / manifest_urls_count;
     
     ipc.send('download_progress', {
-        id: transfer_id,
-        row: {
-            status: progress * 100
+        table: '#download_monitor_table',
+        data: {
+            id: transfer_id,
+            row: {
+                status: progress * 100
+            }
         }
     });
     
@@ -121,9 +137,27 @@ function download_items(xnat_server, user_auth, transfer_id, manifest_urls, mani
 
     console.log(dir, uri);
 
+    let timer_start = new Date() / 1000;
+
     axios.get(xnat_server + uri, {
         auth: user_auth,
-        responseType: 'arraybuffer'
+        responseType: 'arraybuffer',
+        onDownloadProgress: function (progressEvent) {
+            // Do whatever you want with the native progress event
+            //console.log('=======', progressEvent, '===========');
+
+            let timer_now = new Date() / 1000;
+            //console.log(timer_now - timer_start, progressEvent.loaded, progressEvent.total, transfer_id);
+
+            let download_speed = progressEvent.loaded / (timer_now - timer_start);
+            //console.log(filesize(download_speed) + '/sec');
+
+            ipc.send('download_progress', {
+                selector: '#download-details #download_rate',
+                html: filesize(download_speed) + '/sec'
+            });
+
+        },
     })
     .then(resp => {
         //console.log(resp.data.byteLength)
@@ -167,6 +201,10 @@ function download_items(xnat_server, user_auth, transfer_id, manifest_urls, mani
 
         // delete item from url map
         manifest_urls.delete(dir);
+        mark_downloaded(transfer_id, uri);
+
+        update_modal_ui(transfer_id, uri);
+
         download_items(xnat_server, user_auth, transfer_id, manifest_urls, manifest_urls_count);
     })
     .catch(err => {
@@ -177,6 +215,97 @@ function download_items(xnat_server, user_auth, transfer_id, manifest_urls, mani
     .finally(() => {      
         // All Done;
     });
+}
+
+function mark_downloaded(transfer_id, uri) {
+    let my_transfers = store.get('transfers.downloads');
+
+    // could be oprimized with for loop + continue
+    my_transfers.forEach(function(transfer) {
+        if (transfer.id === transfer_id) {
+            transfer.sessions.forEach(function(session){
+                session.files.forEach(function(file){
+                    if (file.uri === uri) {
+                        file.status = 1;
+                    }
+                });
+            });
+        }
+    });
+
+    store.set('transfers.downloads', my_transfers);
+}
+
+function update_modal_ui(transfer_id, uri) {
+    let my_transfers = store.get('transfers.downloads');
+
+    let transfer_index, session_index;
+    for (let i = 0; i < my_transfers.length; i++) {
+        if (my_transfers[i].id === transfer_id) {
+            transfer_index = i;
+
+            for (let j = 0; j < my_transfers[i].sessions.length; j++) {
+                for (let k = 0; k < my_transfers[i].sessions[j].files.length; k++) {
+                    if (my_transfers[i].sessions[j].files[k].uri === uri) {
+                        session_index = j;
+                        break;
+                    }
+                }
+
+                if (session_index !== undefined) {
+                    break;
+                }
+            }
+        }
+
+        if (transfer_index !== undefined) {
+            break;
+        }
+    }
+
+    let current_progress = 0;
+    my_transfers[transfer_index].sessions[session_index].files.forEach(function(file){
+        current_progress += file.status;
+    });
+
+    let session_id = my_transfers[transfer_index].sessions[session_index].id;
+
+    console.log(session_id, current_progress);
+
+    ipc.send('download_progress', {
+        table: '#download-details-table',
+        data: {
+            id: session_id,
+            row: {
+                progress: current_progress
+            }
+        }
+    });
+
+}
+
+function move_to_archive(transfer_id) {
+    let my_transfers = store.get('transfers.downloads');
+
+    if (!store.has('transfers.downloads_archive')) {
+        store.set('transfers.downloads_archive', []);
+    }
+    let my_archive = store.get('transfers.downloads_archive');
+
+    let index;
+    for (let i = 0; i < my_transfers.length; i++) {
+        if (my_transfers[i].id === transfer_id) {
+            index = i;
+            break;
+        }
+    }
+
+    my_archive.push(my_transfers[index]);
+    my_transfers.splice(index, 1);
+
+    
+    store.set('transfers.downloads_archive', my_archive);
+    store.set('transfers.downloads', my_transfers);
 }
 
 window.onerror = function (errorMsg, url, lineNumber) {
