@@ -911,117 +911,6 @@ function dicomParse(_files) {
         $.queue.add(show_bundle_progress, this);
     }
     
-    // first version
-    if (false) {
-
-        for (let i = 0; i < _files.length; i++) {
-            let file = _files[i];
-            displayMessage(`---Reading file ${file}:`);
-
-            let parse_single_file = function() {
-                try {
-                    const dicomFile = fs.readFileSync(file);
-                    const dicom = dicomParser.parseDicom(dicomFile, { untilTag: '0x00324000' });           
-                    
-                    const studyInstanceUid = dicom.string('x0020000d');
-                    
-                    if (typeof studyInstanceUid !== 'undefined') {
-                        const studyDescription = dicom.string('x00081030');
-                        
-                        const seriesDescription = dicom.string('x0008103e');
-                        const seriesInstanceUid = dicom.string('x0020000e');
-                        const seriesNumber = dicom.string('x00200011');
-            
-                        // ++++
-                        const modality = dicom.string('x00080060');
-                        // ++++
-            
-                        /*
-                        dicoms.push({
-                            filepath: file,
-                            filename: path.basename(file),
-                            studyInstanceUid: studyInstanceUid,
-                            studyDescription: studyDescription,
-                            seriesDescription: seriesDescription,
-                            seriesInstanceUid: seriesInstanceUid,
-                            seriesNumber: seriesNumber,
-                            modality: modality
-                        });
-            
-                        if ($.inArray(studyInstanceUid, sessions) === -1) {
-                            sessions.push(studyInstanceUid)
-                        }
-            
-                        if ($.inArray(seriesInstanceUid, series) === -1) {
-                            series.push(seriesInstanceUid)
-                        }
-        
-                        */
-            
-            
-                        if (!session_map.has(studyInstanceUid)) {
-                            session_map.set(studyInstanceUid, {
-                                studyInstanceUid: studyInstanceUid,
-                                studyDescription: studyDescription,
-                                modality: modality,
-                                scans: new Map()
-                            });
-                        }
-            
-                        if (!session_map.get(studyInstanceUid).scans.has(seriesInstanceUid)) {
-                            session_map.get(studyInstanceUid).scans.set(seriesInstanceUid, []);
-                        }
-                        
-                        
-                        let file_name = path.basename(file);
-                        let file_size = getFilesizeInBytes(file);
-                        let my_scans = session_map.get(studyInstanceUid).scans.get(seriesInstanceUid);
-                        let filtered = my_scans.filter(el => el.filename === file_name && el.filesize === file_size);
-        
-                        // only add unique files
-                        if (filtered.length === 0) {
-                            my_scans.push({
-                                filepath: file,
-                                filename: file_name,
-                                filesize: file_size,
-                                seriesDescription: seriesDescription,
-                                seriesInstanceUid: seriesInstanceUid,
-                                seriesNumber: seriesNumber
-                            }); 
-                        }
-                                
-                    }
-                    
-        
-        
-                    //console.log(`studyDescription: "${studyDescription}"`, `studyInstanceUid: ${studyInstanceUid}`, `modality: ${modality}`);
-                    
-                } catch (error) {
-                    handleError(`There was an error processing the file ${file}`, error);
-                    errors++;
-                }
-            };
-
-            let show_progress = function() {
-                let progress = parseFloat((i/_files.length).toFixed(2)) - 0.01;
-
-                if (progress > current_progress) {
-                    NProgress.set(progress);
-                    current_progress = progress;
-                    console.log('current_progress: ' + current_progress);
-                }
-        
-                $progress_bar.attr('value', i + 1);
-            };
-
-            // parse_single_file();
-            // show_progress();
-            $.queue.add(parse_single_file, this);
-            $.queue.add(show_progress, this);
-    
-        }
-
-    }
 
     let display_results = function(){
         NProgress.done();
@@ -1171,6 +1060,7 @@ function storeUpload(url_data, session_id, series_ids) {
                 series_number: series_number,
                 series_id: key,
                 description: scans_description,
+                progress: 0,
                 count: scan.length,
                 size: scan_size
             })
@@ -1197,22 +1087,23 @@ function storeUpload(url_data, session_id, series_ids) {
         session_id: session_id,
         session_data: {
             studyId: selected_session.studyId,
-            accession: selected_session.accession,
+            studyInstanceUid: selected_session.studyInstanceUid,
             studyDescription: selected_session.studyDescription,
+            modality: selected_session.modality,
+            accession: selected_session.accession,
             studyDate: studyDate,
-            studyTime: studyTime,
-            scans_count: selected_session.scans.size
+            studyTime: studyTime
         },
         series_ids: series_ids,
         series: series,
-        _files: _files,
+        //_files: _files,
         total_size: total_size,
-        //copy_and_anonymize_res: res,
         user_auth: user_auth,
         xnat_server: xnat_server,
         csrfToken: csrfToken,
         transfer_start: new Date() / 1,
-        table_rows: table_rows
+        table_rows: table_rows,
+        status: 0
     };
 
     let my_transfers = store.get('transfers.uploads');

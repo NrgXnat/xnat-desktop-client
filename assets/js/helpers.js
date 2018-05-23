@@ -1,4 +1,5 @@
 const settings = require('electron-settings');
+const path = require('path');
 
 let Helper = {
     blockModal: (modal_id) => {
@@ -110,6 +111,24 @@ let Helper = {
         //let month = a.getMonth() < 10 ? '0' + a.getMonth() : a.getMonth();
         let date = a.getDate();
         return date + ' ' + month + ' ' + year;
+    },
+
+    notify: (body, title, icon) => {
+        // Notification code        
+        let real_icon = icon == undefined ? path.join(__dirname, '../icons/png/icon.png') : icon;
+        let real_title = title == undefined ? 'XNAT Desktop Client' : title;
+        
+        const notification = {
+            title: real_title,
+            body: body,
+            icon: real_icon
+        };
+
+        function notify() {
+            const myNotification = new window.Notification(notification.title, notification);
+        }
+
+        notify();
     }
 }
 

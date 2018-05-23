@@ -59,7 +59,89 @@ mizers.addSync(java.newInstanceSync("org.nrg.dicom.dicomedit.mizer.DE6Mizer"));
 
 const mizerService = java.newInstanceSync("org.nrg.dicom.mizer.service.impl.BaseMizerService", mizers);
 
-mizer.anonymize = (source, script, variables) => {
+/**
+ * Creates a Java Properties object from a hash of values. This object is what the Mizer service expects for
+ * variables and values to be used during anonymization.
+ *
+ * Add more variables to the return from this function by calling:
+ *
+ * variables.setPropertySync('variableName', 'variableValue');
+ *
+ * @param variables A hash of variable names and values.
+ *
+ * @return A Java Properties object containing the submitted names and values.
+ */
+mizer.getVariables = (variables) => {
+    const properties = java.newInstanceSync("java.util.Properties");
+
+    if (variables) {
+        Object.keys(variables).forEach(key => {
+            properties.setPropertySync(key, variables[key]);
+        });
+    }
+
+    return properties;
+};
+
+/**
+ * Add variables, such as from {@link #getVariables()} above, to the return from this function by calling
+ * context.addSync(variables).
+ *
+ * @param script The script for which a context should be created.
+ *
+ * @return A script context.
+ */
+mizer.getScriptContext = (script) => {
+    const context = java.newInstanceSync("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
+
+    context.setScriptSync(script);
+
+    return context;
+};
+
+/**
+ * Add variables, such as from {@link #getVariables()} above, to the return from this function by calling
+ * context.addSync(variables).
+ *
+ * @param scripts The scripts for which contexts should be created.
+ *
+ * @return A list of script contexts.
+ */
+mizer.getScriptContexts = (scripts) => {
+    const contexts = java.newInstanceSync("java.util.ArrayList");
+
+    scripts.forEach(script => {
+        const context = mizer.getScriptContext(script);
+        contexts.addSync(context);
+    });
+
+    return contexts;
+};
+
+/**
+ * Gets variables that are referenced in the contexts.
+ */
+mizer.getReferencedVariables = (contexts) => {
+    return mizerService.getReferencedVariablesSync(contexts);
+};
+
+/**
+ * Anonymizes the DICOM object source using the supplied scripts. If variables have already been set on the script
+ * contexts, the variables parameter can be omitted.
+ *
+ * @param source    The DICOM object to anonymize.
+ * @param contexts  The script contexts to use for anonymization.
+ * @param variables A Java Properties object to pass for variable substitution.
+ */
+mizer.anonymize = (source, contexts, variables) => {
+    const dicom = java.newInstanceSync("java.io.File", source);
+
+    contexts.forEach(context => context.addSync(variables));
+    mizerService.anonymizeSync(dicom, contexts);
+};
+
+
+mizer.anonymize_single = (source, script, variables) => {
     const properties = java.newInstanceSync("java.util.Properties");
 
     if (variables) {

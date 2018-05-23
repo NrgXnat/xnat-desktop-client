@@ -191,7 +191,7 @@ function _init_upload_progress_table() {
                 session_label: transfer.session_data.studyDescription,
                 transfer_type: 'Upload',
                 transfer_date: transfer.transfer_start,
-                status: 0,
+                status: transfer.status,
                 actions: '',
                 server: transfer.xnat_server,
                 user: transfer.user_auth.username
@@ -443,8 +443,6 @@ $(document).on('page:load', '#progress-section', function(e){
     console.log('PROGRESS page:load triggered');
     
     _init_variables();
-    
-        
 });
 
 $(document).on('show.bs.modal', '#download-details', function(e) {
@@ -574,6 +572,19 @@ function _init_upload_details_table(transfer_id) {
                 align: 'right',
                 class: 'right-aligned'
             }, 
+            {
+                field: 'progress',
+                title: 'Upload Progress',
+                sortable: false,
+                formatter: function(value, row, index, field) {
+                    let percent = value;
+                    return `
+                        <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="100" style="width:${percent}%; height:25px;">
+                            <span class="sr-only">In progress</span>
+                        </div>
+                    `;
+                }
+            },
             {
                 field: 'size',
                 title: 'Size (bytes)',

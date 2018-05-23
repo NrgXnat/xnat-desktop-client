@@ -44,7 +44,6 @@ function console_log(log_this) {
 
 ipc.on('start_download',function(e, item){
     do_transfer();
-
 });
 
 

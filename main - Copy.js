@@ -186,6 +186,13 @@ ipcMain.on('start_download', (e, item) =>{
 
 
 
+
+
+
+exports.anonymize = (source, script, variables) => {
+  mizer.anonymize(source, script, variables);
+};
+
 function fix_java_path() {
   const fs = require('fs');
   const isSymlink = require('is-symlink');
@@ -264,60 +271,9 @@ const showMessageBox = (options) => {
 
   dialog.showMessageBox(my_options);
 };
-/** RICK **/
-exports.anonymize_single = (source, script, variables) => {
-  mizer.anonymize_single(source, script, variables);
-};
-/** RICK **/
-exports.getReferencedVariables = (contexts) => {
-  mizer.getReferencedVariables(contexts);
-};
-
-exports.getScriptContexts = (scripts) => {
-  mizer.getScriptContexts(scripts);
-};
-
-exports.getScriptContext = (script) => {
-  mizer.getScriptContext(script);
-};
-
-exports.getVariables = (variables) => {
-  mizer.getVariables(variables);
-};
-
-exports.anonymize = (source, contexts, variables) => {
-  mizer.anonymize(source, contexts, variables);
-};
-/** \RICK **/
 
 
-// let mizer_proxy = {
-//   anonymize_single: (source, script, variables) => {
-//     mizer.anonymize_single(source, script, variables);
-//   },
-//   getReferencedVariables: (contexts) => {
-//     mizer.getReferencedVariables(contexts);
-//   },
-  
-//   getScriptContexts: (scripts) => {
-//     mizer.getScriptContexts(scripts);
-//   },
-  
-//   getScriptContext: (script) => {
-//     mizer.getScriptContext(script);
-//   },
-  
-//   getVariables: (variables) => {
-//     mizer.getVariables(variables);
-//   },
-  
-//   anonymize: (source, contexts, variables) => {
-//     mizer.anonymize(source, contexts, variables);
-//   }
-// }
-// module.exports = mizer_proxy;
-
-
-
-
-
+global.test_var = [{
+  value: 1,
+  file: __filename
+}]
