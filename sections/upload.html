@@ -101,44 +101,27 @@
                     <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
                         <h2 class="section-title">Please confirm the scans to be included.</h2>
 
-                        <!--
-                        <table class="table table-bordered" id="table1" data-toggle="table" data-height="300">
-                            <thead>
-                                <tr>
-                                    <th data-field="select" data-checkbox="true">Upload</th>
-                                    <th data-field="description" data-sortable="true">Series Description</th>
-                                    <!--
-                                    <th data-field="quality" data-sortable="false" data-escape="false">Quality label</th>
-                                    <th data-field="note" data-escape="false" data-escape="false" data-align="center">Scan-level notes</th>
-                                    --/>
-                                    <th data-field="count" data-sortable="true">File count</th>
-                                    <th data-field="size" data-sortable="true">Size (bytes)</th>
-                                    <th data-field="series_id" data-visible="false">Series ID</th>
-
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                        -->
+                        
                         <table class="table table-bordered" id="image_session"></table>
 
                    <p>Note: Unchecked scans will not be uploaded</p>
                    <div class="row">
-                     <div class="col">
+                     <div class="col-4">
                        <p><b>Session summary</b></p>
                        <p id="session_info"></p>
                      </div>
-                     <div class="col">
-                       <div class="form-group">
+                     <div class="col" id="anon_variables">
+                        <div class="form-group row">
+                            <label for="experiment_label" class="col-4 text-right"><b>Experiment Label</b>:</label>
+                            <div class="input-group col-8">
+                                <input class="form-control" type="text" name="experiment_label" id="experiment_label" value="" required>
+                            </div>
+                        </div>
+                       <div id="additional-upload-fields">
                            
-                         <label><b>Experiment Label</b></label>
-                         <input type="text" name="experiment_label" id="experiment_label" value="" required>
-                         <br><br>
-                         <!--
-                         <label><b>Session notes</b></label>
-                         <textarea placeholder="Add Note" rows="4"></textarea>
-                         -->
                        </div>
+                       
+                       <br><br>
                      </div>
                    </div>
                    <div class="row">
@@ -258,18 +241,6 @@
         <script type="text/javascript">
             require('./renderer-process/upload')
 
-            // $("#datepicker").datepicker({
-            //     changeMonth: true,
-            //     changeYear: true,
-            //     beforeShow: function (input, inst) {
-            //         var dp = $(inst.dpDiv);
-            //         var offset = $(input).outerWidth(false) - dp.outerWidth(false);
-            //         dp.css('margin-right', offset);
-            //     }
-            // });
-
-
-            //$('#upload-section').trigger('page:load');
             Helper.pageLoadTrigger('#upload-section'); 
         </script>
 

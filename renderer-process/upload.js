@@ -11,7 +11,7 @@ const archiver = require('archiver');
 const mime = require('mime-types');
 
 const remote = require('electron').remote;
-const mainProcess = remote.require('./main.js');
+const mizer = require('../mizer');
 
 const NProgress = require('nprogress');
 NProgress.configure({ 
@@ -24,6 +24,8 @@ NProgress.configure({
 let csrfToken = '';
 let xnat_server, user_auth, session_map, selected_session_id, defined_project_exp_labels, resseting_functions;
 let global_date_required, date_required, selected_session_data;
+
+let anon_variables = {};
 
 function _init_variables() {
     xnat_server = settings.get('xnat_server');
@@ -217,20 +219,6 @@ $(document).on('page:load', '#upload-section', function(e){
                 `)
             }
 
-            // for (let i = 0, len = projects.length; i < len; i++) {
-            //     console.log('---', projects[i].id)
-            //     $('#upload-project').append(`
-            //         <li><a href="javascript:void(0)" data-project_id="${projects[i].ID}">${projects[i].name} [ID:${projects[i].ID}]</a></li>
-            //     `)
-            // }
-
-            
-            // projects.forEach(function(project){
-            //     $('#upload-project').append(`
-            //         <li><a href="javascript:void(0)" data-project_id="${project.ID}">${project.name} [ID:${project.ID}]</a></li>
-            //     `)
-            // })
-            //console.log(resp.data.ResultSet.Result)
         })
         .catch(function(err) {
             console.log(err.message);
@@ -252,7 +240,15 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
 
     $(this).closest('ul').find('a').removeClass('selected');
     $(this).addClass('selected')
-    let project_id = $(this).data('project_id')
+    let project_id = $(this).data('project_id');
+
+    mizer.get_mizer_scripts(xnat_server, user_auth, project_id).then(scripts => {
+        let contexts = mizer.getScriptContexts(scripts);
+
+        anon_variables = mizer.getReferencedVariables(contexts);
+    }).catch(function(error) {
+        console.log("Failed!", error);
+    });
 
     promise_subjects(project_id)
         .then(res => {
@@ -285,6 +281,8 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
 });
 
 $(document).on('click', 'a[data-subject_id]', function(e){
+    resetSubsequentTabs();
+
     $(this).closest('ul').find('a').removeClass('selected');
     $(this).addClass('selected')
     
@@ -335,6 +333,7 @@ $(document).on('change', '#file_upload_folder', function(e) {
                             _files = walkSync(pth);
                             console.log(_files);
 
+                            $('#file_upload_folder').val('');
                             dicomParse(_files);
                         } else {
                             $('#upload_folder, #file_upload_folder').val('');
@@ -345,6 +344,7 @@ $(document).on('change', '#file_upload_folder', function(e) {
                     console.log(_files);
 
                     setTimeout(function() {
+                        $('#file_upload_folder').val('');
                         dicomParse(_files)
                     }, 0)
                 }
@@ -395,7 +395,19 @@ $(document).on('input', '#upload_session_date', function(e) {
 
 $(document).on('click', '.js_upload', function() {
     let selected = $('#image_session').bootstrapTable('getSelections');
-    if (selected.length) {
+
+    let $required_inputs = $('#anon_variables').find(':input[required]');
+    let required_input_error = false;
+
+    $required_inputs.each(function(){
+        if ($(this).val().trim() === '') {
+            $(this).addClass('is-invalid');
+            required_input_error = true;
+        }
+    })
+    
+    
+    if (selected.length && !required_input_error) {
         let selected_series = selected.map(function(item){
             return item.series_id;
         });
@@ -407,18 +419,34 @@ $(document).on('click', '.js_upload', function() {
             project_id: $('a[data-project_id].selected').data('project_id'),
             subject_id: $('a[data-subject_id].selected').data('subject_id')
         };
+
+        let anon_variables = {};
+        $('#additional-upload-fields').find(':input').each(function(){
+            let $field = $(this);
+            anon_variables[$field.attr('name')] = $field.val();
+        });
+
         //doUpload(url_data, selected_session_id, selected_series);
-        storeUpload(url_data, selected_session_id, selected_series);
+        storeUpload(url_data, selected_session_id, selected_series, anon_variables);
 
     } else {
         swal({
             title: `Selection error`,
-            text: `You must select at least one scan series`,
+            text: `Please select at least one scan series and enter variable value(s)`,
             icon: "warning",
             dangerMode: true
         })
     }
+    
+
 });
+$(document).on('input', '#anon_variables :input[required]', function(e){
+    let $input = $(this);
+    $input.on('input', function(){
+        $input.removeClass('is-invalid');
+    });
+});
+
 
 $(document).on('show.bs.modal', '#new-subject', function(e) {
     console.log(e)
@@ -440,6 +468,10 @@ $(document).on('show.bs.modal', '#new-subject', function(e) {
         $('#form_new_subject input[name=project_id]').val(project_id)
         $('#form_new_subject input[name=subject_label]').val('')
         $('#form_new_subject input[name=group]').val('')
+
+        setTimeout(function(){
+            $('#form_new_subject input[name=subject_label]').focus()
+        }, 500);
     }
 
 });
@@ -492,6 +524,42 @@ $(document).on('submit', '#form_new_subject', function(e) {
 $(document).on('click', 'button[data-session_id]', function(e){
     $('.tab-pane.active .js_next').removeClass('disabled');
     selected_session_id = $(this).data('session_id');
+
+    
+    console.log('******************************************');
+    console.log('anon_variables', anon_variables);
+    console.log('******************************************');
+
+    $('#additional-upload-fields').html('');
+    Object.keys(anon_variables).forEach(key => {
+        let key_cap = Helper.capitalizeFirstLetter(key);
+        let field_type = (key == 'subject' || key == 'project') ? 'hidden' : 'text';
+
+        let field_text, field_value;
+        if (key == 'subject') {
+            field_text = get_form_value('subject_id', 'subject_label');
+            field_value = field_text;
+        } else if (key == 'project') {
+            field_text = get_form_value('project_id', 'project_id');
+            field_value = field_text;
+        } else {
+            field_text = '';
+            field_value = anon_variables[key];
+        }
+
+        
+
+        $('#additional-upload-fields').append(`
+            <div class="form-group row">
+                <label for="var_${key}" class="col-4 text-right"><b>${key_cap}</b>:</label>
+                <div class="input-group col-8">
+                    <input class="form-control" type="${field_type}" name="${key}" id="var_${key}" value="${field_value}" required>
+                    ${field_text}
+                </div>
+            </div>
+        `);
+        console.log('$$$$ ' + key + ' => ' + anon_variables[key] );
+    });
 
     let session_id = selected_session_id,
         selected_session = session_map.get(session_id),
@@ -563,6 +631,10 @@ $(document).on('click', 'button[data-session_id]', function(e){
     
     swal.close();
 });
+
+function get_form_value(field, data) {
+    return $(`a[data-${field}].selected`).data(data);
+}
 
 // TODO - test code (removal OK)
 $(document).on('click', '#test-upload', function () {
@@ -998,7 +1070,7 @@ function dicomParse(_files) {
 }
 
 function get_default_expt_label() {
-    let subject_id = $('a[data-subject_id].selected').data('subject_id');
+    let subject_id = $('a[data-subject_id].selected').data('subject_label');
     let modality = session_map.get(selected_session_id).modality;
     
     let expt_label = subject_id.split(' ').join('_') + '_' + modality + '_';
@@ -1014,7 +1086,9 @@ function get_default_expt_label() {
     return expt_label;
 }
 
-function storeUpload(url_data, session_id, series_ids) {
+function storeUpload(url_data, session_id, series_ids, anon_variables) {
+    console.log('==== anon_variables ====', anon_variables);
+    
     let project_id = url_data.project_id;
     let subject_id = url_data.subject_id;
     let expt_label = url_data.expt_label;
@@ -1084,6 +1158,7 @@ function storeUpload(url_data, session_id, series_ids) {
     let upload_digest = {
         id: Helper.uuidv4(),
         url_data: url_data,
+        anon_variables: anon_variables,
         session_id: session_id,
         session_data: {
             studyId: selected_session.studyId,
@@ -1101,7 +1176,7 @@ function storeUpload(url_data, session_id, series_ids) {
         user_auth: user_auth,
         xnat_server: xnat_server,
         csrfToken: csrfToken,
-        transfer_start: new Date() / 1,
+        transfer_start: Helper.unix_timestamp(),
         table_rows: table_rows,
         status: 0
     };
@@ -1195,6 +1270,7 @@ function append_subject_row(subject){
             <a href="javascript:void(0)" 
                 data-subject_uri="${subject.URI}"
                 data-subject_insert_date="${subject.insert_date}"
+                data-subject_label="${subject.label}"
                 data-subject_id="${subject.ID}">
                 ${subject.label} [ID:${subject.ID}] [GROUP: ${subject.group}]
             </a>

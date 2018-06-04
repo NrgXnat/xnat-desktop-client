@@ -9,13 +9,12 @@ const ipc = require('electron').ipcRenderer;
 const filesize = require('filesize');
 
 const remote = require('electron').remote;
-const mainProcessMain = remote.require('./main.js');
 
-const mainProcess = require('../mizer');
+const mizer = require('../mizer');
 
 const archiver = require('archiver');
 
-const use_anon_single = false;
+let summary_all = {};
 
 
 let _queue_ = {
@@ -25,15 +24,15 @@ let _queue_ = {
         if (this.items.length < this.max_items) {
             let transfer_label = transfer_id + '::' + series_id;
             if (this.items.indexOf(transfer_label) == -1) {
-                console.log('Added to queue ' + transfer_label);
+                console_log('Added to queue ' + transfer_label);
                 this.items.push(transfer_label);
                 return true;
             } else {
-                console.log('Already in queue ' + transfer_label);
+                console_log('Already in queue ' + transfer_label);
                 return false;
             }
         } else {
-            console.log('Queue FULL');
+            console_log('Queue FULL');
             return false;
         }
     },
@@ -51,11 +50,9 @@ if (!store.has('transfers.uploads')) {
 }
 
 
-let global_anon_script = '(0008,0070) := "Electron changed this"', project_anon_script;
-
 let transfering = false;
 
-console.log(__filename);
+console_log(__filename);
 //ipc.send('log', store.getAll())
 do_transfer()
 
@@ -79,10 +76,10 @@ function do_transfer() {
 
     let my_transfers = store.get('transfers.uploads');
 
-    console.log(my_transfers); 
+    console_log(my_transfers); 
     
     my_transfers.forEach(function(transfer) {
-        console.log(transfer);
+        console_log(transfer);
         
         if (typeof transfer.status == 'number') {
             if (transfer.series_ids.length) {
@@ -110,8 +107,9 @@ function doUpload(transfer, series_id) {
     let subject_id = url_data.subject_id;
     let expt_label = url_data.expt_label;
 
-    let session_id = transfer.session_id;
+    let session_id = transfer.session_id; //STUDY_ID
     let series_ids = transfer.series_ids;
+    
 
     let series_index = -1;
     for (let i = 0; i < transfer.series.length; i++) {
@@ -131,52 +129,48 @@ function doUpload(transfer, series_id) {
 
             total_size = transfer.series[series_index].reduce(function(prevVal, item) {
                 return prevVal + item.filesize;
-            }, total_size);
+            }, 0);
         })
     }
     
+    update_transfer_summary(transfer.id, 'total_files', _files.length);
+    update_transfer_summary(transfer.id, 'total_size', total_size);
 
-    // let _files = transfer._files;
-    // let total_size = transfer.total_size;
+    let contexts, variables;
+    mizer.get_mizer_scripts(xnat_server, user_auth, project_id).then(scripts => {
+        console_log(scripts);
 
-    console.log(_files);
-    
-    summary_add(project_id, 'PROJECT_ID');
-    summary_add(subject_id, 'SUBJECT_ID');
-    summary_add(expt_label, 'EXPT_LABEL');
-    summary_add(session_id, 'STUDY_ID');
-    summary_add(series_ids.length, 'SCANS');
-    summary_add(_files.length, 'FILES');
-    summary_add(`${(total_size / 1024 / 1024).toFixed(2)}MB`, 'FILESIZE');
+        contexts = mizer.getScriptContexts(scripts);
+        console_log('******************************************');
+        console_log(contexts);
+        console_log('******************************************');
 
-
-    /* ****************************************************** 
-    let session_map = new Map();
-    let sd = transfer.session_data;
-    session_map.set(sd.studyInstanceUid, {
-        studyId: sd.studyId,
-        studyInstanceUid: sd.studyInstanceUid,//
-        studyDescription: sd.studyDescription,
-        modality: sd.modality,
-        accession: sd.accession,
-        date: sd.studyDate,
-        time: sd.studyTime
-    });
-
-    console.log(session_map);
-    /* ****************************************************** */
-
-    let context, variables;
-    init_mizer_variables(xnat_server, user_auth, project_id).then(resp => {
-        console.log('RESPONSE', resp);
         
-        contexts = resp.contexts;
-        variables = resp.variables;
+        // Get all of the user-entered values from the UI.
+        // let anonValues = {
+        //     session: '1DARKO2',
+        //     subject: '2DARKO',
+        //     foo: 'my-fooDARKO',
+        //     project: 'project-Darko',
+        //     mile: 'mile-DARKO'
+        // };
+        // console_log(anonValues);
+        console_log(transfer.anon_variables);
 
-        copy_and_anonymize(_files, contexts, variables).then((res) => {
-            summary_add(res.directory, 'Anonymization dir');
-            summary_add(res.copy_success.length, 'Anonymized files');
-            summary_add(res.copy_error.length, 'Anonymization errors');
+        // Convert the JS map anonValues into a Java Properties object.
+        variables = mizer.getVariables(transfer.anon_variables);
+        //console_log('variables', variables);
+
+
+        copy_and_anonymize(transfer.id, _files, contexts, variables).then((res) => {
+            //summary_add(transfer.id, series_id, res.directory, 'Anonymization dir');
+            //summary_add(transfer.id, series_id, res.copy_success.length, 'Anonymized files');
+            //summary_add(transfer.id, series_id, res.copy_error.length, 'Anonymization errors');
+
+            update_transfer_summary(transfer.id, 'anon_files', res.copy_success.length);
+            if (res.copy_error.length) {
+                update_transfer_summary(transfer.id, 'anon_errors', res.copy_error);
+            }
     
             // todo add additional logic for errors
             if (res.copy_error.length == 0) {
@@ -197,9 +191,9 @@ function doUpload(transfer, series_id) {
                 // })
             }
         })
+    }).catch(function(error) {
+        console_log(error);
     });
-    
-    
     
     
 }
@@ -211,7 +205,7 @@ function getUserHome() {
     return process.env[(process.platform == 'win32') ? 'USERPROFILE' : 'HOME'];
 }
 
-function copy_and_anonymize(filePaths, contexts, variables) {
+function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
     let _timer = performance.now();
 
     return new Promise(function(resolve, reject){
@@ -238,20 +232,18 @@ function copy_and_anonymize(filePaths, contexts, variables) {
             const target = path.join(new_dirpath, path.basename(filePath));
             const targetDir = path.parse(target)['dir'];
     
-    
-            //console.log(source, target, targetDir);
             
             // Make sure the target directory exists.
             if (!fs.existsSync(targetDir)) {
-                console.log("An error occurred trying to create the directory " + targetDir);
+                console_log("An error occurred trying to create the directory " + targetDir);
                 return;
             }
     
             let readStream = fs.createReadStream(source);
     
             readStream.once('error', (error) => {
-                console.log(`An error occurred trying to copy the file ${source} to ${targetDir}`);
-                console.log(error);
+                console_log(`An error occurred trying to copy the file ${source} to ${targetDir}`);
+                console_log(error);
             });
     
             readStream.once('end', () => {
@@ -263,23 +255,14 @@ function copy_and_anonymize(filePaths, contexts, variables) {
             writeStream.on('finish', () => {
                 files_processed++;
 
-                //console.log(target)
-                //console.log('writeStream:END event')
-                //console.log(`Copied ${source} to ${targetDir}`);
+                //console_log(target)
+                //console_log('writeStream:END event')
+                //console_log(`Copied ${source} to ${targetDir}`);
     
                 try {
-                    //console.log('BEFORE ANON');
-                    if (use_anon_single) {
-                        mainProcess.anonymize_single(target, global_anon_script);
-                    } else {
-                        console.log(target);
-                        console.log(contexts);
-                        console.log(variables);
-                        
-                        mainProcess.anonymize(target, contexts, variables);
-                    }
-                    
-                    //console.log('AFTER ANON');
+                    //console_log('BEFORE ANON');
+                    mizer.anonymize(target, contexts, variables);
+                    //console_log('AFTER ANON');
                     
                     response.copy_success.push(target);
 
@@ -287,12 +270,13 @@ function copy_and_anonymize(filePaths, contexts, variables) {
                         
                         let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
                         // summary_add(`${_time_took}sec`, 'Anonymization time');
+                        update_transfer_summary(transfer_id, 'timer_cp_anon', _time_took);
 
                         resolve(response);
                     }
                 } catch (error) {
-                    console.log("An error occurred during anonymization: ");
-                    console.log(error)
+                    console_log("An error occurred during anonymization: ");
+                    console_log(error)
 
                     response.copy_error.push({
                         file: source,
@@ -314,13 +298,16 @@ function copy_and_anonymize(filePaths, contexts, variables) {
     
     });
     
-    
+}
+
+function _time_offset(start_time) {
+    return ((performance.now() - start_time) / 1000).toFixed(2);
 }
 
 
 
 function zip_and_upload(dirname, _files, transfer, series_id) {
-    let _timer = performance.now();
+    let zip_timer = performance.now();
 
     let url_data = transfer.url_data, 
         xnat_server = transfer.xnat_server, 
@@ -354,12 +341,15 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
     // listen for all archive data to be written
     // 'close' event is fired only when a file descriptor is involved
     output.on('close', function () {
-        let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
+        let _time_took = ((performance.now() - zip_timer) / 1000).toFixed(2);
         //summary_add(`${_time_took}sec`, 'ZIP time');
-        _timer = performance.now();
+        update_transfer_summary(transfer.id, 'timer_zip', _time_took);
 
-        console.log(archive.pointer() + ' total bytes');
-        console.log('archiver has been finalized and the output file descriptor has closed.');
+
+        let upload_timer = performance.now();
+
+        console_log(archive.pointer() + ' total bytes');
+        console_log('archiver has been finalized and the output file descriptor was closed.');
 
         fs.readFile(zip_path, (err, zip_content) => {
             if (err) throw err;
@@ -396,38 +386,34 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
             .then(res => {
                 fs.unlink(zip_path, (err) => {
                     if (err) throw err;
-                    //console.log(`-- ZIP file "${zip_path}" was deleted.`);
+                    //console_log(`-- ZIP file "${zip_path}" was deleted.`);
                 });
 
-                //console.log('---' + res.data + '---', res);
+                //console_log('---' + res.data + '---', res);
                 
                 let left_to_upload = mark_uploaded(transfer_id, series_id);
 
-                let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
-                summary_add(`${_time_took}sec`, 'UPLOAD time');
 
                 if (left_to_upload === 0) {
-                    console.log('KOMITUJEMOOOOOOOO')
+                    console_log('COMMITING UPLOAD')
+
+                    let commit_timer = performance.now();
                     let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader' + '&XNAT_CSRF=' + csrfToken;
                 
                     axios.post(commit_url, {
                         auth: user_auth
                     })
                     .then(commit_res => {
-                        console.log(commit_res)
+                        console_log(commit_res)
                         // let msg = `Session commited.`;
-    
-                        
     
                         // dies with 301 // go to summary page
                         // SHOW SUCCESS MESSAGE
                     })
                     .catch(err => {
-                        let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
-                        //summary_add(`${_time_took}sec`, 'UPLOAD time');
-    
-                        console.log(err);
-    
+                        console_log(err);
+
+                        /*
                         let opt = {
                             title: "Error",
                             text: `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`,
@@ -441,20 +427,30 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
                                 icon: "success"
                             }
                         }
-    
-                        console.log(opt);
-                        
-    
-                        // dies with 301
-                        // swal(opt);
+                        console_log(opt);
+                        */
+
+                        if (err.response.status != 301) {
+                            update_transfer_summary(transfer.id, 'commit_errors', `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`);
+                        }
+                    })
+                    .finally(() => {
+                        let _time_took = ((performance.now() - commit_timer) / 1000).toFixed(2);
+                        //summary_add(`${_time_took}sec`, 'COMMIT time');
+                        update_transfer_summary(transfer.id, 'timer_commit', _time_took);
                     });
                 }
 
             })
             .catch(err => {
-                console.log(err)
+                console_log(err);
+                update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMsg(err));
             })
             .finally(() => {
+                let _time_took = ((performance.now() - upload_timer) / 1000).toFixed(2);
+                //summary_add(transfer.id, series_id, `${_time_took}sec`, 'UPLOAD time');
+                update_transfer_summary(transfer.id, 'timer_upload', _time_took);
+
                 _queue_.remove(transfer_id, series_id);
                 do_transfer();
             });
@@ -467,7 +463,7 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
     // It is not part of this library but rather from the NodeJS Stream API.
     // @see: https://nodejs.org/api/stream.html#stream_event_end
     output.on('end', function () {
-        console.log('Data has been drained');
+        console_log('Data has been drained');
     });
 
     // good practice to catch warnings (ie stat failures and other non-blocking errors)
@@ -497,7 +493,7 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
 
         fs.unlink(entry_data.sourcePath, (err) => {
             if (err) throw err;
-            //console.log(`-- File ${entry_data.name} was deleted.`);
+            //console_log(`-- File ${entry_data.name} was deleted.`);
         });
         
     })
@@ -558,6 +554,59 @@ function mark_uploaded(transfer_id, series_id) {
     store.set('transfers.uploads', my_transfers);
 
     return left_to_upload;
+}
+
+function summary_commit(transfer_id, series_id) {
+    let my_transfers = store.get('transfers.uploads');
+
+    let left_to_upload = -1;
+
+    // could be oprimized with for loop + continue
+    my_transfers.forEach(function(transfer) {
+        if (transfer.id === transfer_id) {
+            if (transfer.summary === undefined) {
+                transfer.summary = [];
+            }
+
+            transfer.summary[series_id] = summary_all[transfer_id][series_id];
+        }
+    });
+
+    store.set('transfers.uploads', my_transfers);
+}
+
+function update_transfer_data(transfer_id, property, new_value) {
+    let my_transfers = store.get('transfers.uploads');
+
+    for (let i = 0; i < my_transfers.length; i++) {
+        if (my_transfers[i].id === transfer_id) {
+            my_transfers[i][property] = new_value;
+            break;
+        }
+    }
+
+    store.set('transfers.uploads', my_transfers);
+}
+
+function update_transfer_summary(transfer_id, property, new_value) {
+    let my_transfers = store.get('transfers.uploads');
+
+    for (let i = 0; i < my_transfers.length; i++) {
+        if (my_transfers[i].id === transfer_id) {
+            if (my_transfers[i].summary === undefined) {
+                my_transfers[i].summary = {};
+            }
+
+            if (my_transfers[i].summary[property] === undefined) {
+                my_transfers[i].summary[property] = [];
+            }
+
+            my_transfers[i].summary[property].push(new_value);
+            break;
+        }
+    }
+
+    store.set('transfers.uploads', my_transfers);
 }
 
 function update_upload_table(transfer_id, table_row_id, new_progress) {
@@ -628,137 +677,30 @@ function update_modal_ui(transfer_id, uri) {
 
 
 
-// global anon script
-function get_global_anon_script(xnat_server, user_auth) {
-    return axios.get(xnat_server + '/data/config/anon/script?format=json', {
-        auth: user_auth
-    });
-}
-
-// TODO - doesn't work
-function get_project_anon_script(xnat_server, user_auth, project_id) {
-    //return axios.get(xnat_server + '/data/config/projects/'+project_id+'/anon/script?format=json', {
-    return axios.get(xnat_server + '/data/projects/' + project_id + '/config/anon/projects/' + project_id + '?format=json', {
-        auth: user_auth
-    });
-}
-
-
 window.onerror = function (errorMsg, url, lineNumber) {
-    console.log('[ERRORRR]:: ' +__filename + ':: ' +  errorMsg);
+    console_log('[ERRORRR]:: ' +__filename + ':: ' +  errorMsg);
     return false;
 }
 
-function summary_add(text, label = '') {
-    console.log(label + ': ' + text);
-}
+function summary_add(transfer_id, series_id, text, label = '') {
+    if (summary_all[transfer_id] === undefined) {
+        summary_all[transfer_id] = {};
+    }
+    if (summary_all[transfer_id][series_id] === undefined) {
+        summary_all[transfer_id][series_id] = [];
+    }
 
-
-// ================================================================================
-// ================================================================================
-// ================================================================================
-function init_mizer_variables(xnat_server, user_auth, project_id) {
-
-    return new Promise(function(resolve, reject) {
-        if (use_anon_single) {
-            resolve({
-                contexts: 1,
-                variables: 2
-            });
-        }
-
-
-        let scripts = [];
-        get_global_anon_script(xnat_server, user_auth).then(resp => {
-            console.log('get_global_anon_script', resp.data.ResultSet.Result);
-            
-            let global_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
-            let global_anon_script = resp.data.ResultSet.Result[0].contents;
-        
-            if (global_anon_script_enabled) {
-                scripts.push(global_anon_script);
-            }
-        
-            get_project_anon_script(xnat_server, user_auth, project_id).then(resp => {
-                console.log('get_project_anon_script', resp.data.ResultSet.Result);
-                
-                let project_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
-                let project_anon_script = resp.data.ResultSet.Result[0].contents;
-                
-                if (project_anon_script_enabled) {
-                    scripts.push(project_anon_script);
-                }
-
-                console.log('SCRIPTS', scripts);
-
-                let contexts = mainProcess.getScriptContexts(scripts);
-                //let contexts = mainProcess.getScriptContext(scripts[0]);
-                console.log('contexts', contexts);
-
-                let variables = mainProcess.getReferencedVariables(contexts);
-                console.log('variables', variables);
-
-                resolve({
-                    contexts: contexts,
-                    variables: variables
-                });
-        
-            }).catch(err => {
-                reject(err);
-            });  
-        
-        }).catch(err => {
-            reject(err);
-        });  
-
+    summary_all[transfer_id][series_id].push({
+        label: label,
+        text: text
     });
-}
 
-// ================================================================================
-// ======== RICK              =====================================================
-// ================================================================================
-
-
-function _init_mizer_variables() {
-    // *****
-    get_global_anon_script();
-    get_project_anon_script(project_id); // Not sure where project_id comes from...
-    let scripts = [];
-    if (global_anon_script_enabled) {
-        scripts.push(global_anon_script);
-    }
-    if (project_anon_script_enabled) {
-        scripts.push(project_anon_script);
-    }
-    contexts = mainProcess.getScriptContexts(scripts);
-    variables = mainProcess.getReferencedVariables(contexts);
-    // *****
+    console.log('summary_all', summary_all);
+    
 }
 
 
-// global anon script
-function _get_global_anon_script() {
-    // global_anon_script_enabled = true;
-    // return '(0008,0070) := "site anon"\n(0008,0080) := foo\n';
-    get_anon_script('/data/config/anon/script', global_anon_script_enabled, global_anon_script);
-    console.log('Site anon ' + global_anon_script_enabled ? 'enabled' : 'disabled' + ', script: ' + global_anon_script);
-}
 
 
-// project anon script
-function _get_project_anon_script(project_id) {
-    // project_anon_script_enabled = true;
-    // return '(0010,21B0) := "XNAT 01 anon"\n(0010,4000) := bar\n';
-    get_anon_script('/data/projects/' + project_id + '/config/anon/projects/' + project_id, project_anon_script_enabled, project_anon_script);
-    console.log('Project ' + project_id + ' anon ' + project_anon_script_enabled ? 'enabled' : 'disabled' + ', script: ' + project_anon_script);
-}
 
-function _get_anon_script(path, enabled, script) {
-    axios.get(xnat_server + path, {
-        auth: user_auth
-    }).then(resp => {
-        enabled = Boolean(resp.data.ResultSet.Result[0].status);
-        script = resp.data.ResultSet.Result[0].contents;
-    }).catch(handle_error);
-}
 

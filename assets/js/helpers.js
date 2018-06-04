@@ -90,27 +90,27 @@ let Helper = {
         return Math.round((new Date()).getTime() / 1000);
     },
     
-    time_converter: (UNIX_timestamp = false) => {
-        let UT = (UNIX_timestamp === false) ? this.unix_timestamp() : UNIX_timestamp;
+    date_time: (UNIX_timestamp = false, show_time = true) => {
+        let UT = (UNIX_timestamp === false) ? Helper.unix_timestamp() : UNIX_timestamp;
         let a = new Date(UT * 1000);
-        let months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         let year = a.getFullYear();
-        let month = months[a.getMonth()];
-        let date = a.getDate();
-        let hour = a.getHours() < 10 ? '0' + a.getHours() : a.getHours();
-        let min = a.getMinutes() < 10 ? '0' + a.getMinutes() : a.getMinutes();
-        let sec = a.getSeconds() < 10 ? '0' + a.getSeconds() : a.getSeconds();
-        return date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
+        let date_range = Helper.range(1, 12);
+        let month = date_range[a.getMonth()] < 10 ? '0' + date_range[a.getMonth()] : date_range[a.getMonth()];
+        let date = a.getDate() < 10 ? '0' + a.getDate() : a.getDate();
+
+        let hour, min, sec;
+        if (show_time) {
+            hour = a.getHours() < 10 ? '0' + a.getHours() : a.getHours();
+            min = a.getMinutes() < 10 ? '0' + a.getMinutes() : a.getMinutes();
+            sec = a.getSeconds() < 10 ? '0' + a.getSeconds() : a.getSeconds();
+        }
+
+        return year + '/' + month + '/' + date + (show_time ? ' ' + hour + ':' + min + ':' + sec : '');
     },
 
-    current_date: (UNIX_timestamp = false) => {
-        let UT = (UNIX_timestamp === false) ? this.unix_timestamp() : UNIX_timestamp;
-        let a = new Date(UT * 1000);
-        let year = a.getFullYear();
-        let month = a.getMonth();
-        //let month = a.getMonth() < 10 ? '0' + a.getMonth() : a.getMonth();
-        let date = a.getDate();
-        return date + ' ' + month + ' ' + year;
+    date: (UNIX_timestamp = false) => {
+        let UT = (UNIX_timestamp === false) ? Helper.unix_timestamp() : UNIX_timestamp;
+        return Helper.date_time(UT, false);
     },
 
     notify: (body, title, icon) => {
@@ -129,6 +129,19 @@ let Helper = {
         }
 
         notify();
+    },
+
+    capitalizeFirstLetter: (str) => {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    },
+
+    range: (start, stop, step) => {
+        let a = [start], b = start;
+        while (b < stop) { 
+            b += (step || 1); 
+            a.push(b);
+        }
+        return a;
     }
 }
 

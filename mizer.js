@@ -1,6 +1,7 @@
 const mizer = exports;
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
 
 console.log(__dirname);
 
@@ -38,13 +39,13 @@ console.log(jarDir);
     "dcm4che-iod-2.0.29.jar",
     "dcm4che-net-2.0.29.jar",
     "dicom-edit4-1.0.2-SNAPSHOT.jar",
-    "dicom-edit6-1.0.2-SNAPSHOT.jar",
+    "dicom-edit6-1.0.4-SNAPSHOT.jar",
     "dicomtools-1.7.4.jar",
     "framework-1.7.4.jar",
     "guava-20.0.jar",
     "log4j-1.2.17.jar",
     "lombok-1.16.18.jar",
-    "mizer-1.0.2-SNAPSHOT.jar",
+    "nrg-mizer-1.0.4-SNAPSHOT.jar",
     "reflections-0.9.10.jar",
     "slf4j-api-1.7.25.jar",
     "slf4j-log4j12-1.7.25.jar",
@@ -73,7 +74,11 @@ const mizerService = java.newInstanceSync("org.nrg.dicom.mizer.service.impl.Base
  */
 mizer.getVariables = (variables) => {
     const properties = java.newInstanceSync("java.util.Properties");
-
+    console.log('-----------------------------------');
+    console.log(variables);
+    
+    console.log('-----------------------------------');
+    
     if (variables) {
         Object.keys(variables).forEach(key => {
             properties.setPropertySync(key, variables[key]);
@@ -122,7 +127,49 @@ mizer.getScriptContexts = (scripts) => {
  * Gets variables that are referenced in the contexts.
  */
 mizer.getReferencedVariables = (contexts) => {
-    return mizerService.getReferencedVariablesSync(contexts);
+    //return mizerService.getReferencedVariablesSync(contexts);
+    const variableMap = {};
+    const variables = mizerService.getReferencedVariablesSync(contexts);
+    
+    let itr = variables.iteratorSync();
+    
+    while (itr.hasNextSync()) {
+        variable = itr.nextSync();
+        
+        let initialValue = variable.getInitialValueSync();
+        let variableValue = initialValue ? initialValue.asStringSync() : "";
+        variableMap[variable.getNameSync()] = variableValue;
+    }
+    
+    
+    // for (let i = 0; i < variables.sizeSync(); i++) {
+    //     console.log('***********************************', variables.sizeSync(), variables[i]);
+    //     let variable = variables.getSync(i);
+    //     let initialValue = variable.getInitialValueSync();
+    //     let variableValue = initialValue ? initialValue.asStringSync() : "";
+    //     variableMap.set(variable.getNameSync(), variableValue);
+    // }
+
+    
+    console.log('*************************************');
+    console.log(variableMap);
+    
+    return variableMap;
+};
+
+/**
+ * Anonymizes the DICOM object source using the supplied scripts. If variables have already been set on the script
+ * contexts, the variables parameter can be omitted.
+ *
+ * @param source    The DICOM object to anonymize.
+ * @param contexts  The script contexts to use for anonymization.
+ * @param variables A Java Properties object to pass for variable substitution.
+ */
+mizer.anonymize_old = (source, contexts, variables) => {
+    const dicom = java.newInstanceSync("java.io.File", source);
+
+    contexts.forEach(context => context.addSync(variables));
+    mizerService.anonymizeSync(dicom, contexts);
 };
 
 /**
@@ -136,10 +183,15 @@ mizer.getReferencedVariables = (contexts) => {
 mizer.anonymize = (source, contexts, variables) => {
     const dicom = java.newInstanceSync("java.io.File", source);
 
-    contexts.forEach(context => context.addSync(variables));
+    let itr = contexts.iteratorSync();
+    while (itr.hasNextSync()) {
+        context = itr.nextSync();
+        context.addSync(variables);
+
+        //console.log(context);
+    }
     mizerService.anonymizeSync(dicom, contexts);
 };
-
 
 mizer.anonymize_single = (source, script, variables) => {
     const properties = java.newInstanceSync("java.util.Properties");
@@ -158,3 +210,58 @@ mizer.anonymize_single = (source, script, variables) => {
 
     mizerService.anonymizeSync(file, list);
 };
+
+// ================================================================================
+// ================================================================================
+// ================================================================================
+mizer.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
+    return new Promise(function(resolve, reject) {
+        let scripts = [];
+        get_global_anon_script(xnat_server, user_auth).then(resp => {
+            console.log('get_global_anon_script', resp.data.ResultSet.Result);
+            
+            let global_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
+            let global_anon_script = resp.data.ResultSet.Result[0].contents;
+        
+            if (global_anon_script_enabled) {
+                scripts.push(global_anon_script);
+            }
+        
+            get_project_anon_script(xnat_server, user_auth, project_id).then(resp => {
+                console.log('get_project_anon_script', resp.data.ResultSet.Result);
+                
+                let project_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
+                let project_anon_script = resp.data.ResultSet.Result[0].contents;
+                
+                if (project_anon_script_enabled) {
+                    scripts.push(project_anon_script);
+                }
+
+                resolve(scripts);
+        
+            }).catch(err => {
+                reject(err);
+            });  
+        
+        }).catch(err => {
+            reject(err);
+        });  
+
+    });
+}
+
+// global anon script
+function get_global_anon_script(xnat_server, user_auth) {
+    return axios.get(xnat_server + '/data/config/anon/script?format=json', {
+        auth: user_auth
+    });
+}
+
+// TODO - doesn't work
+function get_project_anon_script(xnat_server, user_auth, project_id) {
+    //return axios.get(xnat_server + '/data/config/projects/'+project_id+'/anon/script?format=json', {
+    return axios.get(xnat_server + '/data/projects/' + project_id + '/config/anon/projects/' + project_id + '?format=json', {
+        auth: user_auth
+    });
+}
+

@@ -10,6 +10,8 @@ const swal = require('sweetalert');
 const archiver = require('archiver');
 const mime = require('mime-types');
 
+const FileSaver = require('file-saver');
+
 const NProgress = require('nprogress');
 NProgress.configure({ 
     trickle: false,
@@ -35,13 +37,13 @@ function _init_upload_progress_table() {
             {
                 field: 'user',
                 title: 'User',
-                filterControl: 'input',
+                filterControl: 'select',
                 sortable: true
             }, 
             {
                 field: 'server',
                 title: 'Server',
-                filterControl: 'input',
+                filterControl: 'select',
                 sortable: true
             }, 
             {
@@ -69,7 +71,10 @@ function _init_upload_progress_table() {
                 title: 'Transfer Date',
                 filterControl: 'input',
                 sortable: true,
-                class: 'date_field'
+                class: 'date_field',
+                formatter: function(value, row, index, field) {
+                    return Helper.date_time(value);
+                }
             }, 
             {
                 field: 'status', //VALUES: queued, finished, xnat_error, in_progress, <float 0-100>
@@ -108,7 +113,8 @@ function _init_upload_progress_table() {
                             content = `
                             <button class="btn btn-block btn-success" 
                                 data-toggle="modal" 
-                                data-target="#success-log"
+                                data-target="#upload-success-log"
+                                data-id="${row.id}"
                                 ><i class="fas fa-download"></i> Log</button>
                             `;
                             break;
@@ -137,45 +143,7 @@ function _init_upload_progress_table() {
                 }
             }
         ],
-        data: [],
-        old_data: [
-            {
-                id: '1',
-                date: '2018/02/09',
-                session_label: 'Mile 1',
-                transfer_type: 'Upload',
-                transfer_date: '2018/02/09 2:13pm',
-                status: 22.3, // queued, finished, xnat_error, in_progress
-                actions: ''
-            },
-            {
-                id: '2',
-                date: '2018/02/10',
-                session_label: 'Mile 2',
-                transfer_type: 'Upload',
-                transfer_date: '2018/02/13 2:13pm',
-                status: 'queued', // queued, finished, xnat_error, in_progress
-                actions: ''
-            },
-            {
-                id: '3',
-                date: '2018/02/15',
-                session_label: 'Mile 3',
-                transfer_type: 'Upload',
-                transfer_date: '2018/02/18 11:13am',
-                status: 'finished', // queued, finished, xnat_error, in_progress
-                actions: ''
-            },
-            {
-                id: '4',
-                date: '2018/02/21',
-                session_label: 'Mile 4',
-                transfer_type: 'Upload',
-                transfer_date: '2018/02/18 11:13am',
-                status: 'xnat_error', // queued, finished, xnat_error, in_progress
-                actions: ''
-            }
-        ]
+        data: []
     });
 
     let uploads = store.get('transfers.uploads');
@@ -193,36 +161,10 @@ function _init_upload_progress_table() {
                 transfer_date: transfer.transfer_start,
                 status: transfer.status,
                 actions: '',
-                server: transfer.xnat_server,
+                server: transfer.xnat_server.split('://')[1],
                 user: transfer.user_auth.username
             };
 
-    
-            /*
-            let total_files = 0, done_files = 0;
-            transfer.sessions.forEach(function(session){
-                session.files.forEach(function(file){
-                    total_files++;
-    
-                    if (file.status === 1) {
-                        done_files++;
-                    }
-                })
-            });
-    
-            console.log('--------------------' , done_files, total_files, '---------------------');
-            
-            if (done_files == total_files) {
-                item.status = 'finished';
-            } else if (done_files == 0) {
-                item.status = 'queued';
-            } else {
-                item.status = done_files / total_files * 100;
-            }
-    
-            console.log(item);
-            
-            */
             my_data.push(item);
         });
     
@@ -249,10 +191,13 @@ function _init_download_progress_table() {
             },
             {
                 field: 'transfer_start',
-                title: 'Transfer start',
+                title: 'Transfer Start',
                 filterControl: 'input',
                 sortable: true,
-                class: 'date_field'
+                class: 'date_field',
+                formatter: function(value, row, index, field) {
+                    return Helper.date_time(value);
+                }
             }, 
             {
                 field: 'basename',
@@ -261,21 +206,21 @@ function _init_download_progress_table() {
                 sortable: true
             }, 
             {
-                field: 'transfer_type',
+                field: 'dl_transfer_type',
                 title: 'Process',
                 filterControl: 'select',
                 sortable: true,
                 align: 'center'
             }, 
             {
-                field: 'server',
+                field: 'dl_server',
                 title: 'Server',
                 filterControl: 'select',
                 sortable: true,
                 align: 'center'
             },
             {
-                field: 'user',
+                field: 'dl_user',
                 title: 'User',
                 filterControl: 'select',
                 sortable: true,
@@ -364,9 +309,9 @@ function _init_download_progress_table() {
             id: transfer.id,
             transfer_start: transfer.transfer_start,
             basename: transfer.basename,
-            transfer_type: 'Download',
-            server: transfer.server,
-            user: transfer.user,
+            dl_transfer_type: 'Download',
+            dl_server: transfer.server.split('://')[1],
+            dl_user: transfer.user,
             status: 0,
             actions: ''
         };
@@ -457,12 +402,69 @@ $(document).on('show.bs.modal', '#download-details', function(e) {
 
 $(document).on('show.bs.modal', '#upload-details', function(e) {
     var id = $(e.relatedTarget).data('id');
+
+    let my_transfers = store.get('transfers.uploads');
+    for (let i = 0; i < my_transfers.length; i++) {
+        if (my_transfers[i].id === id) {
+            console.log(my_transfers[i]);
+            break;
+        }
+    }
+
     var session_label = $(e.relatedTarget).data('session_label');
 
     $(e.currentTarget).find('#session_label').html(session_label);
 
     _init_upload_details_table(id)
 });
+
+$(document).on('show.bs.modal', '#upload-success-log', function(e) {
+    let my_transfer = get_transfer($(e.relatedTarget).data('id'));
+
+    console.log(my_transfer);
+    console.log($(e.currentTarget));
+
+    let $log_text = $(e.currentTarget).find('.log-text');
+    $log_text.html('');
+
+
+    Object.keys(my_transfer.session_data).forEach(key => {
+        $log_text.append(`<p><b>${key}</b>: <span>${my_transfer.session_data[key]}</span></p>\n`);
+    });
+    let total_files = my_transfer.summary.total_files.reduce((prevVal, item) => {
+        return prevVal + item;
+    }, 0);
+    let total_size = my_transfer.summary.total_size.reduce((prevVal, item) => {
+        return prevVal + item;
+    }, 0);
+
+    $log_text.append(`<p><b>Total files</b>: <span>${total_files} (${(total_size / 1024 / 1024).toFixed(2)} MB)</span></p>\n`);
+
+    let $ul = $(`<ul>`);
+    Object.keys(my_transfer.anon_variables).forEach(key => {
+        $ul.append(`<li><b>${key}</b>: <span>${my_transfer.anon_variables[key]}</span></li>\n`);
+    });
+
+    $log_text.append(`<b>Anon variables:</b>\n`).append($ul);
+
+    
+
+    //_init_upload_details_table(id)
+});
+
+function get_transfer(transfer_id) {
+    let my_transfers = store.get('transfers.uploads');
+
+    let transfer = false;
+    for (let i = 0; i < my_transfers.length; i++) {
+        if (my_transfers[i].id === transfer_id) {
+            transfer = my_transfers[i];
+            break;
+        }
+    }
+
+    return transfer;
+}
 
 function _init_download_details_table(transfer_id) {
     
@@ -519,6 +521,9 @@ function _init_download_details_table(transfer_id) {
     
     let my_data = [];
 
+    console.log(transfer);
+    
+
     transfer.sessions.forEach(function(session){
         let single_session = {
             id: session.id,
@@ -541,6 +546,9 @@ function _init_download_details_table(transfer_id) {
         .bootstrapTable('removeAll')    
         .bootstrapTable('append', my_data)
         .bootstrapTable('resetView');
+
+    // TODO migrate open links to table!!! transfer.sessions[1].files[0].name ... up one directory
+    //$('#download-details-table').closest('.bootstrap-table').after(`<button type="button" data="" class="btn btn-blue">Open</button>`)
 }
 
 
@@ -627,11 +635,26 @@ function _init_upload_details_table(transfer_id) {
 
 
 
+$(document).on('click', '[data-save-txt]', function(){
+    let text_content = $.trim($(this).closest('.modal-content').find('.modal-body').text());
+    let lines = text_content.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        lines[i] = $.trim(lines[i]);
+    }
+    text_content = lines.join('\n');
+
+    let blob = new Blob([text_content], {type: "text/plain;charset=utf-8"});
+    FileSaver.saveAs(blob, "success_log.txt");
+});
+
+
+
 
 ipc.on('download_progress',function(e, item){
-    //console.log(item);
+    console.log(item);
 
     if (item.table !== undefined) {
+        
         if ($(item.table).length) {
             $(item.table).bootstrapTable('updateByUniqueId', item.data);
         }
@@ -647,7 +670,7 @@ ipc.on('download_progress',function(e, item){
 
 
 ipc.on('upload_progress',function(e, item){
-    //console.log(item);
+    console.log(item);
 
     if (item.table !== undefined) {
         if ($(item.table).length) {

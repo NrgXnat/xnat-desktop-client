@@ -107,3 +107,11 @@ progress[value] {
     }
 	
 }
+.log-text {
+    overflow: auto;
+    height: auto;
+    max-height: 55vh;
+}
+.log-text p {
+    margin: 0;
+}

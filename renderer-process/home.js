@@ -101,11 +101,11 @@ $(document).on('change', '#xnt_manifest_file', function(e){
                         server: xnat_server,
                         user: user_auth.username,
                         user_auth: user_auth,
-                        transfer_start: Helper.ime_converter(),
+                        transfer_start: Helper.unix_timestamp(),
                         sessions: []
                     }
 
-store.transfers.set('downloads', []);
+//store.transfers.set('downloads', []);
 
                     for (let i = 0; i < my_sets.length; i++) {
                         console.log('=====================================')

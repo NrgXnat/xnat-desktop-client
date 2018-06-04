@@ -86,8 +86,8 @@ function initialize () {
       //uploadWindow.webContents.openDevTools()
       //downloadWindow.show()
       //downloadWindow.webContents.openDevTools()
-      uploadWindow.show()
-      uploadWindow.webContents.openDevTools()
+      //uploadWindow.show()
+      //uploadWindow.webContents.openDevTools()
       //uploadWindow.webContents.maximize()
     }
 
@@ -266,29 +266,34 @@ const showMessageBox = (options) => {
 };
 /** RICK **/
 exports.anonymize_single = (source, script, variables) => {
-  mizer.anonymize_single(source, script, variables);
+  return mizer.anonymize_single(source, script, variables);
 };
 /** RICK **/
 exports.getReferencedVariables = (contexts) => {
-  mizer.getReferencedVariables(contexts);
+  return mizer.getReferencedVariables(contexts);
 };
 
 exports.getScriptContexts = (scripts) => {
-  mizer.getScriptContexts(scripts);
+  return mizer.getScriptContexts(scripts);
 };
 
 exports.getScriptContext = (script) => {
-  mizer.getScriptContext(script);
+  return mizer.getScriptContext(script);
 };
 
 exports.getVariables = (variables) => {
-  mizer.getVariables(variables);
+  return mizer.getVariables(variables);
 };
 
 exports.anonymize = (source, contexts, variables) => {
-  mizer.anonymize(source, contexts, variables);
+  return mizer.anonymize(source, contexts, variables);
 };
 /** \RICK **/
+
+
+// exports.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
+//   return mizer.get_mizer_scripts(xnat_server, user_auth, project_id);
+// };
 
 
 // let mizer_proxy = {
