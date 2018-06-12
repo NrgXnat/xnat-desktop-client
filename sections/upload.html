@@ -3,7 +3,9 @@
 
         <div class="container-fluid">
             <div class="row">
+            <div class="col-12">
                 <h2 class="main-title">Upload Image Session to <span id="server_name_tlbr"></span></h2>
+
                 <nav>
                     <div class="nav nav-tabs" id="nav-tab" role="tablist">
                         <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Subject Selection</a>
@@ -15,28 +17,36 @@
                 </nav>
                 <div class="tab-content" id="nav-tabContent">
                     <div class="tab-pane fade show active" id="nav-project" role="tabpanel" aria-labelledby="nav-home-tab">
-                        
-                        <h2 class="section-title">Select project to which you will upload session</h2>
-                        <div class="filter-control">
+                        <div class="row">
+                        <div class="col-6"><h2 class="section-title search-inline">Select project to which you will upload session</h2></div>
+                        <div class="col-6">
+                        <div class="filter-control title-inline">
                             <input type="text" id="upload-project-filter" onkeyup="" placeholder="Filter" class="form-control">
+                        </div>
+                        </div>
                         </div>
                         <ul id="upload-project" class="choose-list">
                             
                         </ul>
-                        <h2 class="section-title">Select the subject for the session to be upload</h2>
-                        <div class="filter-control">
+                        <div class="row">
+                         <div class="col-6"><h2 class="section-title search-inline">Select the subject for the session to be upload</h2></div>
+                        <div class="col-6"><div class="filter-control title-inline">
                             <input type="text" id="subject-session-filter" onkeyup="" placeholder="Filter" class="form-control">
+                        </div>
+                        </div>
                         </div>
                         <ul id="subject-session" class="choose-list"></ul>
                         <div class="row">
-                            <div class="col text-right button-row">
-                                <button class="btn btn-blue" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
+                        <div class="col-6">
+                            <div class="button-row">
+                                <button class="btn btn-gray" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
                             </div>
-                        </div>
-                        <div class="row">
-                            <div class="col text-right button-row">
+                            </div>
+                            <div class="col-6">
+                            <div class="text-right button-row">
                                 <button type="button" class="btn btn-gray" data-href="home.html" type="button">Cancel</button>
                                 <button type="button" class="btn btn-blue js_next disabled">Next <i class="fas fa-angle-right"></i></button>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -83,15 +93,7 @@
                             </div>
                         </div>
 
-                        <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium,
-                            totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae
-                            dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit,
-                            sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam
-                            est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam
-                            eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad
-                            minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid
-                            ex ea commodi consequatur. Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse
-                            quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur.</p>
+                        <p>Please enter the date for the session you wish to upload. These values must match the DICOM study date of the selected session or you will not be able to upload the session to the XNAT server.</p>
                         <div class="col text-right button-row">
                             <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
                             <button type="button" class="btn btn-gray js_prev" type="button"><i class="fas fa-angle-left"></i> Prev</button>
@@ -100,11 +102,11 @@
                     </div>
                     <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
                         <h2 class="section-title">Please confirm the scans to be included.</h2>
+                        <p>Note: Unchecked scans will not be uploaded</p>
 
                         
                         <table class="table table-bordered" id="image_session"></table>
 
-                   <p>Note: Unchecked scans will not be uploaded</p>
                    <div class="row">
                      <div class="col-4">
                        <p><b>Session summary</b></p>
@@ -235,6 +237,7 @@
                     </div>
                 </div>
             </div>
+        </div>
         </div>
 
         

@@ -94,7 +94,7 @@ textarea
 	padding: 20px 10px;
 }
 .tab-content {
-	border: 1px solid $dark-blue;
+	border: 1px solid #ccc;
 	width: 100%;
 }
 .nav-link {
@@ -102,11 +102,12 @@ textarea
 }
 .nav-tabs .nav-link.active {
     color: $white;
-    @include linearGradient($header-top, $header-bottom );
-    border-color: $dark-blue;
+    /* @include linearGradient($header-top, $header-bottom );*/
+    background: #1A75BB;
+    border-color: #1A75BB;
     border-radius: 0;
 }
-.nav-tabs .nav-link{
+.nav-tabs .nav-link {
     color: $white;
     @include linearGradient($bigfriendly-button-top, $bigfriendly-button-bottom );
     border-color: $dark-blue;
@@ -196,6 +197,15 @@ textarea
 	    left: 8px;
 	    top: 17px;
 	}
+	&.title-inline {
+		padding:0 0 10px 0;
+		&::before {
+			top:8px;
+		}
+	}
+}
+.form-control {
+	border: 1px solid $list-border;
 }
 .choose-list {
     /* Remove default list styling */

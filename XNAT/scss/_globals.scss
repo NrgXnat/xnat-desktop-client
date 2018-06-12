@@ -275,6 +275,9 @@ h2.section-title {
 	font-size: 18px;
 	font-weight: 700;
 	color: $section-title;
+	&.search-inline {
+		margin-top: 10px;
+	}
 }
 h3.step-description {
 	width:100%;
