@@ -18,7 +18,7 @@
                 <div class="tab-content" id="nav-tabContent">
                     <div class="tab-pane fade show active" id="nav-project" role="tabpanel" aria-labelledby="nav-home-tab">
                         <div class="row">
-                        <div class="col-6"><h2 class="section-title search-inline">Select project to which you will upload session</h2></div>
+                        <div class="col-6"><h2 class="section-title search-inline">Select project</h2></div>
                         <div class="col-6">
                         <div class="filter-control title-inline">
                             <input type="text" id="upload-project-filter" onkeyup="" placeholder="Filter" class="form-control">
@@ -29,7 +29,7 @@
                             
                         </ul>
                         <div class="row">
-                         <div class="col-6"><h2 class="section-title search-inline">Select the subject for the session to be upload</h2></div>
+                         <div class="col-6"><h2 class="section-title search-inline">Select subject</h2></div>
                         <div class="col-6"><div class="filter-control title-inline">
                             <input type="text" id="subject-session-filter" onkeyup="" placeholder="Filter" class="form-control">
                         </div>
@@ -51,7 +51,7 @@
                         </div>
                     </div>
                     <div class="tab-pane fade" id="nav-folder" role="tabpanel" aria-labelledby="nav-folder-tab">
-                        <h2 class="section-title">Select folder of files to upload</h2>
+                        <h2 class="section-title">Select folder</h2>
 
                         <div class="form-group">
                             <div class="input-group">
@@ -63,8 +63,11 @@
                                     </span>
                                 </label>
                                 </div>
+
                             </div>
+                            <small>Select a folder on your local hard drive or networked drive containing one or more uncompressed DICOM image sessions</small>
                         </div>
+
 
                         <!--<button class="btn btn-blue" id="test-upload" type="button">Test upload</button>-->
 
@@ -101,29 +104,31 @@
                         </div>
                     </div>
                     <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
-                        <h2 class="section-title">Please confirm the scans to be included.</h2>
+                        <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
                         <p>Note: Unchecked scans will not be uploaded</p>
-
-                        
-                        <table class="table table-bordered" id="image_session"></table>
-
-                   <div class="row">
-                     <div class="col-4">
-                       <p><b>Session summary</b></p>
-                       <p id="session_info"></p>
-                     </div>
-                     <div class="col" id="anon_variables">
+                        <div class="col" id="anon_variables">
+                        <div class="row">
                         <div class="form-group row">
-                            <label for="experiment_label" class="col-4 text-right"><b>Experiment Label</b>:</label>
-                            <div class="input-group col-8">
+                            <label for="experiment_label" class="col-sm-2 col-form-label"><b>Experiment Label</b>:</label>
+                            <div class="input-group col-sm-10">
                                 <input class="form-control" type="text" name="experiment_label" id="experiment_label" value="" required>
+                                <small>This field has been auto-populated. If you specify a session label that matches a session already in this project, XNAT will attempt to merge selected scans into the existing session</small>
                             </div>
                         </div>
-                       <div id="additional-upload-fields">
+                       <div id="additional-upload-fields" >
                            
                        </div>
                        
                        <br><br>
+                       </div>
+                     </div>
+                        
+                        <table class="table table-bordered" id="image_session"></table>
+
+                   <div class="row">
+                     <div class="col">
+                       <p><b>Session summary</b></p>
+                       <p id="session_info"></p>
                      </div>
                    </div>
                    <div class="row">
