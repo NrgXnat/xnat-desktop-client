@@ -31,24 +31,25 @@
 	}
 }
 .btn-bigfriendly {
-	color: $white;
+	color: #084FAB;
 	border: 2px solid $bigfriendly-button-border;
 	@include linearGradient($bigfriendly-button-top, $bigfriendly-button-bottom);
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 	&:hover {
-		color: $white;
+		color: #084FAB;
 		@include linearGradient($bigfriendly-button-bottom, $bigfriendly-button-top);
 	}
 	&:active {
-		color: $white;
-		background-color: $bigfriendly-button-bottom;
+		color: #2A70C6;
+		background-color: $bigfriendly-button-active;
 		-webkit-box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
-    	box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    	box-shadow: inset 0 3px 5px rgba(0,0,0,0.125)
 	}
 	&:focus {
-		color: $white;
-		outline: 5px auto $bigfriendly-button-top;
+		color: #2A70C6;;
+		outline: none;
 	    outline-offset: -2px;
-	    box-shadow: 0 0 0 0.2rem rgba(136,209,244,.25);
+	    box-shadow: 0 0 0 0.2rem rgba(196,223,255,.25);
 	    transition: none;
 	}	
 	&:visited {
