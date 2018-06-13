@@ -243,6 +243,23 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
     let project_id = $(this).data('project_id');
 
     mizer.get_mizer_scripts(xnat_server, user_auth, project_id).then(scripts => {
+        if (scripts.length === 0) {
+            swal({
+                title: `Warning: No anonymization scripts are set!`,
+                text: `Do you want to continue?`,
+                icon: "warning",
+                buttons: ['Cancel', 'Continue'],
+                dangerMode: true
+            })
+            .then((proceed) => {
+                if (proceed) {
+                    
+                } else {
+                    ipc.send('redirect', 'home.html');
+                }
+            });
+        }
+
         let contexts = mizer.getScriptContexts(scripts);
 
         anon_variables = mizer.getReferencedVariables(contexts);
@@ -292,6 +309,9 @@ $(document).on('click', 'a[data-subject_id]', function(e){
 
 $(document).on('click', '.js_next:not(.disabled)', function() {
     let active_tab_index = $('.nav-item').index($('.nav-item.active'));
+    if ($('.nav-item').eq(active_tab_index + 1).hasClass('hidden')) {
+        active_tab_index++;
+    }
     $('.nav-item').eq(active_tab_index + 1).removeClass('disabled').trigger('click');
     setTimeout(function() {
         //swal('Disabling NEXT button');
@@ -1038,7 +1058,10 @@ function dicomParse(_files) {
 
 
                 session_map.forEach(function(cur_session, key) {
-                    let session_label = cur_session.studyDescription === undefined ? key : cur_session.studyDescription;
+                    console.log(cur_session);
+                    
+                    //let session_label = cur_session.studyDescription === undefined ? key : cur_session.studyDescription;
+                    let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
                     $ol.append(`<li>
                         ${session_label} 
                         [scans: ${cur_session.scans.size}]
@@ -1186,6 +1209,8 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
     my_transfers.push(upload_digest);
     store.set('transfers.uploads', my_transfers);
     
+    console.log(upload_digest);
+return; /////////////////////////////////////////////////////////////////////////////////
     ipc.send('start_upload');
     
     ipc.send('redirect', 'progress.html');
@@ -1315,7 +1340,12 @@ function project_require_date(project_id) {
 }
 
 const handle_global_require_date = (res) => {
+    
+    
     global_date_required = (typeof res.data === 'boolean') ? res.data : (res.data.toLowerCase() !== 'false' && res.data !== '');
+    console.log('========== handle_global_require_date ===========', global_date_required, $('#nav-date', 'a[href="#nav-date"]').length);
+    
+    set_date_tab(global_date_required)
 }
 
 const handle_require_date = (res) => {
@@ -1336,8 +1366,24 @@ const handle_require_date = (res) => {
     } else {
         next_button.removeClass('disabled');     
     }
+
+    set_date_tab(date_required)
     
 };
+
+const set_date_tab = (date_required) => {
+    if (date_required) {
+        $('#nav-date, a[href="#nav-date"]').each(function(){
+            console.log($(this));
+            
+            $(this).removeClass('hidden')
+        })
+    } else {
+        $('#nav-date, a[href="#nav-date"]').each(function(){
+            $(this).addClass('hidden')
+        })
+    }
+}
 
 const handle_error = (err) => {
     console.log(err, err.response);

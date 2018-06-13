@@ -159,9 +159,9 @@ function doUpload(transfer, series_id) {
 
         // Convert the JS map anonValues into a Java Properties object.
         variables = mizer.getVariables(transfer.anon_variables);
-        //console_log('variables', variables);
+        console_log('variables', variables);
 
-
+return;
         copy_and_anonymize(transfer.id, _files, contexts, variables).then((res) => {
             //summary_add(transfer.id, series_id, res.directory, 'Anonymization dir');
             //summary_add(transfer.id, series_id, res.copy_success.length, 'Anonymized files');
@@ -353,9 +353,13 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
 
         fs.readFile(zip_path, (err, zip_content) => {
             if (err) throw err;
+            console.log('-------------' + xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken + '|||||||||||||||----------------------');
+            
+            console.log('**************************** ZIP CONTENT '+zip_content.length+' ***************************');
+            
 
             axios({
-                method: 'post',
+                method: 'POST',
                 url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
                 auth: user_auth,
                 onUploadProgress: function (progressEvent) {
@@ -444,7 +448,7 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
             })
             .catch(err => {
                 console_log(err);
-                update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMsg(err));
+                update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err));
             })
             .finally(() => {
                 let _time_took = ((performance.now() - upload_timer) / 1000).toFixed(2);

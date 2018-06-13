@@ -872,15 +872,17 @@ h2.login-title {
     top: 0;
     left: 0; }
 
-.fixed-table-container .filtered-table thead th .fht-cell::before {
+.fixed-table-body thead::after {
   content: '';
-  height: 40px;
   background: #f3f3f3;
-  width: 100%;
   position: absolute;
-  z-index: -1;
-  top: 36px;
+  z-index: -2;
+  top: 0;
+  right: 0;
+  bottom: 0;
   left: 0; }
+.fixed-table-body tbody {
+  background-color: #fff; }
 
 .download-radio-selection {
   margin-top: 20px; }
@@ -975,15 +977,15 @@ progress[value] {
     top: 7px;
     background-color: white; }
 
-#user_table .filter-control, #upload_monitor_table .filter-control, #download_monitor_table .filter-control {
+#user_table .filter-control, #upload_monitor_table .filter-control, #download_monitor_table .filter-control, .fixed-table-container .filter-control {
   padding: 0 4px 4px 4px; }
-  #user_table .filter-control input, #upload_monitor_table .filter-control input, #download_monitor_table .filter-control input {
+  #user_table .filter-control input, #upload_monitor_table .filter-control input, #download_monitor_table .filter-control input, .fixed-table-container .filter-control input {
     padding: .125rem .75rem .125rem 30px;
     border-radius: .25rem; }
-  #user_table .filter-control select, #upload_monitor_table .filter-control select, #download_monitor_table .filter-control select {
+  #user_table .filter-control select, #upload_monitor_table .filter-control select, #download_monitor_table .filter-control select, .fixed-table-container .filter-control select {
     height: 1.875rem;
     padding: 0 0.25rem 0 1.5rem; }
-  #user_table .filter-control::before, #upload_monitor_table .filter-control::before, #download_monitor_table .filter-control::before {
+  #user_table .filter-control::before, #upload_monitor_table .filter-control::before, #download_monitor_table .filter-control::before, .fixed-table-container .filter-control::before {
     left: 11px;
     top: 4px; }
 

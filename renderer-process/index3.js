@@ -5,19 +5,13 @@ const isOnline = require('is-online');
 
 const swal = require('sweetalert');
 
-/*
-let mile_counter = 0;
-setInterval(function(){
-    mile_counter++;
-    settings.set('mile.test', mile_counter);
-    console.log('mile_counter: '+mile_counter);
-}, 500);
-*/
+reset_user_data();
 
 let transfers = store.namespace('transfers');
 if (!transfers.has('downloads')) {
     transfers.set('downloads', []);
 }
+
 
 const links = document.querySelectorAll('link[rel="import"]')
 
@@ -173,6 +167,13 @@ $(document).on('click', 'a', function(e){
     }
 })
 
+// ===============
+$(document).on('click', 'a.logo-header', function(e){
+    e.preventDefault();
+    let page = (!settings.has('user_auth') || !settings.has('xnat_server')) ? 'login.html' : 'home.html';
+    loadPage(page);
+})
+
 $(document).on('click', '#trigger_download', function(){
     setTimeout(function(){
         $('button[data-manifest]').trigger('click');
@@ -196,4 +197,20 @@ ipc.on('console:log',function(e, item){
     console.log('================ console:log ================');
     console.log(item);
 });
+
+
+ipc.on('remove_current_session',function(e, item){
+    reset_user_data()
+});
+
+function reset_user_data() {
+    console.log('****************** reset_user_data **************');
+    
+    settings.delete('user_auth');
+    settings.delete('xnat_server');
+
+    store.set('transfers.downloads', []);
+    store.set('transfers.uploads', []);
+}
+
 
