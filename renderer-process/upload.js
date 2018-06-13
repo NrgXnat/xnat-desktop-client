@@ -1186,6 +1186,8 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
     my_transfers.push(upload_digest);
     store.set('transfers.uploads', my_transfers);
     
+    console.log(upload_digest);
+return; /////////////////////////////////////////////////////////////////////////////////
     ipc.send('start_upload');
     
     ipc.send('redirect', 'progress.html');

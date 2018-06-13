@@ -224,7 +224,7 @@ mizer.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
             let global_anon_script = resp.data.ResultSet.Result[0].contents;
         
             if (global_anon_script_enabled) {
-                scripts.push(global_anon_script);
+                scripts.push(remove_commented_lines(global_anon_script));
             }
         
             get_project_anon_script(xnat_server, user_auth, project_id).then(resp => {
@@ -234,8 +234,13 @@ mizer.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
                 let project_anon_script = resp.data.ResultSet.Result[0].contents;
                 
                 if (project_anon_script_enabled) {
-                    scripts.push(project_anon_script);
+                    scripts.push(remove_commented_lines(project_anon_script));
                 }
+
+                console.log('============= SCRIPTS ================');
+                console.log(scripts);
+                console.log('=============================');
+                
 
                 resolve(scripts);
         
@@ -263,5 +268,23 @@ function get_project_anon_script(xnat_server, user_auth, project_id) {
     return axios.get(xnat_server + '/data/projects/' + project_id + '/config/anon/projects/' + project_id + '?format=json', {
         auth: user_auth
     });
+}
+
+function remove_commented_lines(script) {
+    let weeded_script_lines = [], 
+        script_lines = script.split("\n");
+
+    console.log(script_lines);
+    for (let i = 0; i < script_lines.length; i++) {
+        let line = $.trim(script_lines[i]);
+        if (line.length && line.indexOf('//') !== 0 && line.indexOf('version ') !== 0 && line.indexOf('!=') === -1) {
+            weeded_script_lines.push(line);
+        }
+    }
+
+    console.log(weeded_script_lines);
+
+    return weeded_script_lines.join("\n");
+    
 }
 
