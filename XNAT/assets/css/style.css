@@ -605,7 +605,7 @@ textarea {
   display: block; }
 
 .choose-list li a:hover:not(.header) {
-  background-color: #a9dbf6; }
+  background-color: #E4EFFF; }
 
 body {
   font-family: "Roboto", sans-serif; }
@@ -913,7 +913,7 @@ h3.step-description {
   color: #000000; }
 
 #upload-project a.selected, #subject-session a.selected {
-  background-color: lightblue; }
+  background-color: #C4DFFF; }
 
 .hidden {
   display: none; }
