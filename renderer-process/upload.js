@@ -571,8 +571,8 @@ $(document).on('click', 'button[data-session_id]', function(e){
 
         $('#additional-upload-fields').append(`
             <div class="form-group row">
-                <label for="var_${key}" class="col-4 text-right"><b>${key_cap}</b>:</label>
-                <div class="input-group col-8">
+                <label for="var_${key}" class="col-sm-2 col-form-label"><b>${key_cap}</b>:</label>
+                <div class="input-group col-sm-10">
                     <input class="form-control" type="${field_type}" name="${key}" id="var_${key}" value="${field_value}" required>
                     ${field_text}
                 </div>
