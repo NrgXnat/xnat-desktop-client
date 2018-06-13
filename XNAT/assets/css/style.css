@@ -213,72 +213,84 @@
     color: #444444; }
 
 .connect {
-  font-size: 46px;
+  font-size: 30px;
   font-weight: 700;
   border-radius: 0;
-  padding: 15px !important; }
+  padding: 15px !important;
+  margin-bottom: 30px; }
   @media (max-width: 1200px) {
     .connect {
-      font-size: 36px; } }
+      font-size: 25px; } }
   @media (max-width: 992px) {
     .connect {
-      font-size: 28px; } }
+      font-size: 20px; } }
   .connect .plus {
     position: relative;
     width: 30px;
     display: inline-block;
     height: 30px; }
+    @media (max-width: 992px) {
+      .connect .plus {
+        width: 20px;
+        height: 20px; } }
     .connect .plus::before {
       content: "\f067";
       font-family: "Font Awesome 5 Free";
       font-weight: 900;
-      font-size: 30px;
+      font-size: 23px;
       position: absolute;
-      top: -7px;
+      top: 3px;
       left: 0; }
       @media (max-width: 1200px) {
         .connect .plus::before {
-          font-size: 27px;
+          font-size: 20px;
           top: -4px; } }
       @media (max-width: 992px) {
         .connect .plus::before {
-          font-size: 27px;
+          font-size: 17px;
           top: -2px; } }
   .connect .db {
     position: relative;
     width: 48px;
     display: inline-block;
-    height: 48px; }
+    height: 34px; }
     @media (max-width: 1200px) {
       .connect .db {
         width: 42px;
-        height: 42px; } }
+        height: 34px; } }
     @media (max-width: 992px) {
       .connect .db {
-        width: 40px;
-        height: 37px; } }
+        width: 35px;
+        height: 25px; } }
     .connect .db::before {
       content: "\f1c0";
       font-family: "Font Awesome 5 Free";
       font-weight: 900;
-      font-size: 48px;
+      font-size: 38px;
       position: absolute;
-      top: -5px;
+      top: -6px;
       left: 3px; }
       @media (max-width: 1200px) {
         .connect .db::before {
-          font-size: 44px; } }
+          font-size: 34px; } }
       @media (max-width: 992px) {
         .connect .db::before {
-          font-size: 40px; } }
+          font-size: 30px; } }
   .connect.btn-known-user {
-    font-size: 36px;
+    font-size: 25px;
     line-height: 1.2;
     text-align: left;
     margin-bottom: 40px;
     padding: 0 !important; }
+    @media (max-width: 992px) {
+      .connect.btn-known-user {
+        font-size: 18px; } }
     .connect.btn-known-user img {
-      float: left; }
+      float: left;
+      height: 95px; }
+      @media (max-width: 992px) {
+        .connect.btn-known-user img {
+          height: 77px; } }
     .connect.btn-known-user div {
       padding: 1.1rem 1.5rem;
       float: left; }
@@ -754,7 +766,8 @@ header {
 .logo {
   margin: 50px 0; }
   .logo img {
-    width: 500px; }
+    width: 100%;
+    max-width: 300px; }
 
 .red-title i {
   color: #9c201f;
@@ -778,6 +791,13 @@ header {
     position: absolute;
     left: 4px;
     top: 0px; }
+
+h2.login-title {
+  margin-top: 70px;
+  margin-bottom: 30px; }
+
+.intro-text {
+  margin-top: 30px; }
 
 #table1 .fixed-table-body {
   height: 256px; }

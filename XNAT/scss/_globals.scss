@@ -165,7 +165,8 @@ header {
 .logo {
 	margin: 50px 0;
 	img {
-		width:500px;
+		width:100%;
+		max-width: 300px;
 	}
 }
 .red-title {
@@ -193,6 +194,13 @@ header {
 	    left: 4px;
 	    top: 0px;
 	}
+}
+h2.login-title {
+	margin-top: 70px;
+	margin-bottom: 30px;
+}
+.intro-text {
+	margin-top:30px;
 }
 #table1 {
 	.fixed-table-body {
