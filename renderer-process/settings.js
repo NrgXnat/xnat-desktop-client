@@ -49,7 +49,8 @@ function render_users() {
         $('#user_table').bootstrapTable('load', table_rows);
     } else {
         $('#user_table').bootstrapTable({
-            filterControl: true,
+            filterControl: table_rows.length > 4 ? true : false,
+            height: table_rows.length > 4 ? 242 : 0,
             columns: [
                 {
                     field: 'server',

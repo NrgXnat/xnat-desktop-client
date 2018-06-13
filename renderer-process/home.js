@@ -77,6 +77,9 @@ $(document).on('change', '#xnt_manifest_file', function(e){
                 }
             ]
         });
+
+        console.log(parser);
+        
     
         fs.readFile(file_path, function(err, data) {
             parser.parseString(data,
@@ -106,36 +109,44 @@ $(document).on('change', '#xnt_manifest_file', function(e){
                     }
 
 //store.transfers.set('downloads', []);
-
+                    console.log('===================================== my_sets =====================================');
+                    console.log(my_sets);
+                    
                     for (let i = 0; i < my_sets.length; i++) {
-                        console.log('=====================================')
+                        if (my_sets[i].hasOwnProperty('sets')) {
+                            console.log('=====================================')
 
-                        let session = {
-                            name: my_sets[i].$.description,
-                            id: Helper.uuidv4(),
-                            files: []
-                        }
-
-                        let entrysets = my_sets[i].sets[0].entryset;
-
-                        for (let k = 0; k < entrysets.length; k++) {
-                            let entries = entrysets[k].entries[0].entry;
-                            
-                            for (let j = 0; j < entries.length; j++) {
-                                let uri_data = entries[j].$;
-                                let real_uri = uri_data.URI.replace(/^\/archive\//, '/data/') + '?format=zip';
-                                //console.log(uri_data.name);
-                                manifest_urls.set(uri_data.name, real_uri);
-                                
-                                session.files.push({
-                                    name: uri_data.name,
-                                    uri: real_uri,
-                                    status: 0
-                                })
+                            let session = {
+                                name: my_sets[i].$.description,
+                                id: Helper.uuidv4(),
+                                files: []
                             }
+    
+                            let entrysets = my_sets[i].sets[0].entryset;
+    
+                            for (let k = 0; k < entrysets.length; k++) {
+                                let entries = entrysets[k].entries[0].entry;
+                                
+                                for (let j = 0; j < entries.length; j++) {
+                                    let uri_data = entries[j].$;
+                                    let real_uri = uri_data.URI.replace(/^\/archive\//, '/data/') + '?format=zip';
+                                    //console.log(uri_data.name);
+                                    manifest_urls.set(uri_data.name, real_uri);
+                                    
+                                    session.files.push({
+                                        name: uri_data.name,
+                                        uri: real_uri,
+                                        status: 0
+                                    })
+                                }
+                            }
+    
+                            download_digest.sessions.push(session)
+                        } else {
+                            console.log('CKIPPing ---------------');
+                            
                         }
-
-                        download_digest.sessions.push(session)
+                        
                     }
 
                     console.log(download_digest);

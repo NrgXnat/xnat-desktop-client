@@ -244,16 +244,32 @@ header {
 	}
 }
 .fixed-table-container .filtered-table thead th .fht-cell {
-	&::before{
-		content: '';
-	    height: 40px;
-	   	background: $table-control;
-	    width: 100%;
-	    position: absolute;
-	    z-index: -1;
-	    top: 36px;
-	    left: 0;
+	// &::before{
+	// 	content: '';
+	//     height: 40px;
+	//    	background: $table-control;
+	//     width: 100%;
+	//     position: absolute;
+	//     z-index: -1;
+	//     top: 36px;
+	//     left: 0;
+	// }
+}
+.fixed-table-body {
+	thead {
+		&::after {
+			content: '';
+			background: $table-control;
+			position: absolute;
+			z-index: -2;
+			top: 0; right: 0; bottom: 0; left: 0;
+		}
 	}
+
+	tbody {
+		background-color: #fff;
+	}
+	
 }
 .download-radio-selection {
 	margin-top:20px;

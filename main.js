@@ -37,7 +37,8 @@ function initialize () {
       minWidth: 768,
       height: 840,
       title: app.getName(),
-      icon: iconPath
+      icon: iconPath,
+      show: false
     };
 
     var childOptions = {
@@ -55,6 +56,15 @@ function initialize () {
 
     mainWindow = new BrowserWindow(windowOptions)
     mainWindow.loadURL(path.join('file://', __dirname, '/index4.html'))
+
+    mainWindow.on('ready-to-show', () => {
+      //mainWindow.show();
+      mainWindow.webContents.send('remove_current_session', true);
+    })
+
+    mainWindow.on('did-finish-load', () => {
+      mainWindow.webContents.send('remove_current_session', true);
+    })
 
     
     childOptions.top = mainWindow;

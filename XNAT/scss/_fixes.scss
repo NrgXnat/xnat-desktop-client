@@ -89,7 +89,7 @@ progress[value] {
     }
 }
 
-#user_table, #upload_monitor_table, #download_monitor_table {
+#user_table, #upload_monitor_table, #download_monitor_table, .fixed-table-container {
     .filter-control {
         padding: 0 4px 4px 4px;
         input {
