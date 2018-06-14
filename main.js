@@ -189,6 +189,11 @@ ipcMain.on('start_upload', (e, item) =>{
   uploadWindow.webContents.send('start_upload', item);
 })
 
+
+ipcMain.on('cancel_all_upload', (e, item) =>{
+  uploadWindow.webContents.send('cancel_all_upload', item);
+})
+
 ipcMain.on('start_download', (e, item) =>{
   mainWindow.webContents.send('console:log', 'start_download event (main.js)');
   downloadWindow.webContents.send('start_download', item);

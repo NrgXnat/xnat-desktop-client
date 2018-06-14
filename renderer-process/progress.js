@@ -59,13 +59,13 @@ function _init_upload_progress_table() {
                 filterControl: 'input',
                 sortable: true
             }, 
-            {
-                field: 'transfer_type',
-                title: 'Process',
-                filterControl: 'select',
-                sortable: true,
-                align: 'center'
-            }, 
+            // {
+            //     field: 'transfer_type',
+            //     title: 'Process',
+            //     filterControl: 'select',
+            //     sortable: true,
+            //     align: 'center'
+            // }, 
             {
                 field: 'transfer_date',
                 title: 'Transfer Date',
@@ -157,7 +157,7 @@ function _init_upload_progress_table() {
                 id: transfer.id,
                 date: transfer.session_data.studyDate,
                 session_label: transfer.session_data.studyDescription,
-                transfer_type: 'Upload',
+                //transfer_type: 'Upload',
                 transfer_date: transfer.transfer_start,
                 status: transfer.status,
                 actions: '',
@@ -205,13 +205,13 @@ function _init_download_progress_table() {
                 filterControl: 'input',
                 sortable: true
             }, 
-            {
-                field: 'dl_transfer_type',
-                title: 'Process',
-                filterControl: 'select',
-                sortable: true,
-                align: 'center'
-            }, 
+            // {
+            //     field: 'dl_transfer_type',
+            //     title: 'Process',
+            //     filterControl: 'select',
+            //     sortable: true,
+            //     align: 'center'
+            // }, 
             {
                 field: 'dl_server',
                 title: 'Server',
@@ -309,7 +309,7 @@ function _init_download_progress_table() {
             id: transfer.id,
             transfer_start: transfer.transfer_start,
             basename: transfer.basename,
-            dl_transfer_type: 'Download',
+            //dl_transfer_type: 'Download',
             dl_server: transfer.server.split('://')[1],
             dl_user: transfer.user,
             status: 0,
@@ -647,6 +647,10 @@ $(document).on('click', '[data-save-txt]', function(){
     FileSaver.saveAs(blob, "success_log.txt");
 });
 
+$(document).on('click', '.js_cancel_all_upload', function(){
+    ipc.send('cancel_all_upload');
+});
+
 
 
 
@@ -685,3 +689,4 @@ ipc.on('upload_progress',function(e, item){
     }
     
 });
+

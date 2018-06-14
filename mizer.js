@@ -151,7 +151,7 @@ mizer.getReferencedVariables = (contexts) => {
     // }
 
     
-    console.log('*************************************');
+    console.log('************* REFERENCED VARIABLES ************************');
     console.log(variableMap);
     
     return variableMap;
@@ -339,7 +339,7 @@ function remove_commented_lines(script) {
     console.log(script_lines);
     for (let i = 0; i < script_lines.length; i++) {
         let line = $.trim(script_lines[i]);
-        if (line.length && line.indexOf('//') !== 0 && line.indexOf('version ') !== 0 && line.indexOf('!=') === -1) {
+        if (line.length && line.indexOf('//') !== 0) {
             weeded_script_lines.push(line);
         }
     }

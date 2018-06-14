@@ -25,17 +25,25 @@
                         </div>
                         </div>
                         </div>
-                        <ul id="upload-project" class="choose-list">
-                            
-                        </ul>
-                        <div class="row">
-                         <div class="col-6"><h2 class="section-title search-inline">Select subject</h2></div>
-                        <div class="col-6"><div class="filter-control title-inline">
-                            <input type="text" id="subject-session-filter" onkeyup="" placeholder="Filter" class="form-control">
+                        <ul id="upload-project" class="choose-list"></ul>
+                        
+                        <div class="project-subjects-holder">
+                            <div class="row">
+                                <div class="col-6">
+                                    <h2 class="section-title search-inline">Select subject</h2>
+                                </div>
+                                <div class="col-6">
+                                    <div class="filter-control title-inline">
+                                        <input type="text" id="subject-session-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                    </div>
+                                </div>
+                            </div>
+                            <ul id="subject-session" class="choose-list"></ul>
                         </div>
-                        </div>
-                        </div>
-                        <ul id="subject-session" class="choose-list"></ul>
+                        
+                        
+
+
                         <div class="row">
                         <div class="col-6">
                             <div class="button-row">
@@ -103,42 +111,64 @@
                             <button type="button" class="btn btn-blue js_next disabled">Next <i class="fas fa-angle-right"></i></button>
                         </div>
                     </div>
-                    <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
-                        <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
-                        <p>Note: Unchecked scans will not be uploaded</p>
-                        <div class="col" id="anon_variables">
-                        <div class="row">
-                        <div class="form-group row">
-                            <label for="experiment_label" class="col-sm-2 col-form-label"><b>Experiment Label</b>:</label>
-                            <div class="input-group col-sm-10">
-                                <input class="form-control" type="text" name="experiment_label" id="experiment_label" value="" required>
-                                <small>This field has been auto-populated. If you specify a session label that matches a session already in this project, XNAT will attempt to merge selected scans into the existing session</small>
-                            </div>
-                        </div>
-                       <div id="additional-upload-fields" >
-                           
-                       </div>
-                       
-                       <br><br>
-                       </div>
-                     </div>
-                        
-                        <table class="table table-bordered" id="image_session"></table>
 
-                   <div class="row">
-                     <div class="col">
-                       <p><b>Session summary</b></p>
-                       <p id="session_info"></p>
-                     </div>
-                   </div>
-                   <div class="row">
-                     <div class="col text-right button-row">
-                       <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                        <button type="button" class="btn btn-gray js_prev" type="button"><i class="fas fa-angle-left"></i> Prev</button>
-                        <button type="button" class="btn btn-blue js_upload">Upload</button>
+
+                    <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
+                        <div class="col" id="anon_variables">
+                    
+                            <div class="form-group row">
+                                <label class="col-sm-2 col-form-label">
+                                    <b>Project</b>:
+                                </label>
+                                <div class="input-group col-sm-10">
+                                    <input class="form-control" type="text" name="project" id="var_project" value="xxx" required readonly>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label class="col-sm-2 col-form-label">
+                                    <b>Subject</b>:
+                                </label>
+                                <div class="input-group col-sm-10">
+                                    <input class="form-control" type="text" name="subject" id="var_subject" value="yyy" required readonly>
+                                </div>
+                            </div>
+                    
+                            <div class="form-group row">
+                                <label for="experiment_label" class="col-sm-2 col-form-label">
+                                    <b>Experiment Label
+                                        <br>(Session)</b>:</label>
+                                <div class="input-group col-sm-10">
+                                    <input class="form-control" type="text" name="experiment_label" id="experiment_label" value="" required>
+                                    <small>This field has been auto-populated. If you specify a session label that matches a session already in this
+                                        project, XNAT will attempt to merge selected scans into the existing session</small>
+                                </div>
+                            </div>
+                            <div id="additional-upload-fields"></div>
+                    
+                            <br>
+                            <br>
+                    
+                        </div>
+
+                        <div class="col">
+                            <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
+                            <p>Note: Unchecked scans will not be uploaded</p>
+                            <table class="table table-bordered" id="image_session"></table>
+                        </div>
+                    
+                        <div class="col">
+                            <h2 class="section-title">Session Summary:</h2>
+                            <p id="session_info"></p>
+                        </div>
+                    
+                        <div class="col text-right button-row">
+                            <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                            <button type="button" class="btn btn-gray js_prev" type="button">
+                                <i class="fas fa-angle-left"></i> Prev</button>
+                            <button type="button" class="btn btn-blue js_upload">Upload</button>
+                        </div>
+                    
                     </div>
-                </div>
-            </div>
             <div class="tab-pane fade" id="nav-summary" role="tabpanel" aria-labelledby="nav-profile-tab">
                 <h2 class="section-title">Summary</h2>
                 

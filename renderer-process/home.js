@@ -82,13 +82,18 @@ $(document).on('change', '#xnt_manifest_file', function(e){
         
     
         fs.readFile(file_path, function(err, data) {
-            parser.parseString(data,
-                function (err, result) {
-                    console.log(result);
+            parser.parseString(data, function (err2, result) {
+                console.log(err2);
+                console.log('++++++++++++++++++++++++++++++++++++++++++++++++');
+                console.log('++++++++++++++++++++++++++++++++++++++++++++++++');
+                console.log('++++++++++++++++++++++++++++++++++++++++++++++++');
+                
+                
+                console.log(result);
 
-                    //result.catalog.sets[i].entryset[j].sets[k].entryset[l].entries[m].entry[n]
-                    
-                    
+                //result.catalog.sets[i].entryset[j].sets[k].entryset[l].entries[m].entry[n]
+                
+                try {
                     let catalog_description = result.catalog.$.description ? result.catalog.$.description : '';
                     let has_project = catalog_description.indexOf('projectIncludedInPath') !== -1;
                     let has_subject = has_project || catalog_description.indexOf('subjectIncludedInPath') !== -1;
@@ -108,7 +113,7 @@ $(document).on('change', '#xnt_manifest_file', function(e){
                         sessions: []
                     }
 
-//store.transfers.set('downloads', []);
+                    //store.transfers.set('downloads', []);
                     console.log('===================================== my_sets =====================================');
                     console.log(my_sets);
                     
@@ -121,9 +126,9 @@ $(document).on('change', '#xnt_manifest_file', function(e){
                                 id: Helper.uuidv4(),
                                 files: []
                             }
-    
+
                             let entrysets = my_sets[i].sets[0].entryset;
-    
+
                             for (let k = 0; k < entrysets.length; k++) {
                                 let entries = entrysets[k].entries[0].entry;
                                 
@@ -140,7 +145,7 @@ $(document).on('change', '#xnt_manifest_file', function(e){
                                     })
                                 }
                             }
-    
+
                             download_digest.sessions.push(session)
                         } else {
                             console.log('CKIPPing ---------------');
@@ -154,20 +159,28 @@ $(document).on('change', '#xnt_manifest_file', function(e){
                     my_transfers.push(download_digest);
                     store.transfers.set('downloads', my_transfers);
                     
-    
+
                     console.log(manifest_urls);
                     console.log(manifest_urls.size);
-//return;
+                    //return;
                     ipc.send('start_download');
 
                     ipc.send('redirect', 'progress.html');
+                    
                     return;
+                    
+                    
                     NProgress.start();
                     $.blockUI();
                     
                     download_items(xnat_server, manifest_urls, manifest_urls.size, true);
-    
-                });
+                } catch(parse_error) {
+                    console.log(parse_error.message);
+                    swal("Manifest Parsing Error!", "An error occurred while parsing manifest file! Please try again or use another manifest file.", "error");
+                }
+                
+
+            });
         });
     }
 

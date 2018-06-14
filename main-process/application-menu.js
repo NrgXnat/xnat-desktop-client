@@ -42,12 +42,65 @@ let template = [
                 }
             }
         ]
+    },
+    {
+        label: 'Edit',
+        submenu: [
+            { role: 'undo' },
+            { role: 'redo' },
+            { type: 'separator' },
+            { role: 'cut' },
+            { role: 'copy' },
+            { role: 'paste' },
+            { role: 'delete' },
+            { role: 'selectall' }
+        ]
     }
 ];
 
+
 // If Mac add empty object to menu
 if(isMac()){
-    template.unshift({});
+    //template.unshift({});
+
+    template.unshift({
+        label: app.getName(),
+        submenu: [
+          {role: 'about'},
+          {type: 'separator'},
+          {role: 'services', submenu: []},
+          {type: 'separator'},
+          {role: 'hide'},
+          {role: 'hideothers'},
+          {role: 'unhide'},
+          {type: 'separator'},
+          {role: 'quit'}
+        ]
+    });
+
+    template.push({
+        role: 'window',
+        submenu: [
+            {role: 'close'},
+            {role: 'minimize'},
+            {role: 'zoom'},
+            {type: 'separator'},
+            {role: 'front'}
+        ]
+    });
+
+      // Edit menu
+    template[2].submenu.push(
+        { type: 'separator' },
+        {
+            label: 'Speech',
+            submenu: [
+                { role: 'startspeaking' },
+                { role: 'stopspeaking' }
+            ]
+        }
+    );
+    
 }
 
 // add dev tools in production

@@ -60,7 +60,8 @@ function loadPage(page) {
             //     contentContainer.removeChild(contentContainer.firstChild);
             // }
             //console.log(clone);
-            contentContainer.appendChild(clone)
+            contentContainer.appendChild(clone);
+            document.body.scrollTop = 0;
 
             settings.set('active_page', page); 
 

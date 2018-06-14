@@ -54,7 +54,8 @@ let transfering = false;
 
 console_log(__filename);
 //ipc.send('log', store.getAll())
-do_transfer()
+do_transfer();
+setTimeout(do_transfer, 10000);
 
 function console_log(log_this) {
     console.log(log_this);
@@ -65,6 +66,11 @@ function console_log(log_this) {
 ipc.on('start_upload',function(e, item){
     setTimeout(do_transfer, 200);
     //do_transfer();
+});
+
+ipc.on('cancel_all_upload', function(e, item){
+    console.log('======= cancel_all_upload =========');
+    
 });
 
 
@@ -159,9 +165,8 @@ function doUpload(transfer, series_id) {
 
         // Convert the JS map anonValues into a Java Properties object.
         variables = mizer.getVariables(transfer.anon_variables);
-        console_log('variables', variables);
+        console_log(variables);
 
-return;
         copy_and_anonymize(transfer.id, _files, contexts, variables).then((res) => {
             //summary_add(transfer.id, series_id, res.directory, 'Anonymization dir');
             //summary_add(transfer.id, series_id, res.copy_success.length, 'Anonymized files');

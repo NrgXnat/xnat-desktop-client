@@ -235,27 +235,41 @@ $(document).on('page:load', '#upload-section', function(e){
 $(document).on('click', '#upload-section a[data-project_id]', function(e){
     resetSubsequentTabs();
     
-    $('#subject-session').html('');
     $('.tab-pane.active .js_next').addClass('disabled');
+    
+    $('#subject-session').html('');
+    if ($('#upload-project a.selected').length === 0) {
+        $('.project-subjects-holder').show();
+    }
 
     $(this).closest('ul').find('a').removeClass('selected');
-    $(this).addClass('selected')
+    $(this).addClass('selected');
+
+    // set Review data
+    $('#var_project').val(get_form_value('project_id', 'project_id'));
+    
+
     let project_id = $(this).data('project_id');
 
     mizer.get_mizer_scripts(xnat_server, user_auth, project_id).then(scripts => {
         if (scripts.length === 0) {
             swal({
-                title: `Warning: No anonymization scripts are set!`,
+                title: `Warning: Anonymization scripts are NOT set for this project!`,
                 text: `Do you want to continue?`,
                 icon: "warning",
-                buttons: ['Cancel', 'Continue'],
+                buttons: ['Choose a different project', 'Continue'],
                 dangerMode: true
             })
             .then((proceed) => {
+                console.log(proceed);
+                
                 if (proceed) {
                     
                 } else {
-                    ipc.send('redirect', 'home.html');
+                    $('#subject-session').html('');
+                    $('.project-subjects-holder').hide();
+
+                    $('#upload-project a.selected').removeClass('selected');
                 }
             });
         }
@@ -302,6 +316,9 @@ $(document).on('click', 'a[data-subject_id]', function(e){
 
     $(this).closest('ul').find('a').removeClass('selected');
     $(this).addClass('selected')
+
+    // set Review data
+    $('#var_subject').val(get_form_value('subject_id', 'subject_id'));
     
     $('.tab-pane.active .js_next').removeClass('disabled');
     
@@ -440,19 +457,27 @@ $(document).on('click', '.js_upload', function() {
             subject_id: $('a[data-subject_id].selected').data('subject_id')
         };
 
-        let anon_variables = {};
-        $('#additional-upload-fields').find(':input').each(function(){
+        let my_anon_variables = {};
+
+        console.log('++++++++++++++', anon_variables);
+        
+
+        if (anon_variables.hasOwnProperty('session')) {
+            my_anon_variables['session'] = url_data.expt_label;
+        }
+
+        $('#anon_variables').find(':input').each(function(){
             let $field = $(this);
-            anon_variables[$field.attr('name')] = $field.val();
+            my_anon_variables[$field.attr('name')] = $field.val();
         });
 
         //doUpload(url_data, selected_session_id, selected_series);
-        storeUpload(url_data, selected_session_id, selected_series, anon_variables);
+        storeUpload(url_data, selected_session_id, selected_series, my_anon_variables);
 
     } else {
         swal({
-            title: `Selection error`,
-            text: `Please select at least one scan series and enter variable value(s)`,
+            title: `Form Error`,
+            text: `Please select at least one scan series and enter all variable value(s)`,
             icon: "warning",
             dangerMode: true
         })
@@ -567,9 +592,8 @@ $(document).on('click', 'button[data-session_id]', function(e){
             field_value = anon_variables[key];
         }
 
-        
-
-        $('#additional-upload-fields').append(`
+        if (key != 'project' && key != 'subject' && key != 'session') {
+            $('#additional-upload-fields').append(`
             <div class="form-group row">
                 <label for="var_${key}" class="col-sm-2 col-form-label"><b>${key_cap}</b>:</label>
                 <div class="input-group col-sm-10">
@@ -577,8 +601,11 @@ $(document).on('click', 'button[data-session_id]', function(e){
                     ${field_text}
                 </div>
             </div>
-        `);
-        console.log('$$$$ ' + key + ' => ' + anon_variables[key] );
+            `);
+            console.log('$$$$ ' + key + ' => ' + anon_variables[key]);
+        }
+
+        
     });
 
     let session_id = selected_session_id,
@@ -600,7 +627,7 @@ $(document).on('click', 'button[data-session_id]', function(e){
         console.log(scan);
         
         table_rows.push({
-            select: false,
+            select: true,
             series_number: series_number,
             series_id: key,
             description: scans_description,
@@ -1210,7 +1237,7 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
     store.set('transfers.uploads', my_transfers);
     
     console.log(upload_digest);
-return; /////////////////////////////////////////////////////////////////////////////////
+
     ipc.send('start_upload');
     
     ipc.send('redirect', 'progress.html');

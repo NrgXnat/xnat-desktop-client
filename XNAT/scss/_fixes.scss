@@ -117,4 +117,12 @@ progress[value] {
 }
 #additional-upload-fields {
     width: 100%;
+    margin-bottom: 15px;
+}
+.project-subjects-holder {
+    display: none;
+}
+#anon_variables .input-group > span {
+    padding-top: calc(.375rem + 1px);
+    padding-bottom: calc(.375rem + 1px);
 }
