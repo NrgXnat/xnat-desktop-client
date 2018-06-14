@@ -38,7 +38,7 @@ function initialize () {
       height: 840,
       title: app.getName(),
       icon: iconPath,
-      show: false
+      show: true
     };
 
     var childOptions = {
@@ -59,11 +59,11 @@ function initialize () {
 
     mainWindow.on('ready-to-show', () => {
       //mainWindow.show();
-      mainWindow.webContents.send('remove_current_session', true);
+      //mainWindow.webContents.send('remove_current_session', true);
     })
 
     mainWindow.on('did-finish-load', () => {
-      mainWindow.webContents.send('remove_current_session', true);
+      //mainWindow.webContents.send('remove_current_session', true);
     })
 
     
