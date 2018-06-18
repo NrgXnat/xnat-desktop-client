@@ -1,11 +1,12 @@
-const axios = require('axios');
-require('promise.prototype.finally').shim();
+//require('promise.prototype.finally').shim();
 const path = require('path');
 const settings = require('electron-settings')
 const ipc = require('electron').ipcRenderer
 const swal = require('sweetalert');
 
 const remote = require('electron').remote;
+
+const auth = require('../services/auth');
 
 //const blockUI = require('blockui-npm');
 
@@ -46,51 +47,51 @@ function render_users() {
     let bt_options = $('#user_table').bootstrapTable('getOptions');
 
     if ($.isPlainObject(bt_options)) { // bootstrap table already initialized
-        $('#user_table').bootstrapTable('load', table_rows);
-    } else {
-        $('#user_table').bootstrapTable({
-            filterControl: table_rows.length > 4 ? true : false,
-            height: table_rows.length > 4 ? 242 : 0,
-            columns: [
-                {
-                    field: 'server',
-                    title: 'Server',
-                    sortable: true,
-                    filterControl: 'input',
-                    formatter: function(value, row, index, field) {
-                        var server_name = value.split('//');
-                        return server_name[1];
-                    }
-                }, 
-                {
-                    field: 'user',
-                    title: 'User',
-                    sortable: true,
-                    filterControl: 'input'
-                }, 
-                {
-                    field: 'action',
-                    title: 'Actions',
-                    class: 'action',
-                    formatter: function(value, row, index, field) {
-                        return `
-                        <a href="#" 
-                            class="edit"
-                            data-username="${row.user}" data-server="${row.server}"
-                            data-toggle="modal" data-target="#user_connection"
-                            ><i class="fas fa-edit"></i></a>
-                    
-                        <a href="#" 
-                            class="trash js_remove_login"
-                            data-username="${row.user}" data-server="${row.server}"
-                            ><i class="fas fa-trash-alt"></i></a>
-                        `;
-                    }
-                }
-            ],
-            data: table_rows
-        });
+        $('#user_table').bootstrapTable('destroy')
     }
+
+    $('#user_table').bootstrapTable({
+        filterControl: table_rows.length > 4 ? true : false,
+        height: table_rows.length > 4 ? 242 : 0,
+        columns: [
+            {
+                field: 'server',
+                title: 'Server',
+                sortable: true,
+                filterControl: 'input',
+                formatter: function(value, row, index, field) {
+                    var server_name = value.split('//');
+                    return server_name[1];
+                }
+            }, 
+            {
+                field: 'user',
+                title: 'User',
+                sortable: true,
+                filterControl: 'input'
+            }, 
+            {
+                field: 'action',
+                title: 'Actions',
+                class: 'action',
+                formatter: function(value, row, index, field) {
+                    return `
+                    <a href="#" 
+                        class="edit"
+                        data-username="${row.user}" data-server="${row.server}"
+                        data-toggle="modal" data-target="#user_connection"
+                        ><i class="fas fa-edit"></i></a>
+                
+                    <a href="#" 
+                        class="trash js_remove_login"
+                        data-username="${row.user}" data-server="${row.server}"
+                        ><i class="fas fa-trash-alt"></i></a>
+                    `;
+                }
+            }
+        ],
+        data: table_rows
+    });
     
 }
 
@@ -98,144 +99,56 @@ function render_users() {
 function test_login(xnat_server, user_auth, old_user_data) {
     console.log(xnat_server, user_auth, old_user_data);
 
-    axios.get(xnat_server + '/data/auth', {
-        auth: user_auth
-    })
-    .then(res => {
-        settings.set('xnat_server', xnat_server);
-        settings.set('user_auth', user_auth);
+    auth.login_promise(xnat_server, user_auth)
+        .then(res => {
+            auth.save_login_data(xnat_server, user_auth, old_user_data)
 
-        let logins = settings.get('logins');
+            $('#user_connection').modal('hide')
 
+            render_users();
+            //logout();
 
-        // REMOVE OLD
-        let found_old = -1;
-        logins.forEach(function(el, i) {
-            if (el.server === old_user_data.server && el.username === old_user_data.username) {
-                found_old = i;
-            }
-        })
-
-        if (found_old != -1) {
-            logins.splice(found_old, 1)
-        }
-
-
-
-        // DEAL WITH NEW
-        let found = -1;
-        logins.forEach(function(el, i) {
-            if (el.server === xnat_server && el.username === user_auth.username) {
-                found = i;
-            }
-        })
-
-        console.log('test login FOUND: ', found);
-        
-        
-        if (found == -1) { // not found
-            logins.unshift({
-                server: xnat_server,
-                username: user_auth.username
+            swal({
+                title: "Success!",
+                text: `User connection is ${old_user_data.username ? 'updated': 'added'}.`,
+                icon: "success",
+                button: "Okay",
             });
-        } else if (found == 0) { // found first
-            // do nothing
-        } else { // found not first
-            logins.splice(found, 1)
-            logins.unshift({
-                server: xnat_server,
-                username: user_auth.username
-            });
-        }
 
-        // SAVE
-        settings.set('logins', logins);
-
-        
-        $('#user_connection').modal('hide')
-        
-        /*
-        $("#header_menu .hidden").each(function(){
-            $(this).removeClass('hidden');
         })
-        $("#menu--server").html(xnat_server);
-        $("#menu--username").html(user_auth.username);
-        $('#menu--username-server').html(user_auth.username + '@' + xnat_server);
-        */
+        .catch(error => {
+            let msg = `
+                User credentials were not saved!<br>
+                XNAT server: ${xnat_server}<br>
+                Username: ${user_auth.username}<br><br>
+                ${Helper.errorMessage(error)}
+            `;
 
-        render_users();
-        logout();
-
-        swal({
-            title: "Success!",
-            text: "User connection is updated.",
-            icon: "success",
-            button: "Okay",
+            $('#login_feedback').removeClass('hidden');
+            $('#login_error_message').html(msg);
+        })
+        .finally(() => {
+            Helper.unblockModal('#user_connection');
+            $('#password').val('').focus();
         });
-
-    })
-    .catch(error => {
-        let msg;
-
-        if (error.response) {
-            // The request was made and the server responded with a status code
-            // that falls out of the range of 2xx
-            //console.log(error.response.status);
-            //console.log(error.response.data);
-            //console.log(error.response.headers);
-            switch(error.response.status) {
-                case 401:
-                    msg = 'Invalid username or password!';
-                    break;
-                case 404:
-                    msg = 'Invalid XNAT server address';
-                    break;
-                default:
-                    msg = 'An error occured. Please try again.'
-            }
-            
-          } else if (error.request) {
-            // The request was made but no response was received
-            // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-            // http.ClientRequest in node.js
-            console.log(error.request);
-            msg = 'Please check XNAT server address (and your internet connection).'
-          } else {
-            // Something happened in setting up the request that triggered an Error
-            console.log('Error', error.message);
-            msg = error.message;
-          }
-          //console.log(error.config);
-
-
-
-          msg = 'User credentials were not saved!<br>' + msg;
-
-          $('#login_feedback').removeClass('hidden');
-          $('#login_error_message').html(msg);
-    })
-    .finally(() => { 
-        Helper.unblockModal('#user_connection');
-        $('#password').val('').focus();
-    });
 }
 
 
 function logout() {
     let xnat_server = settings.get('xnat_server');
+    
+    auth.logout_promise(xnat_server)
+        .then(res => {
+            settings.delete('user_auth')
+            settings.delete('xnat_server')
 
-    axios.get(xnat_server + '/app/action/LogoutUser')
-    .then(res => {
-        settings.delete('user_auth')
-        settings.delete('xnat_server')
+            console.log('Logout: ', res);
 
-        console.log('Logout: ', res);
-
-        Helper.UI.userMenuHide();
-    })
-    .catch(err => {
-        console.log(err)
-    });
+            Helper.UI.userMenuHide();
+        })
+        .catch(err => {
+            console.log(err)
+        });
 }
 
 
@@ -284,12 +197,12 @@ $(document).on('submit', '#userForm', function(e) {
     e.preventDefault();
     $('#login_feedback').addClass('hidden')
 
-    xnat_server = $('#server').val();
-    user_auth = {
+    let xnat_server = $('#server').val();
+    let user_auth = {
         username: $('#username').val(),
         password: $('#password').val()
     }
-    old_user_data = {
+    let old_user_data = {
         server: $('#old_server').val(),
         username: $('#old_username').val()
     }
@@ -340,25 +253,10 @@ $(document).on('click', '.js_remove_login', function(e){
             let user_auth = {
                 username: $this.data('username')
             }
-            console.log('--------', xnat_server, user_auth)
 
-            let logins = settings.get('logins');
-            
-            let found = -1;
-            logins.forEach(function(el, i) {
-                if (el.server === xnat_server && el.username === user_auth.username) {
-                    found = i;
-                }
-            })
+            auth.remove_login_data(xnat_server, user_auth)
 
-            console.log('FOUND: ' + found);
-    
-            if (found >= 0) { // not found
-                logins.splice(found, 1)
-            }
-
-            settings.set('logins', logins);
-
+            render_users();
 
             swal({
                 title: "Connection data removed",
@@ -366,10 +264,6 @@ $(document).on('click', '.js_remove_login', function(e){
                 icon: "success",
                 closeOnEsc: false
             })
-            .then((ok) => {
-                //$this.closest('tr').remove();
-                render_users();
-            });
         }
     });
 });

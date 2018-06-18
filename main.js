@@ -94,10 +94,10 @@ function initialize () {
       require('devtron').install()
 
       //uploadWindow.webContents.openDevTools()
-      //downloadWindow.show()
-      //downloadWindow.webContents.openDevTools()
-      //uploadWindow.show()
-      //uploadWindow.webContents.openDevTools()
+      downloadWindow.show()
+      downloadWindow.webContents.openDevTools()
+      uploadWindow.show()
+      uploadWindow.webContents.openDevTools()
       //uploadWindow.webContents.maximize()
     }
 

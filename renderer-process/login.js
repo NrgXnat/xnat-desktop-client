@@ -1,8 +1,7 @@
-const axios = require('axios');
 const path = require('path');
 const settings = require('electron-settings')
 const ipc = require('electron').ipcRenderer
-
+const auth = require('../services/auth');
 
 let xnat_server = '';
 let user_auth = {
@@ -71,21 +70,18 @@ $(document).on('submit', '#loginForm', function(e){
     }
     
     if (my_xnat_server.indexOf('http://') === 0 || my_xnat_server.indexOf('https://') === 0) {
-        login(my_xnat_server, my_user_auth);
+        login_attempt(my_xnat_server, my_user_auth);
     } else {
         let server_with_protocol = 'https://' + my_xnat_server;
-        
-        login_no_protocol(server_with_protocol, my_user_auth)
+        auth.login_promise(server_with_protocol, my_user_auth)
             .then(res => {
-                handleLoginSuccess(res, server_with_protocol, my_user_auth);
+                handleLoginSuccess(server_with_protocol, my_user_auth);
             })
             .catch(err => {
-                console.log(err);
                 server_with_protocol = 'http://' + my_xnat_server;
-                login(server_with_protocol, my_user_auth);
+                login_attempt(server_with_protocol, my_user_auth);
             })
     }
-
     
 });
 
@@ -140,79 +136,34 @@ $(document).on('click', '#remove_login', function(e){
     });
 });
 
-function login_no_protocol(xnat_server, user_auth) {
-    return axios.get(xnat_server + '/data/auth', {
-        auth: user_auth
-    })
+
+function login_attempt(xnat_server, user_auth) {
+    auth.login_promise(xnat_server, user_auth)
+        .then(res => {
+            handleLoginSuccess(xnat_server, user_auth);
+        })
+        .catch(handleLoginFail);
 }
 
-
-function login(xnat_server, user_auth) {
-    axios.get(xnat_server + '/data/auth', {
-        auth: user_auth
-    })
-    .then(res => {
-        handleLoginSuccess(res, xnat_server, user_auth);
-    })
-    .catch(error => {
-        let msg = Helper.errorMessage(error);
-
-        //console.log(error.config);
-        Helper.unblockModal('#login');
-
-        $('#login_feedback').removeClass('hidden');
-        $('#login_error_message').html(msg);
-    });
-}
-
-function handleLoginSuccess(res, xnat_server, user_auth) {
-    console.log(res);
-    settings.set('xnat_server', xnat_server);
-    settings.set('user_auth', user_auth);
-
-    // Notification code
-    const notification = {
-        title: 'XNAT Login Info',
-        body: "Server: " + xnat_server + "\nUser: " + user_auth.username,
-        icon: path.join(__dirname, '../assets/icons/png/icon.png')
-    };
-
-    function notify() {
-        const myNotification = new window.Notification(notification.title, notification);
-    }
-
-    let logins = settings.get('logins');
-
-    let found = -1;
-    logins.forEach(function(el, i) {
-        if (el.server === xnat_server && el.username === user_auth.username) {
-            found = i;
-        }
-    })
-
-
-    if (found == -1) { // not found
-        logins.unshift({
-            server: xnat_server,
-            username: user_auth.username
-        });
-    } else if (found == 0) { // found first
-        // do nothing
-    } else { // found not first
-        logins.splice(found, 1);
-        logins.unshift({
-            server: xnat_server,
-            username: user_auth.username
-        });
-    }
-    settings.set('logins', logins);      
+function handleLoginFail(error) {
+    let msg = Helper.errorMessage(error);
+        
+    Helper.unblockModal('#login');
     
+    $('#login_feedback').removeClass('hidden');
+    $('#login_error_message').html(msg);
+}
+
+function handleLoginSuccess(xnat_server, user_auth) {
+    auth.save_login_data(xnat_server, user_auth);
+    auth.save_current_user(xnat_server, user_auth);
+
     Helper.unblockModal('#login');
     $('#login').modal('hide');
 
     Helper.UI.userMenuShow();
+    Helper.notify("Server: " + xnat_server + "\nUser: " + user_auth.username, 'XNAT Login Info');
 
-    setTimeout(notify, 100);
     ipc.send('redirect', 'home.html');
 }
 

@@ -54,7 +54,7 @@ let Helper = {
                     msg = 'Invalid username or password!';
                     break;
                 case 404:
-                    msg = 'Invalid XNAT server address (' + settings.get('xnat_server') + ')';
+                    msg = 'Invalid XNAT server address!';
                     break;
                 default:
                     msg = 'An error occured. Please try again.'
