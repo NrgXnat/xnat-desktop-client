@@ -57,6 +57,12 @@ function _init_variables() {
         $('#upload_folder, #file_upload_folder').val('');
 
         $('#upload_folder').closest('.tab-pane').find('.js_next').addClass('disabled');
+
+        $('#dicom_parse_progress').attr({
+            value: 0,
+            max: 100
+        });
+
     });
 
     // date selection
@@ -93,7 +99,7 @@ function _init_variables() {
         console.log('resseting values in tab 4')
     });
 
-    _init_img_sessions_table();
+
     _UI();
 }
 
@@ -102,9 +108,19 @@ function _UI() {
     $('#server_name_tlbr').text(`[${server_name}]`);
 }
 
-function _init_img_sessions_table() {
-    $('#image_session').bootstrapTable({
-        height: 300,
+function destroyBootstrapTable($tbl) {
+    if ($.isPlainObject($tbl.bootstrapTable('getOptions'))) { // bootstrap table already initialized
+        $tbl.bootstrapTable('destroy');
+    }
+}
+
+function _init_img_sessions_table(table_rows) {
+    let $img_session_tbl = $('#image_session');
+
+    destroyBootstrapTable($img_session_tbl);
+
+    $img_session_tbl.bootstrapTable({
+        height: table_rows.length > 6 ? 300 : 0,
         columns: [
             {
                 field: 'select',
@@ -146,15 +162,62 @@ function _init_img_sessions_table() {
                 visible: false
             }
         ],
-        data: [{
-            select: false,
-            series_number: 1234,
-            description: 'Some text',
-            count: 12,
-            size: 1526257,
-            series_id: '12345678'
-        }]
+        data: table_rows
     });
+
+    $img_session_tbl.bootstrapTable('resetView');
+}
+
+function _init_session_selection_table(tbl_data) {
+    let $found_sessions_tbl = $('#found_sessions');
+
+    destroyBootstrapTable($found_sessions_tbl);
+
+    $found_sessions_tbl.bootstrapTable({
+        height: tbl_data.length > 5 ? 250 : 0,
+        columns: [
+            {
+                field: 'id',
+                title: 'StudyInstanceUID',
+                visible: false
+            },
+            {
+                field: 'label',
+                title: 'StudyID/UID',
+                sortable: true,
+                class: 'break-all'
+            },
+            {
+                field: 'root_path',
+                title: 'Root Path',
+                sortable: true,
+                class: 'break-all'
+            },
+            {
+                field: 'scan_count',
+                title: 'Scans',
+                sortable: true,
+                class: 'right-aligned'
+            },
+            {
+                field: 'action',
+                title: 'Actions',
+                class: 'action',
+                formatter: function(value, row, index, field) {
+                    return `
+                    <button data-session_id="${row.id}" type="button" 
+                        class="btn btn-primary btn-sm" 
+                        style="margin: 2px 0;">Select</button>
+                    
+                    `;
+                }
+            }
+            
+        ],
+        data: tbl_data
+    });
+
+    $found_sessions_tbl.bootstrapTable('resetView');
 }
 
 
@@ -338,7 +401,17 @@ $(document).on('click', '.js_next:not(.disabled)', function() {
 
 $(document).on('click', '.js_prev', function() {
     let active_tab_index = $('.nav-item').index($('.nav-item.active'));
+
+    if ($('.nav-item').eq(active_tab_index - 1).hasClass('hidden')) {
+        active_tab_index--;
+    }
+
     $('.nav-item').eq(active_tab_index - 1).trigger('click');
+    
+    setTimeout(function() {
+        $('.tab-pane.active .js_next').removeClass('disabled');
+    }, 300);
+
 });
 
 $(document).on('change', '#file_upload_folder', function(e) {
@@ -371,7 +444,7 @@ $(document).on('change', '#file_upload_folder', function(e) {
                             console.log(_files);
 
                             $('#file_upload_folder').val('');
-                            dicomParse(_files);
+                            dicomParse(_files, pth);
                         } else {
                             $('#upload_folder, #file_upload_folder').val('');
                         }
@@ -382,7 +455,7 @@ $(document).on('change', '#file_upload_folder', function(e) {
 
                     setTimeout(function() {
                         $('#file_upload_folder').val('');
-                        dicomParse(_files)
+                        dicomParse(_files, pth)
                     }, 0)
                 }
                 
@@ -566,9 +639,21 @@ $(document).on('submit', '#form_new_subject', function(e) {
     
 });
 
-$(document).on('click', 'button[data-session_id]', function(e){
-    $('.tab-pane.active .js_next').removeClass('disabled');
-    selected_session_id = $(this).data('session_id');
+$(document).on('click', '.js_cancel_session_selection', function(){
+    resetSubsequentTabs();
+    //resetTabsAfter($('#upload-section #nav-tab .nav-link.active').index() - 1)
+    resseting_functions.get(1)();
+});
+
+$(document).on('hidden.bs.modal', '#session-selection', function(e) {
+    console.log(`**** selected_session_id: ${selected_session_id} *****`);
+    if (selected_session_id) {
+        $('.tab-pane.active .js_next').trigger('click');
+    }
+});
+
+function select_session_id(new_session_id) {
+    selected_session_id = new_session_id;
 
     
     console.log('******************************************');
@@ -638,14 +723,10 @@ $(document).on('click', 'button[data-session_id]', function(e){
     });
 
     console.log('-----------------------------------------------------------');
-    
     console.log(table_rows);
     console.log('-----------------------------------------------------------');
 
-    $('#image_session')
-    .bootstrapTable('removeAll')    
-    .bootstrapTable('append', table_rows)
-    .bootstrapTable('resetView');
+    _init_img_sessions_table(table_rows);
 
     console.log(selected_session.studyDescription);
     console.log(selected_session.modality);
@@ -669,14 +750,20 @@ $(document).on('click', 'button[data-session_id]', function(e){
         'N/A';
     
     $('#session_info').html('')
-    .append(`Study ID: ${selected_session.studyId}<br>`)
-    .append(`Accession: ${selected_session.accession}<br>`)
-    .append('Description: ' + selected_session.studyDescription + '<br>')
-    .append('Date: ' + studyDate + '<br>')
-    .append(`Modality: ${selected_session.modality}<br>`)
-    .append(`${selected_session.scans.size} scans in ${total_files} files (${(total_size / 1024 / 1024).toFixed(2)}MB)`);
-    
-    swal.close();
+        .append(`Study ID: ${selected_session.studyId}<br>`)
+        .append(`Accession: ${selected_session.accession}<br>`)
+        .append('Description: ' + selected_session.studyDescription + '<br>')
+        .append('Date: ' + studyDate + '<br>')
+        .append(`Modality: ${selected_session.modality}<br>`)
+        .append(`${selected_session.scans.size} scans in ${total_files} files (${(total_size / 1024 / 1024).toFixed(2)}MB)`);
+
+
+    $('.tab-pane.active .js_next').removeClass('disabled');
+}
+
+$(document).on('click', 'button[data-session_id]', function(e){
+    select_session_id($(this).data('session_id'));
+    $('#session-selection').modal('hide');
 });
 
 function get_form_value(field, data) {
@@ -898,8 +985,10 @@ function dicomParseMime(_files) {
     }
 }
 
-function dicomParse(_files) {
-    //swal("\nFiles: " + _files.length);
+function dicomParse(_files, root_path) {
+    $.blockUI({
+        message: '<h1>Processing...</h1>'
+    });
             
     let errors = 0;
     let warnings = 0;
@@ -916,8 +1005,10 @@ function dicomParse(_files) {
 
 
     let $progress_bar = $('#dicom_parse_progress');
-    $progress_bar.attr('value', 0);
-    $progress_bar.attr('max', _files.length);
+    $progress_bar.attr({
+        value: 0,
+        max: _files.length
+    });
 
     let timer_start;
     $.queue.add(function(){
@@ -1065,47 +1156,101 @@ function dicomParse(_files) {
     // $.queue.add(display_results, this);
 
     let handle_results = function(){
+
+        function find_common_path(paths) {
+            if (paths.length === 0) {
+                return '';
+            }
+            
+            // find a common path
+            let common_path = paths[0];
+            let searching = paths.length === 1 ? false : true;
+
+            while (common_path.length > 0 && searching) {
+                for (let j = 1; j < paths.length; j++) {
+                    let path_suffix = paths[j].substring(common_path.length);
+
+                    if (paths[j].indexOf(common_path) !== 0 || (path_suffix.length > 0 && path_suffix.indexOf(path.sep) !== 0)) {
+                        let last_path_separator = common_path.lastIndexOf(path.sep);
+                        common_path = last_path_separator > 0 ? common_path.substring(0, last_path_separator) : '';
+                        break;
+                    }
+
+                    // if no break has happened - we found our match
+                    if (j == paths.length - 1) {
+                        searching = false;
+                    }
+                    
+                }
+            }
+
+            return common_path;
+        }
+
         NProgress.done();
 
-        switch(session_map.size) {
+        console.log(`************************* session_map.size: ${session_map.size} ********************************`);
+        
+        switch (session_map.size) {
             case 0:
+                resetSubsequentTabs();
+                resseting_functions.get(1)();
+                
                 swal({
                     title: 'No DICOM files',
                     text: 'No DICOM files were found inside selected folder. Please choose another folder.',
                     icon: "warning",
                     dangerMode: true
                 })
+
+
                 break;
             
-            default:
-                let $content = $('<div id="swal-wrapper">'),
-                    $ol = $('<ol style="text-align: left;">');
-                
-                $content.prepend(`<p>Found sessions: ${session_map.size}.</p>`).append($ol);
-
-
+            case 1:
+                let my_session_id;
                 session_map.forEach(function(cur_session, key) {
-                    console.log(cur_session);
-                    
-                    //let session_label = cur_session.studyDescription === undefined ? key : cur_session.studyDescription;
-                    let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
-                    $ol.append(`<li>
-                        ${session_label} 
-                        [scans: ${cur_session.scans.size}]
-                        <button data-session_id="${key}" type="button" class="btn btn-primary btn-sm" 
-                        style="margin: 2px 0;">Select</button>
-                        </li>`);
+                    my_session_id = key
                 });
-                
 
-                swal({
-                    html: true,
-                    title: `Please select one session`,
-                    content: $content.get(0)
-                })
-                //break;
-            //default: // more than 1
+                select_session_id(my_session_id);
+                $('.tab-pane.active .js_next').trigger('click');
+
+                break;
+
+            default:
+                let tbl_data = [];
+                session_map.forEach(function(cur_session, key) {
+                    let paths = [];
+                    cur_session.scans.forEach(function (files, scan_id) {                       
+                        for (let i = 0; i < files.length; i++) {
+                            let node_path = path.dirname(files[i].filepath)
+                            let rel_dir_path = node_path.substring(root_path.length);
+                            paths.push(rel_dir_path);
+                        }
+                    });
+                    
+                    console.log('=================== COMMON PATH '+ root_path + find_common_path(paths) +'=============================');
+                    console.log(paths);
+                    console.log('===============================================');
+                    
+                    let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
+
+                    let session_data = {
+                        id: key,
+                        label: session_label,
+                        root_path: root_path + find_common_path(paths),
+                        scan_count: cur_session.scans.size,
+                        action: ''
+                    }
+
+                    tbl_data.push(session_data);
+                });
+
+                _init_session_selection_table(tbl_data);
+                $('#session-selection').modal('show');
         }
+
+        $.unblockUI();
 
     };
 

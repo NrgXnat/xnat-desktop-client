@@ -24,6 +24,9 @@
   @else if $point == min-tablet-portrait {
      @media (min-width: 767px) { @content ; }
   }
+  @else if $point == minw1201 {
+     @media (min-width: 1201px) { @content ; }
+  }
 }
 @mixin calc($key, $value) {
     #{$key}: -webkit-calc(#{$value});

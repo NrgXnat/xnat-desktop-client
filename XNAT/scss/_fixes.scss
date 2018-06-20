@@ -122,3 +122,17 @@ progress[value] {
 .project-subjects-holder {
     display: none;
 }
+#found_sessions {
+    td.break-all {
+        word-break: break-all;
+    }
+}
+.modal-xl {
+    @include breakpoint(minw1201) {
+		max-width: 1115px;
+	}
+	@include breakpoint(w1200) {
+		max-width: 96%;
+	}
+    
+}

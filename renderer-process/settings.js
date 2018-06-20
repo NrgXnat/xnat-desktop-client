@@ -99,22 +99,41 @@ function render_users() {
 function test_login(xnat_server, user_auth, old_user_data) {
     console.log(xnat_server, user_auth, old_user_data);
 
+    if (xnat_server.indexOf('http://') === 0 || xnat_server.indexOf('https://') === 0) {
+        login_attempt(xnat_server, user_auth, old_user_data);
+    } else {
+        let server_with_protocol = 'https://' + xnat_server;
+        
+        auth.login_promise(server_with_protocol, user_auth)
+            .then(res => {
+                handleLoginSuccess(server_with_protocol, user_auth, old_user_data);
+            })
+            .catch(err => {
+                server_with_protocol = 'http://' + xnat_server;
+                login_attempt(server_with_protocol, user_auth, old_user_data);
+            });
+    }
+    
+}
+
+function handleLoginSuccess(xnat_server, user_auth, old_user_data) {
+    auth.save_login_data(xnat_server, user_auth, old_user_data);
+
+    $('#user_connection').modal('hide')
+    render_users();
+
+    swal({
+        title: "Success!",
+        text: `User connection is ${old_user_data.username ? 'updated': 'added'}.`,
+        icon: "success",
+        button: "Okay",
+    });
+}
+
+function login_attempt(xnat_server, user_auth, old_user_data) {
     auth.login_promise(xnat_server, user_auth)
         .then(res => {
-            auth.save_login_data(xnat_server, user_auth, old_user_data)
-
-            $('#user_connection').modal('hide')
-
-            render_users();
-            //logout();
-
-            swal({
-                title: "Success!",
-                text: `User connection is ${old_user_data.username ? 'updated': 'added'}.`,
-                icon: "success",
-                button: "Okay",
-            });
-
+            handleLoginSuccess(xnat_server, user_auth, old_user_data);
         })
         .catch(error => {
             let msg = `

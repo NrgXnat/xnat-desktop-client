@@ -3,180 +3,198 @@
 
         <div class="container-fluid">
             <div class="row">
-            <div class="col-12">
-                <h2 class="main-title">Upload Image Session to <span id="server_name_tlbr"></span></h2>
+                <div class="col-12">
+                    <h2 class="main-title">Upload Image Session to
+                        <span id="server_name_tlbr"></span>
+                    </h2>
 
-                <nav>
-                    <div class="nav nav-tabs" id="nav-tab" role="tablist">
-                        <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Subject Selection</a>
-                        <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false">Select Folder</a>
-                        <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Verify Visit Date</a>
-                        <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Review and Verify</a>
-                        <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Summary</a>
-                    </div>
-                </nav>
-                <div class="tab-content" id="nav-tabContent">
-                    <div class="tab-pane fade show active" id="nav-project" role="tabpanel" aria-labelledby="nav-home-tab">
-                        <div class="row">
-                        <div class="col-6"><h2 class="section-title search-inline">Select project</h2></div>
-                        <div class="col-6">
-                        <div class="filter-control title-inline">
-                            <input type="text" id="upload-project-filter" onkeyup="" placeholder="Filter" class="form-control">
+                    <nav>
+                        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                            <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Subject Selection</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false">Select Folder</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Verify Visit Date</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Review and Verify</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Summary</a>
                         </div>
-                        </div>
-                        </div>
-                        <ul id="upload-project" class="choose-list"></ul>
-                        
-                        <div class="project-subjects-holder">
+                    </nav>
+                    <div class="tab-content" id="nav-tabContent">
+                        <div class="tab-pane fade show active" id="nav-project" role="tabpanel" aria-labelledby="nav-home-tab">
                             <div class="row">
                                 <div class="col-6">
-                                    <h2 class="section-title search-inline">Select subject</h2>
+                                    <h2 class="section-title search-inline">Select project</h2>
                                 </div>
                                 <div class="col-6">
                                     <div class="filter-control title-inline">
-                                        <input type="text" id="subject-session-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                        <input type="text" id="upload-project-filter" onkeyup="" placeholder="Filter" class="form-control">
                                     </div>
                                 </div>
                             </div>
-                            <ul id="subject-session" class="choose-list"></ul>
-                        </div>
-                        
-                        
+                            <ul id="upload-project" class="choose-list"></ul>
 
-
-                        <div class="row">
-                        <div class="col-6">
-                            <div class="button-row">
-                                <button class="btn btn-gray" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
-                            </div>
-                            </div>
-                            <div class="col-6">
-                            <div class="text-right button-row">
-                                <button type="button" class="btn btn-gray" data-href="home.html" type="button">Cancel</button>
-                                <button type="button" class="btn btn-blue js_next disabled">Next <i class="fas fa-angle-right"></i></button>
-                            </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="nav-folder" role="tabpanel" aria-labelledby="nav-folder-tab">
-                        <h2 class="section-title">Select folder</h2>
-
-                        <div class="form-group">
-                            <div class="input-group">
-                                <input type="text" id="upload_folder" value="" class="form-control col-6 settings-input" readonly>
-                                <div class="col-3">
-                                    <label class="input-group-btn">
-                                    <span class="btn btn-blue">
-                                        Browse <input type="file" id="file_upload_folder" style="display: none" webkitdirectory directory>
-                                    </span>
-                                </label>
+                            <div class="project-subjects-holder">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <h2 class="section-title search-inline">Select subject</h2>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="filter-control title-inline">
+                                            <input type="text" id="subject-session-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                        </div>
+                                    </div>
                                 </div>
-
+                                <ul id="subject-session" class="choose-list"></ul>
                             </div>
-                            <small>Select a folder on your local hard drive or networked drive containing one or more uncompressed DICOM image sessions</small>
+
+
+
+
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="button-row">
+                                        <button class="btn btn-gray" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-right button-row">
+                                        <button type="button" class="btn btn-gray" data-href="home.html" type="button">Cancel</button>
+                                        <button type="button" class="btn btn-blue js_next disabled">Next
+                                            <i class="fas fa-angle-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+                        <div class="tab-pane fade" id="nav-folder" role="tabpanel" aria-labelledby="nav-folder-tab">
+                            <h2 class="section-title">Select folder</h2>
+
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <input type="text" id="upload_folder" value="" class="form-control col-6 settings-input" readonly>
+                                    <div class="col-3">
+                                        <label class="input-group-btn">
+                                            <span class="btn btn-blue">
+                                                Browse
+                                                <input type="file" id="file_upload_folder" style="display: none" webkitdirectory
+                                                    directory>
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                </div>
+                                <small>Select a folder on your local hard drive or networked drive containing one or more uncompressed
+                                    DICOM image sessions</small>
+                            </div>
 
 
-                        <!--<button class="btn btn-blue" id="test-upload" type="button">Test upload</button>-->
+                            <!--<button class="btn btn-blue" id="test-upload" type="button">Test upload</button>-->
 
-                        <progress id="dicom_parse_progress" value="0" max="100"></progress>
-                        
-                        <!--
+                            <progress id="dicom_parse_progress" value="0" max="100"></progress>
+
+                            <!--
                         <input type="file" multiple webkitdirectory id="fileURL" />
                         <ul id="fileOutput"></ul>
                         -->
-                        <div class="col text-right button-row">
-                            <button type="button"  data-href="home.html" class="btn btn-gray">Cancel</button>
-                            <button type="button" class="btn btn-gray js_prev"><i class="fas fa-angle-left"></i> Prev</button>
-                            <button type="button" class="btn btn-blue js_next disabled">Next <i class="fas fa-angle-right"></i></button>
+                            <div class="col text-right button-row">
+                                <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                <button type="button" class="btn btn-gray js_prev">
+                                    <i class="fas fa-angle-left"></i> Prev</button>
+                                <button type="button" class="btn btn-blue js_next disabled">Next
+                                    <i class="fas fa-angle-right"></i>
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    <div class="tab-pane fade" id="nav-date" role="tabpanel" aria-labelledby="nav-date-tab">
-                        <h2 class="section-title">Enter the visit details of the session you plan to upload</h2>
-                        <div class="form-group">
-                            <label>Verify session date</label>
+                        <div class="tab-pane fade" id="nav-date" role="tabpanel" aria-labelledby="nav-date-tab">
+                            <h2 class="section-title">Enter the visit details of the session you plan to upload</h2>
+                            <div class="form-group">
+                                <label>Verify session date</label>
+                                <div class="row">
+                                    <div class="col-3 date-holder">
+                                        <!-- <input type="text" id="datepicker" class="form-control"> -->
+                                        <input type="date" class="form-control" name="upload_session_date" id="upload_session_date">
+
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p>Please enter the date for the session you wish to upload. These values <b>must</b> match the DICOM study
+                                date of the selected session or you will not be able to upload the session to the XNAT server.</p>
+                            <div class="col text-right button-row">
+                                <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                <button type="button" class="btn btn-gray js_prev" type="button">
+                                    <i class="fas fa-angle-left"></i> Prev</button>
+                                <button type="button" class="btn btn-blue js_next disabled">Next
+                                    <i class="fas fa-angle-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+
+                        <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
+                            <div class="col" id="anon_variables">
+
+                                <div class="form-group row">
+                                    <label class="col-sm-2 col-form-label">
+                                        <b>Project</b>:
+                                    </label>
+                                    <div class="input-group col-sm-10">
+                                        <input class="form-control" type="text" name="project" id="var_project" value="xxx" required readonly>
+                                    </div>
+                                </div>
+                                <div class="form-group row">
+                                    <label class="col-sm-2 col-form-label">
+                                        <b>Subject</b>:
+                                    </label>
+                                    <div class="input-group col-sm-10">
+                                        <input class="form-control" type="text" name="subject" id="var_subject" value="yyy" required readonly>
+                                    </div>
+                                </div>
+
+                                <div class="form-group row">
+                                    <label for="experiment_label" class="col-sm-2 col-form-label">
+                                        <b>Experiment Label
+                                            <br>(Session)</b>:</label>
+                                    <div class="input-group col-sm-10">
+                                        <input class="form-control" type="text" name="experiment_label" id="experiment_label" value="" required>
+                                        <small>This field has been auto-populated. If you specify a session label that matches a
+                                            session already in this project, XNAT will attempt to merge selected scans into
+                                            the existing session</small>
+                                    </div>
+                                </div>
+                                <div id="additional-upload-fields"></div>
+
+                                <br>
+                                <br>
+
+                            </div>
+
+                            <div class="col">
+                                <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
+                                <p>Note: Unchecked scans will not be uploaded</p>
+                                <table class="table table-bordered" id="image_session"></table>
+                            </div>
+
+                            <div class="col">
+                                <h2 class="section-title">Session Summary:</h2>
+                                <p id="session_info"></p>
+                            </div>
+
+                            <div class="col text-right button-row">
+                                <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                <button type="button" class="btn btn-gray js_prev" type="button">
+                                    <i class="fas fa-angle-left"></i> Prev</button>
+                                <button type="button" class="btn btn-blue js_upload">Upload</button>
+                            </div>
+
+                        </div>
+                        <div class="tab-pane fade" id="nav-summary" role="tabpanel" aria-labelledby="nav-profile-tab">
+                            <h2 class="section-title">Summary</h2>
+
                             <div class="row">
-                                <div class="col-3 date-holder">
-                                    <!-- <input type="text" id="datepicker" class="form-control"> -->
-                                    <input type="date" class="form-control" name="upload_session_date" id="upload_session_date">
-
-                                </div>
+                                <br>
+                                <br>
+                                <div class="col" id="summary_info"></div>
                             </div>
-                        </div>
-
-                        <p>Please enter the date for the session you wish to upload. These values must match the DICOM study date of the selected session or you will not be able to upload the session to the XNAT server.</p>
-                        <div class="col text-right button-row">
-                            <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                            <button type="button" class="btn btn-gray js_prev" type="button"><i class="fas fa-angle-left"></i> Prev</button>
-                            <button type="button" class="btn btn-blue js_next disabled">Next <i class="fas fa-angle-right"></i></button>
-                        </div>
-                    </div>
-
-
-                    <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
-                        <div class="col" id="anon_variables">
-                    
-                            <div class="form-group row">
-                                <label class="col-sm-2 col-form-label">
-                                    <b>Project</b>:
-                                </label>
-                                <div class="input-group col-sm-10">
-                                    <input class="form-control" type="text" name="project" id="var_project" value="xxx" required readonly>
-                                </div>
-                            </div>
-                            <div class="form-group row">
-                                <label class="col-sm-2 col-form-label">
-                                    <b>Subject</b>:
-                                </label>
-                                <div class="input-group col-sm-10">
-                                    <input class="form-control" type="text" name="subject" id="var_subject" value="yyy" required readonly>
-                                </div>
-                            </div>
-                    
-                            <div class="form-group row">
-                                <label for="experiment_label" class="col-sm-2 col-form-label">
-                                    <b>Experiment Label
-                                        <br>(Session)</b>:</label>
-                                <div class="input-group col-sm-10">
-                                    <input class="form-control" type="text" name="experiment_label" id="experiment_label" value="" required>
-                                    <small>This field has been auto-populated. If you specify a session label that matches a session already in this
-                                        project, XNAT will attempt to merge selected scans into the existing session</small>
-                                </div>
-                            </div>
-                            <div id="additional-upload-fields"></div>
-                    
-                            <br>
-                            <br>
-                    
-                        </div>
-
-                        <div class="col">
-                            <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
-                            <p>Note: Unchecked scans will not be uploaded</p>
-                            <table class="table table-bordered" id="image_session"></table>
-                        </div>
-                    
-                        <div class="col">
-                            <h2 class="section-title">Session Summary:</h2>
-                            <p id="session_info"></p>
-                        </div>
-                    
-                        <div class="col text-right button-row">
-                            <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                            <button type="button" class="btn btn-gray js_prev" type="button">
-                                <i class="fas fa-angle-left"></i> Prev</button>
-                            <button type="button" class="btn btn-blue js_upload">Upload</button>
-                        </div>
-                    
-                    </div>
-            <div class="tab-pane fade" id="nav-summary" role="tabpanel" aria-labelledby="nav-profile-tab">
-                <h2 class="section-title">Summary</h2>
-                
-                <div class="row">
-                    <br><br>
-                    <div class="col" id="summary_info"></div>
-                </div>
-                <!--
+                            <!--
                 <div class="row">
                     <div class="col button-row">
                         <button class="btn btn-blue" type="button" data-toggle="modal" data-target="#new-subject">Click here to finish archiving the data</button>
@@ -191,91 +209,120 @@
                     </div>
                 </div>
                 -->
-            </div>
-        </div>
+                        </div>
+                    </div>
 
-        </div>
-        </div>
-        <!-- Modal -->
-        <div class="modal fade" id="new-subject" tabindex="-1" role="dialog" aria-labelledby="subject-new" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="exampleModalLongTitle">Create new Subject</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                           <i class="far fa-window-close"></i>
-                         </button>
-                    </div>
-                    <form id="form_new_subject">
-                    <div class="modal-body">
-                        
-                            <div class="row">
-                                <div class="col">
-                                    <label class="col-form-label">Primary Project:</label>
-                                </div>
-                                <div class="col">
-                                    <span id="new_subject_project_id"></span>
-                                    <input type="hidden" name="project_id" value="">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <div class="row">
-                                    <div class="col">
-                                        <label class="col-form-label">Subject’s ID within this project:</label>
-                                    </div>
-                                    <div class="col">
-                                        <input type="text" name="subject_label" class="form-control" required>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <div class="row">
-                                    <div class="col">
-                                        <label class="col-form-label">Subject’s research group within this project:</label>
-                                    </div>
-                                    <div class="col">
-                                        <input type="text" name="group" class="form-control">
-                                    </div>
-                                </div>
-                            </div>
-                        
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-gray" type="button" data-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-blue">Add New Subject</button>
-                    </div>
-                    </form>
                 </div>
             </div>
-        </div>
-        <!-- Modal -->
-        <div class="modal fade" id="note" tabindex="-1" role="dialog" aria-labelledby="note" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="exampleModalLongTitle">Add Note</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                           <i class="far fa-window-close"></i>
-                         </button>
-                    </div>
-                    <div class="modal-body">
-                        <form>
-                            <div class="row">
-                                <div class="col">
-                                    <textarea placeholder="Add Note" rows="5"></textarea>
+            <!-- Modal -->
+            <div class="modal fade" id="new-subject" tabindex="-1" role="dialog" aria-labelledby="subject-new" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="exampleModalLongTitle">Create new Subject</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i class="far fa-window-close"></i>
+                            </button>
+                        </div>
+                        <form id="form_new_subject">
+                            <div class="modal-body">
+
+                                <div class="row">
+                                    <div class="col">
+                                        <label class="col-form-label">Primary Project:</label>
+                                    </div>
+                                    <div class="col">
+                                        <span id="new_subject_project_id"></span>
+                                        <input type="hidden" name="project_id" value="">
+                                    </div>
                                 </div>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col">
+                                            <label class="col-form-label">Subject’s ID within this project:</label>
+                                        </div>
+                                        <div class="col">
+                                            <input type="text" name="subject_label" class="form-control" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col">
+                                            <label class="col-form-label">Subject’s research group within this project:</label>
+                                        </div>
+                                        <div class="col">
+                                            <input type="text" name="group" class="form-control">
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-gray" type="button" data-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-blue">Add New Subject</button>
                             </div>
                         </form>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-blue">Add Note</button>
+                </div>
+            </div>
+            <!-- Modal -->
+            <div class="modal fade" id="note" tabindex="-1" role="dialog" aria-labelledby="note" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="exampleModalLongTitle">Add Note</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i class="far fa-window-close"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <form>
+                                <div class="row">
+                                    <div class="col">
+                                        <textarea placeholder="Add Note" rows="5"></textarea>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-blue">Add Note</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            
+            <!-- Modal -->
+            <div class="modal fade" data-backdrop="static" data-keyboard="false" id="session-selection" tabindex="-1" role="dialog" aria-labelledby="session-selection" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg modal-xl" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="exampleModalLongTitle">Please select one session</h5>
+                            <!-- <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i class="far fa-window-close"></i>
+                            </button> -->
+                        </div>
+                        <div class="modal-body">
+                            <form>
+                                <div class="row">
+                                    <div class="col">
+                                        <table class="table table-bordered" id="found_sessions"></table>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-blue js_cancel_session_selection" type="button" data-dismiss="modal">Cancel Selection</button>
+                            <!-- <button type="submit" class="btn btn-gray">Add New Subject</button> -->
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        </div>
 
-        
+
         <script type="text/javascript">
             require('./renderer-process/upload')
 

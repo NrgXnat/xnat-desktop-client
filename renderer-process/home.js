@@ -148,7 +148,7 @@ $(document).on('change', '#xnt_manifest_file', function(e){
 
                             download_digest.sessions.push(session)
                         } else {
-                            console.log('CKIPPing ---------------');
+                            console.log('SKIPPing ---------------');
                             
                         }
                         
