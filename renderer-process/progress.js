@@ -123,7 +123,8 @@ function _init_upload_progress_table() {
                             content = `
                             <button class="btn btn-block btn-danger" 
                                 data-toggle="modal" 
-                                data-target="#error-log"
+                                data-target="#error-log--upload"
+                                data-id="${row.id}"
                                 ><i class="fas fa-exclamation-triangle"></i> Log</button>
                             `;
                             break;
@@ -153,19 +154,21 @@ function _init_upload_progress_table() {
         let my_data = [];
     
         uploads.forEach(function(transfer) {
-            let item = {
-                id: transfer.id,
-                date: transfer.session_data.studyDate,
-                session_label: transfer.session_data.studyDescription,
-                //transfer_type: 'Upload',
-                transfer_date: transfer.transfer_start,
-                status: transfer.status,
-                actions: '',
-                server: transfer.xnat_server.split('://')[1],
-                user: transfer.user_auth.username
-            };
-
-            my_data.push(item);
+            if (transfer.xnat_server === xnat_server && transfer.user_auth.username === user_auth.username) {
+                let item = {
+                    id: transfer.id,
+                    date: transfer.session_data.studyDate,
+                    session_label: transfer.session_data.studyDescription,
+                    //transfer_type: 'Upload',
+                    transfer_date: transfer.transfer_start,
+                    status: transfer.status,
+                    actions: '',
+                    server: transfer.xnat_server.split('://')[1],
+                    user: transfer.user_auth.username
+                };
+    
+                my_data.push(item);
+            }
         });
     
         console.log(my_data);
@@ -240,7 +243,11 @@ function _init_download_progress_table() {
                             </div>
                         `;
                     } else {
-                        return value;
+                        if (value == 'xnat_error') {
+                            return `<i class="fas fa-exclamation-triangle"></i> XNAT Error`
+                        } else {
+                            return value;
+                        }
                     } 
                 }
             }, 
@@ -274,7 +281,8 @@ function _init_download_progress_table() {
                             content = `
                             <button class="btn btn-block btn-danger" 
                                 data-toggle="modal" 
-                                data-target="#error-log"
+                                data-target="#error-log--download"
+                                data-id="${row.id}"
                                 ><i class="fas fa-exclamation-triangle"></i> Log</button>
                             `;
                             break;
@@ -305,42 +313,49 @@ function _init_download_progress_table() {
     let my_data = [];
 
     downloads.forEach(function(transfer) {
-        let item = {
-            id: transfer.id,
-            transfer_start: transfer.transfer_start,
-            basename: transfer.basename,
-            //dl_transfer_type: 'Download',
-            dl_server: transfer.server.split('://')[1],
-            dl_user: transfer.user,
-            status: 0,
-            actions: ''
-        };
+        if (transfer.server === xnat_server && transfer.user_auth.username === user_auth.username) {
+            console.log('********************** DOWNLOAD transfer **********************');
+            console.log(transfer);
+            
+            let item = {
+                id: transfer.id,
+                transfer_start: transfer.transfer_start,
+                basename: transfer.basename,
+                //dl_transfer_type: 'Download',
+                dl_server: transfer.server.split('://')[1],
+                dl_user: transfer.user,
+                status: transfer.hasOwnProperty('status') ? transfer.status : 0,
+                actions: ''
+            };
 
-        let total_files = 0, done_files = 0;
-        transfer.sessions.forEach(function(session){
-            session.files.forEach(function(file){
-                total_files++;
-
-                if (file.status === 1) {
-                    done_files++;
+            if (item.status === 0) {
+                let total_files = 0, done_files = 0;
+                transfer.sessions.forEach(function(session){
+                    session.files.forEach(function(file){
+                        total_files++;
+        
+                        if (file.status === 1) {
+                            done_files++;
+                        }
+                    })
+                });
+        
+                console.log('--------------------' , done_files, total_files, '---------------------');
+                
+                if (done_files == total_files) {
+                    item.status = 'finished';
+                } else if (done_files == 0) {
+                    item.status = 'queued';
+                } else {
+                    item.status = done_files / total_files * 100;
                 }
-            })
-        });
-
-        console.log('--------------------' , done_files, total_files, '---------------------');
-        
-        if (done_files == total_files) {
-            item.status = 'finished';
-        } else if (done_files == 0) {
-            item.status = 'queued';
-        } else {
-            item.status = done_files / total_files * 100;
+            }
+    
+            console.log(item);
+            
+            my_data.push(item);
         }
-
-        console.log(item);
         
-
-        my_data.push(item);
     });
 
     console.log(my_data);
@@ -397,6 +412,27 @@ $(document).on('show.bs.modal', '#download-details', function(e) {
     $(e.currentTarget).find('#file_basename').html(file);
 
     _init_download_details_table(id)
+});
+
+$(document).on('show.bs.modal', '#error-log--download', function(e) {
+    var id = $(e.relatedTarget).data('id');
+    let my_transfers = store.get('transfers.downloads');
+
+console.log(id, my_transfers);
+
+    
+    let error_text = '';
+    for (let i = 0; i < my_transfers.length; i++) {
+        if (my_transfers[i].id === id) {
+            error_text = my_transfers[i].error;
+            console.log(my_transfers[i]);
+            
+            break;
+        }
+    }
+
+    let $log_text = $(e.currentTarget).find('.log-text');
+    $log_text.html(error_text);
 });
 
 
@@ -673,7 +709,7 @@ ipc.on('download_progress',function(e, item){
 });
 
 
-ipc.on('upload_progress',function(e, item){
+ipc.on('upload_progress',function(e, item) {
     console.log(item);
 
     if (item.table !== undefined) {

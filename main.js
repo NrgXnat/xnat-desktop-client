@@ -184,6 +184,12 @@ ipcMain.on('upload_progress', (e, item) =>{
   mainWindow.webContents.send('upload_progress', item);
 })
 
+// ?
+ipcMain.on('progress_alert', (e, item) =>{
+  mainWindow.webContents.send('progress_alert', item);
+})
+
+
 
 ipcMain.on('start_upload', (e, item) =>{
   uploadWindow.webContents.send('start_upload', item);
@@ -198,6 +204,7 @@ ipcMain.on('start_download', (e, item) =>{
   mainWindow.webContents.send('console:log', 'start_download event (main.js)');
   downloadWindow.webContents.send('start_download', item);
 })
+
 
 
 

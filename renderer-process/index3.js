@@ -210,8 +210,8 @@ function reset_user_data() {
     settings.delete('user_auth');
     settings.delete('xnat_server');
 
-    store.set('transfers.downloads', []);
-    store.set('transfers.uploads', []);
+    //store.set('transfers.downloads', []);
+    //store.set('transfers.uploads', []);
 }
 
 

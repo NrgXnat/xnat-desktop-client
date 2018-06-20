@@ -78,7 +78,10 @@ function do_transfer() {
     if (transfering) {
         return;
     }
-    //transfering = true;
+    
+    let xnat_server = settings.get('xnat_server');
+    let user_auth = settings.get('user_auth');
+
 
     let my_transfers = store.get('transfers.uploads');
 
@@ -86,16 +89,22 @@ function do_transfer() {
     
     my_transfers.forEach(function(transfer) {
         console_log(transfer);
-        
-        if (typeof transfer.status == 'number') {
-            if (transfer.series_ids.length) {
-                transfer.series_ids.forEach(function(series_id){
-                    if (_queue_.add(transfer.id, series_id)) {
-                        doUpload(transfer, series_id);
-                    }
-                })
+
+        // validate current user/server
+        if (transfer.xnat_server === xnat_server && transfer.user_auth.username === user_auth.username) {
+
+            if (typeof transfer.status == 'number') {
+                if (transfer.series_ids.length) {
+                    transfer.series_ids.forEach(function(series_id){
+                        if (_queue_.add(transfer.id, series_id)) {
+                            doUpload(transfer, series_id);
+                        }
+                    })
+                }
             }
         }
+        
+        
     });
 
 }

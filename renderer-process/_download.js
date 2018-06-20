@@ -6,36 +6,16 @@ require('promise.prototype.finally').shim();
 const settings = require('electron-settings');
 const ipc = require('electron').ipcRenderer;
 
-
 const sha1 = require('sha1');
 const unzipper = require('unzipper');
 const shell = require('electron').shell;
-
 
 const filesize = require('filesize');
 
 
 
 let transfering = false;
-
 console_log(__filename);
-//ipc.send('log', store.getAll())
-
-/*
-const mile_watch = settings.watch('mile.test', function(newValue, oldValue){
-    ipc.send('log', 'newValue: ' + newValue + ' || oldValue: ' + oldValue);
-})
-
-setTimeout(function(){
-    mile_watch.dispose()
-}, 5000);
-*/
-
-/*
-const download_watch = settings.watch('transfers.downloads', function(newValue, oldValue){
-    ipc.send('log', 'newValue: ' + newValue + ' || oldValue: ' + oldValue);
-})
-*/
 
 function console_log(log_this) {
     console.log(log_this);
@@ -46,6 +26,7 @@ ipc.on('start_download',function(e, item){
     do_transfer();
 });
 
+do_transfer();
 
 function do_transfer() {
     if (transfering) {
@@ -54,28 +35,36 @@ function do_transfer() {
     //transfering = true;
 
     let my_transfers = store.get('transfers.downloads');
+    
+    let current_xnat_server = settings.get('xnat_server');
+    let current_user_auth = settings.get('user_auth');
 
     let xnat_server, user_auth, manifest_urls, transfer_id;
     my_transfers.forEach(function(transfer) {
         console_log(transfer);
-        transfer_id = transfer.id;
-        xnat_server = transfer.server;
-        user_auth = transfer.user_auth;
-        manifest_urls = new Map();
 
-        transfer.sessions.forEach(function(session){
-            session.files.forEach(function(file){
-                if (file.status === 0) {
-                    manifest_urls.set(file.name, file.uri)
-                }
+        // validate current user/server
+        if (transfer.server === current_xnat_server && transfer.user_auth.username === current_user_auth.username) {
+            transfer_id = transfer.id;
+            xnat_server = transfer.server;
+            user_auth = transfer.user_auth;
+            manifest_urls = new Map();
+    
+            transfer.sessions.forEach(function(session){
+                session.files.forEach(function(file){
+                    if (file.status === 0) {
+                        manifest_urls.set(file.name, file.uri)
+                    }
+                });
             });
-        });
-
-        console_log(manifest_urls);
-        console_log('===================');
-
-        // start download
-        download_items(xnat_server, user_auth, transfer_id, manifest_urls, manifest_urls.size, true);
+    
+            console_log(manifest_urls);
+            console_log('===================');
+    
+            // start download
+            download_items(xnat_server, user_auth, transfer_id, manifest_urls, manifest_urls.size, true);
+        }
+        
     });  
 }
 
@@ -89,6 +78,7 @@ function download_items(xnat_server, user_auth, transfer_id, manifest_urls, mani
     
     if (manifest_urls.size == 0) {
         // all done
+        transfer_finished(transfer_id);
 
         ipc.send('download_progress', {
             table: '#download_monitor_table',
@@ -208,6 +198,20 @@ function download_items(xnat_server, user_auth, transfer_id, manifest_urls, mani
     })
     .catch(err => {
         console.log(Helper.errorMessage(err));
+
+        transfer_error_message(transfer_id, Helper.errorMessage(err))
+
+        ipc.send('download_progress', {
+            table: '#download_monitor_table',
+            data: {
+                id: transfer_id,
+                row: {
+                    status: 'xnat_error'
+                }
+            }
+        });
+
+
         // ERROR
         // Helper.errorMessage(err)
     })
@@ -229,6 +233,33 @@ function mark_downloaded(transfer_id, uri) {
                     }
                 });
             });
+        }
+    });
+
+    store.set('transfers.downloads', my_transfers);
+}
+
+function transfer_error_message(transfer_id, msg) {
+    let my_transfers = store.get('transfers.downloads');
+
+    // could be oprimized with for loop + continue
+    my_transfers.forEach(function(transfer) {
+        if (transfer.id === transfer_id) {
+            transfer.error = msg;
+            transfer.status = 'xnat_error'
+        }
+    });
+
+    store.set('transfers.downloads', my_transfers);
+}
+
+function transfer_finished(transfer_id) {
+    let my_transfers = store.get('transfers.downloads');
+
+    // could be oprimized with for loop + continue
+    my_transfers.forEach(function(transfer) {
+        if (transfer.id === transfer_id) {
+            transfer.status = 'finished'
         }
     });
 
