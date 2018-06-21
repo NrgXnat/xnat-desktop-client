@@ -241,8 +241,8 @@ ipc.on('custom_error',function(e, title, message){
 function reset_user_data() {
     console.log('****************** reset_user_data **************');
     
-    //settings.delete('user_auth');
-    //settings.delete('xnat_server');
+    settings.delete('user_auth');
+    settings.delete('xnat_server');
 
     //store.set('transfers.downloads', []);
     //store.set('transfers.uploads', []);
