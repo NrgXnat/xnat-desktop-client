@@ -13,42 +13,48 @@
             </nav>
             <div class="tab-content" id="nav-tabContent">
                 <div class="tab-pane fade show active" id="nav-home" role="tabpanel" aria-labelledby="nav-home-tab">
-                <div class="row">
-                <div class="col-6">
-                    <p>Manage your saved XNAT server connections here. You can store multiple user accounts per server, but you cannot store passwords.
-                    </p>
-                </div>
-                <div class="col-6 text-right">
-                <button class="connect btn btn-bigfriendly settings-small" type="button" data-toggle="modal" data-target="#user_connection"><span class="plus"></span><span class="db"></span> ADD NEW XNAT SERVER</button>
-                </div>
-                </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <p>Manage your saved XNAT server connections here. You can store multiple user accounts per server,
+                                but you cannot store passwords.
+                            </p>
+                        </div>
+                        <div class="col-6 text-right">
+                            <button class="connect btn btn-bigfriendly settings-small" type="button" data-toggle="modal" data-target="#user_connection">
+                                <span class="plus"></span>
+                                <span class="db"></span> ADD NEW XNAT SERVER</button>
+                        </div>
+                    </div>
 
-                    
                     <table class="table table-bordered filtered-table" id="user_table"></table>
-
 
                 </div>
                 <div class="tab-pane fade" id="nav-profile" role="tabpanel" aria-labelledby="nav-profile-tab">
-                    
+
                     <form>
                         <div class="form-group">
-                            <label>Set Local Storage</label><br/>
+                            <label>Set Local Storage</label>
+                            <br/>
                             <div class="input-group">
                                 <input type="text" id="default_local_storage" value="" class="form-control col-6 settings-input" readonly>
                                 <div class="col-3">
                                     <label class="input-group-btn">
-                                    <span class="btn btn-blue">
-                                        Browse <input type="file" id="file_default_local_storage" style="display: none" webkitdirectory directory>
-                                    </span>
-                                </label>
+                                        <span class="btn btn-blue">
+                                            Browse
+                                            <input type="file" id="file_default_local_storage" style="display: none"
+                                                webkitdirectory directory>
+                                        </span>
+                                    </label>
                                 </div>
                             </div>
                             <small>Select a local or networked folder that all downloads will save to.</small>
                         </div>
                     </form>
+                    
                     <form>
                         <div class="form-group">
-                            <label>Set Notification Email</label><br/>
+                            <label>Set Notification Email</label>
+                            <br/>
                             <div class="input-group">
                                 <input type="email" name="default_email_address" id="default_email_address" class="form-control col-6 settings-input">
                                 <div class="col-3">
@@ -80,7 +86,8 @@
                     </div>
                     <div class="modal-body">
                         <div class="alert alert-danger text-center hidden" id="login_feedback" role="alert">
-                            <h2 class="red-title"><i class="fas fa-exclamation-triangle"></i> Login attempt failed!</h2>
+                            <h2 class="red-title">
+                                <i class="fas fa-exclamation-triangle"></i> Login attempt failed!</h2>
                             <span id="login_error_message"></span>
                         </div>
 
@@ -109,20 +116,11 @@
     </div>
 
 
-
-    <script type="text/template">
-        <tr>
-            <td>xw2017-01xnat.org</td>
-            <td>Will1</td>
-            <td class="action"><a href="#" class="edit"><i class="fas fa-edit"></i></a><a href="#" class="trash"><i class="fas fa-trash-alt"></i></a></td>
-        </tr>
-    </script>
-
     <script type="text/javascript">
         require('./renderer-process/settings')
 
         //$('#settings-section').trigger('page:load');
-        Helper.pageLoadTrigger('#settings-section'); 
-        
+        Helper.pageLoadTrigger('#settings-section');
+
     </script>
 </template>

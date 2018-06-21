@@ -12,6 +12,10 @@ const shell = require('electron').shell;
 
 const filesize = require('filesize');
 
+if (!settings.has('global_pause')) {
+    settings.set('global_pause', false);
+}
+
 
 
 let transfering = false;
@@ -44,7 +48,10 @@ function do_transfer() {
         console_log(transfer);
 
         // validate current user/server
-        if (transfer.server === current_xnat_server && transfer.user_auth.username === current_user_auth.username) {
+        if (transfer.server === current_xnat_server 
+            && transfer.user_auth.username === current_user_auth.username
+            && transfer.canceled !== true
+        ) {
             transfer_id = transfer.id;
             xnat_server = transfer.server;
             user_auth = transfer.user_auth;
@@ -61,20 +68,29 @@ function do_transfer() {
             console_log(manifest_urls);
             console_log('===================');
     
-            // start download
-            download_items(xnat_server, user_auth, transfer_id, manifest_urls, manifest_urls.size, true);
+            try {
+                // start download
+                download_items(xnat_server, user_auth, transfer, manifest_urls, manifest_urls.size, true);
+            } catch(err) {
+                //console_log(err.message)
+                ipc.send('custom_error', 'Download Error', err.message);
+            }
+            
         }
         
     });  
 }
 
-function download_items(xnat_server, user_auth, transfer_id, manifest_urls, manifest_urls_count, create_dir_structure = false) {
-    console.log('SIZE: ' + manifest_urls.size);
+function download_items(xnat_server, user_auth, transfer, manifest_urls, manifest_urls_count, create_dir_structure = false) {
+    if (settings.get('global_pause')) {
+        return;
+    }
 
-    let default_local_storage = settings.get('default_local_storage');
 
-    let temp_zip_path = path.resolve(default_local_storage, '_temp');
-    let real_path = path.resolve(default_local_storage, xnat_server.split('//')[1]);
+    let transfer_id = transfer.id;
+
+    let temp_zip_path = path.resolve(transfer.destination, '_temp');
+    let real_path = path.resolve(transfer.destination, xnat_server.split('//')[1]);
     
     if (manifest_urls.size == 0) {
         // all done
@@ -90,12 +106,6 @@ function download_items(xnat_server, user_auth, transfer_id, manifest_urls, mani
             }
         });
 
-        // ipc.send('download_progress', {
-        //     selector: '#download_path',
-        //     html: path.basename(real_path)
-        // });
-
-        //move_to_archive(transfer_id);
         return;
     }
 
@@ -149,7 +159,6 @@ function download_items(xnat_server, user_auth, transfer_id, manifest_urls, mani
         },
     })
     .then(resp => {
-        //console.log(resp.data.byteLength)
         let zip_path = path.resolve(temp_zip_path, sha1(xnat_server + uri) + '--' + Math.random() + '.zip');
 
         // create zip file
@@ -194,7 +203,7 @@ function download_items(xnat_server, user_auth, transfer_id, manifest_urls, mani
 
         update_modal_ui(transfer_id, uri);
 
-        download_items(xnat_server, user_auth, transfer_id, manifest_urls, manifest_urls_count);
+        download_items(xnat_server, user_auth, transfer, manifest_urls, manifest_urls_count);
     })
     .catch(err => {
         console.log(Helper.errorMessage(err));
@@ -211,9 +220,6 @@ function download_items(xnat_server, user_auth, transfer_id, manifest_urls, mani
             }
         });
 
-
-        // ERROR
-        // Helper.errorMessage(err)
     })
     .finally(() => {      
         // All Done;

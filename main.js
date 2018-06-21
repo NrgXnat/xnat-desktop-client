@@ -94,10 +94,10 @@ function initialize () {
       require('devtron').install()
 
       //uploadWindow.webContents.openDevTools()
-      downloadWindow.show()
-      downloadWindow.webContents.openDevTools()
-      uploadWindow.show()
-      uploadWindow.webContents.openDevTools()
+// downloadWindow.show()
+// downloadWindow.webContents.openDevTools()
+// uploadWindow.show()
+// uploadWindow.webContents.openDevTools()
       //uploadWindow.webContents.maximize()
     }
 
@@ -189,6 +189,11 @@ ipcMain.on('progress_alert', (e, item) =>{
   mainWindow.webContents.send('progress_alert', item);
 })
 
+// ?
+ipcMain.on('custom_error', (e, title, msg) =>{
+  mainWindow.webContents.send('custom_error', title, msg);
+})
+
 
 
 ipcMain.on('start_upload', (e, item) =>{
@@ -196,8 +201,11 @@ ipcMain.on('start_upload', (e, item) =>{
 })
 
 
-ipcMain.on('cancel_all_upload', (e, item) =>{
-  uploadWindow.webContents.send('cancel_all_upload', item);
+ipcMain.on('reload_upload_window', (e, item) =>{
+  uploadWindow.reload(true);
+})
+ipcMain.on('reload_download_window', (e, item) =>{
+  downloadWindow.reload(true);
 })
 
 ipcMain.on('start_download', (e, item) =>{

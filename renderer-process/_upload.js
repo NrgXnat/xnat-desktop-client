@@ -16,23 +16,32 @@ const archiver = require('archiver');
 
 let summary_all = {};
 
+if (!settings.has('global_pause')) {
+    settings.set('global_pause', false);
+}
+
+
+
 
 let _queue_ = {
     items: [],
-    max_items: 2,
+    max_items: 4,
     add: function(transfer_id, series_id) {
         if (this.items.length < this.max_items) {
             let transfer_label = transfer_id + '::' + series_id;
             if (this.items.indexOf(transfer_label) == -1) {
                 console_log('Added to queue ' + transfer_label);
+                
                 this.items.push(transfer_label);
                 return true;
             } else {
+                
                 console_log('Already in queue ' + transfer_label);
                 return false;
             }
         } else {
             console_log('Queue FULL');
+            
             return false;
         }
     },
@@ -54,7 +63,16 @@ let transfering = false;
 
 console_log(__filename);
 //ipc.send('log', store.getAll())
+
 do_transfer();
+
+// try {
+//     do_transfer()
+// } catch(err) {
+//     console_log(err)
+//     ipc.send('custom_error', 'Upload Error', err.message);
+// }
+
 setTimeout(do_transfer, 10000);
 
 function console_log(log_this) {
@@ -65,16 +83,15 @@ function console_log(log_this) {
 
 ipc.on('start_upload',function(e, item){
     setTimeout(do_transfer, 200);
-    //do_transfer();
 });
 
-ipc.on('cancel_all_upload', function(e, item){
-    console.log('======= cancel_all_upload =========');
-    
-});
 
 
 function do_transfer() {
+    if (settings.get('global_pause')) {
+        return;
+    }
+
     if (transfering) {
         return;
     }
@@ -83,15 +100,14 @@ function do_transfer() {
     let user_auth = settings.get('user_auth');
 
 
-    let my_transfers = store.get('transfers.uploads');
-
-    console_log(my_transfers); 
+    let my_transfers = store.get('transfers.uploads'); 
     
     my_transfers.forEach(function(transfer) {
-        console_log(transfer);
-
         // validate current user/server
-        if (transfer.xnat_server === xnat_server && transfer.user_auth.username === user_auth.username) {
+        if (transfer.xnat_server === xnat_server 
+            && transfer.user_auth.username === user_auth.username 
+            && transfer.canceled !== true
+        ) {
 
             if (typeof transfer.status == 'number') {
                 if (transfer.series_ids.length) {
@@ -103,7 +119,6 @@ function do_transfer() {
                 }
             }
         }
-        
         
     });
 
@@ -147,6 +162,10 @@ function doUpload(transfer, series_id) {
             }, 0);
         })
     }
+
+    console_log('******************************************');
+    console_log(series_index);
+    console_log('******************************************');
     
     update_transfer_summary(transfer.id, 'total_files', _files.length);
     update_transfer_summary(transfer.id, 'total_size', total_size);
@@ -156,30 +175,12 @@ function doUpload(transfer, series_id) {
         console_log(scripts);
 
         contexts = mizer.getScriptContexts(scripts);
-        console_log('******************************************');
-        console_log(contexts);
-        console_log('******************************************');
-
-        
-        // Get all of the user-entered values from the UI.
-        // let anonValues = {
-        //     session: '1DARKO2',
-        //     subject: '2DARKO',
-        //     foo: 'my-fooDARKO',
-        //     project: 'project-Darko',
-        //     mile: 'mile-DARKO'
-        // };
-        // console_log(anonValues);
-        console_log(transfer.anon_variables);
 
         // Convert the JS map anonValues into a Java Properties object.
         variables = mizer.getVariables(transfer.anon_variables);
         console_log(variables);
 
         copy_and_anonymize(transfer.id, _files, contexts, variables).then((res) => {
-            //summary_add(transfer.id, series_id, res.directory, 'Anonymization dir');
-            //summary_add(transfer.id, series_id, res.copy_success.length, 'Anonymized files');
-            //summary_add(transfer.id, series_id, res.copy_error.length, 'Anonymization errors');
 
             update_transfer_summary(transfer.id, 'anon_files', res.copy_success.length);
             if (res.copy_error.length) {
@@ -196,6 +197,8 @@ function doUpload(transfer, series_id) {
                 for(let i = 0; i < res.copy_error.length; i++) {
                     error_file_list += res.copy_error[i].file + "\n * " + res.copy_error[i].error + "\n\n";
                 }
+
+                console_log(`---- error_file_list: ${error_file_list}`);
     
                 // swal({
                 //     title: `Anonymization Error`,
@@ -268,10 +271,6 @@ function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
     
             writeStream.on('finish', () => {
                 files_processed++;
-
-                //console_log(target)
-                //console_log('writeStream:END event')
-                //console_log(`Copied ${source} to ${targetDir}`);
     
                 try {
                     //console_log('BEFORE ANON');
@@ -281,10 +280,11 @@ function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
                     response.copy_success.push(target);
 
                     if (files_processed === filePaths.length) {
-                        
                         let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
                         // summary_add(`${_time_took}sec`, 'Anonymization time');
                         update_transfer_summary(transfer_id, 'timer_cp_anon', _time_took);
+
+                        console_log('++++ copy_and_anonymize SUCCESS');
 
                         resolve(response);
                     }
@@ -298,9 +298,9 @@ function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
                     });
 
                     if (files_processed === filePaths.length) {
-
                         let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
-                        //summary_add(`${_time_took}sec`, 'Anonymization time');
+
+                        console_log('---- copy_and_anonymize ERROR');
 
                         resolve(response);
                     }
@@ -335,7 +335,11 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
         if (tbl_row.series_id == series_id) {
             table_row_id = tbl_row.id;
         }
-    })
+    });
+
+    console_log('************** table_row_id ****************************');
+    console_log(table_row_id);
+    console_log('******************************************');
 
     let zipped_count = 0;
 
@@ -407,13 +411,10 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
                     //console_log(`-- ZIP file "${zip_path}" was deleted.`);
                 });
 
-                //console_log('---' + res.data + '---', res);
-                
                 let left_to_upload = mark_uploaded(transfer_id, series_id);
 
-
                 if (left_to_upload === 0) {
-                    console_log('COMMITING UPLOAD')
+                    console_log(`**** COMMITING UPLOAD ${transfer_id} :: ${series_id}`);
 
                     let commit_timer = performance.now();
                     let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader' + '&XNAT_CSRF=' + csrfToken;
@@ -422,7 +423,9 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
                         auth: user_auth
                     })
                     .then(commit_res => {
-                        console_log(commit_res)
+                        console_log(commit_res);
+                        console.log(`++++ Session commited. URL: ${commit_url}`);
+                        
                         // let msg = `Session commited.`;
     
                         // dies with 301 // go to summary page
@@ -431,25 +434,10 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
                     .catch(err => {
                         console_log(err);
 
-                        /*
-                        let opt = {
-                            title: "Error",
-                            text: `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`,
-                            icon: "error"
-                        };
-    
-                        if (err.response.status == 301) {
-                            opt = {
-                                title: "Success",
-                                text: `Session commited (with status code: ${err.response.status} - "${err.response.statusText}").`,
-                                icon: "success"
-                            }
-                        }
-                        console_log(opt);
-                        */
-
                         if (err.response.status != 301) {
                             update_transfer_summary(transfer.id, 'commit_errors', `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`);
+                        } else {
+                            console_log(`+++ COMMITING UPLOAD ${transfer_id} :: ${series_id}`);
                         }
                     })
                     .finally(() => {
@@ -468,7 +456,8 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
                 let _time_took = ((performance.now() - upload_timer) / 1000).toFixed(2);
                 //summary_add(transfer.id, series_id, `${_time_took}sec`, 'UPLOAD time');
                 update_transfer_summary(transfer.id, 'timer_upload', _time_took);
-
+                console.log(`**** _queue_.remove(transfer_id, series_id); \ntransfer_id: ${transfer_id} \nseries_id: ${series_id}`);
+                
                 _queue_.remove(transfer_id, series_id);
                 do_transfer();
             });

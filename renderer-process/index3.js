@@ -177,7 +177,7 @@ $(document).on('click', 'a.logo-header', function(e){
 
 $(document).on('click', '#trigger_download', function(){
     setTimeout(function(){
-        $('button[data-manifest]').trigger('click');
+        $('button[data-target="#download_modal"]').trigger('click');
     }, 300);
     ipc.send('redirect', 'home.html');
 })
@@ -186,9 +186,30 @@ $(document).on('click', '#menu--logout', function(){
     logout();
 })
 
+$(document).on('click', '[data-href]', function() {
+    let path, tab;
+    if ($(this).data('href').indexOf('#') >= 0) {
+        let items = $(this).data('href').split('#');
+        path = items[0];
+        tab = items[1];
+    } else {
+        path = $(this).data('href');
+    }
+
+    if (tab) {       
+        setTimeout(function(){
+            $('#' + tab).trigger('click');
+        }, 30);
+    }
+    
+    //ipc.send('redirect', path);
+    loadPage(path)
+
+});
+
 
 ipc.on('load:page',function(e, item){
-    console.log('EVENTTT', e);
+    //console.log('EVENTTT', e);
     console.log('Loading page ... ' + item)
     loadPage(item)
 });
@@ -204,11 +225,24 @@ ipc.on('remove_current_session',function(e, item){
     reset_user_data()
 });
 
+ipc.on('custom_error',function(e, title, message){
+    console.log(title, message);
+    
+    swal(title, message, 'error');
+    // swal({
+    //     title: title,
+    //     text: message,
+    //     icon: "error",
+    //     buttons: ['Dismiss'],
+    //     dangerMode: true
+    // })
+});
+
 function reset_user_data() {
     console.log('****************** reset_user_data **************');
     
-    settings.delete('user_auth');
-    settings.delete('xnat_server');
+    //settings.delete('user_auth');
+    //settings.delete('xnat_server');
 
     //store.set('transfers.downloads', []);
     //store.set('transfers.uploads', []);

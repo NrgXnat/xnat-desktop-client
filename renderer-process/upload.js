@@ -58,7 +58,7 @@ function _init_variables() {
 
         $('#upload_folder').closest('.tab-pane').find('.js_next').addClass('disabled');
 
-        $('#dicom_parse_progress').attr({
+        $('#dicom_parse_progress').hide().attr({
             value: 0,
             max: 100
         });
@@ -381,7 +381,7 @@ $(document).on('click', 'a[data-subject_id]', function(e){
     $(this).addClass('selected')
 
     // set Review data
-    $('#var_subject').val(get_form_value('subject_id', 'subject_id'));
+    $('#var_subject').val(get_form_value('subject_id', 'subject_label'));
     
     $('.tab-pane.active .js_next').removeClass('disabled');
     
@@ -1005,7 +1005,7 @@ function dicomParse(_files, root_path) {
 
 
     let $progress_bar = $('#dicom_parse_progress');
-    $progress_bar.attr({
+    $progress_bar.show().attr({
         value: 0,
         max: _files.length
     });
