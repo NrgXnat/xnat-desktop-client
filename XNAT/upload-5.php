@@ -28,7 +28,7 @@
  </header>
  <div class="container-fluid">
    <div class="row">
-     <h2 class="main-title">Upload Image Session to ( XNAT Name )</h2>
+     <h2 class="main-title">Upload Image Session to <span class="session_id">( XNAT Name )</span></h2>
      <nav>
       <div class="nav nav-tabs" id="nav-tab" role="tablist">
         <a class="nav-item nav-link"  data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Subject Selected</a>
@@ -45,26 +45,26 @@
           <input type="text" id="upload-project-filter" onkeyup="myFunction()" placeholder="Filter" class="form-control">
         </div>
         <ul id="upload-project" class="choose-list">
-          <li><a href="#">XNAT_1</a></li>
-          <li><a href="#">XNAT_2</a></li>
-          <li><a href="#">XNAT_3</a></li>
-          <li><a href="#">XNAT_4</a></li>
-          <li><a href="#">XNAT_5</a></li>
-          <li><a href="#">XNAT_6</a></li>
-          <li><a href="#">XNAT_7</a></li>
+          <li><a href="#">XNAT_1 <span class="project_id"></span></a></li>
+          <li><a href="#">XNAT_2 <span class="project_id"></span></a></li>
+          <li><a href="#">XNAT_3 <span class="project_id"></span></a></li>
+          <li><a href="#">XNAT_4 <span class="project_id"></span></a></li>
+          <li><a href="#">XNAT_5 <span class="project_id"></span></a></li>
+          <li><a href="#">XNAT_6 <span class="project_id"></span></a></li>
+          <li><a href="#">XNAT_7 <span class="project_id"></span></a></li>
         </ul>
         <h2 class="section-title">Select the subject for the session to be upload</h2>
         <div class="filter-control">
           <input type="text" id="subject-session-filter" onkeyup="myFunction()" placeholder="Filter" class="form-control">
         </div>
         <ul id="subject-session" class="choose-list">
-          <li><a href="#">Subject_1</a></li>
-          <li><a href="#">Subject_2</a></li>
-          <li><a href="#">Subject_3</a></li>
-          <li><a href="#">Subject_4</a></li>
-          <li><a href="#">Subject_5</a></li>
-          <li><a href="#">Subject_6</a></li>
-          <li><a href="#">Subject_7</a></li>
+          <li><a href="#">Subject_1 <span class="meta_key"></span><span class="meta_value"></span></a></li>
+          <li><a href="#">Subject_2 <span class="meta_key"></span><span class="meta_value"></span></a></li>
+          <li><a href="#">Subject_3 <span class="meta_key"></span><span class="meta_value"></span></a></li>
+          <li><a href="#">Subject_4 <span class="meta_key"></span><span class="meta_value"></span></a></li>
+          <li><a href="#">Subject_5 <span class="meta_key"></span><span class="meta_value"></span></a></li>
+          <li><a href="#">Subject_6 <span class="meta_key"></span><span class="meta_value"></span></a></li>
+          <li><a href="#">Subject_7 <span class="meta_key"></span><span class="meta_value"></span></a></li>
         </ul>
         <div class="row">
           <div class="col text-right button-row">
