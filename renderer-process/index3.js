@@ -1,9 +1,13 @@
 const settings = require('electron-settings')
 const ipc = require('electron').ipcRenderer
+const app = require('electron').remote.app
 const axios = require('axios');
 const isOnline = require('is-online');
+const auth = require('../services/auth');
 
 const swal = require('sweetalert');
+
+const {URL} = require('url');
 
 reset_user_data();
 
@@ -31,17 +35,14 @@ if (!settings.has('user_auth')) {
     Helper.UI.userMenuHide();
 } else {
     Helper.UI.userMenuShow();
-
-    // $("#menu--server").html(settings.get('xnat_server'));
-    // $("#menu--username").html(settings.get('user_auth').username);
-    // $('#menu--username-server').html(settings.get('user_auth').username + '@' + settings.get('xnat_server'));
-    
 }
 
 console.log('ACTIVE PAGE: ', active_page);
 
-
 loadPage(active_page)
+
+ipc.send('appIsReady');
+app.isReallyReady = true;
 
 
 function loadPage(page) {
@@ -67,6 +68,7 @@ function loadPage(page) {
 
             return;
         }
+        
 
     });
 
@@ -80,84 +82,58 @@ function loadPage(page) {
 function logout() {
     let xnat_server = settings.get('xnat_server');
 
-    axios.get(xnat_server + '/app/action/LogoutUser')
-    .then(res => {
-        clearLoginSession();
-    })
-    .catch(error => {
-        let msg;
 
-        let error_check = new Promise(function(resove, reject){
-            
-        });
+    auth.logout_promise(xnat_server)
+        .then(res => {
+            clearLoginSession();
+        })
+        .catch(error => {
+            let msg;
 
-
-        isOnline()
-            .then(onlineStatus => {
-                console.log(onlineStatus);
-                //=> true
-                if (onlineStatus) {
-                    if (error.response) {
-                        // The request was made and the server responded with a status code
-                        // that falls out of the range of 2xx
-                        //console.log(error.response.status);
-                        //console.log(error.response.data);
-                        //console.log(error.response.headers);
-                        switch (error.response.status) {
-                            case 401:
-                                msg = 'Invalid username or password!';
-                                break;
-                            case 404:
-                                msg = 'Invalid XNAT server address';
-                                break;
-                            default:
-                                msg = 'An error occured. Please try again.'
-                        }
-            
-                    } else if (error.request) {
-                        // The request was made but no response was received
-                        // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-                        // http.ClientRequest in node.js
-                        //console.log(error.request);
-                        msg = 'XNAT server address (' + xnat_server + ') is not accessible.'
+            isOnline()
+                .then(onlineStatus => {
+                    console.log(onlineStatus);
+                    //=> true
+                    if (onlineStatus) {
+                        msg = Helper.errorMessage(error);
                     } else {
-                        // Something happened in setting up the request that triggered an Error
-                        console.log('Error', error.message);
-                        msg = error.message;
+                        msg = 'You computer seems to be offline!';
                     }
-                } else {
-                    msg = 'You computer seems to be offline!';
-                }
 
-                console.log('Error: ' + msg);
-                swal({
-                    title: 'Connection error',
-                    text: msg,
-                    icon: "warning",
-                    buttons: ['Stay on this page', 'Force logout'],
-                    dangerMode: true
-                })
-                .then((proceed) => {
-                    if (proceed) {
-                        clearLoginSession();
-                    }
+                    console.log('Error: ' + msg);
+                    
+                    swal({
+                        title: 'Connection error',
+                        text: msg,
+                        icon: "warning",
+                        buttons: ['Stay on this page', 'Force logout'],
+                        dangerMode: true
+                    })
+                        .then((proceed) => {
+                            if (proceed) {
+                                clearLoginSession();
+                            }
+                        });
                 });
-            })
-        
-       
 
-    });
+        });
 }
 
 function clearLoginSession() {
-    settings.delete('user_auth')
-    settings.delete('xnat_server')
-
+    auth.remove_current_user();
     Helper.UI.userMenuHide();
-
     loadPage('login.html');
-    //ipc.send('redirect', 'login.html');
 }
+
+
+function reset_user_data() {
+    console.log('****************** reset_user_data **************');
+    auth.remove_current_user();
+
+    //store.set('transfers.downloads', []);
+    //store.set('transfers.uploads', []);
+}
+
 
 // ===============
 $(document).on('click', 'a', function(e){
@@ -238,14 +214,53 @@ ipc.on('custom_error',function(e, title, message){
     // })
 });
 
-function reset_user_data() {
-    console.log('****************** reset_user_data **************');
+ipc.on('log', (e, ...args) => {
+    console.log('                                   ');
+    console.log('============= IPC LOG =============');
+    console.log(...args);
+})
+
+ipc.on('handle_protocol_request', (e, url) => {
+    console.log(' ************* handle_protocol_request ***********');
     
-    settings.delete('user_auth');
-    settings.delete('xnat_server');
+    let app_protocol = app.app_protocol;
+    console.log(app);
 
-    //store.set('transfers.downloads', []);
-    //store.set('transfers.uploads', []);
-}
+    if (Array.isArray(url)) {
+        url = url.length ? url[0] : '';
+    }
 
+    if (url.indexOf(app_protocol + '://') === 0) {
+        console.log('handle_protocol_request - SUCCESS: ', url)
 
+        let url_object = new URL(url);
+        console.log(url_object);
+
+        if (url_object.protocol === app_protocol + ':') {
+            let search_items = url_object.search.substr(1).split('&');
+            
+            let url_params = {};
+            for(let i = 0; i < search_items.length; i++) {
+                search_segments = search_items[i].split('=');
+                url_params[search_segments[0]] = search_segments[1]
+            }
+
+            swal({
+                title: 'External URL trigger',
+                text: `
+                    URL: ${url_object.href}
+                    HOST: ${url_object.host}
+                    REST XML: ${'http(s)://' + url_object.host + '/xapi/archive' + url_object.pathname.substr(0, url_object.pathname.length - 4) + '/xml'}
+                    ALIAS: ${url_params.a}
+                    SECRET: ${url_params.s}
+                `,
+                icon: "success"
+            });
+        }
+
+    } else {
+        console.log('handle_protocol_request - FAIL!!! ', url)
+    }
+  
+
+})

@@ -1,6 +1,6 @@
 {
   "name": "xnatapp",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "XNAT_desktop_application",
   "main": "main.js",
   "scripts": {
@@ -80,6 +80,11 @@
       "buildResources": "build_resources",
       "output": "dist"
     },
+    "protocols": [{
+      "name": "XNAT Desktop Client Protocols",
+      "schemes": ["xnat", "xnats"],
+      "role": "Viewer"
+    }],
     "win": {
       "icon": "assets/icons/win/icon.ico",
       "target": "nsis",
@@ -111,14 +116,18 @@
       ]
     },
     "nsis": {
-      "oneClick": "false",
-      "allowToChangeInstallationDirectory": "true"
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "perMachine": true,
+      "runAfterFinish": false,
+      "createDesktopShortcut": true,
+      "include": "build/installer.nsh"
     },
     "fileAssociations": [
       {
         "ext": [
           ".xnt",
-          ".xml"
+          ".xnt2"
         ],
         "description": "XNAT file",
         "role": "none"

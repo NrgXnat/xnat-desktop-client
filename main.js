@@ -7,7 +7,10 @@ const glob = require('glob')
 const electron = require('electron')
 //const autoUpdater = require('./auto-updater')
 
-const {app, BrowserWindow, ipcMain, shell, Tray, dialog} = electron;
+const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
+
+
+
 
 //SET ENV
 //process.env.NODE_ENV = 'production';
@@ -17,6 +20,8 @@ const debug = /--debug/.test(process.argv[2])
 const iconPath = path.join(__dirname, 'assets/icons/png/tray-icon-256.png');
 app.setName('XNAT Desktop Client v' + app.getVersion());
 
+log(process);
+
 //process.mas - A Boolean. For Mac App Store build, this property is true, for other builds it is undefined.
 if (process.mas) app.setName('XNAT Desktop Client v' + app.getVersion())
 
@@ -25,9 +30,20 @@ var mainWindow = null
 var downloadWindow = null;
 var uploadWindow = null;
 
+
+app.isReallyReady = false;
+app.app_protocol = 'xnat';
+let startupExternalUrl;
+
+app.setAsDefaultProtocolClient(app.app_protocol);
+app.setAsDefaultProtocolClient(app.app_protocol + 's');
+
+
 function initialize () {
   var shouldQuit = makeSingleInstance()
   if (shouldQuit) return app.quit()
+
+  devToolsLog('initialize triggered')
 
   loadDemos()
 
@@ -54,8 +70,11 @@ function initialize () {
       windowOptions.icon = path.join(__dirname, '/assets/icons/png/icon.png');
     }
 
-    mainWindow = new BrowserWindow(windowOptions)
-    mainWindow.loadURL(path.join('file://', __dirname, '/index4.html'))
+    mainWindow = new BrowserWindow(windowOptions);
+
+    devToolsLog('createWindow triggered')
+
+    mainWindow.loadURL(path.join('file://', __dirname, '/index4.html'));
 
     mainWindow.on('ready-to-show', () => {
       //mainWindow.show();
@@ -94,10 +113,10 @@ function initialize () {
       require('devtron').install()
 
       //uploadWindow.webContents.openDevTools()
-// downloadWindow.show()
-// downloadWindow.webContents.openDevTools()
-// uploadWindow.show()
-// uploadWindow.webContents.openDevTools()
+          // downloadWindow.show()
+          // downloadWindow.webContents.openDevTools()
+          // uploadWindow.show()
+          // uploadWindow.webContents.openDevTools()
       //uploadWindow.webContents.maximize()
     }
 
@@ -113,25 +132,75 @@ function initialize () {
       mainWindow = null
     });
 
+    
+    // TODO: REMOVE!!!
+    //mainWindow.webContents.openDevTools();
+    
+    // Protocol handler for win32
+    if (process.platform == 'win32') {
+      // Keep only command line / deep linked arguments
+      startupExternalUrl = process.argv.slice(1)
+    }
+    
+    handle_protocol_request(startupExternalUrl, 'createWindow')
+
+
   }
 
-  app.on('ready', function () {
-    createWindow()
-    //autoUpdater.initialize()
+  app.on('ready', () => {
+    devToolsLog('app.ready triggered')
+    createWindow();
+    devToolsLog('app.ready DONE')
   })
 
-  app.on('window-all-closed', function () {
+  app.on('window-all-closed', () => {
     showErrorBox('All Closed', 'All windows closed!');
     if (process.platform !== 'darwin') {
       app.quit()
     }
   })
 
-  app.on('activate', function () {
+  // only MacOS
+  app.on('activate', (event, hasVisibleWindows) => {
     if (mainWindow === null) {
       createWindow()
     }
   })
+
+  app.on('will-finish-launching', () => {
+    // TODO: add autoupdater
+    //autoUpdater.initialize()
+
+    // only MacOS - Protocol handler
+    app.on('open-url', (event, url) => {
+      event.preventDefault();
+
+      if (app.isReady()) {
+        handle_protocol_request(url, 'open-url');
+      } else {
+        startupExternalUrl = url
+      }
+
+      setTimeout(function () {
+        // Required for protocol links opened from Chrome otherwise the confirmation dialog
+        // that Chrome shows causes Chrome to steal back the focus.
+        // Electron issue: https://github.com/atom/electron/issues/4338
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+        mainWindow.show();
+      }, 100)
+    });
+    
+  });
+}
+
+// prints given message both in the terminal console and in the DevTools
+function devToolsLog(s) {
+  console.log(s)
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.executeJavaScript(`console.log("${s}")`)
+  }
 }
 
 // Make this app a single instance app.
@@ -141,17 +210,39 @@ function initialize () {
 //
 // Returns true if the current version of the app should quit instead of
 // launching.
-function makeSingleInstance () {
-  if (process.mas) return false
+function makeSingleInstance() {
+  // if (process.mas) return false;
 
-  return app.makeSingleInstance(function () {
+  return app.makeSingleInstance((argv, workingDirectory) => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) {
-          mainWindow.restore()
+        mainWindow.restore()
       }
       mainWindow.focus()
+
+
+      // Protocol handler for win32
+      // argv: An array of the second instance’s (command line / deep linked) arguments
+      if (process.platform == 'win32') {
+        handle_protocol_request(argv.slice(1), 'app.makeSingleInstance');
+      }
+      
     }
   })
+}
+
+function handle_protocol_request(url, place) {
+  log(place, url);
+
+  // TODO - handle better initial delay (through events)
+  if (place === 'createWindow') {
+    setTimeout(function(){
+      mainWindow.webContents.send('handle_protocol_request', url);
+    }, 700)
+  } else {
+    mainWindow.webContents.send('handle_protocol_request', url);
+  }
+  
 }
 
 // Require each JS file in the main-process dir
@@ -164,6 +255,16 @@ function loadDemos () {
 }
 
 initialize();
+
+function log(...args) {
+  if (app.isReallyReady) {
+    mainWindow.send('log', ...args)
+  } else {
+    ipcMain.once('appIsReady', () => {
+      mainWindow.send('log', ...args);
+    })
+  }
+}
 
 // Catch Item Add
 ipcMain.on('redirect', (e, item) =>{
@@ -212,7 +313,6 @@ ipcMain.on('start_download', (e, item) =>{
   mainWindow.webContents.send('console:log', 'start_download event (main.js)');
   downloadWindow.webContents.send('start_download', item);
 })
-
 
 
 
@@ -318,40 +418,6 @@ exports.getVariables = (variables) => {
 exports.anonymize = (source, contexts, variables) => {
   return mizer.anonymize(source, contexts, variables);
 };
-/** \RICK **/
-
-
-// exports.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
-//   return mizer.get_mizer_scripts(xnat_server, user_auth, project_id);
-// };
-
-
-// let mizer_proxy = {
-//   anonymize_single: (source, script, variables) => {
-//     mizer.anonymize_single(source, script, variables);
-//   },
-//   getReferencedVariables: (contexts) => {
-//     mizer.getReferencedVariables(contexts);
-//   },
-  
-//   getScriptContexts: (scripts) => {
-//     mizer.getScriptContexts(scripts);
-//   },
-  
-//   getScriptContext: (script) => {
-//     mizer.getScriptContext(script);
-//   },
-  
-//   getVariables: (variables) => {
-//     mizer.getVariables(variables);
-//   },
-  
-//   anonymize: (source, contexts, variables) => {
-//     mizer.anonymize(source, contexts, variables);
-//   }
-// }
-// module.exports = mizer_proxy;
-
 
 
 

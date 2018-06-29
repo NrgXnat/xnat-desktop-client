@@ -153,24 +153,6 @@ function login_attempt(xnat_server, user_auth, old_user_data) {
 }
 
 
-function logout() {
-    let xnat_server = settings.get('xnat_server');
-    
-    auth.logout_promise(xnat_server)
-        .then(res => {
-            settings.delete('user_auth')
-            settings.delete('xnat_server')
-
-            console.log('Logout: ', res);
-
-            Helper.UI.userMenuHide();
-        })
-        .catch(err => {
-            console.log(err)
-        });
-}
-
-
 $(document).on('input', '#default_email_address', function(e) {
     $('#save_default_email_address').prop('disabled', false);
 });

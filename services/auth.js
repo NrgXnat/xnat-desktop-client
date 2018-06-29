@@ -82,6 +82,11 @@ let auth = {
     save_current_user: (xnat_server, user_auth) => {
         settings.set('xnat_server', xnat_server);
         settings.set('user_auth', user_auth);
+    },
+
+    remove_current_user: () => {
+        settings.delete('user_auth')
+        settings.delete('xnat_server')
     }
 }
 
