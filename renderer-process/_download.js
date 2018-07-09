@@ -189,11 +189,10 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, manifes
                 }
             })
             .on('finish', () => {
-                console.log('************************');
-                
+                // TODO - files are sometimes locked ... make unlock explicit          
                 fs.unlink(zip_path, (err) => {
                     if (err) throw err;
-                    console.log('----' + zip_path + ' was deleted');
+                    console_log('----' + zip_path + ' was DELETED');
                 });
             });
 

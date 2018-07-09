@@ -2,6 +2,7 @@ const path = require('path');
 const settings = require('electron-settings')
 const ipc = require('electron').ipcRenderer
 const auth = require('../services/auth');
+const api = require('../services/api');
 
 let xnat_server = '';
 let user_auth = {
@@ -20,8 +21,8 @@ $(document).on('page:load', '#login-section', function(e){
                 <button data-username="${el.username}" data-server="${el.server}" 
                     class="connect btn btn-known-user btn-lg btn-block" type="button" 
                     data-toggle="modal" data-target="#login">
-                    <img src="assets/images/xnat-avatar.jpg" />
-                    <div >${server_name[1]}</br>
+                    <span class="login_logo"><img src="${api.get_logo_path(el.server)}" /></span>
+                    <div>${server_name[1]}</br>
                         <span class="user-name">User: ${el.username}</span>
                     </div>
                 </button>
@@ -154,9 +155,11 @@ function handleLoginFail(error) {
     $('#login_error_message').html(msg);
 }
 
-function handleLoginSuccess(xnat_server, user_auth) {
+async function handleLoginSuccess(xnat_server, user_auth) {
     auth.save_login_data(xnat_server, user_auth);
     auth.save_current_user(xnat_server, user_auth);
+
+    api.set_logo_path(xnat_server, user_auth);
 
     Helper.unblockModal('#login');
     $('#login').modal('hide');

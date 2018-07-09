@@ -756,6 +756,8 @@ function cancel_all_downloads() {
 
 $(document).on('click', '.js_pause_all', function(){
     let new_pause_status = !settings.get('global_pause');
+
+    ipc.send('start_download');
     
     settings.set('global_pause', new_pause_status);
     $(this).html(pause_btn_content(new_pause_status));
@@ -764,7 +766,7 @@ $(document).on('click', '.js_pause_all', function(){
 
 function pause_btn_content(status) {
     return status ? 
-        '<i class="far fa-play-circle"></i> Unpause All' :
+        '<i class="far fa-play-circle"></i> Resume All' :
         '<i class="far fa-pause-circle"></i> Pause All';
 }
 

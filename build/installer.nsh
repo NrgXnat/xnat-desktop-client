@@ -9,6 +9,15 @@
   WriteRegStr HKCR "xnat\shell" "" ""
   WriteRegStr HKCR "xnat\shell\Open" "" ""
   WriteRegStr HKCR "xnat\shell\Open\command" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME} %1"
+  
+  DeleteRegKey HKCR "xnat2"
+  WriteRegStr HKCR "xnat2" "" "URL:xnat2"
+  WriteRegStr HKCR "xnat2" "URL Protocol" ""
+  WriteRegStr HKCR "xnat2\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+  WriteRegStr HKCR "xnat2\shell" "" ""
+  WriteRegStr HKCR "xnat2\shell\Open" "" ""
+  WriteRegStr HKCR "xnat2\shell\Open\command" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME} %1"
+
   AccessControl::GrantOnFile "$INSTDIR\resources\app.asar.unpacked\node_modules\java\build\jvm_dll_path.json" "(BU)" "GenericRead + GenericWrite"
   AccessControl::GrantOnFile "$INSTDIR\xlectric.log" "(BU)" "GenericRead + GenericWrite"
   #AccessControl::SetFileOwner "C:\test.txt" "DARKOSSD\Darko"

@@ -187,16 +187,36 @@
 		@include breakpoint(w992) {
 			font-size: 18px;
 		}
-		img {
+		span.login_logo {
+			display: block;
 			float: left;
 			height: 95px;
+			background-color: #fff;
+			border-right: 5px solid #fff;
+			width: 140px;
+			border-left: 5px solid #fff;
+			
+			position: relative;
 			@include breakpoint(w992) {
+				width: 113px;
 				height: 77px;
+			}
+		}
+		img {
+			position: absolute;
+			max-height: 95px;
+			max-width: 100%;
+			top: 50%;
+			transform: translate(-50%, -50%);
+			left: 50%;
+			@include breakpoint(w992) {
+				max-height: 77px;
 			}
 		}
 		div {
 			padding: 1.1rem 1.5rem;
 			float: left;
+			border-left: 2px solid #cdcdcd;
 		}
 		.user-name {
 			font-weight: normal;

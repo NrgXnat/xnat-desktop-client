@@ -4,6 +4,8 @@ const dicomParser = require('dicom-parser');
 const getSize = require('get-folder-size');
 const axios = require('axios');
 require('promise.prototype.finally').shim();
+const auth = require('../services/auth');
+const api = require('../services/api');
 const settings = require('electron-settings');
 const ipc = require('electron').ipcRenderer;
 const swal = require('sweetalert');
@@ -27,15 +29,9 @@ let global_date_required, date_required, selected_session_data;
 
 let anon_variables = {};
 
-function _init_variables() {
+async function _init_variables() {
     xnat_server = settings.get('xnat_server');
     user_auth = settings.get('user_auth');
-    
-    console.log('----------------------------------------------------');
-    console.log(xnat_server);
-    console.log(user_auth);
-    console.log('----------------------------------------------------');
-
 
     session_map = new Map();
     selected_session_id = null;
@@ -99,7 +95,7 @@ function _init_variables() {
         console.log('resseting values in tab 4')
     });
 
-
+    resetSubsequentTabs();
     _UI();
 }
 
@@ -234,9 +230,9 @@ $(document).on('page:load', '#upload-section', function(e){
     console.log('Upload page:load triggered');
     
     _init_variables();
-    resetSubsequentTabs();
     
-    get_csrf_token()
+    
+    auth.get_csrf_token(xnat_server, user_auth)
         .then(resp => {
             const regex = /var csrfToken = '(.+?)';/g;
             const str = resp.data;
@@ -274,12 +270,15 @@ $(document).on('page:load', '#upload-section', function(e){
 
             $('#upload-project').html('')
 
-
-            for (let i = 0, len = projects.length; i < len; i++) {
-                console.log('---', projects[i].id)
-                $('#upload-project').append(`
-                    <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} [ID:${projects[i].id}]</a></li>
-                `)
+            if (projects.length) {
+                for (let i = 0, len = projects.length; i < len; i++) {
+                    console.log('---', projects[i].id)
+                    $('#upload-project').append(`
+                        <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} <span class="project_id">ID: ${projects[i].id}</span></a></li>
+                    `)
+                }
+            } else {
+                no_upload_privileges_warning()
             }
 
         })
@@ -317,8 +316,8 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
     mizer.get_mizer_scripts(xnat_server, user_auth, project_id).then(scripts => {
         if (scripts.length === 0) {
             swal({
-                title: `Warning: Anonymization scripts are NOT set for this project!`,
-                text: `Do you want to continue?`,
+                title: `Warning: No anonymization scripts found!"`,
+                text: `Anonymization scripts are not set for this site or this project. Do you want to continue?`,
                 icon: "warning",
                 buttons: ['Choose a different project', 'Continue'],
                 dangerMode: true
@@ -609,9 +608,11 @@ $(document).on('submit', '#form_new_subject', function(e) {
         let project_id, subject_label, group;
     
         project_id = $('#form_new_subject input[name=project_id]').val();
-        subject_label = $('#form_new_subject input[name=subject_label]').val();
-        group = $('#form_new_subject input[name=group]').val();
-    
+        subject_label = $.trim($('#form_new_subject input[name=subject_label]').val());
+        subject_label = subject_label.replace(/\s+/g, '_');
+
+        group = $.trim($('#form_new_subject input[name=group]').val());
+
         promise_create_project_subject(project_id, subject_label, group)
             .then(res => {
                 console.log(res);
@@ -1462,6 +1463,7 @@ const walkSync = (dir, fileList = []) => {
 }
 
 function append_subject_row(subject){
+    let group_tag = subject.group ? `${subject.group}` : `/`
     $('#subject-session').append(`
         <li>
             <a href="javascript:void(0)" 
@@ -1469,10 +1471,24 @@ function append_subject_row(subject){
                 data-subject_insert_date="${subject.insert_date}"
                 data-subject_label="${subject.label}"
                 data-subject_id="${subject.ID}">
-                ${subject.label} [ID:${subject.ID}] [GROUP: ${subject.group}]
+                ${subject.label} <span class="meta_key">ID: ${subject.ID}</span>
+                <span class="meta_value">Group: ${group_tag}</span>
             </a>
         </li>
     `)
+}
+
+const no_upload_privileges_warning = () => {
+    swal({
+        title: `Warning: No projects to display`,
+        text: `There are either no projects on this XNAT server \nor you do not have permissions required to access any of them!`,
+        icon: "warning",
+        dangerMode: true,
+        button: 'Cancel'
+    })
+    .then((proceed) => {
+        console.log(proceed);
+    });
 }
 
 
@@ -1589,12 +1605,6 @@ function promise_project_subject(project_id, subject_label) {
     })
 }
 
-function get_csrf_token() {
-    return axios.get(xnat_server + '/', {
-        auth: user_auth
-    });
-}
-
 function promise_create_project_subject(project_id, subject_label, group) {
     return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group=' + group + '&event_reason=XNAT+Application' + '&XNAT_CSRF=' + csrfToken, {
         auth: user_auth
@@ -1624,6 +1634,7 @@ function resetSubsequentTabs() {
     console.log('resseting tabs after: ' + $('#upload-section #nav-tab .nav-link.active').index());
     resetTabsAfter($('#upload-section #nav-tab .nav-link.active').index());
 }
+
 
 function resetTabsAfter(tabIndex) {
     resseting_functions.forEach(function(reset, key) {
