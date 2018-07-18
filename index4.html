@@ -17,6 +17,13 @@
     <link rel="stylesheet" href="node_modules/x-editable/dist/bootstrap3-editable/css/bootstrap-editable.css">
     <link rel="stylesheet" href="node_modules/nprogress/nprogress.css">
 
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.css">
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.brighttheme.css">
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.buttons.css">
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.history.css">
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.mobile.css">
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.nonblock.css">
+
     <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/cupertino/jquery-ui.css">
 
     <link href="assets/css/style.css" rel="stylesheet">
@@ -76,6 +83,17 @@
     </script>
     <script src="node_modules/blockui-npm/jquery.blockUI.js"></script>
 
+    <script src="node_modules/pnotify/dist/pnotify.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.animate.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.buttons.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.callbacks.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.confirm.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.desktop.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.history.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.mobile.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.nonblock.js"></script>
+    
+
     <script src="node_modules/popper.js/dist/umd/popper.min.js"></script>
     <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
     <script src="node_modules/bootstrap-table/dist/bootstrap-table.js"></script>
@@ -127,6 +145,18 @@
 
     <script>
         require('./renderer-process/index3')
+        
+        PNotify.prototype.options.delay = 7000;
+
+        // Helper.pnotify('Title', 'Some message.');
+        // Helper.pnotify('Title', 'Some message.', 'info');
+        // Helper.pnotify('Title', 'Some message.', 'error');
+        // setTimeout(function(){
+        //     Helper.pnotify('Title', 'Some message.', 'notice');
+        // }, 2000)
+        
+        
+        
     </script>
 
 </body>

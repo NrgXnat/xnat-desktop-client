@@ -42,9 +42,6 @@ $(document).on('page:load', '#home-section', function(e){
 });
 
 $(document).on('show.bs.modal', '#download_modal', function(e) {
-    //get data-id attribute of the clicked element
-    var username = $(e.relatedTarget).data('username');
-
     if (default_local_storage) {
         $('#download_destination_text').val(default_local_storage)
         $('#yes_default_local_storage').show();
@@ -224,4 +221,11 @@ function _init_variables() {
     default_local_storage = settings.get('default_local_storage')
 }
 
-
+ipc.on('launch_download_modal',function(e, data){
+    setTimeout(function(){
+        console.log(data);
+        $('#xnt_manifest_text').val(data.URL)
+        
+        $('#download_modal').modal('show');
+    }, 300);
+});

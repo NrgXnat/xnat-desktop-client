@@ -1,6 +1,8 @@
 const settings = require('electron-settings');
 const path = require('path');
 
+const stack_bar_bottom = {"dir1": "up", "dir2": "right", "spacing1": 5, "spacing2": 0};
+
 let Helper = {
     blockModal: (modal_id) => {
         $(modal_id).find('.modal-content').block()
@@ -142,6 +144,38 @@ let Helper = {
             a.push(b);
         }
         return a;
+    },
+
+    pnotify: (title, text, type='success') => {
+        
+        let options = {
+            title: "Default Title",
+            text: "Default message",
+            type: "success",
+            addclass: "stack-bar-bottom",
+            cornerclass: "",
+            width: "70%",
+            stack: stack_bar_bottom,
+            buttons: {
+                closer_hover: false,
+                sticker_hover: false,
+                show_on_nonblock: true,
+                classes: {
+                    closer: 'fas fa-times',
+                    pin_up: 'fas fa-pause',
+                    pin_down: 'fas fa-play'
+                }
+            },
+            nonblock: {
+                nonblock: false
+            }
+        };
+
+        options.title = title;
+        options.text = text;
+        options.type = type;
+
+        new PNotify(options);
     }
 }
 

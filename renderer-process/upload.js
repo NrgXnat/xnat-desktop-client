@@ -316,7 +316,7 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
     mizer.get_mizer_scripts(xnat_server, user_auth, project_id).then(scripts => {
         if (scripts.length === 0) {
             swal({
-                title: `Warning: No anonymization scripts found!"`,
+                title: `Warning: No anonymization scripts found!`,
                 text: `Anonymization scripts are not set for this site or this project. Do you want to continue?`,
                 icon: "warning",
                 buttons: ['Choose a different project', 'Continue'],

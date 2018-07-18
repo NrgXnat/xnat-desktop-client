@@ -128,7 +128,7 @@ function clearLoginSession() {
 
 function reset_user_data() {
     console.log('****************** reset_user_data **************');
-    auth.remove_current_user();
+    //auth.remove_current_user();
 
     //store.set('transfers.downloads', []);
     //store.set('transfers.uploads', []);
@@ -220,47 +220,143 @@ ipc.on('log', (e, ...args) => {
     console.log(...args);
 })
 
-ipc.on('handle_protocol_request', (e, url) => {
+ipc.on('handle_protocol_request', protocol_request)
+
+async function protocol_request(e, url) {
     console.log(' ************* handle_protocol_request ***********');
-    
-    let app_protocol = app.app_protocol;
-    console.log(app);
+
+    let app_protocols = [app.app_protocol, app.app_protocol + 's'];
 
     if (Array.isArray(url)) {
         url = url.length ? url[0] : '';
     }
 
-    if (url.indexOf(app_protocol + '://') === 0) {
-        console.log('handle_protocol_request - SUCCESS: ', url)
+    for (let i = 0; i < app_protocols.length; i++) {
+        let app_protocol = app_protocols[i];
+        if (url.indexOf(app_protocol + '://') === 0) {
+            try {
+                let url_object = new URL(url);
+                console.log(url_object);
+                
+                let safe_protocol = '';
+                if (app_protocol === app.app_protocol + 's') {
+                    safe_protocol = 's';
+                }
+    
+                let server = 'http' + safe_protocol + '://' + url_object.host
+    
+                let last_download_index = url_object.pathname.lastIndexOf('/download/');
+                let last_upload_index = url_object.pathname.lastIndexOf('/upload/');
+                let last_index;
+    
+                // is it upload or download
+                if (last_download_index >= 0) {
+                    server += url_object.pathname.substr(0, last_download_index);
+                    last_index = last_download_index;
+    
+                } else if (last_upload_index >= 0) {
+                    server += url_object.pathname.substr(0, last_upload_index);
+                    last_index = last_upload_index;
+    
+                } else {
+                    // protocol match, but path is invalid URL not handled
+                    throw_new_error('Invalid Path', `Requested URL: ${url} \ncontains invalid path with neither '/upload/' nor '/download/' segments.`);
+                }
+                
 
-        let url_object = new URL(url);
-        console.log(url_object);
 
-        if (url_object.protocol === app_protocol + ':') {
-            let search_items = url_object.search.substr(1).split('&');
-            
-            let url_params = {};
-            for(let i = 0; i < search_items.length; i++) {
-                search_segments = search_items[i].split('=');
-                url_params[search_segments[0]] = search_segments[1]
+                let search_items = url_object.search.substr(1).split('&');
+    
+                let url_params = {};
+                for (let i = 0; i < search_items.length; i++) {
+                    search_segments = search_items[i].split('=');
+                    url_params[search_segments[0]] = search_segments[1]
+                }
+
+                if (!url_params.hasOwnProperty('a') || !url_params.hasOwnProperty('s')) {
+                    throw_new_error('Missing Credentials Error', `User token is not passed.`);
+                }
+                
+                let my_user_auth = {
+                    username: url_params.a,
+                    password: url_params.s
+                };
+
+                console.log(server, my_user_auth);
+                
+                let real_username;
+                try {
+                    let resp = await auth.login_promise(server, my_user_auth); // wait till the promise resolves (*);
+                    real_username = resp.data.split("'")[1];
+                } catch (err) {
+                    throw_new_error('Connection Error', Helper.errorMessage(err));
+                }
+
+                // add ipc send (to home) + plus redirect
+                ipc.send('launch_download_modal', {
+                    title: 'External URL trigger',
+                    URL: url_object.href,
+                    HOST: url_object.host,
+                    SERVER: server,
+                    USERNAME: real_username,
+                    REST_XML: server + '/xapi/archive' + url_object.pathname.substr(last_index, url_object.pathname.length - 4) + '/xml',
+                    ALIAS: url_params.a,
+                    SECRET: url_params.s
+                })
+                
+
+                swal({
+                    title: 'External URL trigger',
+                    text: `
+                        URL: ${url_object.href}
+                        HOST: ${url_object.host}
+                        SERVER: ${server}
+                        USERNAME: ${real_username}
+                        REST XML: ${server + '/xapi/archive' + url_object.pathname.substr(last_index, url_object.pathname.length - 4) + '/xml'}
+                        ALIAS: ${url_params.a}
+                        SECRET: ${url_params.s}
+                    `,
+                    icon: "success"
+                });
+
+
+            } catch (err) {
+                var error_obj = parse_error_message(err);
+                console.log(error_obj);
+                //alert(error_obj.title);
+                //alert(error_obj.body);
+                
+                swal(error_obj.title, error_obj.body, 'error');
             }
+            
 
-            swal({
-                title: 'External URL trigger',
-                text: `
-                    URL: ${url_object.href}
-                    HOST: ${url_object.host}
-                    REST XML: ${'http(s)://' + url_object.host + '/xapi/archive' + url_object.pathname.substr(0, url_object.pathname.length - 4) + '/xml'}
-                    ALIAS: ${url_params.a}
-                    SECRET: ${url_params.s}
-                `,
-                icon: "success"
-            });
+        } else {
+            console.log(`handle_protocol_request::${app_protocol} - NOT MATCHED`, url);
         }
-
-    } else {
-        console.log('handle_protocol_request - FAIL!!! ', url)
     }
-  
 
-})
+}
+
+
+function throw_new_error(title, message) {
+    var err_msg = JSON.stringify({
+        title: title,
+        body: message
+    });
+
+    throw new Error(err_msg);
+}
+
+function parse_error_message(err) {
+    var msg;
+    try {
+        msg = JSON.parse(err.message);
+    } catch (e) {
+        msg = {
+            title: err.name,
+            body: err.message
+        }
+    }
+
+    return msg;
+}

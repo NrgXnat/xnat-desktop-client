@@ -271,6 +271,12 @@ ipcMain.on('redirect', (e, item) =>{
   mainWindow.webContents.send('load:page', item);
 })
 
+
+ipcMain.on('launch_download_modal', (e, item) =>{
+  mainWindow.webContents.send('load:page', 'home.html');
+  mainWindow.webContents.send('launch_download_modal', item);
+})
+
 ipcMain.on('log', (e, item) =>{
   mainWindow.webContents.send('console:log', item);
 })

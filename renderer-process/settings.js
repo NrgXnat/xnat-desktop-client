@@ -122,12 +122,14 @@ function handleLoginSuccess(xnat_server, user_auth, old_user_data) {
     $('#user_connection').modal('hide')
     render_users();
 
-    swal({
-        title: "Success!",
-        text: `User connection is ${old_user_data.username ? 'updated': 'added'}.`,
-        icon: "success",
-        button: "Okay",
-    });
+    Helper.pnotify('Success!', `User connection is ${old_user_data.username ? 'updated': 'added'}.`);
+
+    // swal({
+    //     title: "Success!",
+    //     text: `User connection is ${old_user_data.username ? 'updated': 'added'}.`,
+    //     icon: "success",
+    //     button: "Okay",
+    // });
 }
 
 function login_attempt(xnat_server, user_auth, old_user_data) {
@@ -169,12 +171,9 @@ $(document).on('click', '#save_default_email_address', function(e) {
           });
     } else {
         settings.set('default_email_address', $('#default_email_address').val());
-        swal({
-            title: "Success!",
-            text: "Default email address successfully updated!",
-            icon: "success",
-            button: "Okay",
-        });
+
+        Helper.pnotify('Success!', `Default email address successfully updated! (${$('#default_email_address').val()})`);
+        
         $(this).prop('disabled', true);
     }
     
@@ -184,12 +183,13 @@ $(document).on('change', '#file_default_local_storage', function(e) {
     settings.set('default_local_storage', this.files[0].path);
     $('#default_local_storage').val(this.files[0].path);
 
-    swal({
-        title: "Success!",
-        text: "Default local storage path successfully updated!",
-        icon: "success",
-        button: "Okay"
-    });
+    Helper.pnotify('Success!', `Default local storage path successfully updated! (${this.files[0].path})`);
+    // swal({
+    //     title: "Success!",
+    //     text: "Default local storage path successfully updated!",
+    //     icon: "success",
+    //     button: "Okay"
+    // });
 });
 
 $(document).on('submit', '#userForm', function(e) {
@@ -259,12 +259,14 @@ $(document).on('click', '.js_remove_login', function(e){
 
             render_users();
 
-            swal({
-                title: "Connection data removed",
-                text: "Connection data removed from the list of stored connections",
-                icon: "success",
-                closeOnEsc: false
-            })
+            Helper.pnotify('Connection data removed!', 'Connection data removed from the list of stored connections.');
+
+            // swal({
+            //     title: "Connection data removed",
+            //     text: "Connection data removed from the list of stored connections",
+            //     icon: "success",
+            //     closeOnEsc: false
+            // })
         }
     });
 });

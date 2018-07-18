@@ -11,15 +11,18 @@ let api = {
 
     set_logo_path: async (xnat_server, user_auth) => {
         try {
+            console.log(`------------- set_logo_path --------------`);
+            
             let home_page = axios.get(xnat_server + '/', {
                 auth: user_auth
             });
-
+            
             let resp = await home_page; // wait till the promise resolves (*)
 
-            let $img = $(resp.data).find('#header_logo img');
-            
-            //return $img.length ? $img.attr('src') : false;
+            // create a virtual document to avoid image download
+            let newDocument = document.implementation.createHTMLDocument('virtual');
+
+            let $img = $(resp.data, newDocument).find('#header_logo img');
 
             if ($img.length) {
                 var image = new Image();
@@ -34,6 +37,8 @@ let api = {
                     // ... or get as Data URI
                     store.set(api.get_server_str(xnat_server),  canvas.toDataURL('image/png'));
                 };
+                console.log($img.attr('src'));
+                
             
                 image.src = xnat_server + $img.attr('src');
                 

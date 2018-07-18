@@ -121,18 +121,10 @@ $(document).on('click', '#remove_login', function(e){
             }
             settings.set('logins', logins);
 
+            Helper.pnotify('Connection data removed!', 'Connection data removed from the list of stored connections.');
 
-            swal({
-                title: "Connection data removed",
-                text: "Connection data removed from the list of stored connections",
-                icon: "success",
-                closeOnEsc: false
-            })
-            .then((ok) => {
-                
-                $('#login').modal('hide');
-                ipc.send('redirect', 'login.html');
-            });
+            $('#login').modal('hide');
+            ipc.send('redirect', 'login.html');
         }
     });
 });
@@ -155,19 +147,20 @@ function handleLoginFail(error) {
     $('#login_error_message').html(msg);
 }
 
-async function handleLoginSuccess(xnat_server, user_auth) {
+function handleLoginSuccess(xnat_server, user_auth) {
     auth.save_login_data(xnat_server, user_auth);
     auth.save_current_user(xnat_server, user_auth);
 
-    api.set_logo_path(xnat_server, user_auth);
+    api.set_logo_path(xnat_server, user_auth).then(function(x) {
+		Helper.unblockModal('#login');
+		$('#login').modal('hide');
 
-    Helper.unblockModal('#login');
-    $('#login').modal('hide');
+		Helper.UI.userMenuShow();
+		Helper.notify("Server: " + xnat_server + "\nUser: " + user_auth.username, 'XNAT Login Info');
 
-    Helper.UI.userMenuShow();
-    Helper.notify("Server: " + xnat_server + "\nUser: " + user_auth.username, 'XNAT Login Info');
+		ipc.send('redirect', 'home.html');
+	});
 
-    ipc.send('redirect', 'home.html');
 }
 
 
