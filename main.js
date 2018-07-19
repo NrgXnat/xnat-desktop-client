@@ -376,10 +376,12 @@ function fix_java_path() {
 
     java_jre_path = '"' + path_separator + java_jre_path.replace(/\\/g, '\\\\') + '"';
 
-    fs.writeFileSync(java_config_path, java_jre_path, (err) => {
-      if (err) throw err;
-      console.log('The file has been saved!');
-    });
+    if (process.platform !== 'darwin') {
+      fs.writeFileSync(java_config_path, java_jre_path, (err) => {
+        if (err) throw err;
+        console.log('The file has been saved!');
+      });
+    }
 
   }
 }
