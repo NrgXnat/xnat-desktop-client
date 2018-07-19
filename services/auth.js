@@ -89,6 +89,17 @@ let auth = {
         settings.delete('xnat_server')
     },
 
+    save_auth_token: (alias, secret) => {
+        settings.set('auth_token', {
+            username: alias,
+            password: secret
+        });
+    },
+
+    remove_auth_token: () => {
+        settings.delete('auth_token');
+    },
+
     get_csrf_token: (xnat_server, user_auth) => {
         return axios.get(xnat_server + '/', {
             auth: user_auth

@@ -4,6 +4,7 @@ const app = require('electron').remote.app
 const axios = require('axios');
 const isOnline = require('is-online');
 const auth = require('../services/auth');
+const api = require('../services/api');
 
 const swal = require('sweetalert');
 
@@ -128,7 +129,7 @@ function clearLoginSession() {
 
 function reset_user_data() {
     console.log('****************** reset_user_data **************');
-    //auth.remove_current_user();
+    auth.remove_current_user();
 
     //store.set('transfers.downloads', []);
     //store.set('transfers.uploads', []);
@@ -292,8 +293,7 @@ async function protocol_request(e, url) {
                     throw_new_error('Connection Error', Helper.errorMessage(err));
                 }
 
-                // add ipc send (to home) + plus redirect
-                ipc.send('launch_download_modal', {
+                let url_data = {
                     title: 'External URL trigger',
                     URL: url_object.href,
                     HOST: url_object.host,
@@ -302,9 +302,31 @@ async function protocol_request(e, url) {
                     REST_XML: server + '/xapi/archive' + url_object.pathname.substr(last_index, url_object.pathname.length - 4) + '/xml',
                     ALIAS: url_params.a,
                     SECRET: url_params.s
-                })
+                };
+
                 
 
+                // logged in
+                if (settings.has('xnat_server')) {
+                    
+                    if (url_data.SERVER !== settings.get('xnat_server') ||
+                        url_data.USERNAME !== settings.get('user_auth').username) { // bad login data
+                        //logout
+                        auth.remove_current_user();
+
+                        handleTokenLogin(url_data);
+                    } else { // good login data
+                        url_data.PASSWORD = settings.get('user_auth').password;
+                    }
+                    
+                } else { // not logged in
+                    handleTokenLogin(url_data);
+                }
+
+                // add ipc send (to home) + plus redirect
+                ipc.send('launch_download_modal', url_data);
+
+                /*
                 swal({
                     title: 'External URL trigger',
                     text: `
@@ -318,7 +340,7 @@ async function protocol_request(e, url) {
                     `,
                     icon: "success"
                 });
-
+                */
 
             } catch (err) {
                 var error_obj = parse_error_message(err);
@@ -335,6 +357,27 @@ async function protocol_request(e, url) {
         }
     }
 
+}
+
+function handleTokenLogin(url_data) {
+    //already confirmed login data so save
+    auth.save_login_data(url_data.SERVER, {
+        username: url_data.USERNAME
+    });
+    auth.save_auth_token(url_data.ALIAS, url_data.SECRET);
+    
+    let token_auth = {
+        username: url_data.ALIAS,
+        password: url_data.SECRET
+    };
+
+    // !!!! IMPORTANT
+    auth.save_current_user(url_data.SERVER, token_auth);
+    
+    Helper.UI.userMenuShow();
+    Helper.notify("Server: " + url_data.SERVER + "\nUser: " + url_data.USERNAME, 'XNAT Login Info');
+
+    api.set_logo_path(url_data.SERVER, token_auth);
 }
 
 
