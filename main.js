@@ -154,7 +154,7 @@ function initialize () {
   })
 
   app.on('window-all-closed', () => {
-    showErrorBox('All Closed', 'All windows closed!');
+    //showErrorBox('All Closed', 'All windows closed!');
     if (process.platform !== 'darwin') {
       app.quit()
     }
