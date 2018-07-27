@@ -147,8 +147,9 @@ let Helper = {
         return a;
     },
 
-    pnotify: (title, text, type='success') => {
-        
+    // types => success (green), info (blue), notice (yellow), error (red)
+    pnotify: (title, text, type = 'success', delay = 7000) => {
+
         let options = {
             title: "Default Title",
             text: "Default message",
@@ -175,6 +176,7 @@ let Helper = {
         options.title = title;
         options.text = text;
         options.type = type;
+        options.delay = delay
 
         new PNotify(options);
     }

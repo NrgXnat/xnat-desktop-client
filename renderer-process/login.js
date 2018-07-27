@@ -151,15 +151,15 @@ function handleLoginSuccess(xnat_server, user_auth) {
     auth.save_login_data(xnat_server, user_auth);
     auth.save_current_user(xnat_server, user_auth);
 
-    api.set_logo_path(xnat_server, user_auth).then(function(x) {
-		Helper.unblockModal('#login');
-		$('#login').modal('hide');
+    api.set_logo_path(xnat_server, user_auth);
+    
+    Helper.unblockModal('#login');
+    $('#login').modal('hide');
 
-		Helper.UI.userMenuShow();
-		Helper.notify("Server: " + xnat_server + "\nUser: " + user_auth.username, 'XNAT Login Info');
+    Helper.UI.userMenuShow();
+    Helper.notify("Server: " + xnat_server + "\nUser: " + user_auth.username, 'XNAT Login Info');
 
-		ipc.send('redirect', 'home.html');
-	});
+    ipc.send('redirect', 'home.html');
 
 }
 

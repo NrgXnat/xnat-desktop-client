@@ -15,6 +15,9 @@ const shell = require('electron').shell;
 
 const filesize = require('filesize');
 
+const tempDir = require('temp-dir');
+
+
 if (!settings.has('global_pause')) {
     settings.set('global_pause', false);
 }
@@ -33,6 +36,8 @@ ipc.on('start_download',function(e, item){
 });
 
 do_transfer();
+
+setInterval(do_transfer, 10000);
 
 function do_transfer() {
     if (transfering) {
@@ -90,7 +95,7 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, manifes
 
     let transfer_id = transfer.id;
 
-    let temp_zip_path = path.resolve(transfer.destination, '_temp');
+    let temp_zip_path = path.resolve(tempDir, '_xdc_temp');
     let real_path = path.resolve(transfer.destination, xnat_server.split('//')[1]);
     
     if (manifest_urls.size == 0) {

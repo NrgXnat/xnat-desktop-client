@@ -229,31 +229,17 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
 }
 
 
-$(document).on('page:load', '#upload-section', function(e){
+$(document).on('page:load', '#upload-section', async function(e){
     console.log('Upload page:load triggered');
     
     _init_variables();
-    
-    
-    auth.get_csrf_token(xnat_server, user_auth)
-        .then(resp => {
-            const regex = /var csrfToken = '(.+?)';/g;
-            const str = resp.data;
-            let m;
-            
-            while ((m = regex.exec(str)) !== null) {
-                // This is necessary to avoid infinite loops with zero-width matches
-                if (m.index === regex.lastIndex) {
-                    regex.lastIndex++;
-                }
 
-                csrfToken = m[1];
-            }
-            
-        })
-        .catch(Helper.errorMessage);
+    csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
+    console.log(csrfToken);
 
-        
+    if (csrfToken === false) {
+        // An error occured while fetching CSRF token
+    }
 
     global_allow_create_subject().then(handle_create_subject_response).catch(handle_error);
     global_require_date().then(handle_global_require_date).catch(handle_error);
@@ -1325,7 +1311,7 @@ function append_subject_row(subject){
 const no_upload_privileges_warning = () => {
     swal({
         title: `Warning: No projects to display`,
-        text: `There are either no projects on this XNAT server \nor you do not have permissions required to access any of them!`,
+        text: `There are no projects on this XNAT server that you have permission to upload to.`,
         icon: "warning",
         dangerMode: true,
         button: 'Cancel'

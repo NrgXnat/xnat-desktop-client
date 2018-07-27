@@ -147,8 +147,7 @@ let auth = {
 
                 resolve(csrfToken);
             }).catch(err => {
-                resolve(false)
-                //reject(err);
+                resolve(false);
             });
         });
     }

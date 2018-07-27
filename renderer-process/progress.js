@@ -702,23 +702,34 @@ $(document).on('click', '.js_cancel_all_transfers', function(){
     let global_pause = settings.get('global_pause')
     settings.set('global_pause', true);
     
-    cancel_all_uploads();
-    cancel_all_downloads();
+    let canceled_uploads = cancel_all_uploads();
+    let canceled_downloads = cancel_all_downloads();
 
     ipc.send('reload_upload_window');
     ipc.send('reload_download_window');
 
     settings.set('global_pause', global_pause);
+
+    if (canceled_uploads + canceled_downloads === 0) {
+        Helper.pnotify('Cancel All Tranfsers', 'No new transfers were canceled.', 'notice');
+    } else {
+        Helper.pnotify('Cancel All Tranfsers - Success', `Downloads canceled: ${canceled_downloads}
+            Uploads canceled: ${canceled_uploads}`);
+    }
+    
 });
 
 function cancel_all_uploads() {
     let my_transfers = store.get('transfers.uploads'); 
 
+    let updated = 0;
+
     my_transfers.forEach(function(transfer) {
         // validate current user/server
         if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
             if (typeof transfer.status == 'number') {
-                if (transfer.series_ids.length) {
+                if (transfer.series_ids.length && transfer.canceled !== true) {
+                    updated++;
                     transfer.canceled = true;
                 }
             }
@@ -727,10 +738,14 @@ function cancel_all_uploads() {
     });
 
     store.set('transfers.uploads', my_transfers);
+
+    return updated;
 }
 
 function cancel_all_downloads() {
     let my_transfers = store.get('transfers.downloads');
+
+    let updated = 0;
 
     my_transfers.forEach(function(transfer) {
 
@@ -747,13 +762,18 @@ function cancel_all_downloads() {
             });
     
             if (manifest_urls.size) {
-                transfer.canceled = true;
+                if (transfer.canceled !== true) {
+                    updated = true;
+                    transfer.canceled = true;
+                }
             }
         }
         
     });
     
     store.set('transfers.downloads', my_transfers);
+
+    return updated;
 }
 
 $(document).on('click', '.js_pause_all', function(){
@@ -763,13 +783,93 @@ $(document).on('click', '.js_pause_all', function(){
     
     settings.set('global_pause', new_pause_status);
     $(this).html(pause_btn_content(new_pause_status));
+
+    let title = new_pause_status ? 'Pause' : 'Resume';
+    let body = new_pause_status ? 'Paused' : 'Resumed';
+
+    Helper.pnotify(`${title} All Tranfsers`, `All Transfers Successfully ${body}.`, 'success', 3000);
     
 });
+
+$(document).on('click', '.js_clear_finished', function(){
+    let removed_uploads = remove_finished_uploads();
+    let removed_download = remove_finished_downloads();
+    
+    Helper.pnotify(`Clear Completed Tranfsers`,  `Downloads Removed: ${removed_download}
+        Uploads Removed: ${removed_uploads}`, 'success');
+
+    _init_upload_progress_table();
+    _init_download_progress_table();
+});
+
+function remove_finished_uploads() {
+    let my_transfers = store.get('transfers.uploads'); 
+
+    let to_delete = [];
+    
+    my_transfers.forEach(function(transfer, index) {
+        // validate current user/server
+        if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
+            if (transfer.status === 'finished') {
+                to_delete.push(index);
+            }
+        }
+    });
+
+    if (to_delete.length) {
+        to_delete = to_delete.reverse()
+
+        for(let i=0; i < to_delete.length; i++) {
+            my_transfers.splice(to_delete[i], 1);
+        }
+    
+        store.set('transfers.uploads', my_transfers);
+    }
+
+    return to_delete.length;
+}
+
+function remove_finished_downloads() {
+    let my_transfers = store.get('transfers.downloads');
+
+    let to_delete = [];
+
+    my_transfers.forEach(function(transfer, index) {
+        // validate current user/server
+        if (transfer.server === xnat_server && transfer.user === user_auth.username) {
+            if (transfer.status === 'finished') {
+                to_delete.push(index);
+            }
+        }
+        
+    });
+
+    if (to_delete.length) {
+        to_delete = to_delete.reverse()
+
+        for(let i=0; i < to_delete.length; i++) {
+            my_transfers.splice(to_delete[i], 1);
+        }
+    
+        store.set('transfers.downloads', my_transfers);
+    }
+
+    return to_delete.length;
+}
 
 function pause_btn_content(status) {
     return status ? 
         '<i class="far fa-play-circle"></i> Resume All' :
         '<i class="far fa-pause-circle"></i> Pause All';
+}
+
+function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status) {
+    $(table_id).bootstrapTable('updateByUniqueId', {
+        id: transfer_id,
+        row: {
+            cancel: new_cancel_status
+        }
+    });
 }
 
 

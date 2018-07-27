@@ -15,6 +15,8 @@ const mizer = require('../mizer');
 
 const archiver = require('archiver');
 
+const tempDir = require('temp-dir');
+
 let summary_all = {};
 let csrfToken;
 
@@ -73,7 +75,7 @@ do_transfer();
 //     ipc.send('custom_error', 'Upload Error', err.message);
 // }
 
-setTimeout(do_transfer, 10000);
+setInterval(do_transfer, 10000);
 
 function console_log(log_this) {
     console.log(log_this);
@@ -232,7 +234,8 @@ function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
     let _timer = performance.now();
 
     return new Promise(function(resolve, reject){
-        let dicom_temp_folder_path = path.join(getUserHome(), 'DICOM_TEMP');
+        //let dicom_temp_folder_path = path.join(getUserHome(), 'DICOM_TEMP');
+        let dicom_temp_folder_path = path.resolve(tempDir, '_xdc_temp');
 
         if (!fs.existsSync(dicom_temp_folder_path)) {
             fs.mkdirSync(dicom_temp_folder_path);
