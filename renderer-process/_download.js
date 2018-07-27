@@ -6,16 +6,21 @@ require('promise.prototype.finally').shim();
 const settings = require('electron-settings');
 const ipc = require('electron').ipcRenderer;
 
+const remote = require('electron').remote;
+const auth = require('../services/auth');
+
 const sha1 = require('sha1');
 const unzipper = require('unzipper');
 const shell = require('electron').shell;
 
 const filesize = require('filesize');
 
+const tempDir = require('temp-dir');
+
+
 if (!settings.has('global_pause')) {
     settings.set('global_pause', false);
 }
-
 
 
 let transfering = false;
@@ -32,6 +37,8 @@ ipc.on('start_download',function(e, item){
 
 do_transfer();
 
+setInterval(do_transfer, 10000);
+
 function do_transfer() {
     if (transfering) {
         return;
@@ -41,20 +48,19 @@ function do_transfer() {
     let my_transfers = store.get('transfers.downloads');
     
     let current_xnat_server = settings.get('xnat_server');
-    let current_user_auth = settings.get('user_auth');
+    let current_username = auth.get_current_user();
 
-    let xnat_server, user_auth, manifest_urls, transfer_id;
+    let user_auth = auth.get_user_auth();
+    let manifest_urls;
+
     my_transfers.forEach(function(transfer) {
         console_log(transfer);
 
         // validate current user/server
         if (transfer.server === current_xnat_server 
-            && transfer.user_auth.username === current_user_auth.username
+            && transfer.user === current_username
             && transfer.canceled !== true
         ) {
-            transfer_id = transfer.id;
-            xnat_server = transfer.server;
-            user_auth = transfer.user_auth;
             manifest_urls = new Map();
     
             transfer.sessions.forEach(function(session){
@@ -70,7 +76,7 @@ function do_transfer() {
     
             try {
                 // start download
-                download_items(xnat_server, user_auth, transfer, manifest_urls, manifest_urls.size, true);
+                download_items(transfer.server, user_auth, transfer, manifest_urls, manifest_urls.size, true);
             } catch(err) {
                 //console_log(err.message)
                 ipc.send('custom_error', 'Download Error', err.message);
@@ -89,7 +95,7 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, manifes
 
     let transfer_id = transfer.id;
 
-    let temp_zip_path = path.resolve(transfer.destination, '_temp');
+    let temp_zip_path = path.resolve(tempDir, '_xdc_temp');
     let real_path = path.resolve(transfer.destination, xnat_server.split('//')[1]);
     
     if (manifest_urls.size == 0) {

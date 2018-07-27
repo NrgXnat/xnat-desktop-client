@@ -3,6 +3,8 @@ const path = require('path');
 const axios = require('axios');
 require('promise.prototype.finally').shim();
 
+const remote = require('electron').remote;
+
 let auth = {
     test: () => {
         console.log('auth.test() radi');
@@ -81,17 +83,72 @@ let auth = {
 
     save_current_user: (xnat_server, user_auth) => {
         settings.set('xnat_server', xnat_server);
+        
+        auth.set_user_auth(user_auth);
+        
+        delete user_auth.password;
         settings.set('user_auth', user_auth);
     },
 
     remove_current_user: () => {
-        settings.delete('user_auth')
-        settings.delete('xnat_server')
+        settings.delete('user_auth');
+        settings.delete('xnat_server');
+        auth.remove_user_auth();
+    },
+
+    set_user_auth: (user_auth) => {
+        remote.getGlobal('user_auth').username = user_auth.username;
+        remote.getGlobal('user_auth').password = user_auth.password;
+    },
+
+    remove_user_auth: () => {
+        remote.getGlobal('user_auth').username = null;
+        remote.getGlobal('user_auth').password = null;
+    },
+
+    get_user_auth: () => {
+        return remote.getGlobal('user_auth');
+
+        // if cached
+        // return {
+        //     username: remote.getGlobal('user_auth').username,
+        //     password: remote.getGlobal('user_auth').password
+        // };
+    },
+
+    get_current_user: () => {
+        return settings.has('user_auth') ? settings.get('user_auth').username : '';
+    },
+
+
+    get_csrf_token_old: (xnat_server, user_auth) => {
+        return axios.get(xnat_server + '/', {
+            auth: user_auth
+        });
     },
 
     get_csrf_token: (xnat_server, user_auth) => {
-        return axios.get(xnat_server + '/', {
-            auth: user_auth
+        return new Promise(function (resolve, reject) {
+            return axios.get(xnat_server + '/', {
+                auth: user_auth
+            }).then(resp => {
+                let csrfTokenRequestData = resp.data;
+                let m, csrfToken = false;
+                const regex = /var csrfToken = '(.+?)';/g;
+
+                while ((m = regex.exec(csrfTokenRequestData)) !== null) {
+                    // This is necessary to avoid infinite loops with zero-width matches
+                    if (m.index === regex.lastIndex) {
+                        regex.lastIndex++;
+                    }
+
+                    csrfToken = m[1];
+                }
+
+                resolve(csrfToken);
+            }).catch(err => {
+                resolve(false);
+            });
         });
     }
 }

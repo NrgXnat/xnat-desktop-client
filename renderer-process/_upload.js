@@ -9,17 +9,20 @@ const ipc = require('electron').ipcRenderer;
 const filesize = require('filesize');
 
 const remote = require('electron').remote;
+const auth = require('../services/auth');
 
 const mizer = require('../mizer');
 
 const archiver = require('archiver');
 
+const tempDir = require('temp-dir');
+
 let summary_all = {};
+let csrfToken;
 
 if (!settings.has('global_pause')) {
     settings.set('global_pause', false);
 }
-
 
 
 
@@ -58,7 +61,6 @@ if (!store.has('transfers.uploads')) {
     store.set('transfers.uploads', []);
 }
 
-
 let transfering = false;
 
 console_log(__filename);
@@ -73,7 +75,7 @@ do_transfer();
 //     ipc.send('custom_error', 'Upload Error', err.message);
 // }
 
-setTimeout(do_transfer, 10000);
+setInterval(do_transfer, 10000);
 
 function console_log(log_this) {
     console.log(log_this);
@@ -97,7 +99,11 @@ function do_transfer() {
     }
     
     let xnat_server = settings.get('xnat_server');
+
+    let current_user_auth = auth.get_user_auth();
     let user_auth = settings.get('user_auth');
+
+    let current_username = auth.get_current_user();
 
 
     let my_transfers = store.get('transfers.uploads'); 
@@ -105,7 +111,7 @@ function do_transfer() {
     my_transfers.forEach(function(transfer) {
         // validate current user/server
         if (transfer.xnat_server === xnat_server 
-            && transfer.user_auth.username === user_auth.username 
+            && transfer.user === current_username 
             && transfer.canceled !== true
         ) {
 
@@ -125,10 +131,12 @@ function do_transfer() {
 }
 
 
-function doUpload(transfer, series_id) {
+async function doUpload(transfer, series_id) {
     let xnat_server = transfer.xnat_server, 
-        user_auth = transfer.user_auth, 
-        csrfToken = transfer.csrfToken;
+        user_auth = auth.get_current_user();
+
+    csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
+    
 
     let url_data = transfer.url_data;
 
@@ -226,7 +234,8 @@ function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
     let _timer = performance.now();
 
     return new Promise(function(resolve, reject){
-        let dicom_temp_folder_path = path.join(getUserHome(), 'DICOM_TEMP');
+        //let dicom_temp_folder_path = path.join(getUserHome(), 'DICOM_TEMP');
+        let dicom_temp_folder_path = path.resolve(tempDir, '_xdc_temp');
 
         if (!fs.existsSync(dicom_temp_folder_path)) {
             fs.mkdirSync(dicom_temp_folder_path);
@@ -325,7 +334,7 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
 
     let url_data = transfer.url_data, 
         xnat_server = transfer.xnat_server, 
-        user_auth = transfer.user_auth, 
+        user_auth = auth.get_user_auth(), 
         csrfToken = transfer.csrfToken, 
         transfer_id = transfer.id;
 

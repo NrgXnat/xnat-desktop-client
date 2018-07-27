@@ -20,11 +20,13 @@ const zlib = require('zlib');
 const unzipper = require('unzipper');
 const sha1 = require('sha1');
 
-
+const app = require('electron').remote.app;
 
 
 let xnat_server, user_auth, default_local_storage;
 let manifest_urls = new Map();
+
+let protocol_data;
 
 
 const NProgress = require('nprogress');
@@ -105,7 +107,7 @@ $(document).on('click', '.js_download_session_files', function(){
     }
 });
 
-function attempt_download(file_path, destination) {
+async function attempt_download(file_path, destination) {
     let data;
     let parser = new xml2js.Parser({
         explicitArray: true,
@@ -120,7 +122,24 @@ function attempt_download(file_path, destination) {
     console.log(parser);  
 
     try {
-        data = fs.readFileSync(file_path);
+        // add if (file_path starts with "xnat(s)://" and put THAT into data)
+        if (file_path.indexOf(app.app_protocol + '://') === 0 || file_path.indexOf(app.app_protocol + 's://') === 0) {
+            
+            let xml_request = axios.get(protocol_data.REST_XML, {
+                auth: {
+                    username: protocol_data.ALIAS,
+                    password: protocol_data.SECRET
+                }
+            });
+            
+            let xml_resp = await xml_request; // wait till the promise resolves (*)
+            console.log('////////////////////////////////////////////////////////////////');
+            console.log(xml_resp);
+            
+            data = xml_resp.data;
+        } else {
+            data = fs.readFileSync(file_path);
+        }
 
     } catch (err) {
         console.log(err.message);
@@ -150,7 +169,7 @@ function attempt_download(file_path, destination) {
                 destination: destination,
                 server: xnat_server,
                 user: user_auth.username,
-                user_auth: user_auth,
+                //user_auth: user_auth,
                 transfer_start: Helper.unix_timestamp(),
                 sessions: []
             }
@@ -216,15 +235,23 @@ function attempt_download(file_path, destination) {
 }
 
 function _init_variables() {
+    console.log(':::::::::::::: >>> HOME _init_variables');
+    console.log(remote.getGlobal('user_auth').password);
+    
+    
     xnat_server = settings.get('xnat_server');
     user_auth = settings.get('user_auth');
     default_local_storage = settings.get('default_local_storage')
 }
 
 ipc.on('launch_download_modal',function(e, data){
+    console.log(':::::::::::::: >>> launch_download_modal');
+
     setTimeout(function(){
         console.log(data);
-        $('#xnt_manifest_text').val(data.URL)
+        protocol_data = data;
+
+        $('#xnt_manifest_text').val(data.URL);
         
         $('#download_modal').modal('show');
     }, 300);

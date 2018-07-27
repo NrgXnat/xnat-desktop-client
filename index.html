@@ -1,24 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8">
+    <meta charset="utf-8">
 
-  <link rel="stylesheet" href="assets/css/global.css">
+    <title>XNAT Desktop Client</title>
+    <!-- <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="node_modules/font-awesome/css/font-awesome.min.css">
+  <link rel="stylesheet" href="assets/css/global.css"> -->
 
 
-  <link rel="import" href="sections/main.html">
-  <link rel="import" href="sections/small.html">
+
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="node_modules/bootstrap-table/dist/bootstrap-table.min.css">
+
+    <link rel="stylesheet" href="node_modules/x-editable/dist/bootstrap3-editable/css/bootstrap-editable.css">
+    <link rel="stylesheet" href="node_modules/nprogress/nprogress.css">
+
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.css">
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.brighttheme.css">
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.buttons.css">
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.history.css">
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.mobile.css">
+    <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.nonblock.css">
+
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/cupertino/jquery-ui.css">
+
+    <link href="assets/css/style.css" rel="stylesheet">
+
+    <link rel="import" href="sections/login.html">
+    <link rel="import" href="sections/settings.html">
+    <link rel="import" href="sections/home.html">
+    <link rel="import" href="sections/upload.html">
+    <link rel="import" href="sections/progress.html">
+    <link rel="import" href="sections/version.html">
 
 </head>
+
 <body>
 
-  <h1>Index page</h1>
+    <header id="header_menu">
+        <a href="#home" class="logo-header"><img src="assets/images/logo-header.png"></a>
+        <div class="menu-holder hidden-by-default hidden">
+            <a href="#" class="menu">MENU</a>
+            <div class="menu-dropdown">
+                <a href="home.html">Home</a>
+                <a href="upload.html">Upload</a>
+                <a href="#" id="trigger_download">Download</a>
+                <a href="https://wiki.xnat.org/xnat-tools/dxm" target="_blank">Documentation</a>
+                <a href="version.html">About</a>
+                <a href="progress.html" class="monitor">Monitor</a>
+                <!-- <a href="projects.html" class="">Projects</a> -->
+            </div>
+        </div>
+        <div class="server-name hidden-by-default hidden" id="menu--server"></div>
+        <a href="sections/settings.html" class="settings"><i class="fas fa-cog"></i></a>
+        <div class="user-holder hidden-by-default hidden">
+            <a href="#" class="user"><span class="name">Welcome <span id="menu--username"></span></span> 
+                <i class="fas fa-user"></i>
+            </a>
+            <div class="user-dropdown">
+                <span class="username" id="menu--username-server"></span>
+                <button class="btn btn-darkblue" id="menu--logout">Logout</button>
+            </div>
+        </div>
+    </header>
 
-  <main class="content js-content"></main>
+    <main class="content js-content"></main>
 
-  <script>
-    require('./assets/js/imports')
-    require('./assets/js/ex-links')
-  </script>
+
+
+
+    <!-- Bootstrap core JavaScript
+  ================================================== -->
+    <script>
+        window.$ = window.jQuery = require('jquery');
+        
+        store = require('store2');
+        Helper = require('./assets/js/helpers');
+    </script>
+    <script src="node_modules/blockui-npm/jquery.blockUI.js"></script>
+
+    <script src="node_modules/pnotify/dist/pnotify.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.animate.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.buttons.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.callbacks.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.confirm.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.desktop.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.history.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.mobile.js"></script>
+    <script src="node_modules/pnotify/dist/pnotify.nonblock.js"></script>
+    
+
+    <script src="node_modules/popper.js/dist/umd/popper.min.js"></script>
+    <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script src="node_modules/bootstrap-table/dist/bootstrap-table.js"></script>
+    <!-- <script src="node_modules/bootstrap-table/dist/extensions/flat-json/bootstrap-table-flat-json.min.js"></script> -->
+
+    <script src="node_modules/bootstrap-table/dist/extensions/filter-control/bootstrap-table-filter-control.js"></script>
+
+    <!-- <script src="node_modules/nprogress/nprogress.js"></script> -->
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+
+    <script src="assets/js/app.js"></script>
+
+    <script>
+        $.blockUI.defaults.message = '<h3><i class="fas fa-spinner fa-spin"></i> <span id="block_message">Processing...</span></h3>';
+        $.blockUI.defaults.css = {
+            padding: '10px 10px 5px',
+            margin: 0,
+            width: '30%',
+            top: '40%',
+            left: '35%',
+            textAlign: 'center',
+            color: '#03509e',
+            border: '3px solid #f4f4f4',
+            borderRadius: '10px',
+            backgroundColor: '#f4f4f4',
+            cursor: 'wait'
+        };
+        $.blockUI.defaults.overlayCSS = {
+            backgroundColor: '#fff',
+            opacity: 0.6,
+            cursor: 'wait'
+        };
+        // z-index for the blocking overlay 
+        $.blockUI.defaults.baseZ = 1000;
+
+        $.blockUI.defaults.fadeIn = 0;
+        $.blockUI.defaults.fadeOut = 0; // jquery throws an error on modal block if this value is > 0
+
+        $.blockUI.defaults.ignoreIfBlocked = true;
+        $.blockUI.defaults.onBlock = function() { 
+            $('body').css('overflow', 'hidden');
+        }
+        $.blockUI.defaults.onUnblock = function() { 
+            $('body').css('overflow', 'visible');
+        }
+    </script>
+
+
+    <script>
+        require('./renderer-process/index3')
+        
+        PNotify.prototype.options.delay = 7000;
+
+        // Helper.pnotify('Title', 'Some message.');
+        // Helper.pnotify('Title', 'Some message.', 'info');
+        // Helper.pnotify('Title', 'Some message.', 'error');
+        // setTimeout(function(){
+        //     Helper.pnotify('Title', 'Some message.', 'notice');
+        // }, 2000)
+        
+        
+        
+    </script>
+
 </body>
+
 </html>

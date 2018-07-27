@@ -301,12 +301,8 @@ function get_global_anon_script(xnat_server, user_auth) {
     
 }
 
-// TODO - doesn't work
+
 function get_project_anon_script(xnat_server, user_auth, project_id) {
-    //return axios.get(xnat_server + '/data/config/projects/'+project_id+'/anon/script?format=json', {
-    // return axios.get(xnat_server + '/data/projects/' + project_id + '/config/anon/projects/' + project_id + '?format=json', {
-    //     auth: user_auth
-    // });
 
     return new Promise(function(resolve, reject) {
         axios.get(xnat_server + '/data/projects/' + project_id + '/config/anon/projects/' + project_id + '?format=json', {
