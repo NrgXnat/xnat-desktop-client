@@ -74,7 +74,7 @@ function initialize () {
 
     devToolsLog('createWindow triggered')
 
-    mainWindow.loadURL(path.join('file://', __dirname, '/index4.html'));
+    mainWindow.loadURL(path.join('file://', __dirname, '/index.html'));
 
     mainWindow.on('ready-to-show', () => {
       //mainWindow.show();
@@ -425,6 +425,9 @@ exports.anonymize = (source, contexts, variables) => {
   return mizer.anonymize(source, contexts, variables);
 };
 
-
+global.user_auth = {
+  username: null,
+  password: null
+};
 
 

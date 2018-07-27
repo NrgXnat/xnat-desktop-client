@@ -308,15 +308,14 @@ async function protocol_request(e, url) {
 
                 // logged in
                 if (settings.has('xnat_server')) {
-                    
                     if (url_data.SERVER !== settings.get('xnat_server') ||
-                        url_data.USERNAME !== settings.get('user_auth').username) { // bad login data
+                        url_data.USERNAME !== auth.get_current_user()) { // not the current user
+                        
                         //logout
-                        auth.remove_current_user();
-
+                        reset_user_data();
                         handleTokenLogin(url_data);
-                    } else { // good login data
-                        url_data.PASSWORD = settings.get('user_auth').password;
+                    } else { // good login data (current user) - no need to logout or store token data
+
                     }
                     
                 } else { // not logged in
@@ -325,22 +324,6 @@ async function protocol_request(e, url) {
 
                 // add ipc send (to home) + plus redirect
                 ipc.send('launch_download_modal', url_data);
-
-                /*
-                swal({
-                    title: 'External URL trigger',
-                    text: `
-                        URL: ${url_object.href}
-                        HOST: ${url_object.host}
-                        SERVER: ${server}
-                        USERNAME: ${real_username}
-                        REST XML: ${server + '/xapi/archive' + url_object.pathname.substr(last_index, url_object.pathname.length - 4) + '/xml'}
-                        ALIAS: ${url_params.a}
-                        SECRET: ${url_params.s}
-                    `,
-                    icon: "success"
-                });
-                */
 
             } catch (err) {
                 var error_obj = parse_error_message(err);
@@ -360,19 +343,22 @@ async function protocol_request(e, url) {
 }
 
 function handleTokenLogin(url_data) {
-    //already confirmed login data so save
-    auth.save_login_data(url_data.SERVER, {
+    let user_auth = {
         username: url_data.USERNAME
-    });
-    auth.save_auth_token(url_data.ALIAS, url_data.SECRET);
-    
+    };
+
     let token_auth = {
         username: url_data.ALIAS,
         password: url_data.SECRET
     };
 
-    // !!!! IMPORTANT
-    auth.save_current_user(url_data.SERVER, token_auth);
+    //already confirmed login data so save (logins array)
+    auth.save_login_data(url_data.SERVER, user_auth);
+    
+    // TODO: REFACTOR
+    settings.set('xnat_server', url_data.SERVER);
+    settings.set('user_auth', user_auth);
+    auth.set_user_auth(token_auth);
     
     Helper.UI.userMenuShow();
     Helper.notify("Server: " + url_data.SERVER + "\nUser: " + url_data.USERNAME, 'XNAT Login Info');

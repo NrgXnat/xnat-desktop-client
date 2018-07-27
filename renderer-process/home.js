@@ -169,7 +169,7 @@ async function attempt_download(file_path, destination) {
                 destination: destination,
                 server: xnat_server,
                 user: user_auth.username,
-                user_auth: user_auth,
+                //user_auth: user_auth,
                 transfer_start: Helper.unix_timestamp(),
                 sessions: []
             }
@@ -235,7 +235,9 @@ async function attempt_download(file_path, destination) {
 }
 
 function _init_variables() {
-    console.log(':::::::::::::: >>> _init_variables');
+    console.log(':::::::::::::: >>> HOME _init_variables');
+    console.log(remote.getGlobal('user_auth').password);
+    
     
     xnat_server = settings.get('xnat_server');
     user_auth = settings.get('user_auth');

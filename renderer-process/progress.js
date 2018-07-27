@@ -10,6 +10,8 @@ const swal = require('sweetalert');
 const archiver = require('archiver');
 const mime = require('mime-types');
 
+const auth = require('../services/auth');
+
 const FileSaver = require('file-saver');
 
 const NProgress = require('nprogress');
@@ -158,7 +160,7 @@ function _init_upload_progress_table() {
         let my_data = [];
     
         uploads.forEach(function(transfer) {
-            if (transfer.xnat_server === xnat_server && transfer.user_auth.username === user_auth.username) {
+            if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
                 let study_label = transfer.session_data.studyId ? transfer.session_data.studyId : transfer.session_data.studyInstanceUid;
                 let item = {
                     id: transfer.id,
@@ -169,7 +171,7 @@ function _init_upload_progress_table() {
                     status: transfer.status,
                     actions: '',
                     server: transfer.xnat_server.split('://')[1],
-                    user: transfer.user_auth.username,
+                    user: transfer.user,
                     canceled: transfer.canceled === true ? true : false
                 };
     
@@ -323,7 +325,7 @@ function _init_download_progress_table() {
     let my_data = [];
 
     downloads.forEach(function(transfer) {
-        if (transfer.server === xnat_server && transfer.user_auth.username === user_auth.username) {
+        if (transfer.server === xnat_server && transfer.user === user_auth.username) {
             console.log('********************** DOWNLOAD transfer **********************');
             console.log(transfer);
             
@@ -714,7 +716,7 @@ function cancel_all_uploads() {
 
     my_transfers.forEach(function(transfer) {
         // validate current user/server
-        if (transfer.xnat_server === xnat_server && transfer.user_auth.username === user_auth.username) {
+        if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
             if (typeof transfer.status == 'number') {
                 if (transfer.series_ids.length) {
                     transfer.canceled = true;
@@ -733,7 +735,7 @@ function cancel_all_downloads() {
     my_transfers.forEach(function(transfer) {
 
         // validate current user/server
-        if (transfer.server === xnat_server && transfer.user_auth.username === user_auth.username) {
+        if (transfer.server === xnat_server && transfer.user === user_auth.username) {
             let manifest_urls = new Map();
     
             transfer.sessions.forEach(function(session){

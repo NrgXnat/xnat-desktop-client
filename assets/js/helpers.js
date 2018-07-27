@@ -1,5 +1,6 @@
 const settings = require('electron-settings');
 const path = require('path');
+const auth = require('./../../services/auth');
 
 const stack_bar_bottom = {"dir1": "up", "dir2": "right", "spacing1": 5, "spacing2": 0};
 
@@ -34,8 +35,8 @@ let Helper = {
         userMenuShow: () =>  {
             let server_name = settings.get('xnat_server').split('//')[1];
             $("#menu--server").html(server_name);
-            $("#menu--username").html(settings.get('user_auth').username);
-            $('#menu--username-server').html(settings.get('user_auth').username + '@' + server_name);
+            $("#menu--username").html(auth.get_current_user());
+            $('#menu--username-server').html(auth.get_current_user() + '@' + server_name);
             
             $('.hidden-by-default').each(function(){
                 $(this).removeClass('hidden');

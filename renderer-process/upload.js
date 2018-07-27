@@ -30,8 +30,11 @@ let global_date_required, date_required, selected_session_data;
 let anon_variables = {};
 
 async function _init_variables() {
+    console.log(':::::::::::::: >>> UPLOAD _init_variables');
+    
     xnat_server = settings.get('xnat_server');
-    user_auth = settings.get('user_auth');
+
+    user_auth = auth.get_user_auth();
 
     session_map = new Map();
     selected_session_id = null;
@@ -246,8 +249,6 @@ $(document).on('page:load', '#upload-section', function(e){
 
                 csrfToken = m[1];
             }
-
-            console.log('csrfToken: ' + csrfToken);
             
         })
         .catch(Helper.errorMessage);
@@ -771,163 +772,6 @@ function get_form_value(field, data) {
     return $(`a[data-${field}].selected`).data(data);
 }
 
-// TODO - test code (removal OK)
-$(document).on('click', '#test-upload', function () {
-    let project_id = $('a[data-project_id].selected').data('project_id');
-    let subject_id = $('a[data-subject_id].selected').data('subject_id');
-    let expt_label = project_id + '__' + subject_id + '___2009';
-
-
-    swal(project_id + "\n" + subject_id + "\nFiles: " + _files.length);
-
-
-    /*
-    
-    let errors = 0;
-    let warnings = 0;
-
-    for (let i = 0; i < _files.length; i++) {
-        let file = _files[i];
-        displayMessage(`---Reading file ${file}:`);
-
-        try {
-            const dicomFile = fs.readFileSync(file);
-            const dicom = dicomParser.parseDicom(dicomFile, { untilTag: '0x00324000' });
-            const studyDescription = dicom.string('x00081030');
-            const studyInstanceUid = dicom.string('x0020000d');
-
-            const seriesDescription = dicom.string('x0008103e');
-            const seriesInstanceUid = dicom.string('x0020000e');
-            const seriesNumber = dicom.string('x00200011');
-
-            // ++++
-            const modality = dicom.string('x00080060');
-            // ++++
-            console.info({
-                studyDescription: studyDescription,
-                studyInstanceUid: studyInstanceUid,
-                modality: modality
-            })
-
-            //console.log(`studyDescription: "${studyDescription}"`, `studyInstanceUid: ${studyInstanceUid}`, `modality: ${modality}`);
-
-            
-        } catch (error) {
-            handleError(`There was an error processing the file ${file}`, error);
-            errors++;
-        }
-    }
-    */
-    
-    if (true) {
-        // **********************************************************
-        // create a file to stream archive data to.
-        let zip_path = path.join('C:', 'Temp', 'dicom', 'file_' + Math.random() + '.zip');
-
-        var output = fs.createWriteStream(zip_path);
-        var archive = archiver('zip', {
-            zlib: { level: 9 } // Sets the compression level.
-        });
-
-        // listen for all archive data to be written
-        // 'close' event is fired only when a file descriptor is involved
-        output.on('close', function () {
-            console.log(archive.pointer() + ' total bytes');
-            console.log('archiver has been finalized and the output file descriptor has closed.');
-
-
-            // let zipReadStream = fs.createReadStream(zip_path);
-            // zipReadStream.on('error', function(err) {
-            //     console.log(err);
-            // })
-            // zipReadStream.on('data', function(data){
-            //     console.log(data)
-            // });
-
-
-            fs.readFile(zip_path, (err, zip_content) => {
-                if (err) throw err;
-                axios({
-                    method: 'post',
-                    url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
-                    auth: user_auth,
-                    onUploadProgress: function (progressEvent) {
-                        // Do whatever you want with the native progress event
-                        console.log('=======', progressEvent, '===========');
-
-                    },
-                    headers: {
-                        'Content-Type': 'application/zip'
-                    },
-                    data: zip_content
-                })
-                    .then(res => {
-                        console.log('---' + res.data + '---', res);
-
-                        let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader' + '&XNAT_CSRF=' + csrfToken;
-                        //let commit_url = xnat_server + `/data/prearchive/projects/${project_id}/${subject_id}/${expt_label}?action=commit&SOURCE=uploader`;
-
-                        axios.post(commit_url, {
-                            auth: user_auth
-                        })
-                        .then(commit_res => {
-                            console.log(commit_res)
-                        })
-                        .catch(err => {
-                            console.log(err)
-                        });
-                        
-                    })
-                    .catch(err => {
-                        console.log(err)
-                    });
-            });
-
-
-        });
-
-        // This event is fired when the data source is drained no matter what was the data source.
-        // It is not part of this library but rather from the NodeJS Stream API.
-        // @see: https://nodejs.org/api/stream.html#stream_event_end
-        output.on('end', function () {
-            console.log('Data has been drained');
-        });
-
-        // good practice to catch warnings (ie stat failures and other non-blocking errors)
-        archive.on('warning', function (err) {
-            if (err.code === 'ENOENT') {
-                // log warning
-            } else {
-                // throw error
-                throw err;
-            }
-        });
-
-        // good practice to catch this error explicitly
-        archive.on('error', function (err) {
-            throw err;
-        });
-
-        // pipe archive data to the file
-        archive.pipe(output);
-
-
-        for (let i = 0; i < _files.length; i++) {
-            archive.file(_files[i], { name: path.basename(_files[i]) });
-        }
-
-
-        // finalize the archive (ie we are done appending files but streams have to finish yet)
-        // 'close', 'end' or 'finish' may be fired right after calling this method so register to them beforehand
-        archive.finalize();
-        // **********************************************************
-
-    }
-
-
-});
-
-
 
 $.queue = {
     _timer: null,
@@ -1369,9 +1213,9 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
         series: series,
         //_files: _files,
         total_size: total_size,
-        user_auth: user_auth,
+        //user_auth: user_auth,
         xnat_server: xnat_server,
-        csrfToken: csrfToken,
+        user: auth.get_current_user(),
         transfer_start: Helper.unix_timestamp(),
         table_rows: table_rows,
         status: 0

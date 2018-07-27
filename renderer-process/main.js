@@ -1,1 +1,0 @@
-console.log('from renderer-process/main.js')
