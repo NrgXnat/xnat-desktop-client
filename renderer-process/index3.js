@@ -1,6 +1,7 @@
 const settings = require('electron-settings')
 const ipc = require('electron').ipcRenderer
 const app = require('electron').remote.app
+const shell = require('electron').shell
 const axios = require('axios');
 const isOnline = require('is-online');
 const auth = require('../services/auth');
@@ -139,9 +140,14 @@ function reset_user_data() {
 // ===============
 $(document).on('click', 'a', function(e){
     const href = $(this).attr('href');
-    if (href.indexOf('http') !== 0 && href !== '#') {
+    if (href.indexOf('http') !== 0) {
+        if (href !== '#') {
+            e.preventDefault();
+            loadPage(href);
+        }
+    } else {
         e.preventDefault();
-        loadPage(href);
+        shell.openExternal(href)
     }
 })
 

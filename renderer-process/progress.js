@@ -35,7 +35,7 @@ function _init_upload_progress_table() {
             {
                 field: 'id',
                 visible: false
-            },
+            },/*
             {
                 field: 'user',
                 title: 'User',
@@ -47,7 +47,7 @@ function _init_upload_progress_table() {
                 title: 'Server',
                 filterControl: 'select',
                 sortable: true
-            }, 
+            }, */
             {
                 field: 'date',
                 title: 'Date',
@@ -214,8 +214,11 @@ function _init_download_progress_table() {
                 field: 'basename',
                 title: 'File',
                 filterControl: 'input',
-                sortable: true
-            }, 
+                sortable: true,
+                formatter: function(value, row, index, field) {
+                    return value.split('?')[0];
+                }
+            }, /*
             // {
             //     field: 'dl_transfer_type',
             //     title: 'Process',
@@ -236,7 +239,7 @@ function _init_download_progress_table() {
                 filterControl: 'select',
                 sortable: true,
                 align: 'center'
-            },
+            },*/
             {
                 field: 'status', //VALUES: queued, finished, xnat_error, in_progress, <float 0-100>
                 title: 'Status',
@@ -269,7 +272,9 @@ function _init_download_progress_table() {
                 escape: false,
                 formatter: function(value, row, index, field) {
                     let content;
+                    let basename = row.basename.split('?')[0];
                     switch(row.status) {
+                        // TODO show info
                         case 'queued':
                             content = `
                                 <button class="btn btn-block btn-warning" 
@@ -284,7 +289,7 @@ function _init_download_progress_table() {
                                 data-toggle="modal" 
                                 data-target="#download-details"
                                 data-id="${row.id}"
-                                data-file="${row.basename}"
+                                data-file="${basename}"
                                 ><i class="fas fa-download"></i> Log</button>
                             `;
                             break;
@@ -305,7 +310,7 @@ function _init_download_progress_table() {
                                     data-toggle="modal" 
                                     data-target="#download-details"
                                     data-id="${row.id}"
-                                    data-file="${row.basename}"
+                                    data-file="${basename}"
                                     ><i class="fas fa-upload"></i> Details</button>
                             `;
                     }
@@ -394,7 +399,8 @@ function _UI() {
         }
       });
 
-    $('.js_pause_all').html(pause_btn_content(settings.get('global_pause')))
+    $('.js_pause_all').html(pause_btn_content(settings.get('global_pause')));
+
 }
 
 
@@ -490,6 +496,7 @@ $(document).on('show.bs.modal', '#upload-success-log', function(e) {
     }, 0);
 
     $log_text.append(`<p><b>Total files</b>: <span>${total_files} (${(total_size / 1024 / 1024).toFixed(2)} MB)</span></p>\n`);
+    $log_text.append(`<p><a href="${my_transfer.session_link}" target="_blank"><b>Session Link</b></a><span style="display: none;">:</span> <a style="display: none;" href="${my_transfer.session_link}">${my_transfer.session_link}</a>`);
 
     let $ul = $(`<ul>`);
     Object.keys(my_transfer.anon_variables).forEach(key => {
@@ -573,6 +580,20 @@ function _init_download_details_table(transfer_id) {
     let my_data = [];
 
     console.log(transfer);
+    let $details = $('#download-details');
+
+    let $buttons = $details.find('.js_pause_download, .js_cancel_download');
+    if (transfer.status === 'finished') {
+        $buttons.hide();
+    } else {
+        $buttons.show();
+
+        let cancel_button_html = transfer.canceled ? '<i class="fas fa-redo"></i> Restart Download' : '<i class="far fa-stop-circle"></i> Cancel Download';
+        $details.find('.js_cancel_download').data({
+            'transfer_id': transfer_id,
+            'new_cancel_status': !transfer.canceled
+        }).html(cancel_button_html);
+    }
     
 
     transfer.sessions.forEach(function(session){
@@ -676,6 +697,20 @@ function _init_upload_details_table(transfer_id) {
     my_data = transfer.table_rows;
 
     console.log(transfer);
+
+    let $details = $('#upload-details');
+    let $buttons = $details.find('.js_pause_upload, .js_cancel_upload');
+    if (transfer.status === 'finished') {
+        $buttons.hide();
+    } else {
+        $buttons.show();
+
+        let cancel_button_html = transfer.canceled ? '<i class="fas fa-redo"></i> Restart Upload' : '<i class="far fa-stop-circle"></i> Cancel Upload';
+        $details.find('.js_cancel_upload').data({
+            'transfer_id': transfer_id,
+            'new_cancel_status': !transfer.canceled
+        }).html(cancel_button_html);
+    }
     
 
     $('#upload-details-table')
@@ -684,7 +719,43 @@ function _init_upload_details_table(transfer_id) {
         .bootstrapTable('resetView');
 }
 
+$(document).on('click', '.js_cancel_download', function(e){
+    let transfer_id = $(this).data('transfer_id');
+    let new_cancel_status = $(this).data('new_cancel_status');
 
+    let downloads = store.get('transfers.downloads');
+    for (let i = 0; i < downloads.length; i++) {
+        if (downloads[i].id === transfer_id) {
+            downloads[i].canceled = new_cancel_status;
+            break;
+        }
+    }
+    store.set('transfers.downloads', downloads);
+
+    let cancel_button_html = new_cancel_status ? '<i class="fas fa-redo"></i> Restart Download' : '<i class="far fa-stop-circle"></i> Cancel Download';
+    $(this).data('new_cancel_status', !new_cancel_status).html(cancel_button_html);
+
+    update_transfer_cancel_status('#download_monitor_table', transfer_id, new_cancel_status);
+});
+
+$(document).on('click', '.js_cancel_upload', function(e){
+    let transfer_id = $(this).data('transfer_id');
+    let new_cancel_status = $(this).data('new_cancel_status');
+
+    let uploads = store.get('transfers.uploads');
+    for (let i = 0; i < uploads.length; i++) {
+        if (uploads[i].id === transfer_id) {
+            uploads[i].canceled = new_cancel_status;
+            break;
+        }
+    }
+    store.set('transfers.uploads', uploads);
+
+    let cancel_button_html = new_cancel_status ? '<i class="fas fa-redo"></i> Restart Upload' : '<i class="far fa-stop-circle"></i> Cancel Upload';
+    $(this).data('new_cancel_status', !new_cancel_status).html(cancel_button_html);
+
+    update_transfer_cancel_status('#upload_monitor_table', transfer_id, new_cancel_status);
+});
 
 $(document).on('click', '[data-save-txt]', function(){
     let text_content = $.trim($(this).closest('.modal-content').find('.modal-body').text());
@@ -702,23 +773,107 @@ $(document).on('click', '.js_cancel_all_transfers', function(){
     let global_pause = settings.get('global_pause')
     settings.set('global_pause', true);
     
-    let canceled_uploads = cancel_all_uploads();
-    let canceled_downloads = cancel_all_downloads();
+    let modified_uploads = update_uploads_cancel_status(true);
+    let modified_downloads = update_downloads_cancel_status(true);
 
     ipc.send('reload_upload_window');
     ipc.send('reload_download_window');
 
     settings.set('global_pause', global_pause);
 
-    if (canceled_uploads + canceled_downloads === 0) {
+    if (modified_uploads + modified_downloads === 0) {
         Helper.pnotify('Cancel All Tranfsers', 'No new transfers were canceled.', 'notice');
     } else {
-        Helper.pnotify('Cancel All Tranfsers - Success', `Downloads canceled: ${canceled_downloads}
-            Uploads canceled: ${canceled_uploads}`);
+        Helper.pnotify('Cancel All Tranfsers - Success', `Downloads canceled: ${modified_downloads}
+            Uploads canceled: ${modified_uploads}`);
     }
+
+    _init_download_progress_table();
+    _init_upload_progress_table();
     
 });
 
+$(document).on('click', '.js_restart_all_transfers', function(){
+    let global_pause = settings.get('global_pause');
+    settings.set('global_pause', true);
+    
+    let modified_uploads = update_uploads_cancel_status(false);
+    let modified_downloads = update_downloads_cancel_status(false);
+
+    ipc.send('reload_upload_window');
+    ipc.send('reload_download_window');
+
+    settings.set('global_pause', global_pause);
+
+    if (modified_uploads + modified_downloads === 0) {
+        Helper.pnotify('Restart All Canceled', 'No transfers were restarted.', 'notice');
+    } else {
+        Helper.pnotify('Restart All Canceled - Success', `Downloads restarted: ${modified_downloads}
+            Uploads canceled: ${modified_uploads}`);
+    }
+
+    _init_download_progress_table();
+    _init_upload_progress_table();
+    
+});
+
+function update_uploads_cancel_status(new_cancel_status) {
+    let my_transfers = store.get('transfers.uploads'); 
+
+    let updated = 0;
+
+    my_transfers.forEach(function (transfer) {
+        // validate current user/server
+        if (transfer.xnat_server === xnat_server &&
+            transfer.user === user_auth.username &&
+            transfer.canceled != new_cancel_status && 
+            typeof transfer.status == 'number' &&
+            transfer.series_ids.length
+        ) {
+            updated++;
+            transfer.canceled = new_cancel_status;
+        }
+    });
+
+    store.set('transfers.uploads', my_transfers);
+
+    return updated;
+}
+
+function update_downloads_cancel_status(new_cancel_status) {
+    let my_transfers = store.get('transfers.downloads');
+
+    let updated = 0;
+
+    my_transfers.forEach(function(transfer) {
+        // validate current user/server
+        if (transfer.server === xnat_server && 
+            transfer.user === user_auth.username && 
+            transfer.canceled != new_cancel_status
+        ) {
+            let left_to_download = 0;
+    
+            transfer.sessions.forEach(function(session){
+                session.files.forEach(function(file){
+                    if (file.status === 0) {
+                        left_to_download++;
+                    }
+                });
+            });
+
+            if (left_to_download) {
+                updated++;
+                transfer.canceled = new_cancel_status;
+            }
+        }
+    });
+    
+    store.set('transfers.downloads', my_transfers);
+
+    return updated;
+}
+
+/*
 function cancel_all_uploads() {
     let my_transfers = store.get('transfers.uploads'); 
 
@@ -726,21 +881,23 @@ function cancel_all_uploads() {
 
     my_transfers.forEach(function(transfer) {
         // validate current user/server
-        if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
-            if (typeof transfer.status == 'number') {
-                if (transfer.series_ids.length && transfer.canceled !== true) {
-                    updated++;
-                    transfer.canceled = true;
-                }
-            }
+        if (transfer.xnat_server === xnat_server && 
+            transfer.user === user_auth.username &&
+            typeof transfer.status == 'number' && 
+            transfer.canceled == false && 
+            transfer.series_ids.length
+        ) {
+            updated++;
+            transfer.canceled = true;    
         }
-        
     });
 
     store.set('transfers.uploads', my_transfers);
 
     return updated;
 }
+
+
 
 function cancel_all_downloads() {
     let my_transfers = store.get('transfers.downloads');
@@ -763,7 +920,7 @@ function cancel_all_downloads() {
     
             if (manifest_urls.size) {
                 if (transfer.canceled !== true) {
-                    updated = true;
+                    updated++;
                     transfer.canceled = true;
                 }
             }
@@ -775,6 +932,7 @@ function cancel_all_downloads() {
 
     return updated;
 }
+*/
 
 $(document).on('click', '.js_pause_all', function(){
     let new_pause_status = !settings.get('global_pause');
@@ -792,17 +950,49 @@ $(document).on('click', '.js_pause_all', function(){
 });
 
 $(document).on('click', '.js_clear_finished', function(){
-    let removed_uploads = remove_finished_uploads();
-    let removed_download = remove_finished_downloads();
+    swal({
+        title: "Which transfers to clear?",
+        text: "Choose which transfers to clear.",
+        icon: "warning",
+        buttons: {
+            all: "Finished and Canceled",
+            finished: "Only Finished",
+            cancel: "Cancel"
+        },
+        closeOnEsc: false,
+        dangerMode: true
+    })
+        .then((toClear) => {
+            console.log(toClear);
+            switch (toClear) {
+                case "all":
+                    remove_transfers(true);
+                    break;
+
+                case "finished":
+                    remove_transfers(false);
+                    break;
+
+                default:
+                    
+            }
+        });
+
+    
+});
+
+function remove_transfers(include_canceled) {
+    let removed_uploads = remove_finished_uploads(include_canceled);
+    let removed_download = remove_finished_downloads(include_canceled);
     
     Helper.pnotify(`Clear Completed Tranfsers`,  `Downloads Removed: ${removed_download}
         Uploads Removed: ${removed_uploads}`, 'success');
 
     _init_upload_progress_table();
     _init_download_progress_table();
-});
+}
 
-function remove_finished_uploads() {
+function remove_finished_uploads(remove_canceled = false) {
     let my_transfers = store.get('transfers.uploads'); 
 
     let to_delete = [];
@@ -810,7 +1000,8 @@ function remove_finished_uploads() {
     my_transfers.forEach(function(transfer, index) {
         // validate current user/server
         if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
-            if (transfer.status === 'finished') {
+            let include_canceled = remove_canceled && transfer.canceled === true;
+            if (transfer.status === 'finished' || include_canceled) {
                 to_delete.push(index);
             }
         }
@@ -829,7 +1020,7 @@ function remove_finished_uploads() {
     return to_delete.length;
 }
 
-function remove_finished_downloads() {
+function remove_finished_downloads(remove_canceled = false) {
     let my_transfers = store.get('transfers.downloads');
 
     let to_delete = [];
@@ -837,7 +1028,8 @@ function remove_finished_downloads() {
     my_transfers.forEach(function(transfer, index) {
         // validate current user/server
         if (transfer.server === xnat_server && transfer.user === user_auth.username) {
-            if (transfer.status === 'finished') {
+            let include_canceled = remove_canceled && transfer.canceled === true;
+            if (transfer.status === 'finished' || include_canceled) {
                 to_delete.push(index);
             }
         }
@@ -867,7 +1059,7 @@ function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status)
     $(table_id).bootstrapTable('updateByUniqueId', {
         id: transfer_id,
         row: {
-            cancel: new_cancel_status
+            canceled: new_cancel_status
         }
     });
 }

@@ -41,9 +41,10 @@ setInterval(do_transfer, 10000);
 
 function do_transfer() {
     if (transfering) {
+        console_log('Download in progress. Aborting download reinit.')
         return;
     }
-    //transfering = true;
+    transfering = true;
 
     let my_transfers = store.get('transfers.downloads');
     
@@ -76,7 +77,7 @@ function do_transfer() {
     
             try {
                 // start download
-                download_items(transfer.server, user_auth, transfer, manifest_urls, manifest_urls.size, true);
+                download_items(transfer.server, user_auth, transfer, manifest_urls, true);
             } catch(err) {
                 //console_log(err.message)
                 ipc.send('custom_error', 'Download Error', err.message);
@@ -85,13 +86,14 @@ function do_transfer() {
         }
         
     });  
+
+    transfering = false;
 }
 
-function download_items(xnat_server, user_auth, transfer, manifest_urls, manifest_urls_count, create_dir_structure = false) {
+function download_items(xnat_server, user_auth, transfer, manifest_urls, create_dir_structure = false) {
     if (settings.get('global_pause')) {
         return;
     }
-
 
     let transfer_id = transfer.id;
 
@@ -118,20 +120,21 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, manifes
     if (create_dir_structure) {
         fx.mkdirSync(temp_zip_path, function (err) {
             if (err) throw err;
-            console.log('--done--');
+            console_log('-- _xdc_temp created--');
         });
     }
 
-    // progress calculation
-    let processed_count = manifest_urls_count - manifest_urls.size;
-    let progress = processed_count / manifest_urls_count;
-    
+    let progress = get_current_progress(transfer_id);
+    console_log('------ PROGRESS --------');
+    console_log(progress);
+    console_log('//////// PROGRESS /////////');
+
     ipc.send('download_progress', {
         table: '#download_monitor_table',
         data: {
             id: transfer_id,
             row: {
-                status: progress * 100
+                status: progress
             }
         }
     });
@@ -208,7 +211,7 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, manifes
 
         update_modal_ui(transfer_id, uri);
 
-        download_items(xnat_server, user_auth, transfer, manifest_urls, manifest_urls_count);
+        download_items(xnat_server, user_auth, transfer, manifest_urls);
     })
     .catch(err => {
         console.log(Helper.errorMessage(err));
@@ -248,6 +251,28 @@ function mark_downloaded(transfer_id, uri) {
     });
 
     store.set('transfers.downloads', my_transfers);
+}
+
+function get_current_progress(transfer_id) {
+    let my_transfers = store.get('transfers.downloads');
+
+    let progress_counter = 0, file_counter = 0;
+
+    my_transfers.forEach(function(transfer) {
+        if (transfer.id === transfer_id) {
+            
+            transfer.sessions.forEach(function(session){
+                session.files.forEach(function(file){
+                    if (file.status === 1) {
+                        progress_counter++;
+                    }
+                });
+                file_counter += session.files.length;
+            });
+        }
+    });
+
+    return progress_counter / file_counter * 100;
 }
 
 function transfer_error_message(transfer_id, msg) {

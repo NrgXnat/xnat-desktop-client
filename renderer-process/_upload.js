@@ -424,6 +424,27 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
 
                 if (left_to_upload === 0) {
                     console_log(`**** COMMITING UPLOAD ${transfer_id} :: ${series_id}`);
+                    console_log(`***** res.statusText  = '${res.statusText }' ******`);
+                    console_log(`***** res.data = '${res.data}' ******`);
+                    console_log('***** res.status = ' + res.status + ' ****** (' + (typeof res.status) + ')');
+
+                    let session_link;
+                    let reference_str = '/data/prearchive/projects/';
+                    if (res.status === 200 && res.data.indexOf(reference_str) >= 0) {
+                        let str_start = res.data.indexOf(reference_str) + reference_str.length;
+                        let session_str = res.data.substr(str_start);
+
+                        let res_arr = session_str.split('/');
+                        // let res_project_id = res_arr[0];
+                        // let res_timestamp = res_arr[1];
+                        // let res_session_label = res_arr[2];
+                        
+                        session_link = xnat_server + '/app/action/LoadImageData/project/' + res_arr[0] + '/timestamp/' + res_arr[1] + '/folder/' + res_arr[2];
+                        update_transfer_data(transfer.id, 'session_link', session_link);
+                    } else if (res.status === 301) {
+                        session_link = `${xnat_server}/data/archive/projects/${project_id}/subjects/${subject_id}/experiments/${expt_label}?format=html`
+                        update_transfer_data(transfer.id, 'session_link', session_link);
+                    }
 
                     let commit_timer = performance.now();
                     let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader' + '&XNAT_CSRF=' + csrfToken;

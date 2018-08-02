@@ -171,7 +171,8 @@ async function attempt_download(file_path, destination) {
                 user: user_auth.username,
                 //user_auth: user_auth,
                 transfer_start: Helper.unix_timestamp(),
-                sessions: []
+                sessions: [],
+                canceled: false
             }
 
             console.log('===================================== my_sets =====================================');

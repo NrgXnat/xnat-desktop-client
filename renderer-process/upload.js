@@ -1204,7 +1204,8 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
         user: auth.get_current_user(),
         transfer_start: Helper.unix_timestamp(),
         table_rows: table_rows,
-        status: 0
+        status: 0,
+        canceled: false
     };
 
     let my_transfers = store.get('transfers.uploads');
