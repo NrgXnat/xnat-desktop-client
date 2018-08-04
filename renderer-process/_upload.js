@@ -447,7 +447,7 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
                     }
 
                     let commit_timer = performance.now();
-                    let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader' + '&XNAT_CSRF=' + csrfToken;
+                    let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
                 
                     axios.post(commit_url, {
                         auth: user_auth
