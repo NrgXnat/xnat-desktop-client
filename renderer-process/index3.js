@@ -299,16 +299,20 @@ async function protocol_request(e, url) {
                     throw_new_error('Connection Error', Helper.errorMessage(err));
                 }
 
+                console.log(url_object);
+
                 let url_data = {
                     title: 'External URL trigger',
                     URL: url_object.href,
                     HOST: url_object.host,
                     SERVER: server,
                     USERNAME: real_username,
-                    REST_XML: server + '/xapi/archive' + url_object.pathname.substr(last_index, url_object.pathname.length - 4) + '/xml',
+                    REST_XML: server + '/xapi/archive' + url_object.pathname.substr(last_index, url_object.pathname.length - last_index - 4) + '/xml',
                     ALIAS: url_params.a,
                     SECRET: url_params.s
                 };
+
+                console.log(url_data);
 
                 
 

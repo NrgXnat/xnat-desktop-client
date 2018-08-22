@@ -59,6 +59,13 @@ function _init_upload_progress_table() {
                 field: 'session_label',
                 title: 'Study',
                 filterControl: 'input',
+                sortable: true,
+                visible: false
+            },
+            {
+                field: 'experiment_label',
+                title: 'Session Label',
+                filterControl: 'input',
                 sortable: true
             }, 
             // {
@@ -166,6 +173,7 @@ function _init_upload_progress_table() {
                     id: transfer.id,
                     date: transfer.session_data.studyDate,
                     session_label: study_label,
+                    experiment_label: transfer.anon_variables.experiment_label,
                     //transfer_type: 'Upload',
                     transfer_date: transfer.transfer_start,
                     status: transfer.status,
@@ -548,8 +556,16 @@ function _init_download_details_table(transfer_id) {
                 field: 'file_count',
                 title: 'File Count',
                 sortable: true,
-                align: 'center'
+                align: 'center',
+                visible: false
             }, 
+            {
+                field: 'scan_count',
+                title: 'Scans',
+                sortable: true,
+                align: 'right',
+                class: 'right-aligned'
+            },
             {
                 field: 'progress',
                 title: 'Download progress',
@@ -602,13 +618,20 @@ function _init_download_details_table(transfer_id) {
             session: session.name,
             session_number: '-',
             file_count: session.files.length,
+            scan_count: 0,
             progress: 0
         };
+        let uri_counter = [];
         session.files.forEach(function(file){
+            uri_counter.push(file.uri.split('/resources/')[0]);
+
             if (file.status === 1) {
                 single_session.progress++;
             }
         });
+
+        single_session.scan_count = ($.unique(uri_counter)).length;
+
         my_data.push(single_session);
     });
 
@@ -644,14 +667,7 @@ function _init_upload_details_table(transfer_id) {
                 field: 'description',
                 title: 'Series Description',
                 sortable: true
-            }, 
-            {
-                field: 'count',
-                title: 'File Count',
-                sortable: true,
-                align: 'right',
-                class: 'right-aligned'
-            }, 
+            },  
             {
                 field: 'progress',
                 title: 'Upload Progress',

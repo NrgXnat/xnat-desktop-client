@@ -198,7 +198,7 @@ $(document).on('submit', '#userForm', function(e) {
     e.preventDefault();
     $('#login_feedback').addClass('hidden')
 
-    let xnat_server = $('#server').val();
+    let xnat_server = $('#server').val().replace(/\/$/, '');
     let user_auth = {
         username: $('#username').val(),
         password: $('#password').val()

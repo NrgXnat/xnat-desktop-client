@@ -63,7 +63,7 @@ $(document).on('submit', '#loginForm', function(e){
 
     $('#login_feedback').addClass('hidden');
 
-    let my_xnat_server = $('#server').val();
+    let my_xnat_server = $('#server').val().replace(/\/$/, '');
 
     let my_user_auth = {
         username: $('#username').val(),

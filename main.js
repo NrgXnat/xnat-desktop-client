@@ -1,3 +1,5 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const path = require('path')
 
 fix_java_path();
@@ -9,8 +11,16 @@ const electron = require('electron')
 
 const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
 
+log('-------- process.env.NODE_TLS_REJECT_UNAUTHORIZED --------');
+log(process.env);
 
 
+app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+  // On certificate error we disable default behaviour (stop loading the page)
+  // and we then say "it is all fine - true" to the callback
+  event.preventDefault();
+  callback(true);
+});
 
 //SET ENV
 //process.env.NODE_ENV = 'production';

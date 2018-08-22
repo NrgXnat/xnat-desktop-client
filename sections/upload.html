@@ -155,9 +155,13 @@
                                             <br>(Session)</b>:</label>
                                     <div class="input-group col-sm-10">
                                         <input class="form-control" type="text" name="experiment_label" id="experiment_label" value="" required>
+                                        <div class="invalid-feedback">
+                                            Allowed characters: alphanumeric, dash(-) and underscore(_)
+                                        </div>
                                         <small>This field has been auto-populated. If you specify a session label that matches a
                                             session already in this project, XNAT will attempt to merge selected scans into
                                             the existing session</small>
+                                            
                                     </div>
                                 </div>
                                 <div id="additional-upload-fields"></div>
@@ -243,6 +247,9 @@
                                         </div>
                                         <div class="col">
                                             <input type="text" name="subject_label" class="form-control" required>
+                                            <div class="invalid-feedback">
+                                                Allowed characters: alphanumeric, dash(-) and underscore(_)
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -253,6 +260,9 @@
                                         </div>
                                         <div class="col">
                                             <input type="text" name="group" class="form-control">
+                                            <div class="invalid-feedback">
+                                                Allowed characters: alphanumeric, dash(-) and underscore(_)
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

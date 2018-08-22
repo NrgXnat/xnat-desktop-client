@@ -120,6 +120,7 @@ function _init_img_sessions_table(table_rows) {
 
     $img_session_tbl.bootstrapTable({
         height: table_rows.length > 6 ? 300 : 0,
+        sortName: 'series_number',
         columns: [
             {
                 field: 'select',
@@ -136,6 +137,11 @@ function _init_img_sessions_table(table_rows) {
             {
                 field: 'description',
                 title: 'Series Description',
+                sortable: true
+            },
+            {
+                field: 'modality',
+                title: 'Modality',
                 sortable: true
             }, 
             {
@@ -333,10 +339,16 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
     promise_subjects(project_id)
         .then(res => {
             let subjects = res.data.ResultSet.Result;
-            console.log(subjects.length);
-            console.log(res.data.ResultSet.Result[0]);
 
-            subjects.forEach(append_subject_row)
+            let sorted_subjects = subjects.sort(function SortByTitle(a, b){
+                var aLabel = a.label.toLowerCase();
+                var bLabel = b.label.toLowerCase(); 
+                return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
+            });
+
+            console.log(sorted_subjects)
+
+            sorted_subjects.forEach(append_subject_row);
 
         })
         .catch(handle_error);
@@ -495,6 +507,11 @@ $(document).on('click', '.js_upload', function() {
     let $required_inputs = $('#anon_variables').find(':input[required]');
     let required_input_error = false;
 
+    if ($('#experiment_label').hasClass('is-invalid')) {
+        $('#experiment_label').focus();
+        return false;
+    }
+
     $required_inputs.each(function(){
         if ($(this).val().trim() === '') {
             $(this).addClass('is-invalid');
@@ -512,8 +529,8 @@ $(document).on('click', '.js_upload', function() {
 
         let url_data = {
             expt_label: expt_label_val ? expt_label_val : get_default_expt_label(),
-            project_id: $('a[data-project_id].selected').data('project_id'),
-            subject_id: $('a[data-subject_id].selected').data('subject_id')
+            project_id: get_form_value('project_id', 'project_id'),
+            subject_id: get_form_value('subject_id', 'subject_label')
         };
 
         let my_anon_variables = {};
@@ -580,9 +597,26 @@ $(document).on('show.bs.modal', '#new-subject', function(e) {
 
 });
 
+// new subject for field validation
+$(document).on('input propertychange change', '#form_new_subject input[type=text], #experiment_label', function(e){
+    let $el = $(this);
+    let val = $el.val();
+
+    // allow only alphanumeric, space, dash, underscore
+    if (val.match(/[^a-z0-9_-]/i) !== null) {
+        $el.addClass('is-invalid');
+    } else {
+        $el.removeClass('is-invalid');
+    }
+});
+
 $(document).on('submit', '#form_new_subject', function(e) {
     e.preventDefault();
     let $form = $(e.target);
+
+    if ($form.find('.is-invalid').length) {
+        return false;
+    }
 
     if ($form.data('processing') !== true) {
         $form.data('processing', true);
@@ -593,12 +627,17 @@ $(document).on('submit', '#form_new_subject', function(e) {
         
     
         let project_id, subject_label, group;
+        
+        let $subject_label = $form.find('input[name=subject_label]');
+        let $group = $form.find('input[name=group]');
     
-        project_id = $('#form_new_subject input[name=project_id]').val();
-        subject_label = $.trim($('#form_new_subject input[name=subject_label]').val());
-        subject_label = subject_label.replace(/\s+/g, '_');
+        project_id = $form.find('input[name=project_id]').val();
 
-        group = $.trim($('#form_new_subject input[name=group]').val());
+        subject_label = $subject_label.val();
+        //subject_label = subject_label.replace(/\s+/g, '_');
+
+        group = $group.val();
+        //group = group.replace(/\s+/g, '_');
 
         promise_create_project_subject(project_id, subject_label, group)
             .then(res => {
@@ -694,9 +733,12 @@ function select_session_id(new_session_id) {
         total_size += scan_size;
         total_files += scan.length;
         
+        console.log(scan)
+
         // use scan description from the last one (or any other from the batch)
         let scans_description = scan[0].seriesDescription;
-        let series_number = scan[0].seriesNumber
+        let series_number = scan[0].seriesNumber;
+        let modality = scan[0].modality;
         console.log(scan);
         
         table_rows.push({
@@ -704,6 +746,7 @@ function select_session_id(new_session_id) {
             series_number: series_number,
             series_id: key,
             description: scans_description,
+            modality: modality,
             count: scan.length,
             size: scan_size
         })
@@ -742,7 +785,7 @@ function select_session_id(new_session_id) {
         .append(`Accession: ${selected_session.accession}<br>`)
         .append('Description: ' + selected_session.studyDescription + '<br>')
         .append('Date: ' + studyDate + '<br>')
-        .append(`Modality: ${selected_session.modality}<br>`)
+        //.append(`Modality: ${selected_session.modality}<br>`)
         .append(`${selected_session.scans.size} scans in ${total_files} files (${(total_size / 1024 / 1024).toFixed(2)}MB)`);
 
 
@@ -902,6 +945,9 @@ function dicomParse(_files, root_path) {
                                     time: study_time,
                                     scans: new Map()
                                 });
+                                // TODO fix global modality
+                                //session_map.get(studyInstanceUid).modality = [];
+                                //session_map.get(studyInstanceUid).modality.push(modality);
                             }
                 
                             if (!session_map.get(studyInstanceUid).scans.has(seriesInstanceUid)) {
@@ -921,7 +967,8 @@ function dicomParse(_files, root_path) {
                                     filesize: file_size,
                                     seriesDescription: seriesDescription,
                                     seriesInstanceUid: seriesInstanceUid,
-                                    seriesNumber: seriesNumber
+                                    seriesNumber: seriesNumber,
+                                    modality: modality
                                 }); 
                             }
                                        
@@ -1096,7 +1143,7 @@ function dicomParse(_files, root_path) {
 }
 
 function get_default_expt_label() {
-    let subject_id = $('a[data-subject_id].selected').data('subject_label');
+    let subject_id = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
     let modality = session_map.get(selected_session_id).modality;
     
     let expt_label = subject_id.split(' ').join('_') + '_' + modality + '_';
@@ -1139,7 +1186,7 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
     // -----------------------------------------------------
 
     selected_session = session_map.get(session_id);
-    table_rows = [];
+    let table_rows = [];
     selected_session.scans.forEach(function(scan, key) {
         console.log(key);
         
@@ -1165,7 +1212,7 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
                 size: scan_size
             })
         } else {
-            console.log('Preskacemo ' + key);
+            console.log('Skipping ' + key);
         }       
         
     });
