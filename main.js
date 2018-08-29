@@ -12,14 +12,6 @@ const auth = require('./services/auth');
 const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
 
 
-global.user_auth = {
-  username: null,
-  password: null
-};
-
-global.allow_insecure_ssl = false;
-
-
 
 //SET ENV
 //process.env.NODE_ENV = 'production';
@@ -56,12 +48,12 @@ app.setAsDefaultProtocolClient(app.app_protocol + 's');
 app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
   // On certificate error we disable default behaviour (stop loading the page)
   // and we then say "it is all fine - true" to the callback
-  log('***** CERT ERROR ******', auth.allow_insecure_ssl(), global.allow_insecure_ssl);
+  log('***** CERT ERROR ******', auth.allow_insecure_ssl(), app.allow_insecure_ssl);
   
   if (app.allow_insecure_ssl || auth.allow_insecure_ssl()) {
-    //event.preventDefault();
-    //callback(true);
-    mainWindow.webContents.send('custom_error', 'Certificate OK', 'All OK');
+    event.preventDefault();
+    callback(true);
+    //mainWindow.webContents.send('custom_error', 'Certificate OK', 'All OK');
   } else {
     let msg = `The specified server "${url}" supports HTTPS, but uses an unverified SSL certificate.
 
@@ -353,6 +345,10 @@ ipcMain.on('start_download', (e, item) =>{
   downloadWindow.webContents.send('start_download', item);
 })
 
+ipcMain.on('print_global', () => {
+  log(global.user_auth);
+})
+
 
 
 function fix_java_path() {
@@ -466,3 +462,9 @@ exports.anonymize = (source, contexts, variables) => {
   return mizer.anonymize(source, contexts, variables);
 };
 
+
+
+global.user_auth = {
+  username: null,
+  password: null
+};

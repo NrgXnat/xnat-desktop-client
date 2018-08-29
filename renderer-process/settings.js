@@ -42,6 +42,7 @@ function render_users() {
         table_rows.push({
             server: el.server,
             user: el.username,
+            allow_insecure_ssl: el.allow_insecure_ssl ? true : false,
             action: ''
         });
     });
@@ -73,14 +74,26 @@ function render_users() {
                 filterControl: 'input'
             }, 
             {
+                field: 'allow_insecure_ssl',
+                title: 'Allow insecure SSL',
+                sortable: true,
+                width: '170px',
+                align: 'center',
+                filterControl: 'select',
+                formatter: function(value, row, index, field) {
+                    return value ? `<i class="fas fa-check"></i>` : '';
+                }
+            }, 
+            {
                 field: 'action',
                 title: 'Actions',
+                width: '140px',
                 class: 'action',
                 formatter: function(value, row, index, field) {
                     return `
                     <a href="#" 
                         class="edit"
-                        data-username="${row.user}" data-server="${row.server}"
+                        data-username="${row.user}" data-server="${row.server}" data-allow_insecure_ssl="${row.allow_insecure_ssl}"
                         data-toggle="modal" data-target="#user_connection"
                         ><i class="fas fa-edit"></i></a>
                 
@@ -218,12 +231,19 @@ $(document).on('submit', '#userForm', function(e) {
 });
 
 $(document).on('show.bs.modal', '#user_connection', function(e) {
-    //get data-id attribute of the clicked element
-    var username = $(e.relatedTarget).data('username');
-    $(e.currentTarget).find('input[name="username"]').val(username);
+    let $button = $(e.relatedTarget);
+    let $form = $(e.currentTarget);
     
-    var server = $(e.relatedTarget).data('server');
-    $(e.currentTarget).find('input[name="server"]').val(server);
+    //get data-id attribute of the clicked element
+    let username = $button.data('username');
+    $form.find('input[name="username"]').val(username);
+
+    let server = $button.data('server');
+    $form.find('input[name="server"]').val(server);
+
+    let allow_insecure_ssl = $button.data('allow_insecure_ssl');
+    $form.find('input[name="allow_insecure_ssl"]').prop('checked', allow_insecure_ssl);
+
 
     let focused_field = server && username ? '#password' : '#server';
     setTimeout(function(){

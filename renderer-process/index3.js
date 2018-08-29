@@ -123,6 +123,8 @@ function logout() {
 
 function clearLoginSession() {
     auth.remove_current_user();
+    auth.set_allow_insecure_ssl(false);
+    
     Helper.UI.userMenuHide();
     loadPage('login.html');
 }
@@ -131,6 +133,7 @@ function clearLoginSession() {
 function reset_user_data() {
     console.log('****************** reset_user_data **************');
     auth.remove_current_user();
+    auth.set_allow_insecure_ssl(false);
 
     //store.set('transfers.downloads', []);
     //store.set('transfers.uploads', []);

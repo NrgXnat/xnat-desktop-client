@@ -22,7 +22,7 @@ $(document).on('page:load', '#login-section', function(e){
         logins.forEach(function(el) {
             var server_name = el.server.split('//');
             $('#known-users').append(`
-                <button data-username="${el.username}" data-server="${el.server}" 
+                <button data-username="${el.username}" data-server="${el.server}" data-allow_insecure_ssl="${el.allow_insecure_ssl ? 'true' : 'false'}"
                     class="connect btn btn-known-user btn-lg btn-block" type="button" 
                     data-toggle="modal" data-target="#login">
                     <span class="login_logo"><img src="${api.get_logo_path(el.server)}" /></span>
@@ -37,12 +37,18 @@ $(document).on('page:load', '#login-section', function(e){
 });
 
 $(document).on('show.bs.modal', '#login', function(e) {
+    let $button = $(e.relatedTarget);
+    let $form = $(e.currentTarget);
+    
     //get data-id attribute of the clicked element
-    let username = $(e.relatedTarget).data('username');
-    $(e.currentTarget).find('input[name="username"]').val(username);
+    let username = $button.data('username');
+    $form.find('input[name="username"]').val(username);
 
-    let server = $(e.relatedTarget).data('server');
-    $(e.currentTarget).find('input[name="server"]').val(server);
+    let server = $button.data('server');
+    $form.find('input[name="server"]').val(server);
+
+    let allow_insecure_ssl = $button.data('allow_insecure_ssl');
+    $form.find('input[name="allow_insecure_ssl"]').prop('checked', allow_insecure_ssl);
 
     let focused_field = server && username ? '#password' : '#server';
     setTimeout(function(){

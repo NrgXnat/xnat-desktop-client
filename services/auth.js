@@ -3,6 +3,9 @@ const path = require('path');
 const axios = require('axios');
 require('promise.prototype.finally').shim();
 
+
+const ipc = require('electron').ipcRenderer
+
 const {URL} = require('url');
 const remote = require('electron').remote;
 
@@ -102,19 +105,21 @@ let auth = {
     set_user_auth: (user_auth) => {
         remote.getGlobal('user_auth').username = user_auth.username;
         remote.getGlobal('user_auth').password = user_auth.password;
+        ipc.send('print_global')
     },
 
     remove_user_auth: () => {
         remote.getGlobal('user_auth').username = null;
         remote.getGlobal('user_auth').password = null;
+        ipc.send('print_global')
     },
 
     set_allow_insecure_ssl: (new_status) => {
-        remote.getGlobal('allow_insecure_ssl') = new_status;
+        settings.set('allow_insecure_ssl', new_status);
     },
 
     allow_insecure_ssl: () => {
-        return remote.getGlobal('allow_insecure_ssl');
+        return settings.has('allow_insecure_ssl') ? settings.get('allow_insecure_ssl') : false;
     },
 
     is_insecure_ssl_allowed: (url) => {

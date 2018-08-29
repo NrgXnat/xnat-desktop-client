@@ -430,44 +430,46 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
 
                     let session_link;
                     let reference_str = '/data/prearchive/projects/';
-                    if (res.status === 200 && res.data.indexOf(reference_str) >= 0) {
-                        let str_start = res.data.indexOf(reference_str) + reference_str.length;
-                        let session_str = res.data.substr(str_start);
-
-                        let res_arr = session_str.split('/');
-                        // let res_project_id = res_arr[0];
-                        // let res_timestamp = res_arr[1];
-                        // let res_session_label = res_arr[2];
-                        
-                        session_link = xnat_server + '/app/action/LoadImageData/project/' + res_arr[0] + '/timestamp/' + res_arr[1] + '/folder/' + res_arr[2];
-                        update_transfer_data(transfer.id, 'session_link', session_link);
-                    } else if (res.status === 301) {
-                        session_link = `${xnat_server}/data/archive/projects/${project_id}/subjects/${subject_id}/experiments/${expt_label}?format=html`
-                        update_transfer_data(transfer.id, 'session_link', session_link);
-                    }
-
+                    
+                    
                     let commit_timer = performance.now();
                     let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
                 
+                    console_log('-------- XCOMMIT_url ----------')
+                    console_log(`++++ Session commited. URL: ${commit_url}`);
                     axios.post(commit_url, {
                         auth: user_auth
                     })
                     .then(commit_res => {
+                        console_log('-------- XCOMMIT_SUCCESS ----------')
                         console_log(commit_res);
-                        console.log(`++++ Session commited. URL: ${commit_url}`);
-                        
-                        // let msg = `Session commited.`;
+
+                        if (commit_res.data.indexOf(reference_str) >= 0) {
+                            console_log(`+++ SESSION PREARCHIVED +++`);
+                            let str_start = commit_res.data.indexOf(reference_str) + reference_str.length;
+                            let session_str = commit_res.data.substr(str_start);
     
-                        // dies with 301 // go to summary page
-                        // SHOW SUCCESS MESSAGE
+                            let res_arr = session_str.split('/');
+                            // let res_project_id = res_arr[0];
+                            // let res_timestamp = res_arr[1];
+                            // let res_session_label = res_arr[2];
+                            
+                            session_link = xnat_server + '/app/action/LoadImageData/project/' + res_arr[0] + '/timestamp/' + res_arr[1] + '/folder/' + res_arr[2];
+                            update_transfer_data(transfer.id, 'session_link', session_link);
+                        }
+                        
                     })
                     .catch(err => {
-                        console_log(err);
+                        console_log('-------- XCOMMIT_ERR ----------')
+                        console_log(err.response.data);
 
                         if (err.response.status != 301) {
                             update_transfer_summary(transfer.id, 'commit_errors', `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`);
                         } else {
-                            console_log(`+++ COMMITING UPLOAD ${transfer_id} :: ${series_id}`);
+                            console_log(`+++ SESSION ARCHIVED +++`);
+                            
+                            session_link = `${xnat_server}/data/archive/projects/${project_id}/subjects/${subject_id}/experiments/${expt_label}?format=html`
+                            update_transfer_data(transfer.id, 'session_link', session_link);
                         }
                     })
                     .finally(() => {
