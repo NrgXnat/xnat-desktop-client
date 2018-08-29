@@ -3,12 +3,7 @@ const path = require('path');
 const axios = require('axios');
 require('promise.prototype.finally').shim();
 
-const https = require('https');
-console.log(https.globalAgent.options)
-https.globalAgent.options.rejectUnauthorized = false;
-
-
-
+const {URL} = require('url');
 const remote = require('electron').remote;
 
 let auth = {
@@ -16,33 +11,7 @@ let auth = {
         console.log('auth.test() radi');
     },
 
-    login_promise_node: (xnat_server, user_auth) => {
-
-        return new Promise(function (resolve, reject) {
-            https.get(xnat_server + '/data/auth', {
-                auth: user_auth
-            }, (res) => {
-                console.log('statusCode:', res.statusCode);
-                console.log('headers:', res.headers);
-    
-                res.on('data', (d) => {
-                    process.stdout.write(d);
-                });
-
-                resolve('All OK');
-    
-            }).on('error', (e) => {
-                console.error(e);
-                reject('Error X');
-            });
-    
-            // At request level
-            //let agent = new https.Agent({rejectUnauthorized: false});
-        });
-        
-    },
-
-    login_promise: (xnat_server, user_auth) => {       
+    login_promise: (xnat_server, user_auth) => {
         return axios.get(xnat_server + '/data/auth', {
             auth: user_auth
         })
@@ -52,7 +21,7 @@ let auth = {
         return axios.get(xnat_server + '/app/action/LogoutUser');
     },
 
-    save_login_data: (xnat_server, user_auth, old_user_data = false) => {
+    save_login_data: (xnat_server, user_auth, allow_insecure_ssl = false, old_user_data = false) => {
         let logins = settings.get('logins');
 
         // old user data is only used for testing connection
@@ -80,7 +49,8 @@ let auth = {
         if (found == -1) { // not found
             logins.unshift({
                 server: xnat_server,
-                username: user_auth.username
+                username: user_auth.username,
+                allow_insecure_ssl: allow_insecure_ssl
             });
         } else if (found == 0) { // found first
             // do nothing
@@ -89,7 +59,8 @@ let auth = {
             // add at the beginning
             logins.unshift({ 
                 server: xnat_server,
-                username: user_auth.username
+                username: user_auth.username,
+                allow_insecure_ssl: allow_insecure_ssl
             });
         }
 
@@ -136,6 +107,30 @@ let auth = {
     remove_user_auth: () => {
         remote.getGlobal('user_auth').username = null;
         remote.getGlobal('user_auth').password = null;
+    },
+
+    set_allow_insecure_ssl: (new_status) => {
+        remote.getGlobal('allow_insecure_ssl') = new_status;
+    },
+
+    allow_insecure_ssl: () => {
+        return remote.getGlobal('allow_insecure_ssl');
+    },
+
+    is_insecure_ssl_allowed: (url) => {
+        let url_object = new URL(url);
+        let xnat_server_origin = url_object.origin;
+
+        let logins = settings.get('logins');
+        let allow_insecure_ssl = false;
+
+        for (let i = 0; i < logins.length; i++) {
+            if (logins[i].server.indexOf(xnat_server_origin) == 0 && logins[i].allow_insecure_ssl) {
+                allow_insecure_ssl = true;
+            }
+        }
+        
+        return allow_insecure_ssl;
     },
 
     get_user_auth: () => {

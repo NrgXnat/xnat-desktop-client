@@ -4,11 +4,15 @@ const ipc = require('electron').ipcRenderer
 const auth = require('../services/auth');
 const api = require('../services/api');
 
+const app = require('electron').remote.app
+
 let xnat_server = '';
 let user_auth = {
     username: '',
     password: ''
 }
+
+let allow_insecure_ssl;
 
 
 $(document).on('page:load', '#login-section', function(e){
@@ -69,6 +73,10 @@ $(document).on('submit', '#loginForm', function(e){
         username: $('#username').val(),
         password: $('#password').val()
     }
+
+    allow_insecure_ssl = $('#allow_insecure_ssl').is(':checked');
+
+    app.allow_insecure_ssl = allow_insecure_ssl;
     
     if (my_xnat_server.indexOf('http://') === 0 || my_xnat_server.indexOf('https://') === 0) {
         login_attempt(my_xnat_server, my_user_auth);
@@ -139,6 +147,9 @@ function login_attempt(xnat_server, user_auth) {
 }
 
 function handleLoginFail(error) {
+    // reset temporary update
+    app.allow_insecure_ssl = false;
+
     let msg = Helper.errorMessage(error);
         
     Helper.unblockModal('#login');
@@ -148,8 +159,13 @@ function handleLoginFail(error) {
 }
 
 function handleLoginSuccess(xnat_server, user_auth) {
-    auth.save_login_data(xnat_server, user_auth);
+    // reset temporary update
+    app.allow_insecure_ssl = false;
+    
+    auth.save_login_data(xnat_server, user_auth, allow_insecure_ssl);
     auth.save_current_user(xnat_server, user_auth);
+    
+    auth.set_allow_insecure_ssl(allow_insecure_ssl);
 
     api.set_logo_path(xnat_server, user_auth);
     

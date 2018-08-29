@@ -293,9 +293,15 @@ async function protocol_request(e, url) {
                 
                 let real_username;
                 try {
+                    app.allow_insecure_ssl = auth.is_insecure_ssl_allowed(server);
+
                     let resp = await auth.login_promise(server, my_user_auth); // wait till the promise resolves (*);
                     real_username = resp.data.split("'")[1];
+                    
+                    app.allow_insecure_ssl = false;
                 } catch (err) {
+                    app.allow_insecure_ssl = false;
+                    
                     throw_new_error('Connection Error', Helper.errorMessage(err));
                 }
 
@@ -362,13 +368,17 @@ function handleTokenLogin(url_data) {
         password: url_data.SECRET
     };
 
+    let allow_insecure_ssl = auth.is_insecure_ssl_allowed(url_data.SERVER);
+
     //already confirmed login data so save (logins array)
-    auth.save_login_data(url_data.SERVER, user_auth);
+    auth.save_login_data(url_data.SERVER, user_auth, allow_insecure_ssl);
     
     // TODO: REFACTOR
     settings.set('xnat_server', url_data.SERVER);
     settings.set('user_auth', user_auth);
     auth.set_user_auth(token_auth);
+
+    auth.set_allow_insecure_ssl(allow_insecure_ssl);
     
     Helper.UI.userMenuShow();
     Helper.notify("Server: " + url_data.SERVER + "\nUser: " + url_data.USERNAME, 'XNAT Login Info');

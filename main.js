@@ -1,5 +1,3 @@
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
 const path = require('path')
 
 fix_java_path();
@@ -9,21 +7,23 @@ const glob = require('glob')
 const electron = require('electron')
 //const autoUpdater = require('./auto-updater')
 
+const auth = require('./services/auth');
+
 const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
 
-log('-------- process.env.NODE_TLS_REJECT_UNAUTHORIZED --------');
-log(process.env);
+
+global.user_auth = {
+  username: null,
+  password: null
+};
+
+global.allow_insecure_ssl = false;
 
 
-app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
-  // On certificate error we disable default behaviour (stop loading the page)
-  // and we then say "it is all fine - true" to the callback
-  event.preventDefault();
-  callback(true);
-});
 
 //SET ENV
 //process.env.NODE_ENV = 'production';
+log(process.env);
 
 
 const debug = /--debug/.test(process.argv[2])
@@ -43,10 +43,33 @@ var uploadWindow = null;
 
 app.isReallyReady = false;
 app.app_protocol = 'xnat';
+
+// used only to test login requests
+app.allow_insecure_ssl = false;
+
 let startupExternalUrl;
 
 app.setAsDefaultProtocolClient(app.app_protocol);
 app.setAsDefaultProtocolClient(app.app_protocol + 's');
+
+
+app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+  // On certificate error we disable default behaviour (stop loading the page)
+  // and we then say "it is all fine - true" to the callback
+  log('***** CERT ERROR ******', auth.allow_insecure_ssl(), global.allow_insecure_ssl);
+  
+  if (app.allow_insecure_ssl || auth.allow_insecure_ssl()) {
+    //event.preventDefault();
+    //callback(true);
+    mainWindow.webContents.send('custom_error', 'Certificate OK', 'All OK');
+  } else {
+    let msg = `The specified server "${url}" supports HTTPS, but uses an unverified SSL certificate.
+
+    You can allow this by checking the "Allow unverified certificates" option on the server definition. Note that this may expose sensitive information if the connection has been compromised. Please check with your system administrator if you're unsure how to proceed.`
+    mainWindow.webContents.send('custom_error', 'Certificate Error', msg);
+  }
+
+});
 
 
 function initialize () {
@@ -374,6 +397,12 @@ function fix_java_path() {
 
       jvm_file = glob.sync(jre_search_path)[0];
       java_jre_path = path.resolve(jvm_file, '..');
+
+      // attempt
+      let libjvm_symlink = '/usr/local/lib/libjvm.so';
+      if (!isSymlink.sync(libjvm_symlink)) {
+        fs.symlinkSync(java_jre_path + '/libjvm.so', libjvm_symlink);
+      }
     }
 
     /*
@@ -386,7 +415,7 @@ function fix_java_path() {
 
     java_jre_path = '"' + path_separator + java_jre_path.replace(/\\/g, '\\\\') + '"';
 
-    if (process.platform !== 'darwin') {
+    if (process.platform === 'win32') {
       fs.writeFileSync(java_config_path, java_jre_path, (err) => {
         if (err) throw err;
         console.log('The file has been saved!');
@@ -436,10 +465,4 @@ exports.getVariables = (variables) => {
 exports.anonymize = (source, contexts, variables) => {
   return mizer.anonymize(source, contexts, variables);
 };
-
-global.user_auth = {
-  username: null,
-  password: null
-};
-
 

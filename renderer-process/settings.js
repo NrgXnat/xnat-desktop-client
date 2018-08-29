@@ -6,10 +6,12 @@ const swal = require('sweetalert');
 
 const remote = require('electron').remote;
 
+const app = require('electron').remote.app
+
 const auth = require('../services/auth');
 
 //const blockUI = require('blockui-npm');
-
+let allow_insecure_ssl;
 
 $(document).on('page:load', '#settings-section', function(e){
     console.log('Ucitano................')
@@ -117,7 +119,7 @@ function test_login(xnat_server, user_auth, old_user_data) {
 }
 
 function handleLoginSuccess(xnat_server, user_auth, old_user_data) {
-    auth.save_login_data(xnat_server, user_auth, old_user_data);
+    auth.save_login_data(xnat_server, user_auth, allow_insecure_ssl, old_user_data);
 
     $('#user_connection').modal('hide')
     render_users();
@@ -151,6 +153,8 @@ function login_attempt(xnat_server, user_auth, old_user_data) {
         .finally(() => {
             Helper.unblockModal('#user_connection');
             $('#password').val('').focus();
+
+            app.allow_insecure_ssl = false;
         });
 }
 
@@ -207,6 +211,8 @@ $(document).on('submit', '#userForm', function(e) {
         server: $('#old_server').val(),
         username: $('#old_username').val()
     }
+    allow_insecure_ssl = $('#allow_insecure_ssl').is(':checked');
+    app.allow_insecure_ssl = allow_insecure_ssl;
 
     test_login(xnat_server, user_auth, old_user_data)
 });
