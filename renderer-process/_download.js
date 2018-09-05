@@ -104,14 +104,21 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
         // all done
         transfer_finished(transfer_id);
 
-        ipc.send('download_progress', {
+        // ipc.send('download_progress', {
+        //     table: '#download_monitor_table',
+        //     data: {
+        //         id: transfer_id,
+        //         row: {
+        //             status: 'finished'
+        //         }
+        //     }
+        // });
+
+        ipc.send('progress_cell', {
             table: '#download_monitor_table',
-            data: {
-                id: transfer_id,
-                row: {
-                    status: 'finished'
-                }
-            }
+            id: transfer_id,
+            field: "status",
+            value: "finished"
         });
 
         return;
@@ -129,14 +136,21 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
     console_log(progress);
     console_log('//////// PROGRESS /////////');
 
-    ipc.send('download_progress', {
+    // ipc.send('download_progress', {
+    //     table: '#download_monitor_table',
+    //     data: {
+    //         id: transfer_id,
+    //         row: {
+    //             status: progress
+    //         }
+    //     }
+    // });
+
+    ipc.send('progress_cell', {
         table: '#download_monitor_table',
-        data: {
-            id: transfer_id,
-            row: {
-                status: progress
-            }
-        }
+        id: transfer_id,
+        field: "status",
+        value: progress
     });
     
 
@@ -218,14 +232,21 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
 
         transfer_error_message(transfer_id, Helper.errorMessage(err))
 
-        ipc.send('download_progress', {
+        // ipc.send('download_progress', {
+        //     table: '#download_monitor_table',
+        //     data: {
+        //         id: transfer_id,
+        //         row: {
+        //             status: 'xnat_error'
+        //         }
+        //     }
+        // });
+
+        ipc.send('progress_cell', {
             table: '#download_monitor_table',
-            data: {
-                id: transfer_id,
-                row: {
-                    status: 'xnat_error'
-                }
-            }
+            id: transfer_id,
+            field: "status",
+            value: "xnat_error"
         });
 
     })
@@ -338,14 +359,21 @@ function update_modal_ui(transfer_id, uri) {
 
     console.log(session_id, current_progress);
 
-    ipc.send('download_progress', {
+    // ipc.send('download_progress', {
+    //     table: '#download-details-table',
+    //     data: {
+    //         id: session_id,
+    //         row: {
+    //             progress: current_progress
+    //         }
+    //     }
+    // });
+
+    ipc.send('progress_cell', {
         table: '#download-details-table',
-        data: {
-            id: session_id,
-            row: {
-                progress: current_progress
-            }
-        }
+        id: session_id,
+        field: "progress",
+        value: current_progress
     });
 
 }

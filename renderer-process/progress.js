@@ -1080,6 +1080,18 @@ function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status)
     });
 }
 
+ipc.on('progress_cell',function(e, item){
+    console.log(item);
+    if ($(item.table).length) {
+        $(item.table).bootstrapTable("updateCellById", {
+            id: item.id,
+            field: item.field,
+            value: item.value
+        });
+    }
+
+});
+
 
 
 
