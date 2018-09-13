@@ -483,6 +483,11 @@ $(document).on('show.bs.modal', '#upload-details', function(e) {
     _init_upload_details_table(id)
 });
 
+// fix modal from modal body overflow problem
+$(document).on('shown.bs.modal', '#upload-details', function(e) {
+    $('body').addClass('modal-open')
+});
+
 $(document).on('show.bs.modal', '#upload-success-log', function(e) {
     let my_transfer = get_transfer($(e.relatedTarget).data('id'));
 
@@ -491,6 +496,11 @@ $(document).on('show.bs.modal', '#upload-success-log', function(e) {
 
     let $log_text = $(e.currentTarget).find('.log-text');
     $log_text.html('');
+
+    $('#upload-details-link').data({
+        id: my_transfer.id,
+        session_label: my_transfer.url_data.expt_label
+    });
 
 
     Object.keys(my_transfer.session_data).forEach(key => {
@@ -1083,14 +1093,26 @@ function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status)
 ipc.on('progress_cell',function(e, item){
     console.log(item);
     if ($(item.table).length) {
+        let $progress_bar = $(item.table).find(`[data-uniqueid="${item.id}"] .progress-bar`);
+
+        let reinit = typeof item.value != 'number' || $progress_bar.length == 0;
+        
         $(item.table).bootstrapTable("updateCellById", {
             id: item.id,
             field: item.field,
-            value: item.value
+            value: item.value,
+            reinit: reinit
         });
+
+        if (!reinit) {
+            let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
+            $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
+        }
+        
     }
 
 });
+
 
 
 

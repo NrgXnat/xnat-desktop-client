@@ -75,12 +75,14 @@ function do_transfer() {
             console_log(manifest_urls);
             console_log('===================');
     
-            try {
-                // start download
-                download_items(transfer.server, user_auth, transfer, manifest_urls, true);
-            } catch(err) {
-                //console_log(err.message)
-                ipc.send('custom_error', 'Download Error', err.message);
+            if (manifest_urls.size) {
+                try {
+                    // start download
+                    download_items(transfer.server, user_auth, transfer, manifest_urls, true);
+                } catch(err) {
+                    //console_log(err.message)
+                    ipc.send('custom_error', 'Download Error', err.message);
+                }
             }
             
         }
@@ -228,7 +230,21 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
         download_items(xnat_server, user_auth, transfer, manifest_urls);
     })
     .catch(err => {
+        console.log(err);
         console.log(Helper.errorMessage(err));
+
+        
+        // =============================================
+        // SOFT FAIL
+        // =============================================
+        // delete item from url map
+        manifest_urls.delete(dir);
+        mark_error_file(transfer_id, uri);
+
+        update_modal_ui(transfer_id, uri);
+
+        download_items(xnat_server, user_auth, transfer, manifest_urls);
+        // =============================================
 
         transfer_error_message(transfer_id, Helper.errorMessage(err))
 
@@ -323,10 +339,8 @@ function transfer_finished(transfer_id) {
     store.set('transfers.downloads', my_transfers);
 }
 
-function update_modal_ui(transfer_id, uri) {
-    let my_transfers = store.get('transfers.downloads');
-
-    let transfer_index, session_index;
+function get_transfer_and_session_index(my_transfers, transfer_id, uri) {
+    let transfer_index, session_index, file_index;
     for (let i = 0; i < my_transfers.length; i++) {
         if (my_transfers[i].id === transfer_id) {
             transfer_index = i;
@@ -335,6 +349,7 @@ function update_modal_ui(transfer_id, uri) {
                 for (let k = 0; k < my_transfers[i].sessions[j].files.length; k++) {
                     if (my_transfers[i].sessions[j].files[k].uri === uri) {
                         session_index = j;
+                        file_index = k;
                         break;
                     }
                 }
@@ -350,12 +365,37 @@ function update_modal_ui(transfer_id, uri) {
         }
     }
 
+    return {
+        transfer: transfer_index,
+        session: session_index,
+        file: file_index
+    }
+}
+
+function mark_error_file(transfer_id, uri) {
+    let my_transfers = store.get('transfers.downloads');
+
+    let index = get_transfer_and_session_index(my_transfers, transfer_id, uri);
+
+    my_transfers[index.transfer].sessions[index.session].files[index.file].status = -1;
+    my_transfers[index.transfer].sessions[index.session].files[index.file].error = 'Error Message';
+
+    store.set('transfers.downloads', my_transfers);
+
+}
+
+function update_modal_ui(transfer_id, uri) {
+    let my_transfers = store.get('transfers.downloads');
+
+    let index = get_transfer_and_session_index(my_transfers, transfer_id, uri);
+
     let current_progress = 0;
-    my_transfers[transfer_index].sessions[session_index].files.forEach(function(file){
-        current_progress += file.status;
+    my_transfers[index.transfer].sessions[index.session].files.forEach(function(file){
+        let increment = file.status === 0 ? 0 : 1;
+        current_progress += increment;
     });
 
-    let session_id = my_transfers[transfer_index].sessions[session_index].id;
+    let session_id = my_transfers[index.transfer].sessions[index.session].id;
 
     console.log(session_id, current_progress);
 
