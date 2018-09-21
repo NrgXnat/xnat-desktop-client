@@ -105,7 +105,7 @@
     },
     "mac": {
       "icon": "assets/icons/mac/icon.icns",
-      "target": "dmg",
+      "target": "zip",
       "extraResources": [
         {
           "from": "build_resources/jre/mac/jre1.8.0_162.jre",
