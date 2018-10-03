@@ -41,6 +41,7 @@
 
     <header id="header_menu">
         <a href="#home" class="logo-header"><img src="assets/images/logo-header.png"></a>
+        <span id="version-number" style="position: relative; float: left; padding: 8px 0; color: #fff"></span>
         <div class="menu-holder hidden-by-default hidden">
             <a href="#" class="menu">MENU</a>
             <div class="menu-dropdown">
@@ -153,7 +154,8 @@
         //     Helper.pnotify('Title', 'Some message.', 'notice');
         // }, 2000)
         
-        
+        var app = require('electron').remote.app
+        $('#version-number').text('v' + app.getVersion())
         
     </script>
 

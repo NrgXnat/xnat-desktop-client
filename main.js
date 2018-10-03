@@ -11,6 +11,47 @@ const auth = require('./services/auth');
 
 const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
 
+const electron_log = require('electron-log');
+const {autoUpdater} = require("electron-updater");
+
+//-------------------------------------------------------------------
+// Logging
+//
+// THIS SECTION IS NOT REQUIRED
+//
+// This logging setup is not required for auto-updates to work,
+// but it sure makes debugging easier :)
+//-------------------------------------------------------------------
+autoUpdater.logger = electron_log;
+autoUpdater.logger.transports.file.level = 'info';
+electron_log.info('App starting...');
+
+
+autoUpdater.on('checking-for-update', () => {
+  devToolsLog('Checking for update...');
+})
+autoUpdater.on('update-available', (info) => {
+  devToolsLog('Update available.');
+})
+autoUpdater.on('update-not-available', (info) => {
+  devToolsLog('Update not available.');
+})
+autoUpdater.on('error', (err) => {
+  devToolsLog('Error in auto-updater. ' + err);
+})
+autoUpdater.on('download-progress', (progressObj) => {
+  let log_message = "Download speed: " + progressObj.bytesPerSecond;
+  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+  log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+  devToolsLog(log_message);
+})
+autoUpdater.on('update-downloaded', (info) => {
+  devToolsLog('Update downloaded');
+});
+
+
+
+
 
 
 //SET ENV
@@ -173,6 +214,8 @@ function initialize () {
   }
 
   app.on('ready', () => {
+    autoUpdater.checkForUpdatesAndNotify();
+
     devToolsLog('app.ready triggered')
     createWindow();
     devToolsLog('app.ready DONE')
@@ -222,6 +265,7 @@ function initialize () {
 
 // prints given message both in the terminal console and in the DevTools
 function devToolsLog(s) {
+  electron_log.info(s);
   console.log(s)
   if (mainWindow && mainWindow.webContents) {
     mainWindow.webContents.executeJavaScript(`console.log("${s}")`)
