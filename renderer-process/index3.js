@@ -228,6 +228,31 @@ ipc.on('log', (e, ...args) => {
     console.log('                                   ');
     console.log('============= IPC LOG =============');
     console.log(...args);
+});
+
+ipc.on('update-available', (e, ...args) => {
+    //let str = args.join(' | ')
+    //Helper.pnotify('Naslov', 'Poruka: ' + str);
+    console_log('update-available')
+    // path:"XNAT-Desktop-App-Setup-1.0.31.exe"
+    // releaseDate:"2018-10-03T15:31:07.365Z"
+    // sha512:"Njq6TxgaQslo1deUQ4J3B4aGjGxv35ov7UGYKYoEQ8fzeNXlLTwEJF19s4R2psdAY3NarHdNRKcJ56HCv8M6/A=="
+    // version:"1.0.31"
+    console.log(args);
+})
+
+ipc.on('update-error', (e, ...args) => {
+    //let str = args.join(' | ')
+    //Helper.pnotify('Naslov', 'Poruka: ' + str);
+    console_log('update-error')
+    console.log(args);
+})
+
+ipc.on('update-downloaded', (e, ...args) => {
+    //let str = args.join(' | ')
+    //Helper.pnotify('Naslov', 'Poruka: ' + str);
+    console_log('update-downloaded')
+    console.log(args);
 })
 
 ipc.on('handle_protocol_request', protocol_request)

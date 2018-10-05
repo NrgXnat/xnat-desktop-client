@@ -32,11 +32,13 @@ autoUpdater.on('checking-for-update', () => {
 })
 autoUpdater.on('update-available', (info) => {
   devToolsLog('Update available.');
+  delayed_notification('update-available', info);
 })
 autoUpdater.on('update-not-available', (info) => {
   devToolsLog('Update not available.');
 })
 autoUpdater.on('error', (err) => {
+  delayed_notification('update-error', err);
   devToolsLog('Error in auto-updater. ' + err);
 })
 autoUpdater.on('download-progress', (progressObj) => {
@@ -46,6 +48,7 @@ autoUpdater.on('download-progress', (progressObj) => {
   devToolsLog(log_message);
 })
 autoUpdater.on('update-downloaded', (info) => {
+  delayed_notification('update-downloaded', info);
   devToolsLog('Update downloaded');
 });
 
@@ -331,6 +334,16 @@ function log(...args) {
   } else {
     ipcMain.once('appIsReady', () => {
       mainWindow.send('log', ...args);
+    })
+  }
+}
+
+function delayed_notification(type, ...args) {
+  if (app.isReallyReady) {
+    mainWindow.send(type, ...args)
+  } else {
+    ipcMain.once('appIsReady', () => {
+      mainWindow.send(type, ...args);
     })
   }
 }

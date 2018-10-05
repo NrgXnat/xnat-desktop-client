@@ -1,6 +1,6 @@
 {
   "name": "XNAT-Desktop-App",
-  "version": "1.0.30",
+  "version": "1.0.32",
   "description": "XNAT_desktop_application",
   "main": "main.js",
   "scripts": {
@@ -137,7 +137,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "http://phpcrew.net/releases/"
+        "url": "http://127.0.0.1:8887/releases/"
       }
     ],
     "fileAssociations": [
