@@ -378,6 +378,10 @@ bootstrap-table@^1.12.1:
   version "1.12.1"
   resolved "https://registry.yarnpkg.com/bootstrap-table/-/bootstrap-table-1.12.1.tgz#c9c3973067842a937c05d8639ecccb02abd6ba65"
 
+bootstrap4-tagsinput-douglasanpa@^4.1.2:
+  version "4.1.2"
+  resolved "https://registry.yarnpkg.com/bootstrap4-tagsinput-douglasanpa/-/bootstrap4-tagsinput-douglasanpa-4.1.2.tgz#01a0451ceef6e17a2b90ad88a07cdc407f64b06f"
+
 bootstrap@^4.0.0:
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/bootstrap/-/bootstrap-4.0.0.tgz#ceb03842c145fcc1b9b4e15da2a05656ba68469a"

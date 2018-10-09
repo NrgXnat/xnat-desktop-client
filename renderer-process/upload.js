@@ -26,6 +26,7 @@ NProgress.configure({
 let csrfToken = '';
 let xnat_server, user_auth, session_map, selected_session_id, defined_project_exp_labels, resseting_functions;
 let global_date_required, date_required, selected_session_data;
+let pet_tracers = [];
 
 let anon_variables = {};
 
@@ -370,6 +371,24 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
             console.log('-----------------------------------------------------------');
         })
         .catch(handle_error);
+
+    // set pet tracers
+    promise_project_pet_tracers(project_id)
+        .then(res => {
+            if (res.status === 200) {
+                pet_tracers = res.data.split(/\s+/);
+            } else {
+                promise_server_pet_tracers()
+                    .then(res1 => {
+                        if (res1.status === 200 && $.trim(res1.data).length > 0) {
+                            pet_tracers = res1.data.split(/\s+/);
+                        } else {
+                            pet_tracers = settings.get('default_pet_tracers').split(",");
+                        }
+                    })
+            }
+            
+        });
 });
 
 $(document).on('click', 'a[data-subject_id]', function(e){
@@ -610,6 +629,10 @@ $(document).on('input propertychange change', '#form_new_subject input[type=text
     }
 });
 
+$(document).on('change', '#pet_tracer', function(e) {
+    $('#experiment_label').val(get_default_expt_label($(this).val()));
+})
+
 $(document).on('submit', '#form_new_subject', function(e) {
     e.preventDefault();
     let $form = $(e.target);
@@ -681,7 +704,6 @@ $(document).on('hidden.bs.modal', '#session-selection', function(e) {
 
 function select_session_id(new_session_id) {
     selected_session_id = new_session_id;
-
     
     console.log('******************************************');
     console.log('anon_variables', anon_variables);
@@ -726,6 +748,8 @@ function select_session_id(new_session_id) {
         total_size = 0,
         table_rows = [];
 
+    let all_modalities = [];
+
     selected_session.scans.forEach(function(scan, key) {
         let scan_size = scan.reduce(function(prevVal, elem) {
             return prevVal + elem.filesize;
@@ -749,13 +773,18 @@ function select_session_id(new_session_id) {
             modality: modality,
             count: scan.length,
             size: scan_size
-        })
+        });
+
+        if (all_modalities.indexOf(modality) === -1) {
+            all_modalities.push(modality);
+        }
         
     });
 
     console.log('-----------------------------------------------------------');
     console.log(table_rows);
-    console.log('-----------------------------------------------------------');
+    console.log('---------------------*** --------------------------------------');
+    console.log(all_modalities);
 
     _init_img_sessions_table(table_rows);
 
@@ -780,14 +809,46 @@ function select_session_id(new_session_id) {
         ) : 
         'N/A';
     
+    let modality_str = (all_modalities.length > 1 ? "Modalities: " : "Modality: ") + all_modalities.join(', ');
+
     $('#session_info').html('')
         .append(`Study ID: ${selected_session.studyId}<br>`)
         .append(`Accession: ${selected_session.accession}<br>`)
         .append('Description: ' + selected_session.studyDescription + '<br>')
         .append('Date: ' + studyDate + '<br>')
+        .append(modality_str  + '<br>')
         //.append(`Modality: ${selected_session.modality}<br>`)
         .append(`${selected_session.scans.size} scans in ${total_files} files (${(total_size / 1024 / 1024).toFixed(2)}MB)`);
 
+    // search for PET scan
+    $('#pet_tracer_container').remove();
+    
+    let lc_modalities = all_modalities.map(function(el) {
+        return el.toLowerCase();
+    });
+    if (lc_modalities.indexOf('pt') !== -1) {
+        
+        let pet_tracer_options = pet_tracers.map(function(el) {
+            return `<option value="${el}">${el}</option>`;
+        });
+
+        pet_tracer_options.unshift('<option value="">Select modality</option>')
+
+        let $pet_tracer_container = $(`
+            <div class="form-group row" id="pet_tracer_container">
+                <label class="col-sm-2 col-form-label">
+                    <b>Set tracer</b>:
+                </label>
+                <div class="input-group col-sm-10">
+                    <select class="form-control" id="pet_tracer" required>
+                        ${pet_tracer_options.join("\n")}
+                    </select>
+                </div>
+            </div>
+        `);
+        $pet_tracer_container.insertBefore('#experiment_label_container');
+
+    }
 
     $('.tab-pane.active .js_next').removeClass('disabled');
 }
@@ -1142,9 +1203,15 @@ function dicomParse(_files, root_path) {
 
 }
 
-function get_default_expt_label() {
+function get_default_expt_label(tracer) {
+    let modality;
     let subject_id = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
-    let modality = session_map.get(selected_session_id).modality;
+
+    if (typeof tracer === "undefined") {
+        modality = session_map.get(selected_session_id).modality;
+    } else {
+        modality = tracer;
+    }
     
     let expt_label = subject_id.split(' ').join('_') + '_' + modality + '_';
     for (let i = 1; i < 10000; i++) {
@@ -1468,6 +1535,18 @@ function promise_project_experiments(project_id) {
     return axios.get(xnat_server + '/data/projects/'+project_id+'/experiments?columns==ID,label,xnat:experimentData/meta/status', {
         auth: user_auth
     });
+}
+
+function promise_project_pet_tracers(project_id) {
+    return axios.get(xnat_server + `/data/projects/${project_id}/config/tracers/tracers?contents=true&accept-not-found=true`, {
+        auth: user_auth
+    })
+}
+
+function promise_server_pet_tracers() {
+    return axios.get(xnat_server + `/data/config/tracers/tracers?contents=true&accept-not-found=true`, {
+        auth: user_auth
+    })
 }
 
 function promise_subjects(project_id) {
