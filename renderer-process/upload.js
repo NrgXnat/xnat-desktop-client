@@ -49,6 +49,16 @@ async function _init_variables() {
     resseting_functions = new Map();
 
     // browse files
+    resseting_functions.set(0, function(){
+        $('.tab-pane.active .js_next').addClass('disabled');
+
+        $('#upload-project a.selected').removeClass('selected');
+    
+        $('#subject-session').html('');
+        $('.project-subjects-holder').hide();
+    });
+
+    // browse files
     resseting_functions.set(1, function(){
         console.log('resseting values in tab 1');
         
@@ -331,10 +341,29 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
         }
 
         let contexts = mizer.getScriptContexts(scripts);
-
         anon_variables = mizer.getReferencedVariables(contexts);
-    }).catch(function(error) {
-        console.log("Failed!", error);
+        
+    }).catch(error => {
+        let title, message;
+        if (error.type == 'axios') {
+            title = "XNAT Connection Error";
+            message = `${Helper.errorMessage(error.data)} \n\n${error.data.request.responseURL}`;
+        } else {
+            title = "Anonymization script error - Please contact XNAT Admin";
+            message = error.message;
+        }
+
+        swal({
+            title: title,
+            text: message,
+            icon: "error",
+            button: "Okay",
+        })
+            .then(() => {
+                resseting_functions.get(0)();
+            });
+
+        
     });
 
     promise_subjects(project_id)
