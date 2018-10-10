@@ -268,7 +268,9 @@ function _init_download_progress_table() {
                     } else {
                         if (value == 'xnat_error') {
                             return `<i class="fas fa-exclamation-triangle"></i> XNAT Error`
-                        } else {
+                        } else if (value == 'xnat_error') {
+                            return `<i class="fas fa-exclamation-triangle"></i> Complete With Errors`
+                        }else {
                             return value;
                         }
                     } 
@@ -292,6 +294,7 @@ function _init_download_progress_table() {
                             break;
 
                         case 'finished':
+                        case 'complete_with_errors':
                             content = `
                             <button class="btn btn-block btn-success" 
                                 data-toggle="modal" 
@@ -301,7 +304,7 @@ function _init_download_progress_table() {
                                 ><i class="fas fa-download"></i> Log</button>
                             `;
                             break;
-                            
+
                         case 'xnat_error':
                             content = `
                             <button class="btn btn-block btn-danger" 
@@ -354,22 +357,44 @@ function _init_download_progress_table() {
                 actions: ''
             };
 
+            let x_total = 0, x_success = 0, x_error = 0, x_done = 0;
+            transfer.sessions.forEach(function(session){
+                session.files.forEach(function(file){
+                    x_total++;
+    
+                    if (file.status != 0) {
+                        x_done++;
+                    }
+                    if (file.status === 1) {
+                        x_success++;
+                    }
+                    if (file.status === -1) {
+                        x_error++;
+                    }
+                })
+            });
+    
+            console.log('--------mile------------' , x_total, x_success, x_error, x_done, '---------------------');
+
             if (item.status === 0) {
-                let total_files = 0, done_files = 0;
+                let total_files = 0, done_files = 0, error_files = 0;
                 transfer.sessions.forEach(function(session){
                     session.files.forEach(function(file){
                         total_files++;
         
-                        if (file.status === 1) {
+                        if (file.status != 0) {
                             done_files++;
+                        }
+                        if (file.status === -1) {
+                            error_files++;
                         }
                     })
                 });
         
-                console.log('--------------------' , done_files, total_files, '---------------------');
+                console.log('--------------------' , done_files, total_files, error_files, '---------------------');
                 
                 if (done_files == total_files) {
-                    item.status = 'finished';
+                    item.status = error_files ? 'complete_with_errors' : 'finished';
                 } else if (done_files == 0) {
                     item.status = 'queued';
                 } else {
@@ -575,6 +600,13 @@ function _init_download_details_table(transfer_id) {
                 sortable: true,
                 align: 'right',
                 class: 'right-aligned'
+            }, 
+            {
+                field: 'errors',
+                title: 'Errors',
+                sortable: true,
+                align: 'right',
+                class: 'right-aligned'
             },
             {
                 field: 'progress',
@@ -609,7 +641,7 @@ function _init_download_details_table(transfer_id) {
     let $details = $('#download-details');
 
     let $buttons = $details.find('.js_pause_download, .js_cancel_download');
-    if (transfer.status === 'finished') {
+    if (transfer.status === 'finished' || transfer.status === 'complete_with_errors') {
         $buttons.hide();
     } else {
         $buttons.show();
@@ -629,14 +661,19 @@ function _init_download_details_table(transfer_id) {
             session_number: '-',
             file_count: session.files.length,
             scan_count: 0,
-            progress: 0
+            progress: 0,
+            errors: 0
         };
         let uri_counter = [];
         session.files.forEach(function(file){
             uri_counter.push(file.uri.split('/resources/')[0]);
 
-            if (file.status === 1) {
+            if (file.status != 0) {
                 single_session.progress++;
+            }
+
+            if (file.status === -1) {
+                single_session.errors++;
             }
         });
 
