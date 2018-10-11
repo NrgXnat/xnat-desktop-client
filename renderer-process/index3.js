@@ -92,31 +92,30 @@ function logout() {
         .catch(error => {
             let msg;
 
-            isOnline()
-                .then(onlineStatus => {
-                    console.log(onlineStatus);
-                    //=> true
-                    if (onlineStatus) {
-                        msg = Helper.errorMessage(error);
-                    } else {
-                        msg = 'You computer seems to be offline!';
-                    }
+            isOnline().then(onlineStatus => {
+                console.log(onlineStatus);
+                //=> true
+                if (onlineStatus) {
+                    msg = Helper.errorMessage(error);
+                } else {
+                    msg = 'You computer seems to be offline!';
+                }
 
-                    console.log('Error: ' + msg);
-                    
-                    swal({
-                        title: 'Connection error',
-                        text: msg,
-                        icon: "warning",
-                        buttons: ['Stay on this page', 'Force logout'],
-                        dangerMode: true
-                    })
-                        .then((proceed) => {
-                            if (proceed) {
-                                clearLoginSession();
-                            }
-                        });
-                });
+                console.log('Error: ' + msg);
+                
+                swal({
+                    title: 'Connection error',
+                    text: msg,
+                    icon: "warning",
+                    buttons: ['Stay on this page', 'Force logout'],
+                    dangerMode: true
+                })
+                    .then((proceed) => {
+                        if (proceed) {
+                            clearLoginSession();
+                        }
+                    });
+            });
 
         });
 }

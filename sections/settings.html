@@ -35,8 +35,11 @@
                         <div class="form-group">
                             <label>Set Local Storage</label>
                             <br/>
-                            <div class="input-group">
-                                <input type="text" id="default_local_storage" value="" class="form-control col-6 settings-input" readonly>
+                            <div class="input-group row">
+                                <div class="col-7">
+                                        <input type="text" id="default_local_storage" value="" class="form-control settings-input" readonly>
+                                </div>
+                                
                                 <div class="col-3">
                                     <label class="input-group-btn">
                                         <span class="btn btn-blue">
@@ -55,13 +58,35 @@
                         <div class="form-group">
                             <label>Set Notification Email</label>
                             <br/>
-                            <div class="input-group">
-                                <input type="email" name="default_email_address" id="default_email_address" class="form-control col-6 settings-input">
+                            <div class="input-group row">
+                                <div class="col-7">
+                                        <input type="email" name="default_email_address" id="default_email_address" class="form-control settings-input">
+                                </div>
+                                
                                 <div class="col-3">
                                     <button class="btn btn-blue" id="save_default_email_address" disabled>Save</button>
                                 </div>
                             </div>
                             <small>Enter a default email where application notifications can be sent to. (Optional)</small>
+                        </div>
+                    </form>
+
+                    <form>
+                        <div class="form-group">
+                            <label>Set default PET tracers</label>
+                            <br/>
+
+                            <div class="input-group row">
+                                <div class="col-7">
+                                    <input type="text" data-role="tagsinput" name="default_pet_tracers" id="default_pet_tracers" class="form-control settings-input">
+                                </div>
+                                <div class="col-3">
+                                    <button class="btn btn-blue" id="save_default_pet_tracers" disabled>Save</button>
+                                </div>
+
+                            </div>
+                            
+                            <small>Enter default PET tracers. (Optional)</small>
                         </div>
                     </form>
                 </div>

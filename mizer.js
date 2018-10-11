@@ -258,7 +258,10 @@ mizer.get_mizer_scripts_old = (xnat_server, user_auth, project_id) => {
 
 mizer.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
     let scripts = [];
-    return Promise.all([get_global_anon_script(xnat_server, user_auth), get_project_anon_script(xnat_server, user_auth, project_id)]).then(values => {      
+    return Promise.all([
+        get_global_anon_script(xnat_server, user_auth), 
+        get_project_anon_script(xnat_server, user_auth, project_id)
+    ]).then(values => {
         console.log(values);
         
         values.forEach(function(script){
@@ -290,14 +293,20 @@ function get_global_anon_script(xnat_server, user_auth) {
             if (global_anon_script_enabled) {
                 resolve(global_anon_script);
             } else {
-                resolve(false)
+                resolve(false);
             }
             
         }).catch(err => {
-            resolve(false)
-            //reject(err);
+            if (err.response && err.response.status === 404) {
+                resolve(false);    
+            } else {
+                reject({
+                    type: 'axios',
+                    data: err
+                })
+            }
         });
-    })
+    });
     
 }
 
@@ -318,13 +327,18 @@ function get_project_anon_script(xnat_server, user_auth, project_id) {
             } else {
                 resolve(false);
             }
-
     
         }).catch(err => {
-            resolve(false);
-            //reject(err);
+            if (err.response && err.response.status === 404) {
+                resolve(false);    
+            } else {
+                reject({
+                    type: 'axios',
+                    data: err
+                })
+            }
         });  
-    })
+    });
 }
 
 
