@@ -111,6 +111,7 @@ function start_transfer() {
 
 function download_items(xnat_server, user_auth, transfer, manifest_urls, create_dir_structure = false) {
     if (settings.get('global_pause')) {
+        transfering = false;
         return;
     }
 
@@ -136,7 +137,7 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
         ipc.send('progress_cell', {
             table: '#download_monitor_table',
             id: transfer_id,
-            field: "status",
+            field: "download_status",
             value: final_status
         });
 
@@ -154,7 +155,7 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
     ipc.send('progress_cell', {
         table: '#download_monitor_table',
         id: transfer_id,
-        field: "status",
+        field: "download_status",
         value: transfer_info.progress_percent
     });
     
@@ -257,7 +258,7 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
             ipc.send('progress_cell', {
                 table: '#download_monitor_table',
                 id: transfer_id,
-                field: "status",
+                field: "download_status",
                 value: "xnat_error"
             });
         }

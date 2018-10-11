@@ -29,6 +29,7 @@ let xnat_server, user_auth;
 function _init_upload_progress_table() {
     $('#upload_monitor_table').bootstrapTable({
         filterControl: true,
+        hideUnusedSelectOptions: true,
         uniqueId: 'id',
         //height: 300,
         columns: [
@@ -200,6 +201,7 @@ function _init_download_progress_table() {
 
     $('#download_monitor_table').bootstrapTable({
         filterControl: true,
+        hideUnusedSelectOptions: true,
         uniqueId: 'id',
         //height: 300,
         columns: [
@@ -249,7 +251,7 @@ function _init_download_progress_table() {
                 align: 'center'
             },*/
             {
-                field: 'status', //VALUES: queued, finished, xnat_error, in_progress, <float 0-100>
+                field: 'download_status', //VALUES: queued, finished, xnat_error, in_progress, <float 0-100>
                 title: 'Status',
                 filterControl: 'select',
                 sortable: true,
@@ -268,9 +270,10 @@ function _init_download_progress_table() {
                     } else {
                         if (value == 'xnat_error') {
                             return `<i class="fas fa-exclamation-triangle"></i> XNAT Error`
-                        } else if (value == 'xnat_error') {
-                            return `<i class="fas fa-exclamation-triangle"></i> Complete With Errors`
-                        }else {
+                        } else if (value == 'complete_with_errors') {
+                            return 'complete_with_errors';
+                            //return `<i class="fas fa-exclamation-triangle"></i> Complete With Errors`
+                        } else {
                             return value;
                         }
                     } 
@@ -283,7 +286,7 @@ function _init_download_progress_table() {
                 formatter: function(value, row, index, field) {
                     let content;
                     let basename = row.basename.split('?')[0];
-                    switch(row.status) {
+                    switch(row.download_status) {
                         // TODO show info
                         case 'queued':
                             content = `
@@ -352,7 +355,7 @@ function _init_download_progress_table() {
                 //dl_transfer_type: 'Download',
                 dl_server: transfer.server.split('://')[1],
                 dl_user: transfer.user,
-                status: transfer.hasOwnProperty('status') ? transfer.status : 0,
+                download_status: transfer.hasOwnProperty('status') ? transfer.status : 0,
                 canceled: transfer.canceled === true ? true : false,
                 actions: ''
             };
@@ -376,7 +379,7 @@ function _init_download_progress_table() {
     
             console.log('--------mile------------' , x_total, x_success, x_error, x_done, '---------------------');
 
-            if (item.status === 0) {
+            if (item.download_status === 0) {
                 let total_files = 0, done_files = 0, error_files = 0;
                 transfer.sessions.forEach(function(session){
                     session.files.forEach(function(file){
@@ -394,11 +397,11 @@ function _init_download_progress_table() {
                 console.log('--------------------' , done_files, total_files, error_files, '---------------------');
                 
                 if (done_files == total_files) {
-                    item.status = error_files ? 'complete_with_errors' : 'finished';
+                    item.download_status = error_files ? 'complete_with_errors' : 'finished';
                 } else if (done_files == 0) {
-                    item.status = 'queued';
+                    item.download_status = 'queued';
                 } else {
-                    item.status = done_files / total_files * 100;
+                    item.download_status = done_files / total_files * 100;
                 }
             }
     
@@ -571,10 +574,50 @@ function _init_download_details_table(transfer_id) {
     
     $('#download-details-table').bootstrapTable({
         uniqueId: 'id',
+        detailView: true,
+        detailFormatter: function(index, row) {
+            var html = [];
+            let my_transfers = store.get('transfers.downloads');
+
+            my_transfers.forEach(function(transfer) {
+                // validate current user/server
+                if (transfer.id === row.transfer_id) {
+                    transfer.sessions.forEach(function(session){
+                        if (session.id == row.id) {
+                            session.files.forEach(function(file){
+                                let status_icon;
+                                switch (file.status) {
+                                    case 0:
+                                    case undefined:
+                                        status_icon = '<i class="far fa-clock"></i>'
+                                        break;
+
+                                    case 1:
+                                        status_icon = '<i style="color: green" class="fas fa-check"></i>'
+                                        break;
+
+                                    case -1:
+                                        status_icon = '<i style="color: red" class="fas fa-exclamation-triangle"></i>'
+                                        break;
+                                }
+                                html.push('<tr><td style="text-align: center;">' + status_icon + '</td><td>' + file.name + '</td></tr>');
+                            });
+                        }
+                    });
+                }
+            });
+
+            return '<table class="table-sm table-bordered">' + html.join('') + '</table>';
+        },
         columns: [
             {
                 field: 'id',
                 title: 'ID',
+                visible: false
+            }, 
+            {
+                field: 'transfer_id',
+                title: 'Transfer ID',
                 visible: false
             },
             {
@@ -657,6 +700,7 @@ function _init_download_details_table(transfer_id) {
     transfer.sessions.forEach(function(session){
         let single_session = {
             id: session.id,
+            transfer_id: transfer.id,
             session: session.name,
             session_number: '-',
             file_count: session.files.length,
@@ -1092,7 +1136,7 @@ function remove_finished_downloads(remove_canceled = false) {
         // validate current user/server
         if (transfer.server === xnat_server && transfer.user === user_auth.username) {
             let include_canceled = remove_canceled && transfer.canceled === true;
-            if (transfer.status === 'finished' || include_canceled) {
+            if (transfer.status === 'finished' || transfer.status === 'complete_with_errors' || include_canceled) {
                 to_delete.push(index);
             }
         }
