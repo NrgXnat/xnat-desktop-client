@@ -42,11 +42,11 @@ autoUpdater.on('error', (err) => {
   devToolsLog('Error in auto-updater. ' + err);
 })
 autoUpdater.on('download-progress', (progressObj) => {
+  delayed_notification('download-progress', progressObj);
   let log_message = "Download speed: " + progressObj.bytesPerSecond;
   log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
   log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
   devToolsLog(log_message);
-  delayed_notification('download-progress', progressObj);
 })
 autoUpdater.on('update-downloaded', (info) => {
   //delayed_notification('update-downloaded', info);

@@ -261,10 +261,11 @@ ipc.on('update-error', (e, ...args) => {
 ipc.on('download-progress', (e, ...args) => {
     //let str = args.join(' | ')
     //Helper.pnotify('Naslov', 'Poruka: ' + str);
-    console_log('update-downloaded')
+    console_log('download-progress')
     console.log(args);
+    console.log(args[0].percent)
 
-    $('#auto_update_progress').attr('value', parseInt(args[0].percent))
+    $('#auto_update_progress').attr("value", Math.ceil(args[0].percent))
 })
 
 ipc.on('update-downloaded', (e, ...args) => {
@@ -276,6 +277,7 @@ ipc.on('update-downloaded', (e, ...args) => {
 
 $(document).on('click', '#download_and_install', function(e) {
     $(this).prop('disabled', true);
+    $('#auto_update_progress').removeClass('hidden');
 
     ipc.send('download_and_install');
 })
@@ -463,4 +465,8 @@ function parse_error_message(err) {
     }
 
     return msg;
+}
+
+function console_log(log_this) {
+    console.log(log_this);
 }

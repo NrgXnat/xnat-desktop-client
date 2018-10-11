@@ -1,6 +1,6 @@
 {
   "name": "XNAT-Desktop-App",
-  "version": "1.0.33",
+  "version": "1.0.34",
   "description": "XNAT_desktop_application",
   "main": "main.js",
   "scripts": {
@@ -111,6 +111,7 @@
     },
     "mac": {
       "icon": "assets/icons/mac/icon.icns",
+      "category": "public.app-category.medical",
       "target": "dmg",
       "extraResources": [
         {
