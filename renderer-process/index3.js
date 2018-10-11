@@ -9,6 +9,7 @@ const api = require('../services/api');
 
 const swal = require('sweetalert');
 
+
 const {URL} = require('url');
 
 reset_user_data();
@@ -229,7 +230,16 @@ ipc.on('log', (e, ...args) => {
     console.log(...args);
 });
 
+
+
 ipc.on('update-available', (e, ...args) => {
+    $('#auto_update_current').text('v' + app.getVersion())
+    $('#auto_update_available').text('v' + args[0].version)
+
+    $('#auto_update_modal').modal({
+        keyboard: false,
+        backdrop: 'static'
+    })
     //let str = args.join(' | ')
     //Helper.pnotify('Naslov', 'Poruka: ' + str);
     console_log('update-available')
@@ -244,7 +254,17 @@ ipc.on('update-error', (e, ...args) => {
     //let str = args.join(' | ')
     //Helper.pnotify('Naslov', 'Poruka: ' + str);
     console_log('update-error')
+    swal('Update error', 'An error occured during update download.', 'error');
     console.log(args);
+})
+
+ipc.on('download-progress', (e, ...args) => {
+    //let str = args.join(' | ')
+    //Helper.pnotify('Naslov', 'Poruka: ' + str);
+    console_log('update-downloaded')
+    console.log(args);
+
+    $('#auto_update_progress').attr('value', parseInt(args[0].percent))
 })
 
 ipc.on('update-downloaded', (e, ...args) => {
@@ -253,6 +273,14 @@ ipc.on('update-downloaded', (e, ...args) => {
     console_log('update-downloaded')
     console.log(args);
 })
+
+$(document).on('click', '#download_and_install', function(e) {
+    $(this).prop('disabled', true);
+
+    ipc.send('download_and_install');
+})
+
+
 
 ipc.on('handle_protocol_request', protocol_request)
 

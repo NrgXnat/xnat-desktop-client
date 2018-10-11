@@ -100,6 +100,8 @@
     "win": {
       "icon": "assets/icons/win/icon.ico",
       "target": "nsis",
+      "publisherName": "WASHINGTON UNIVERSITY IN ST. LOUIS",
+      "verifyUpdateCodeSignature": false,
       "extraResources": [
         {
           "from": "build_resources/jre/win-${arch}/jre1.8.0_162",
@@ -109,7 +111,7 @@
     },
     "mac": {
       "icon": "assets/icons/mac/icon.icns",
-      "target": "zip",
+      "target": "dmg",
       "extraResources": [
         {
           "from": "build_resources/jre/mac/jre1.8.0_162.jre",
@@ -139,7 +141,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "http://127.0.0.1:8887/releases/"
+        "url": "http://xdcupdate.uardev.com/releases/"
       }
     ],
     "fileAssociations": [

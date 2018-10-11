@@ -46,10 +46,12 @@ autoUpdater.on('download-progress', (progressObj) => {
   log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
   log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
   devToolsLog(log_message);
+  delayed_notification('download-progress', progressObj);
 })
 autoUpdater.on('update-downloaded', (info) => {
-  delayed_notification('update-downloaded', info);
+  //delayed_notification('update-downloaded', info);
   devToolsLog('Update downloaded');
+  autoUpdater.quitAndInstall();
 });
 
 
@@ -348,6 +350,10 @@ function delayed_notification(type, ...args) {
     })
   }
 }
+
+ipcMain.on('download_and_install', (e) => {
+  autoUpdater.downloadUpdate();
+})
 
 // Catch Item Add
 ipcMain.on('redirect', (e, item) =>{

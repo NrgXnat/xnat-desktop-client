@@ -83,25 +83,24 @@
                     
                 </div>
                 <div class="modal-body">
+                    <h2>Update available</h2>
                     <p>
-                        Lorem ipsum dolor sit amet consectetur adipisicing elit. Numquam
-                        culpa excepturi autem unde molestias obcaecati possimus assumenda dicta dignissimos.
-                        Soluta voluptas quia at amet aspernatur hic quae praesentium, iure architecto earum
-                        illum libero facilis exercitationem repellat corrupti culpa rerum adipisci consequatur
-                        porro assumenda optio! Odio nisi suscipit quisquam unde, aliquid deleniti, officiis
-                        labore necessitatibus perspiciatis obcaecati dolore rem! Explicabo ratione ea assumenda non,
-                        in architecto sed possimus nulla earum esse distinctio aut rerum optio voluptas et consequatur
-                        quia saepe laboriosam voluptatum blanditiis praesentium quas ab accusamus! Quisquam repellat
-                        reiciendis harum aspernatur qui aperiam eius non. Molestiae labore nulla et nihil.
+                        An update for XNAT Desktop Client is available. It is strongly recommended that you install it as soon as possible.
+                    </p>
+                    <p>
+                        Current: <span id="auto_update_current"></span><br>
+                        Available: <span id="auto_update_available"></span>
                     </p>
 
                     <p style="text-align: center;">
-                        <progress id="auto_update_progress" value="20" max="100"></progress>
+                        <progress id="auto_update_progress" value="0" max="100"></progress>
+                        <br><br>
                     </p>
                 </div>
     
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-blue">Download</button>
+                    <button type="button" class="btn btn-gray" data-dismiss="modal">Remind me later</button>
+                    <button type="button" class="btn btn-blue" id="download_and_install">Download and Install</button>
                 </div>
             </div>
         </div>
@@ -198,11 +197,6 @@
         
         var app = require('electron').remote.app
         $('#version-number').text('v' + app.getVersion())
-
-        $('#auto_update_modal').modal({
-            keyboard: false,
-            backdrop: 'static'
-        })
         
     </script>
 
