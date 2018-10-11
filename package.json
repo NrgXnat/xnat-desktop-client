@@ -112,7 +112,7 @@
     "mac": {
       "icon": "assets/icons/mac/icon.icns",
       "category": "public.app-category.medical",
-      "target": "dmg",
+      "target": ["dmg", "zip"],
       "extraResources": [
         {
           "from": "build_resources/jre/mac/jre1.8.0_162.jre",
