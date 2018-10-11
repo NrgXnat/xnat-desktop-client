@@ -373,6 +373,10 @@ ipcMain.on('upload_progress', (e, item) =>{
   mainWindow.webContents.send('upload_progress', item);
 })
 
+ipcMain.on('progress_cell', (e, item) =>{
+  mainWindow.webContents.send('progress_cell', item);
+})
+
 // ?
 ipcMain.on('progress_alert', (e, item) =>{
   mainWindow.webContents.send('progress_alert', item);

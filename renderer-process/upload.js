@@ -12,6 +12,8 @@ const swal = require('sweetalert');
 const archiver = require('archiver');
 const mime = require('mime-types');
 
+const prettyBytes = require('pretty-bytes');
+
 const remote = require('electron').remote;
 const mizer = require('../mizer');
 
@@ -169,7 +171,8 @@ function _init_img_sessions_table(table_rows) {
                 align: 'right',
                 class: 'right-aligned',
                 formatter: function(value, row, index, field) {
-                    return `${(value / 1024 / 1024).toFixed(2)} MB`;
+                    return prettyBytes(value);
+                    // return `${(value / 1024 / 1024).toFixed(2)} MB`;
                 }
             }, 
             {
