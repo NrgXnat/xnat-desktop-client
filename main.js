@@ -5,7 +5,6 @@ fix_java_path();
 const mizer = require('./mizer');
 const glob = require('glob')
 const electron = require('electron')
-//const autoUpdater = require('./auto-updater')
 
 const auth = require('./services/auth');
 
@@ -13,6 +12,7 @@ const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
 
 const electron_log = require('electron-log');
 const {autoUpdater} = require("electron-updater");
+autoUpdater.autoDownload = false;
 
 //-------------------------------------------------------------------
 // Logging
@@ -217,7 +217,8 @@ function initialize () {
   }
 
   app.on('ready', () => {
-    autoUpdater.checkForUpdatesAndNotify();
+    //autoUpdater.checkForUpdatesAndNotify();
+    autoUpdater.checkForUpdates()
 
     devToolsLog('app.ready triggered')
     createWindow();
