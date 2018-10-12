@@ -1,7 +1,7 @@
 {
   "name": "XNAT-Desktop-App",
   "version": "1.0.34",
-  "description": "XNAT_desktop_application",
+  "description": "XNAT desktop application",
   "main": "main.js",
   "scripts": {
     "start": "npm-run-all -s sass:build electron-start",
