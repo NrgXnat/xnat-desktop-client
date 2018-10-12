@@ -24,6 +24,7 @@
     "package-win": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=win32 --arch=ia32 --icon=assets/icons/win/icon.ico --prune=true --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"Electron XNAT App\"",
     "package-linux": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=linux --arch=x64 --icon=assets/icons/png/icon.png --prune=true --out=release-builds",
     "postinstall": "electron-builder install-app-deps",
+    "prepublish": "find build_resources -name \"._*\" -exec rm '{}' \\;",
     "modify-file": "node modify.js"
   },
   "author": "WASHINGTON UNIVERSITY IN ST. LOUIS",
@@ -142,7 +143,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "http://xdcupdate.uardev.com/releases/"
+        "url": "https://bitbucket.org/xnatdev/xnat-desktop-client/downloads"
       }
     ],
     "fileAssociations": [
