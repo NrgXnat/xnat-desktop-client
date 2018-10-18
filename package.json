@@ -1,6 +1,6 @@
 {
   "name": "XNAT-Desktop-App",
-  "version": "1.0.34",
+  "version": "1.0.35",
   "description": "XNAT_desktop_application",
   "main": "main.js",
   "scripts": {

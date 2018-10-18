@@ -108,7 +108,7 @@ let Helper = {
             sec = a.getSeconds() < 10 ? '0' + a.getSeconds() : a.getSeconds();
         }
 
-        return year + '/' + month + '/' + date + (show_time ? ' ' + hour + ':' + min + ':' + sec : '');
+        return year + '-' + month + '-' + date + (show_time ? ' ' + hour + ':' + min + ':' + sec : '');
     },
 
     date: (UNIX_timestamp = false) => {
