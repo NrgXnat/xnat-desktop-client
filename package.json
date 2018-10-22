@@ -1,7 +1,7 @@
 {
-  "name": "XNAT-Desktop-App",
+  "name": "XNAT-Desktop-Client",
   "version": "1.0.35",
-  "description": "XNAT_desktop_application",
+  "description": "XNAT Desktop Client",
   "main": "main.js",
   "scripts": {
     "start": "npm-run-all -s sass:build electron-start",
@@ -27,7 +27,7 @@
     "prepublish": "find build_resources -name \"._*\" -exec rm '{}' \\;",
     "modify-file": "node modify.js"
   },
-  "author": "WASHINGTON UNIVERSITY IN ST. LOUIS",
+  "author": "Washington University in St. Louis",
   "license": "ISC",
   "dependencies": {
     "archiver": "^2.1.1",
