@@ -3,3 +3,4 @@ release-builds/
 dist/
 .sass-cache/
 .vscode/
+/xlectric.log

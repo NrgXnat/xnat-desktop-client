@@ -133,7 +133,7 @@ function do_transfer() {
 
 async function doUpload(transfer, series_id) {
     let xnat_server = transfer.xnat_server, 
-        user_auth = auth.get_current_user();
+        user_auth = auth.get_user_auth();
 
     csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
     
