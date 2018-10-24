@@ -118,7 +118,7 @@ let Helper = {
 
     notify: (body, title, icon) => {
         // Notification code        
-        let real_icon = icon == undefined ? path.join(__dirname, '../icons/png/icon.png') : icon;
+        let real_icon = icon == undefined ? path.join(__dirname, '../icons/png/XDC.png') : icon;
         let real_title = title == undefined ? 'XNAT Desktop Client' : title;
         
         const notification = {

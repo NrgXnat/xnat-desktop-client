@@ -65,7 +65,7 @@ log(process.env);
 
 
 const debug = /--debug/.test(process.argv[2])
-const iconPath = path.join(__dirname, 'assets/icons/png/tray-icon-256.png');
+const iconPath = path.join(__dirname, 'assets/icons/png/XDC-tray-256.png');
 app.setName('XNAT Desktop Client v' + app.getVersion());
 
 log(process);
@@ -138,7 +138,7 @@ function initialize () {
     
 
     if (process.platform === 'linux') {
-      windowOptions.icon = path.join(__dirname, '/assets/icons/png/icon.png');
+      windowOptions.icon = path.join(__dirname, '/assets/icons/png/XDC.png');
     }
 
     mainWindow = new BrowserWindow(windowOptions);

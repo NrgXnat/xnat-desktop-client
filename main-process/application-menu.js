@@ -133,7 +133,7 @@ app.on('ready', function () {
     Menu.setApplicationMenu(menu);
 
 
-    const iconPath = path.join(__dirname, '../assets/icons/png/tray-icon.png');
+    const iconPath = path.join(__dirname, '../assets/icons/png/XDC-tray.png');
     // Tray icon and menu
     let appIcon = new Tray(iconPath);
     appIcon.setToolTip("XNAT app");
