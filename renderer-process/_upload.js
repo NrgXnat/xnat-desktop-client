@@ -133,7 +133,7 @@ function do_transfer() {
 
 async function doUpload(transfer, series_id) {
     let xnat_server = transfer.xnat_server, 
-        user_auth = auth.get_current_user();
+        user_auth = auth.get_user_auth();
 
     csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
     
@@ -396,14 +396,21 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
                     //NProgress.set(progressEvent.loaded/progressEvent.total);
 
                     let new_progress = progressEvent.loaded / progressEvent.total * 100;
-                    ipc.send('upload_progress', {
+                    // ipc.send('upload_progress', {
+                    //     table: '#upload-details-table',
+                    //     data: {
+                    //         id: table_row_id,
+                    //         row: {
+                    //             progress: new_progress
+                    //         }
+                    //     }
+                    // });
+
+                    ipc.send('progress_cell', {
                         table: '#upload-details-table',
-                        data: {
-                            id: table_row_id,
-                            row: {
-                                progress: new_progress
-                            }
-                        }
+                        id: table_row_id,
+                        field: "progress",
+                        value: new_progress
                     });
 
                     update_upload_table(transfer_id, table_row_id, new_progress);
@@ -572,18 +579,25 @@ function mark_uploaded(transfer_id, series_id) {
             transfer.status = new_status;
 
             if (transfer.status == 'finished') {
-                Helper.notify(`Upload is finished. Session: ${transfer.session_data.studyDescription}`);
+                Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
             }
 
             // progress UI
-            ipc.send('upload_progress', {
+            // ipc.send('upload_progress', {
+            //     table: '#upload_monitor_table',
+            //     data: {
+            //         id: transfer_id,
+            //         row: {
+            //             status: new_status
+            //         }
+            //     }
+            // });
+
+            ipc.send('progress_cell', {
                 table: '#upload_monitor_table',
-                data: {
-                    id: transfer_id,
-                    row: {
-                        status: new_status
-                    }
-                }
+                id: transfer_id,
+                field: "status",
+                value: new_status
             });
 
             left_to_upload = transfer.series_ids.length;
@@ -701,14 +715,21 @@ function update_modal_ui(transfer_id, uri) {
 
     // console.log(session_id, current_progress);
 
-    ipc.send('upload_progress', {
+    // ipc.send('upload_progress', {
+    //     table: '#upload-details-table',
+    //     data: {
+    //         id: session_id,
+    //         row: {
+    //             progress: current_progress
+    //         }
+    //     }
+    // });
+
+    ipc.send('progress_cell', {
         table: '#upload-details-table',
-        data: {
-            id: session_id,
-            row: {
-                progress: current_progress
-            }
-        }
+        id: session_id,
+        field: "progress",
+        value: current_progress
     });
 
 }

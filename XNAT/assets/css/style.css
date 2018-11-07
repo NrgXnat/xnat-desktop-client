@@ -285,15 +285,33 @@
     @media (max-width: 992px) {
       .connect.btn-known-user {
         font-size: 18px; } }
-    .connect.btn-known-user img {
+    .connect.btn-known-user span.login_logo {
+      display: block;
       float: left;
-      height: 95px; }
+      height: 95px;
+      background-color: #fff;
+      border-right: 5px solid #fff;
+      width: 140px;
+      border-left: 5px solid #fff;
+      position: relative; }
+      @media (max-width: 992px) {
+        .connect.btn-known-user span.login_logo {
+          width: 113px;
+          height: 77px; } }
+    .connect.btn-known-user img {
+      position: absolute;
+      max-height: 95px;
+      max-width: 100%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      left: 50%; }
       @media (max-width: 992px) {
         .connect.btn-known-user img {
-          height: 77px; } }
+          max-height: 77px; } }
     .connect.btn-known-user div {
       padding: 1.1rem 1.5rem;
-      float: left; }
+      float: left;
+      border-left: 2px solid #cdcdcd; }
     .connect.btn-known-user .user-name {
       font-weight: normal; }
   .connect.settings-small {
@@ -501,6 +519,9 @@ textarea {
 
 .bootstrap-table {
   margin-bottom: 30px; }
+
+.fixed-table-container {
+  overflow: hidden; }
 
 .bootstrap-table .table thead > tr > th {
   vertical-align: baseline; }
@@ -1032,5 +1053,40 @@ progress[value] {
 @media (max-width: 1200px) {
   .modal-xl {
     max-width: 96%; } }
+
+.ui-pnotify.stack-bar-bottom {
+  margin-left: 15%;
+  right: auto;
+  bottom: 0;
+  top: auto;
+  left: auto; }
+
+.ui-pnotify-sticker {
+  font-size: 80%;
+  margin-right: 10px;
+  line-height: 200%; }
+
+.ui-pnotify-icon {
+  margin-top: .3em; }
+
+.brighttheme-icon-error:after {
+  left: -3px;
+  top: 2px; }
+
+.brighttheme-icon-closer:after,
+.brighttheme-icon-info:after,
+.brighttheme-icon-notice:after,
+.brighttheme-icon-sticker:after,
+.brighttheme-icon-success:after {
+  left: 5px; }
+
+body > .ui-pnotify {
+  z-index: 9999; }
+
+.bootstrap-tagsinput {
+  border-color: #aaa; }
+  .bootstrap-tagsinput.focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); }
 
 /*# sourceMappingURL=style.css.map */

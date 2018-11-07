@@ -9,6 +9,7 @@ const api = require('../services/api');
 
 const swal = require('sweetalert');
 
+
 const {URL} = require('url');
 
 reset_user_data();
@@ -92,31 +93,30 @@ function logout() {
         .catch(error => {
             let msg;
 
-            isOnline()
-                .then(onlineStatus => {
-                    console.log(onlineStatus);
-                    //=> true
-                    if (onlineStatus) {
-                        msg = Helper.errorMessage(error);
-                    } else {
-                        msg = 'You computer seems to be offline!';
-                    }
+            isOnline().then(onlineStatus => {
+                console.log(onlineStatus);
+                //=> true
+                if (onlineStatus) {
+                    msg = Helper.errorMessage(error);
+                } else {
+                    msg = 'You computer seems to be offline!';
+                }
 
-                    console.log('Error: ' + msg);
-                    
-                    swal({
-                        title: 'Connection error',
-                        text: msg,
-                        icon: "warning",
-                        buttons: ['Stay on this page', 'Force logout'],
-                        dangerMode: true
-                    })
-                        .then((proceed) => {
-                            if (proceed) {
-                                clearLoginSession();
-                            }
-                        });
-                });
+                console.log('Error: ' + msg);
+                
+                swal({
+                    title: 'Connection error',
+                    text: msg,
+                    icon: "warning",
+                    buttons: ['Stay on this page', 'Force logout'],
+                    dangerMode: true
+                })
+                    .then((proceed) => {
+                        if (proceed) {
+                            clearLoginSession();
+                        }
+                    });
+            });
 
         });
 }
@@ -228,7 +228,61 @@ ipc.on('log', (e, ...args) => {
     console.log('                                   ');
     console.log('============= IPC LOG =============');
     console.log(...args);
+});
+
+
+
+ipc.on('update-available', (e, ...args) => {
+    $('#auto_update_current').text('v' + app.getVersion())
+    $('#auto_update_available').text('v' + args[0].version)
+
+    $('#auto_update_modal').modal({
+        keyboard: false,
+        backdrop: 'static'
+    })
+    //let str = args.join(' | ')
+    //Helper.pnotify('Naslov', 'Poruka: ' + str);
+    console_log('update-available')
+    // path:"XNAT-Desktop-App-Setup-1.0.31.exe"
+    // releaseDate:"2018-10-03T15:31:07.365Z"
+    // sha512:"Njq6TxgaQslo1deUQ4J3B4aGjGxv35ov7UGYKYoEQ8fzeNXlLTwEJF19s4R2psdAY3NarHdNRKcJ56HCv8M6/A=="
+    // version:"1.0.31"
+    console.log(args);
 })
+
+ipc.on('update-error', (e, ...args) => {
+    //let str = args.join(' | ')
+    //Helper.pnotify('Naslov', 'Poruka: ' + str);
+    console_log('update-error')
+    swal('Update error', 'An error occured during update download.', 'error');
+    console.log(args);
+})
+
+ipc.on('download-progress', (e, ...args) => {
+    //let str = args.join(' | ')
+    //Helper.pnotify('Naslov', 'Poruka: ' + str);
+    console_log('download-progress')
+    console.log(args);
+    console.log(args[0].percent)
+
+    $('#auto_update_progress').attr("value", Math.ceil(args[0].percent))
+})
+
+ipc.on('update-downloaded', (e, ...args) => {
+    //let str = args.join(' | ')
+    //Helper.pnotify('Naslov', 'Poruka: ' + str);
+    console_log('update-downloaded')
+    console.log(args);
+})
+
+$(document).on('click', '#download_and_install', function(e) {
+    $(this).prop('disabled', true);
+    $('#auto_update_progress').removeClass('hidden');
+
+    ipc.send('download_and_install');
+})
+
+
 
 ipc.on('handle_protocol_request', protocol_request)
 
@@ -411,4 +465,8 @@ function parse_error_message(err) {
     }
 
     return msg;
+}
+
+function console_log(log_this) {
+    console.log(log_this);
 }

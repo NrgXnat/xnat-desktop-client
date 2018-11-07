@@ -5,11 +5,57 @@ fix_java_path();
 const mizer = require('./mizer');
 const glob = require('glob')
 const electron = require('electron')
-//const autoUpdater = require('./auto-updater')
 
 const auth = require('./services/auth');
 
 const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
+
+const electron_log = require('electron-log');
+const {autoUpdater} = require("electron-updater");
+autoUpdater.autoDownload = false;
+
+//-------------------------------------------------------------------
+// Logging
+//
+// THIS SECTION IS NOT REQUIRED
+//
+// This logging setup is not required for auto-updates to work,
+// but it sure makes debugging easier :)
+//-------------------------------------------------------------------
+autoUpdater.logger = electron_log;
+autoUpdater.logger.transports.file.level = 'info';
+electron_log.info('App starting...');
+
+
+autoUpdater.on('checking-for-update', () => {
+  devToolsLog('Checking for update...');
+})
+autoUpdater.on('update-available', (info) => {
+  devToolsLog('Update available.');
+  delayed_notification('update-available', info);
+})
+autoUpdater.on('update-not-available', (info) => {
+  devToolsLog('Update not available.');
+})
+autoUpdater.on('error', (err) => {
+  delayed_notification('update-error', err);
+  devToolsLog('Error in auto-updater. ' + err);
+})
+autoUpdater.on('download-progress', (progressObj) => {
+  delayed_notification('download-progress', progressObj);
+  let log_message = "Download speed: " + progressObj.bytesPerSecond;
+  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+  log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+  devToolsLog(log_message);
+})
+autoUpdater.on('update-downloaded', (info) => {
+  //delayed_notification('update-downloaded', info);
+  devToolsLog('Update downloaded');
+  autoUpdater.quitAndInstall();
+});
+
+
+
 
 
 
@@ -19,7 +65,7 @@ log(process.env);
 
 
 const debug = /--debug/.test(process.argv[2])
-const iconPath = path.join(__dirname, 'assets/icons/png/tray-icon-256.png');
+const iconPath = path.join(__dirname, 'assets/icons/png/XDC-tray-256.png');
 app.setName('XNAT Desktop Client v' + app.getVersion());
 
 log(process);
@@ -92,7 +138,7 @@ function initialize () {
     
 
     if (process.platform === 'linux') {
-      windowOptions.icon = path.join(__dirname, '/assets/icons/png/icon.png');
+      windowOptions.icon = path.join(__dirname, '/assets/icons/png/XDC.png');
     }
 
     mainWindow = new BrowserWindow(windowOptions);
@@ -173,6 +219,9 @@ function initialize () {
   }
 
   app.on('ready', () => {
+    //autoUpdater.checkForUpdatesAndNotify();
+    autoUpdater.checkForUpdates()
+
     devToolsLog('app.ready triggered')
     createWindow();
     devToolsLog('app.ready DONE')
@@ -222,6 +271,7 @@ function initialize () {
 
 // prints given message both in the terminal console and in the DevTools
 function devToolsLog(s) {
+  electron_log.info(s);
   console.log(s)
   if (mainWindow && mainWindow.webContents) {
     mainWindow.webContents.executeJavaScript(`console.log("${s}")`)
@@ -291,6 +341,20 @@ function log(...args) {
   }
 }
 
+function delayed_notification(type, ...args) {
+  if (app.isReallyReady) {
+    mainWindow.send(type, ...args)
+  } else {
+    ipcMain.once('appIsReady', () => {
+      mainWindow.send(type, ...args);
+    })
+  }
+}
+
+ipcMain.on('download_and_install', (e) => {
+  autoUpdater.downloadUpdate();
+})
+
 // Catch Item Add
 ipcMain.on('redirect', (e, item) =>{
   mainWindow.webContents.send('load:page', item);
@@ -314,6 +378,10 @@ ipcMain.on('download_progress', (e, item) =>{
 
 ipcMain.on('upload_progress', (e, item) =>{
   mainWindow.webContents.send('upload_progress', item);
+})
+
+ipcMain.on('progress_cell', (e, item) =>{
+  mainWindow.webContents.send('progress_cell', item);
 })
 
 // ?

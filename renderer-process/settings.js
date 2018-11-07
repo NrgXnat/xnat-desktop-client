@@ -19,18 +19,29 @@ $(document).on('page:load', '#settings-section', function(e){
     render_users();
     show_default_email_address();
     show_default_local_storage();  
+    show_default_pet_tracers();
+
+    $('input[data-role="tagsinput"]').tagsinput({
+        onTagExists: function(item, $tag) {
+            $tag.hide().fadeIn();
+        }
+    });
 
 });
-
-
-function show_default_email_address() {
-    $('#default_email_address').val(settings.get('default_email_address'));
-}
 
 
 function show_default_local_storage() {
     $('#default_local_storage').val(settings.get('default_local_storage'));
 }
+
+function show_default_email_address() {
+    $('#default_email_address').val(settings.get('default_email_address'));
+}
+
+function show_default_pet_tracers() {
+    $('#default_pet_tracers').val(settings.get('default_pet_tracers'));
+}
+
 
 
 function render_users() {
@@ -175,6 +186,23 @@ function login_attempt(xnat_server, user_auth, old_user_data) {
 $(document).on('input', '#default_email_address', function(e) {
     $('#save_default_email_address').prop('disabled', false);
 });
+
+
+$(document).on('itemAdded itemRemoved', '#default_pet_tracers', function(e) {
+    $('#save_default_pet_tracers').prop('disabled', false);
+});
+
+$(document).on('click', '#save_default_pet_tracers', function(e) {
+    e.preventDefault();
+
+    settings.set('default_pet_tracers', $('#default_pet_tracers').val());
+
+    Helper.pnotify('Success!', `Default PET tracers successfully updated! (${$('#default_pet_tracers').val()})`);
+
+    $(this).prop('disabled', true);
+})
+
+
 
 $(document).on('click', '#save_default_email_address', function(e) {
     e.preventDefault();

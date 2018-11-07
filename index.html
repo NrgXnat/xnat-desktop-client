@@ -14,6 +14,9 @@
     <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="node_modules/bootstrap-table/dist/bootstrap-table.min.css">
 
+    
+    <link rel="stylesheet" href="node_modules/bootstrap4-tagsinput-douglasanpa/tagsinput.css">
+
     <link rel="stylesheet" href="node_modules/x-editable/dist/bootstrap3-editable/css/bootstrap-editable.css">
     <link rel="stylesheet" href="node_modules/nprogress/nprogress.css">
 
@@ -41,6 +44,7 @@
 
     <header id="header_menu">
         <a href="#home" class="logo-header"><img src="assets/images/logo-header.png"></a>
+        <span id="version-number" style="position: relative; float: left; padding: 8px 0; color: #fff"></span>
         <div class="menu-holder hidden-by-default hidden">
             <a href="#" class="menu">MENU</a>
             <div class="menu-dropdown">
@@ -69,6 +73,41 @@
     <main class="content js-content"></main>
 
 
+    
+    <div class="modal fade" id="auto_update_modal" tabindex="-1" role="dialog" aria-labelledby="auto_update_modal"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLongTitle">XNAT Desktop Client update</h5>
+                    
+                </div>
+                <div class="modal-body">
+                    <h2>Update available</h2>
+                    <p>
+                        An update for XNAT Desktop Client is available. It is strongly recommended that you install it as soon as possible.
+                    </p>
+                    <p>
+                        Current: <span id="auto_update_current"></span><br>
+                        Available: <span id="auto_update_available"></span>
+                    </p>
+
+                    <p style="text-align: center;">
+                        <progress id="auto_update_progress" class="hidden" value="0" max="100"></progress>
+                        <br><br>
+                    </p>
+                </div>
+    
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-gray" data-dismiss="modal">Remind me later</button>
+                    <button type="button" class="btn btn-blue" id="download_and_install">Download and Install</button>
+                </div>
+            </div>
+        </div>
+    
+    </div>
+
+
 
 
     <!-- Bootstrap core JavaScript
@@ -78,6 +117,7 @@
         
         store = require('store2');
         Helper = require('./assets/js/helpers');
+
     </script>
     <script src="node_modules/blockui-npm/jquery.blockUI.js"></script>
 
@@ -98,6 +138,8 @@
     <!-- <script src="node_modules/bootstrap-table/dist/extensions/flat-json/bootstrap-table-flat-json.min.js"></script> -->
 
     <script src="node_modules/bootstrap-table/dist/extensions/filter-control/bootstrap-table-filter-control.js"></script>
+
+    <script src="node_modules/bootstrap4-tagsinput-douglasanpa/tagsinput.js"></script>
 
     <!-- <script src="node_modules/nprogress/nprogress.js"></script> -->
 
@@ -153,7 +195,8 @@
         //     Helper.pnotify('Title', 'Some message.', 'notice');
         // }, 2000)
         
-        
+        var app = require('electron').remote.app
+        $('#version-number').text('v' + app.getVersion())
         
     </script>
 

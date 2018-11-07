@@ -167,3 +167,12 @@ progress[value] {
 body>.ui-pnotify {
     z-index: 9999;
 }
+
+.bootstrap-tagsinput {
+    border-color: #aaa;
+
+    &.focus {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25)
+    }
+}

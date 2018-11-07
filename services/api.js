@@ -39,8 +39,8 @@ let api = {
                 };
                 console.log($img.attr('src'));
                 
-            
-                image.src = xnat_server + $img.attr('src');
+                let origin = new URL(xnat_server).origin;
+                image.src = origin + $img.attr('src');
                 
             } else {
                 store.remove(api.get_server_str(xnat_server));
