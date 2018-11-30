@@ -313,7 +313,7 @@ function handle_protocol_request(url, place) {
   if (place === 'createWindow') {
     setTimeout(function(){
       mainWindow.webContents.send('handle_protocol_request', url);
-    }, 700)
+    }, 2700)
   } else {
     mainWindow.webContents.send('handle_protocol_request', url);
   }
