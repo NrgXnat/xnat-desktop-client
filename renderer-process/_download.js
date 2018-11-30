@@ -167,8 +167,11 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
 
     let timer_start = new Date() / 1000;
 
+    // fix multliple session creation with token login
+    let user_auth_fix = user_auth.username === auth.get_current_user() ? user_auth : undefined;
+
     axios.get(xnat_server + uri, {
-        auth: user_auth,
+        auth: user_auth_fix,
         responseType: 'arraybuffer',
         onDownloadProgress: function (progressEvent) {
             // Do whatever you want with the native progress event

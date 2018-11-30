@@ -1,6 +1,6 @@
 {
   "name": "XNAT-Desktop-Client",
-  "version": "1.0.36",
+  "version": "1.0.37",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "scripts": {
@@ -77,7 +77,7 @@
   },
   "build": {
     "appId": "com.xnatapp.app",
-    "productName": "XNAT-Desktop-App",
+    "productName": "XNAT-Desktop-Client",
     "asarUnpack": [
       "node_modules/java/**/*",
       "node_modules/async/**/*",
