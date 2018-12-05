@@ -24,13 +24,16 @@ if (!settings.has('global_pause')) {
     settings.set('global_pause', false);
 }
 
+// always set to false when initializing the page
+settings.set('transfering_download', false);
 
-let transfering = false;
+
 console_log(__filename);
 
-function console_log(log_this) {
-    console.log(log_this);
-    ipc.send('log', log_this);
+function console_log(...log_this) {
+    console.log(...log_this);
+    console.trace('<<<<== TRACE ==>>>>');
+    ipc.send('log', ...log_this);
 }
 
 ipc.on('start_download',function(e, item){
@@ -40,6 +43,10 @@ ipc.on('start_download',function(e, item){
 do_transfer();
 
 setInterval(do_transfer, 10000);
+
+// setInterval(function() {
+//     console_log('transfering_download ===> ', new Date().toLocaleString(), settings.get('transfering_download'));
+// }, 1000);
 
 function do_transfer() {
     start_transfer();
@@ -57,11 +64,14 @@ function do_transfer() {
 }
 
 function start_transfer() {
-    if (transfering) {
+    console_log('transfering_state :: ', settings.get('transfering_download'))
+    if (settings.get('transfering_download')) {
         console_log('Download in progress. Aborting download reinit.')
         return;
+    } else {
+        console_log('transfering_ NOT TRANSFERING ... INITIALIZING');
     }
-    transfering = true;
+    
 
     let my_transfers = store.get('transfers.downloads');
     
@@ -72,8 +82,6 @@ function start_transfer() {
     let manifest_urls;
 
     my_transfers.forEach(function(transfer) {
-        console_log(transfer);
-
         // validate current user/server
         if (transfer.server === current_xnat_server 
             && transfer.user === current_username
@@ -89,8 +97,7 @@ function start_transfer() {
                 });
             });
     
-            console_log(manifest_urls);
-            console_log('===================');
+            console_log('manifest_urls.size ==> ' + manifest_urls.size);
     
             if (manifest_urls.size) {
                 try {
@@ -104,16 +111,14 @@ function start_transfer() {
             
         }
         
-    });  
+    });
 
-    transfering = false;
 }
 
 function download_items(xnat_server, user_auth, transfer, manifest_urls, create_dir_structure = false) {
-    if (settings.get('global_pause')) {
-        transfering = false;
-        return;
-    }
+    settings.set('transfering_download', false);
+
+    if (settings.get('global_pause')) return; 
 
     let transfer_id = transfer.id;
 
@@ -122,9 +127,9 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
 
     let transfer_info = get_transfer_info(transfer_id);
 
-    console_log('------ PROGRESS --------');
-    console_log(transfer_info);
-    console_log('//////// PROGRESS /////////');
+    // console_log('------ PROGRESS --------');
+    // console_log(transfer_info);
+    // console_log('//////// PROGRESS /////////');
     
     if (manifest_urls.size == 0) {
         let final_status = transfer_info.error_count ? 'complete_with_errors' : 'finished';
@@ -143,6 +148,8 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
 
         return;
     }
+
+    settings.set('transfering_download', true);
 
     if (create_dir_structure) {
         fx.mkdirSync(temp_zip_path, function (err) {
@@ -163,7 +170,7 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
     let dir = manifest_urls.keys().next().value;
     let uri = manifest_urls.get(dir);
 
-    console.log(dir, uri);
+    console_log(uri);
 
     let timer_start = new Date() / 1000;
 
@@ -195,7 +202,8 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
 
         // create zip file
         fs.writeFileSync(zip_path, Buffer.from(new Uint8Array(resp.data)));
-
+        
+        
         fs.createReadStream(zip_path)
             .pipe(unzipper.Parse())
             .on('entry', function (entry) {
@@ -268,7 +276,7 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
 
     })
     .finally(() => {      
-        // All Done;
+        console_log('TRANSFER_DONE :: ', xnat_server + uri);
     });
 }
 
