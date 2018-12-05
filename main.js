@@ -366,8 +366,8 @@ ipcMain.on('launch_download_modal', (e, item) =>{
   mainWindow.webContents.send('launch_download_modal', item);
 })
 
-ipcMain.on('log', (e, item) =>{
-  mainWindow.webContents.send('console:log', item);
+ipcMain.on('log', (e, ...args) =>{
+  mainWindow.webContents.send('console:log', ...args);
 })
 
 
@@ -448,9 +448,10 @@ function fix_java_path() {
       
       // to fix @rpath error on Mac
       let libjvm_symlink = '/usr/local/lib/libjvm.dylib';
-      if (!isSymlink.sync(libjvm_symlink)) {
-        fs.symlinkSync(java_jre_path + '/libjvm.dylib', libjvm_symlink);
+      if (isSymlink.sync(libjvm_symlink)) {
+        fs.unlinkSync(libjvm_symlink);
       }
+      fs.symlinkSync(java_jre_path + '/libjvm.dylib', libjvm_symlink);
 
     } else { // linux
       if (process.arch === 'x64') {
