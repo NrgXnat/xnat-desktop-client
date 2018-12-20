@@ -454,6 +454,9 @@ function fix_java_path() {
       fs.symlinkSync(java_jre_path + '/libjvm.dylib', libjvm_symlink);
 
     } else { // linux
+      // temporary fix until we resolve symlink issue
+      return;
+
       if (process.arch === 'x64') {
         jre_search_path = jre_search_base + '/lib/amd64/**/libjvm.so';
       } else {
