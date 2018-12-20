@@ -77,9 +77,11 @@ do_transfer();
 
 setInterval(do_transfer, 10000);
 
-function console_log(log_this) {
-    console.log(log_this);
-    ipc.send('log', log_this);
+
+function console_log(...log_this) {
+    console.log(...log_this);
+    console.trace('<<<<== UPLOAD TRACE ==>>>>');
+    ipc.send('log', ...log_this);
 }
 
 
