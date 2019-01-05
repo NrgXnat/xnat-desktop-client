@@ -186,12 +186,14 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
 
     // fix multliple session creation with token login
     let user_auth_fix = user_auth.username === auth.get_current_user() ? user_auth : undefined;
+    //user_auth_fix = undefined
     
 
     let request_settings = {
-        auth: user_auth_fix,
+        //auth: user_auth_fix,
         responseType: 'stream',
-        adapter: httpAdapter
+        //adapter: httpAdapter,
+        //withCredentials: true
     }
 
     if (auth.allow_insecure_ssl()) {

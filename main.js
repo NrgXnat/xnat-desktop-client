@@ -132,7 +132,7 @@ function initialize () {
       width: 1200,
       height: 700,
       alwaysOnTop: false,
-      show: false
+      show: true
     };
 
     
