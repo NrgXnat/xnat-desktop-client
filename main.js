@@ -24,6 +24,7 @@ autoUpdater.autoDownload = false;
 //-------------------------------------------------------------------
 autoUpdater.logger = electron_log;
 autoUpdater.logger.transports.file.level = 'info';
+electron_log.transports.console.level = false;
 electron_log.info('App starting...');
 
 
@@ -132,7 +133,7 @@ function initialize () {
       width: 1200,
       height: 700,
       alwaysOnTop: false,
-      show: true
+      show: false
     };
 
     

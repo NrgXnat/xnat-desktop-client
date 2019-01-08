@@ -35,6 +35,43 @@ if (!settings.has('global_pause')) {
 settings.set('transfering_download', false);
 
 
+function get_jsession_cookie(xnat_url) {
+	return new Promise((resolve, reject) => {
+		let slash_url = xnat_url + '/';
+		
+		let jsession = {
+			id: null,
+			expiration: null
+		}
+		
+		// Query cookies associated with a specific url.
+		remote.session.defaultSession.cookies.get({url: slash_url}, (error, cookies) => {
+			if (cookies.length) {
+				cookies.forEach(item => {
+					if (item.name === 'JSESSIONID') {
+						jsession.id = item.value
+					}
+
+					if (item.name === 'SESSION_EXPIRATION_TIME') {
+						jsession.expiration = item.value;
+					}
+				});
+				
+				if (jsession.id && jsession.expiration) {
+					resolve(`JSESSIONID=${jsession.id}; SESSION_EXPIRATION_TIME=${jsession.expiration};`);
+				} else {
+					reject(xnat_url + ' [No JSESSIONID Cookie]')
+				}
+				
+			} else {
+				reject(xnat_url + ' [No Cookies]')
+			}
+			
+		})
+	});
+}
+
+
 console_log(__filename);
 
 function console_log(...log_this) {
@@ -178,153 +215,160 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
     let dir = manifest_urls.keys().next().value;
     let uri = manifest_urls.get(dir);
 
-    //console_log(uri);
-
     let timer_start = new Date() / 1000;
     let bytes_total = 0;
     let stream_timer;
 
     // fix multliple session creation with token login
-    let user_auth_fix = user_auth.username === auth.get_current_user() ? user_auth : undefined;
-    //user_auth_fix = undefined
-    
+    // let user_auth_fix = user_auth.username === auth.get_current_user() ? user_auth : undefined;    
 
-    let request_settings = {
-        //auth: user_auth_fix,
-        responseType: 'stream',
-        //adapter: httpAdapter,
-        //withCredentials: true
-    }
-
-    if (auth.allow_insecure_ssl()) {
-        // insecure SSL at request level
-        request_settings.httpsAgent = new https.Agent({  
-            rejectUnauthorized: false
-        });
-    }
-
-    axios.get(xnat_server + uri, request_settings)
-    .then(resp => {
-        let zip_path = path.resolve(temp_zip_path, sha1(xnat_server + uri) + '__YYY__' + Math.random() + '.zip');
-
-        let stream = resp.data;
-        stream.on('data', (chunk /* chunk is an ArrayBuffer */) => {
-            let bytes_chunk = chunk.byteLength;
-
-            bytes_total += bytes_chunk;
-
-            if (!stream_timer) {
-                stream_timer = setTimeout(function() {
-                    console_log(prettyBytes(bytes_total));
-
-                    let timer_now = new Date() / 1000;
-                    let download_speed = bytes_total / (timer_now - timer_start);
-    
-                    ipc.send('download_progress', {
-                        selector: `#download-details [data-id="${transfer_id}"] #download_rate`,
-                        html: filesize(download_speed) + '/sec'
-                    });
-
-                    stream_timer = null;
-                }, 500);
+    get_jsession_cookie(xnat_server).then(jsession_cookie => {
+        let request_settings = {
+            //auth: user_auth_fix,
+            responseType: 'stream',
+            adapter: httpAdapter,
+            headers: {
+                'Cookie': jsession_cookie
             }
-          
-
-            fs.appendFileSync(zip_path, Buffer(chunk));
-        });
-
-        stream.on('end', () => {
-            //console_log('stream on.end', bytes_total);
-            let timer_now = new Date() / 1000;
-            let total_time_ms = (timer_now - timer_start) * 1000;
-
-            ipc.send('download_progress', {
-                selector: `#download-details [data-id="${transfer_id}"] #download_size`,
-                html: prettyBytes(bytes_total)
+        }
+    
+        if (auth.allow_insecure_ssl()) {
+            // insecure SSL at request level
+            request_settings.httpsAgent = new https.Agent({  
+                rejectUnauthorized: false
             });
-
-            ipc.send('download_progress', {
-                selector: `#download-details [data-id="${transfer_id}"] #download_time`,
-                html: humanizeDuration(total_time_ms, { round: true })
-            });
-            
-
-            fs.createReadStream(zip_path)
-                .pipe(unzipper.Parse())
-                .on('entry', function (entry) {
-                    
-                    if (entry.type === 'File') {
-                        // file basename
-                        let basename = path.basename(entry.path);
-
-                        // extract path where file will end up
-                        let extract_path = path.resolve(real_path, dir);
-
-                        // create directory structure recursively
-                        fx.mkdirSync(extract_path, function (err) {
-                            if (err) throw err;
-                        });
-
-                        // write file to path
-                        entry.pipe(fs.createWriteStream(path.resolve(extract_path, basename)));
-                    } else {
-                        entry.autodrain();
-                    }
-                })
-                .on('finish', () => {
-                    // TODO - files are sometimes locked ... make unlock explicit          
-                    fs.unlink(zip_path, (err) => {
-                        if (err) throw err;
-                        console_log('----' + zip_path + ' was DELETED');
-                    });
-                });
-
-            // delete item from url map
-            manifest_urls.delete(dir);
-            mark_downloaded(transfer_id, uri);
-
-            update_modal_ui(transfer_id, uri);
-
-            download_items(xnat_server, user_auth, transfer, manifest_urls);
-        });
-
-
-    })
-    .catch(err => {
-        console_log(err.response, err)
-
-        if (err.response && err.response.status === 404) {
-            // =============================================
-            // SOFT FAIL
-            // =============================================
-            // delete item from url map
-            manifest_urls.delete(dir);
-            mark_error_file(transfer_id, uri); // set file status (-1)
-
-            update_modal_ui(transfer_id, uri);
-
-            download_items(xnat_server, user_auth, transfer, manifest_urls);
-            // =============================================
-        } else {
-            update_tranfer_data(transfer_id, {
-                status: 'xnat_error',
-                error: Helper.errorMessage(err)
-            });
-
-            ipc.send('progress_cell', {
-                table: '#download_monitor_table',
-                id: transfer_id,
-                field: "download_status",
-                value: "xnat_error"
-            });
-            
-            settings.set('transfering_download', false);
         }
 
-    })
-    .finally(() => {      
-        // console_log('TRANSFER_DONE :: ', xnat_server + uri);
+        //console.log('********* request_settings *********')
+        //console.log(request_settings);
+    
+        axios.get(xnat_server + uri, request_settings)
+        .then(resp => {
+            let zip_path = path.resolve(temp_zip_path, sha1(xnat_server + uri) + '__YYY__' + Math.random() + '.zip');
+    
+            let stream = resp.data;
+            stream.on('data', (chunk /* chunk is an ArrayBuffer */) => {
+                let bytes_chunk = chunk.byteLength;
+    
+                bytes_total += bytes_chunk;
+    
+                if (!stream_timer) {
+                    stream_timer = setTimeout(function() {
+                        console_log(prettyBytes(bytes_total));
+    
+                        let timer_now = new Date() / 1000;
+                        let download_speed = bytes_total / (timer_now - timer_start);
+        
+                        ipc.send('download_progress', {
+                            selector: `#download-details [data-id="${transfer_id}"] #download_rate`,
+                            html: filesize(download_speed) + '/sec'
+                        });
+    
+                        stream_timer = null;
+                    }, 500);
+                }
+              
+    
+                fs.appendFileSync(zip_path, Buffer(chunk));
+            });
+    
+            stream.on('end', () => {
+                //console_log('stream on.end', bytes_total);
+                let timer_now = new Date() / 1000;
+                let total_time_ms = (timer_now - timer_start) * 1000;
+    
+                ipc.send('download_progress', {
+                    selector: `#download-details [data-id="${transfer_id}"] #download_size`,
+                    html: prettyBytes(bytes_total)
+                });
+    
+                ipc.send('download_progress', {
+                    selector: `#download-details [data-id="${transfer_id}"] #download_time`,
+                    html: humanizeDuration(total_time_ms, { round: true })
+                });
+                
+    
+                fs.createReadStream(zip_path)
+                    .pipe(unzipper.Parse())
+                    .on('entry', function (entry) {
+                        
+                        if (entry.type === 'File') {
+                            // file basename
+                            let basename = path.basename(entry.path);
+    
+                            // extract path where file will end up
+                            let extract_path = path.resolve(real_path, dir);
+    
+                            // create directory structure recursively
+                            fx.mkdirSync(extract_path, function (err) {
+                                if (err) throw err;
+                            });
+    
+                            // write file to path
+                            entry.pipe(fs.createWriteStream(path.resolve(extract_path, basename)));
+                        } else {
+                            entry.autodrain();
+                        }
+                    })
+                    .on('finish', () => {
+                        // TODO - files are sometimes locked ... make unlock explicit          
+                        fs.unlink(zip_path, (err) => {
+                            if (err) throw err;
+                            console_log('----' + zip_path + ' was DELETED');
+                        });
+                    });
+    
+                // delete item from url map
+                manifest_urls.delete(dir);
+                mark_downloaded(transfer_id, uri);
+    
+                update_modal_ui(transfer_id, uri);
+    
+                download_items(xnat_server, user_auth, transfer, manifest_urls);
+            });
+    
+    
+        })
+        .catch(err => {
+            console_log(err.response, err)
+    
+            if (err.response && err.response.status === 404) {
+                // =============================================
+                // SOFT FAIL
+                // =============================================
+                // delete item from url map
+                manifest_urls.delete(dir);
+                mark_error_file(transfer_id, uri); // set file status (-1)
+    
+                update_modal_ui(transfer_id, uri);
+    
+                download_items(xnat_server, user_auth, transfer, manifest_urls);
+                // =============================================
+            } else {
+                update_tranfer_data(transfer_id, {
+                    status: 'xnat_error',
+                    error: Helper.errorMessage(err)
+                });
+    
+                ipc.send('progress_cell', {
+                    table: '#download_monitor_table',
+                    id: transfer_id,
+                    field: "download_status",
+                    value: "xnat_error"
+                });
+                
+                settings.set('transfering_download', false);
+            }
+    
+        })
+        .finally(() => {      
+            // console_log('TRANSFER_DONE :: ', xnat_server + uri);
+        });
+    }).catch(err => {
+        console_log(err)
     });
+
+    
 }
 
 function mark_downloaded(transfer_id, uri) {
