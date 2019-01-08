@@ -24,6 +24,7 @@ autoUpdater.autoDownload = false;
 //-------------------------------------------------------------------
 autoUpdater.logger = electron_log;
 autoUpdater.logger.transports.file.level = 'info';
+electron_log.transports.console.level = false;
 electron_log.info('App starting...');
 
 
