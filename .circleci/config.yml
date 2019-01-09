@@ -1,5 +1,5 @@
 build_config: &build_config
-  BUILD_IMAGE_NAME: rherrick/node-java-build
+  BUILD_IMAGE_NAME: xnat/node-java-build
   BUILD_IMAGE_TAG: latest
 
 version: 2
