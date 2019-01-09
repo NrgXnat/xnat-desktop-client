@@ -1,0 +1,110 @@
+build_config: &build_config
+  BUILD_IMAGE_NAME: rherrick/node-java-build
+  BUILD_IMAGE_TAG: latest
+
+version: 2
+jobs:
+  build_win_and_linux:
+    environment:
+      <<: *build_config
+    docker:
+      - image: ${BUILD_IMAGE_NAME}:${BUILD_IMAGE_TAG}
+
+    working_directory: ~/build
+
+    steps:
+      - checkout
+      - restore_cache:
+          key: cache-{{ .Branch }}-{{ checksum "package.json" }}
+      - run:
+          name: Create link to Windows 64-bit JRE
+          command: ln -s /opt/java/win-x64 build_resources/jre/win-x64
+      - run:
+          name: Create link to Linux 64-bit JRE
+          command: ln -s /opt/java/linux-x64 build_resources/jre/linux-x64
+      - run:
+          name: Install and build node dependencies
+          command: yarn install
+      - save_cache:
+          key: cache-{{ .Branch }}-{{ checksum "package.json" }}
+          paths:
+            - node_modules
+      - run:
+          name: Build Windows 64-bit executable and installer
+          command: yarn dist-win-x64
+      - run:
+          name: Build Linux 64-bit executable and installer
+          command: yarn dist-linux-x64
+      - run:
+          name: Copy build artifacts to artifacts folder
+          command: |
+            mkdir artifacts
+            find dist -mindepth 1 -maxdepth 1 -type f -print0 | xargs --null -I {} cp {} artifacts
+      - run:
+          name: Upload artifacts to Bitbucket downloads page
+          command:
+            http --auth "${BB_REPO_OWNER}:${BB_REPO_TOKEN}" --check-status --form POST "https://api.bitbucket.org/2.0/repositories/${BB_REPO_OWNER}/${TARGET}/downloads" $(for ARTIFACT in $(find artifacts -type f); do echo files@${ARTIFACT}; done)
+      - store_artifacts:
+          path: artifacts
+
+  build_mac:
+    macos:
+      xcode: "10.1.0"
+
+    working_directory: ~/build
+
+    steps:
+      - run:
+          name: Install httpie
+          command: pip install --upgrade httpie
+      - run:
+          name: Install NVM and node@8.15.0
+          command: |
+            set +e
+            http https://raw.githubusercontent.com/creationix/nvm/v0.33.11/install.sh | bash
+            echo 'export NVM_DIR="$HOME/.nvm"' >> $BASH_ENV
+            echo '[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"' >> $BASH_ENV
+            echo "nvm install v8.15.0" >> $BASH_ENV
+            echo "nvm alias default v8.15.0" >> $BASH_ENV
+      - checkout
+      - restore_cache:
+          key: cache-mac-{{ .Branch }}-{{ checksum "package.json" }}
+      - run:
+          name: Download and expand JRE for Mac
+          command: |
+            [[ ! -d build_resources/jre/mac ]] && {
+                http --download https://cdn.azul.com/zulu/bin/zulu8.33.0.1-jdk8.0.192-macosx_x64.zip --output build_resources/jre/zulu8.33.0.1-jdk8.0.192-macosx_x64.zip
+                unzip -d build_resources/jre build_resources/jre/zulu8.33.0.1-jdk8.0.192-macosx_x64.zip
+                mv build_resources/jre/zulu8.33.0.1-jdk8.0.192-macosx_x64 build_resources/jre/mac
+            }
+      - run:
+          name: Install and build node dependencies
+          command: yarn install
+      - save_cache:
+          key: cache-{{ .Branch }}-{{ checksum "package.json" }}
+          paths:
+            - node_modules
+            - build_resources/jre/mac
+      - run:
+          name: Build Mac executable and installer
+          command: yarn dist-mac
+      - run:
+          name: Copy build artifacts to artifacts folder
+          command: |
+            mkdir artifacts
+            find dist -mindepth 1 -maxdepth 1 -type f | xargs -I {} cp {} artifacts
+      - run:
+          name: Upload artifacts to Bitbucket downloads page
+          command:
+            http --auth "${BB_REPO_OWNER}:${BB_REPO_TOKEN}" --check-status --form POST "https://api.bitbucket.org/2.0/repositories/${BB_REPO_OWNER}/${TARGET}/downloads" $(for ARTIFACT in $(find artifacts -type f); do echo files@${ARTIFACT}; done)
+      - store_artifacts:
+          path: artifacts
+
+workflows:
+  version: 2
+  build_all:
+    jobs:
+      - build_win_and_linux:
+          context: dxm
+      - build_mac:
+          context: dxm

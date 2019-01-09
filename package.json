@@ -1,5 +1,5 @@
 {
-  "name": "XNAT-Desktop-Client",
+  "name": "xnat-desktop-client",
   "version": "1.0.39",
   "description": "XNAT Desktop Client",
   "main": "main.js",
@@ -106,7 +106,7 @@
       "verifyUpdateCodeSignature": false,
       "extraResources": [
         {
-          "from": "build_resources/jre/win-${arch}/jre1.8.0_162",
+          "from": "build_resources/jre/win-${arch}",
           "to": "jre"
         }
       ]
@@ -120,17 +120,18 @@
       ],
       "extraResources": [
         {
-          "from": "build_resources/jre/mac/jre1.8.0_162.jre",
+          "from": "build_resources/jre/mac",
           "to": "jre"
         }
       ]
     },
     "linux": {
+      "artifactName": "${productName}-${version}.AppImage",
       "icon": "assets/icons/png/XDC.png",
       "target": "AppImage",
       "extraResources": [
         {
-          "from": "build_resources/jre/linux-${arch}/jre1.8.0_162",
+          "from": "build_resources/jre/linux-${arch}",
           "to": "jre"
         }
       ]

@@ -1,6 +1,9 @@
 node_modules/
 release-builds/
 dist/
+artifacts/
 .sass-cache/
 .vscode/
 /xlectric.log
+build_resources/jre/*
+!build_resources/jre/.gitignore
