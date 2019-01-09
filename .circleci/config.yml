@@ -44,7 +44,16 @@ jobs:
           name: Upload artifacts to Bitbucket downloads page when the build is on the master branch
           command: |
             [[ ${CIRCLE_BRANCH} == "master" ]] && {
-                http --auth "${BB_REPO_OWNER}:${BB_REPO_TOKEN}" --check-status --form POST "https://api.bitbucket.org/2.0/repositories/${BB_REPO_SLUG}/${TARGET}/downloads" $(for ARTIFACT in $(find artifacts -type f); do echo files@${ARTIFACT}; done)
+                echo "This version of the CircleCI build configuration does not yet support uploads to the application downloads page"
+                echo ""
+                echo "Target: https://api.bitbucket.org/2.0/repositories/${BB_REPO_SLUG}/${TARGET}/downloads"
+                echo ""
+                echo "Artifacts:"
+                for ARTIFACT in $(find artifacts -type f); do
+                    echo " * ${ARTIFACT}"
+                done
+            } || {
+                echo "Build on ${CIRCLE_BRANCH} branch, no artifacts pushed to application downloads page"
             }
       - store_artifacts:
           path: artifacts
@@ -99,7 +108,16 @@ jobs:
           name: Upload artifacts to Bitbucket downloads page when the build is on the master branch
           command: |
             [[ ${CIRCLE_BRANCH} == "master" ]] && {
-                http --auth "${BB_REPO_OWNER}:${BB_REPO_TOKEN}" --check-status --form POST "https://api.bitbucket.org/2.0/repositories/${BB_REPO_SLUG}/${TARGET}/downloads" $(for ARTIFACT in $(find artifacts -type f); do echo files@${ARTIFACT}; done)
+                echo "This version of the CircleCI build configuration does not yet support uploads to the application downloads page"
+                echo ""
+                echo "Target: https://api.bitbucket.org/2.0/repositories/${BB_REPO_SLUG}/${TARGET}/downloads"
+                echo ""
+                echo "Artifacts:"
+                for ARTIFACT in $(find artifacts -type f); do
+                    echo " * ${ARTIFACT}"
+                done
+            } || {
+                echo "Build on ${CIRCLE_BRANCH} branch, no artifacts pushed to application downloads page"
             }
       - store_artifacts:
           path: artifacts
