@@ -1,6 +1,10 @@
 const path = require('path')
 
+//create_usr_local_lib2();
+
 fix_java_path();
+
+
 
 const mizer = require('./mizer');
 const glob = require('glob')
@@ -448,7 +452,10 @@ function fix_java_path() {
       java_jre_path = path.resolve(jvm_file, '..');
       
       // to fix @rpath error on Mac
-      let libjvm_symlink = '/usr/local/lib/libjvm.dylib';
+      create_usr_local_lib();
+
+      let local_lib_path = '/usr/local/lib888';
+      let libjvm_symlink = local_lib_path + '/libjvm.dylib';
       if (isSymlink.sync(libjvm_symlink)) {
         fs.unlinkSync(libjvm_symlink);
       }
@@ -491,6 +498,118 @@ function fix_java_path() {
       });
     }
 
+  }
+}
+
+function create_usr_local_lib_promise() {
+  const fs = require('fs');
+  const sudo = require('sudo-prompt');
+  let options = {
+    name: 'XNAT Desktop Client'
+  };
+
+  let local_path = '/usr/local';
+  let local_lib_path = local_path + '/lib77';
+
+  return new Promise((resolve, reject) => {
+    if (!fs.existsSync(local_path)) {
+      sudo.exec('mkdir ' + local_path, options, function(error, stdout, stderr) {
+        if (error) reject('ERROR:: mkdir ' + local_path);
+        
+        sudo.exec('mkdir ' + local_lib_path, options, function(error, stdout, stderr) {
+          if (error) reject('ERROR:: mkdir ' + local_lib_path);
+          
+          sudo.exec('chown -R $USER:admin ' + local_lib_path, options, function(error, stdout, stderr) {
+            if (error) reject('chown -R $USER:admin ' + local_lib_path);
+            
+            resolve('Success 1');
+          });
+        });
+
+      });
+    }
+  
+    if (!fs.existsSync(local_lib_path)) {
+      sudo.exec('mkdir ' + local_lib_path, options, function(error, stdout, stderr) {
+        if (error) reject('ERROR:: mkdir ' + local_lib_path);
+        
+        sudo.exec('chown -R $USER:admin ' + local_lib_path, options, function(error, stdout, stderr) {
+          if (error) reject('chown -R $USER:admin ' + local_lib_path);
+          
+          resolve('Success 2');
+        });
+      });
+    } else {
+      resolve('Success 3');
+    }
+  });
+}
+
+
+function create_usr_local_lib() {
+  const fs = require('fs');
+  const sudo = require('sudo-prompt');
+  let options = {
+    name: 'XNAT Desktop Client'
+  };
+
+  let local_path = '/usr/local';
+  let local_lib_path = local_path + '/lib888';
+
+  if (!fs.existsSync(local_path)) {
+    sudo.exec('mkdir ' + local_path, options, function(error, stdout, stderr) {
+      if (error) throw error;
+      
+      sudo.exec('mkdir ' + local_lib_path, options, function(error, stdout, stderr) {
+        if (error) throw error;
+        
+        sudo.exec('chown -R $USER:admin ' + local_lib_path, options, function(error, stdout, stderr) {
+          if (error) throw error;
+          
+          app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+          app.exit(0);
+        });
+      });
+
+    });
+  } else if (!fs.existsSync(local_lib_path)) {
+    sudo.exec('mkdir ' + local_lib_path, options, function(error, stdout, stderr) {
+      if (error) throw error;
+      
+      sudo.exec('chown -R $USER:admin ' + local_lib_path, options, function(error, stdout, stderr) {
+        if (error) throw error;
+        
+        app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+        app.exit(0);
+      });
+    });
+  }
+
+}
+
+function create_usr_local_lib2() {
+  const fs = require('fs');
+  const sudo = require('sudo-prompt');
+  let options = {
+    name: 'XNAT Desktop Client'
+  };
+
+  // let local_path = '/usr/local/lib99';
+  // let local_lib_path = local_path + '/test';
+
+  
+  let local_path = 'D:\\lib99';
+  let local_lib_path = local_path + '\\test';
+
+  if (!fs.existsSync(local_lib_path)) {
+    sudo.exec('mkdir ' + local_lib_path, options, function(error, stdout, stderr) {
+      if (error) throw error;
+      
+      //log('stdout: ' + stdout);
+
+      app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) })
+      app.exit(0)
+    });
   }
 }
 
