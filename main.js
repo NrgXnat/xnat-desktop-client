@@ -454,7 +454,7 @@ function fix_java_path() {
       // to fix @rpath error on Mac
       create_usr_local_lib();
 
-      let local_lib_path = '/usr/local/lib888';
+      let local_lib_path = '/usr/local/lib';
       let libjvm_symlink = local_lib_path + '/libjvm.dylib';
       if (isSymlink.sync(libjvm_symlink)) {
         fs.unlinkSync(libjvm_symlink);
@@ -547,6 +547,7 @@ function create_usr_local_lib_promise() {
 
 
 function create_usr_local_lib() {
+  const my_app = require('electron').app;
   const fs = require('fs');
   const sudo = require('sudo-prompt');
   let options = {
@@ -554,7 +555,7 @@ function create_usr_local_lib() {
   };
 
   let local_path = '/usr/local';
-  let local_lib_path = local_path + '/lib888';
+  let local_lib_path = local_path + '/lib';
 
   if (!fs.existsSync(local_path)) {
     sudo.exec('mkdir ' + local_path, options, function(error, stdout, stderr) {
@@ -566,8 +567,8 @@ function create_usr_local_lib() {
         sudo.exec('chown -R $USER:admin ' + local_lib_path, options, function(error, stdout, stderr) {
           if (error) throw error;
           
-          app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
-          app.exit(0);
+          my_app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+          my_app.exit(0);
         });
       });
 
@@ -579,8 +580,8 @@ function create_usr_local_lib() {
       sudo.exec('chown -R $USER:admin ' + local_lib_path, options, function(error, stdout, stderr) {
         if (error) throw error;
         
-        app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
-        app.exit(0);
+        my_app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+        my_app.exit(0);
       });
     });
   }
