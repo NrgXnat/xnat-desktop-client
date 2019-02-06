@@ -474,11 +474,20 @@ function fix_java_path() {
       jvm_file = glob.sync(jre_search_path)[0];
       java_jre_path = path.resolve(jvm_file, '..');
 
+      if (process.env.DYLD_LIBRARY_PATH == undefined) {
+        process.env.DYLD_LIBRARY_PATH = java_jre_path;
+      } else {
+        process.env.DYLD_LIBRARY_PATH += path.delimiter + java_jre_path;
+      }
+      
+      /*
+
       // attempt
       let libjvm_symlink = '/usr/local/lib/libjvm.so';
       if (!isSymlink.sync(libjvm_symlink)) {
         fs.symlinkSync(java_jre_path + '/libjvm.so', libjvm_symlink);
       }
+      */
     }
 
     /*
