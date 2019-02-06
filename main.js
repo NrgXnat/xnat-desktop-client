@@ -452,7 +452,14 @@ function fix_java_path() {
       java_jre_path = path.resolve(jvm_file, '..');
       
       // to fix @rpath error on Mac
-      create_usr_local_lib();
+      // create_usr_local_lib();
+
+      if (process.env.DYLD_LIBRARY_PATH == undefined) {
+        process.env.DYLD_LIBRARY_PATH = java_jre_path;
+      } else {
+        process.env.DYLD_LIBRARY_PATH += path.delimiter + java_jre_path;
+      }
+      /*
 
       let local_lib_path = '/usr/local/lib';
       let libjvm_symlink = local_lib_path + '/libjvm.dylib';
@@ -460,6 +467,7 @@ function fix_java_path() {
         fs.unlinkSync(libjvm_symlink);
       }
       fs.symlinkSync(java_jre_path + '/libjvm.dylib', libjvm_symlink);
+      */
 
     } else { // linux
       // temporary fix until we resolve symlink issue
@@ -474,20 +482,11 @@ function fix_java_path() {
       jvm_file = glob.sync(jre_search_path)[0];
       java_jre_path = path.resolve(jvm_file, '..');
 
-      if (process.env.DYLD_LIBRARY_PATH == undefined) {
-        process.env.DYLD_LIBRARY_PATH = java_jre_path;
-      } else {
-        process.env.DYLD_LIBRARY_PATH += path.delimiter + java_jre_path;
-      }
-      
-      /*
-
       // attempt
       let libjvm_symlink = '/usr/local/lib/libjvm.so';
       if (!isSymlink.sync(libjvm_symlink)) {
         fs.symlinkSync(java_jre_path + '/libjvm.so', libjvm_symlink);
       }
-      */
     }
 
     /*
