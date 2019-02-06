@@ -157,6 +157,7 @@ function handleLoginFail(error) {
     app.allow_insecure_ssl = false;
 
     let msg = Helper.errorMessage(error);
+    console.log(JSON.stringify(error))
         
     Helper.unblockModal('#login');
     
