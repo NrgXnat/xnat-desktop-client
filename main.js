@@ -4,6 +4,8 @@ const path = require('path')
 
 fix_java_path();
 
+test_multiple_commands();
+
 
 
 const mizer = require('./mizer');
@@ -452,14 +454,7 @@ function fix_java_path() {
       java_jre_path = path.resolve(jvm_file, '..');
       
       // to fix @rpath error on Mac
-      // create_usr_local_lib();
-
-      if (process.env.DYLD_LIBRARY_PATH == undefined) {
-        process.env.DYLD_LIBRARY_PATH = java_jre_path;
-      } else {
-        process.env.DYLD_LIBRARY_PATH += path.delimiter + java_jre_path;
-      }
-      /*
+      create_usr_local_lib();
 
       let local_lib_path = '/usr/local/lib';
       let libjvm_symlink = local_lib_path + '/libjvm.dylib';
@@ -467,7 +462,7 @@ function fix_java_path() {
         fs.unlinkSync(libjvm_symlink);
       }
       fs.symlinkSync(java_jre_path + '/libjvm.dylib', libjvm_symlink);
-      */
+      
 
     } else { // linux
       // temporary fix until we resolve symlink issue
@@ -594,6 +589,28 @@ function create_usr_local_lib() {
     });
   }
 
+}
+
+
+function test_multiple_commands() {
+  const fs = require('fs');
+  const sudo = require('sudo-prompt');
+  
+  let options = {
+    name: 'XNAT Desktop Client'
+  };
+
+  let local_lib_path = '/usr/local/lib-333';
+
+  if (!fs.existsSync(local_lib_path)) {
+    let sudo_command = `sh -c 'mkdir $(local_lib_path) && chown -R $USER:admin && cd $(local_lib_path) && touch .darko'`;
+    
+    sudo.exec(sudo_command, options, function(error, stdout, stderr) {
+      if (error) throw error;
+      
+      console.log('cool');
+    });
+  }
 }
 
 function create_usr_local_lib2() {
