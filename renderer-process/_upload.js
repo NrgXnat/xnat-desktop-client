@@ -339,7 +339,7 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
         user_auth = auth.get_user_auth(), 
         csrfToken = transfer.csrfToken, 
         transfer_id = transfer.id;
-
+    // console.log('%c csrfToken = ' + csrfToken, 'font-weight: bold; color: red;');
 
     let table_row_id = '0';
     transfer.table_rows.forEach(function(tbl_row) {
