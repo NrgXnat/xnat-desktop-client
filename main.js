@@ -600,10 +600,10 @@ function test_multiple_commands() {
     name: 'XNAT Desktop Client'
   };
 
-  let local_lib_path = '/usr/local/lib-333';
+  let local_lib_path = '/usr/local/lib-334';
 
   if (!fs.existsSync(local_lib_path)) {
-    let sudo_command = `sh -c 'mkdir $(local_lib_path) && chown -R $USER:admin && cd $(local_lib_path) && touch .darko'`;
+    let sudo_command = `sh -c "mkdir $(local_lib_path) && chown $USER:admin $(local_lib_path) && cd $(local_lib_path) && touch .darko && chmod 0777 .darko"`;
     
     sudo.exec(sudo_command, options, function(error, stdout, stderr) {
       if (error) throw error;
