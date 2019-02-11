@@ -199,7 +199,7 @@ async function doUpload(transfer, series_id) {
     
             // todo add additional logic for errors
             if (res.copy_error.length == 0) {
-                zip_and_upload(res.directory, res.copy_success, transfer, series_id);
+                zip_and_upload(res.directory, res.copy_success, transfer, series_id, csrfToken);
             } else {
                 _queue_.remove(transfer.id, series_id);
     
@@ -331,15 +331,13 @@ function _time_offset(start_time) {
 
 
 
-function zip_and_upload(dirname, _files, transfer, series_id) {
+function zip_and_upload(dirname, _files, transfer, series_id, csrfToken) {
     let zip_timer = performance.now();
 
     let url_data = transfer.url_data, 
         xnat_server = transfer.xnat_server, 
         user_auth = auth.get_user_auth(), 
-        csrfToken = transfer.csrfToken, 
         transfer_id = transfer.id;
-    // console.log('%c csrfToken = ' + csrfToken, 'font-weight: bold; color: red;');
 
     let table_row_id = '0';
     transfer.table_rows.forEach(function(tbl_row) {
@@ -385,7 +383,7 @@ function zip_and_upload(dirname, _files, transfer, series_id) {
             console.log('-------------' + xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken + '|||||||||||||||----------------------');
             
             console.log('**************************** ZIP CONTENT '+zip_content.length+' ***************************');
-            
+
 
             axios({
                 method: 'POST',
