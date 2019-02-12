@@ -647,6 +647,11 @@ ipcMain.on('print_global', () => {
   log(global.user_auth);
 })
 
+ipcMain.on('relaunch_app', (e, data) =>{
+  app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+  app.exit(0);
+})
+
 
 
 /*

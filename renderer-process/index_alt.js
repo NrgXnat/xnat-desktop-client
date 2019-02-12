@@ -42,8 +42,12 @@ function fix_mac_local_lib_path() {
             throw error;
         }
 
-        my_app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
-        my_app.exit(0);
+        alert('Sve OK');
+
+        ipc.send('relaunch_app', {});
+
+        // my_app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+        // my_app.exit(0);
     });
 }
 
