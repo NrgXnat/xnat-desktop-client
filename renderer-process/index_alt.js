@@ -18,6 +18,8 @@ $(document).on('click', '#allow_local_lib_access', function(e) {
 });
 
 function fix_mac_local_lib_path() {
+    const my_app = require('electron').app;
+
     let options = {
         name: 'XNAT Desktop Client'
     };
@@ -32,11 +34,16 @@ function fix_mac_local_lib_path() {
     let my_sudo = new_commands.join(' && ');
     let sudo_command = `sh -c "${my_sudo}"`;
 
-    sudo.exec(sudo_command, options, function (error, stdout, stderr) {
-        if (error) throw error;
+    alert(sudo_command);
 
-        app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
-        app.exit(0);
+    sudo.exec(sudo_command, options, function (error, stdout, stderr) {
+        if (error) {
+            alert('GRESKA: ' + err.code);
+            throw error;
+        }
+
+        my_app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+        my_app.exit(0);
     });
 }
 
