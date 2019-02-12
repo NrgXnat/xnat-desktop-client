@@ -38,7 +38,7 @@ function fix_mac_local_lib_path() {
 
     sudo.exec(sudo_command, options, function (error, stdout, stderr) {
         if (error) {
-            alert('GRESKA: ' + err.code);
+            alert('GRESKA: ' + error.code);
             throw error;
         }
 
