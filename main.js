@@ -40,8 +40,6 @@ if (is_usr_local_lib_writable()) {
 function initialize_usr_local_lib_app() {
   devToolsLog('initialize_usr_local_lib_app triggered')
 
-  requireMainProcessAdditional()
-
   let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
   const iconPath = path.join(__dirname, iconSource);
 
@@ -52,16 +50,16 @@ function initialize_usr_local_lib_app() {
       height: 640,
       title: app.getName(),
       icon: iconPath,
-      show: true
+      show: true,
+      frame: false
     };
 
     mainWindow = new BrowserWindow(windowOptions);
     mainWindow.loadURL(path.join('file://', __dirname, '/index_alt.html'));
 
-    // Launch fullscreen with DevTools open, usage: yarn dev
     if (isDevEnv()) {
       mainWindow.webContents.openDevTools()
-      //mainWindow.maximize()
+      mainWindow.maximize()
       require('devtron').install()
     }
 
@@ -386,6 +384,7 @@ function is_usr_local_lib_writable() {
       const usr_local_lib_path = '/usr/local/lib';
 
 		  fs.accessSync(usr_local_lib_path, fs.constants.F_OK | fs.constants.W_OK);
+      
       // path exists, and it is writable - ALL OK
       return true;
 
