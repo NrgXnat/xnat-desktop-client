@@ -40,7 +40,7 @@ if (is_usr_local_lib_writable()) {
 function initialize_usr_local_lib_app() {
   devToolsLog('initialize_usr_local_lib_app triggered')
 
-  //requireMainProcessAdditional()
+  requireMainProcessAdditional()
 
   let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
   const iconPath = path.join(__dirname, iconSource);
@@ -52,8 +52,7 @@ function initialize_usr_local_lib_app() {
       height: 640,
       title: app.getName(),
       icon: iconPath,
-      show: true,
-      frame: false
+      show: true
     };
 
     mainWindow = new BrowserWindow(windowOptions);
@@ -69,26 +68,14 @@ function initialize_usr_local_lib_app() {
     mainWindow.on('closed', function () {
       mainWindow = null
     });
-    
-    
   }
 
 
   app.on('ready', () => {
-    if (!isDevEnv()) {
-      //autoUpdater.checkForUpdatesAndNotify();
-      autoUpdater.checkForUpdates()
-    }
-
-    //app.setName('XNAT Desktop Client v' + app.getVersion());
-
-    devToolsLog('app.ready triggered')
     createWindow();
-    devToolsLog('app.ready DONE')
   })
 
   app.on('window-all-closed', () => {
-    //showErrorBox('All Closed', 'All windows closed!');
     if (process.platform !== 'darwin') {
       app.quit()
     }

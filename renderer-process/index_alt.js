@@ -52,6 +52,45 @@ function fix_mac_local_lib_path() {
 }
 
 
+$(document).on('click', '#allow_local_lib_access_1', function(e) {
+    fix_mac_local_lib_path_1();
+});
+
+function fix_mac_local_lib_path_1() {
+    const my_app = require('electron').app;
+
+    let options = {
+        name: 'XNAT Desktop Client'
+    };
+
+    let usr_local_lib_path = '/usr/local/lib';
+
+    let new_commands = [
+        `chown $USER:admin ${usr_local_lib_path}`,
+        `chmod 0755 ${usr_local_lib_path}`
+    ];
+
+    let my_sudo = new_commands.join(' && ');
+    let sudo_command = `sh -c "${my_sudo}"`;
+
+    alert(sudo_command);
+
+    sudo.exec(sudo_command, options, function (error, stdout, stderr) {
+        if (error) {
+            alert('GRESKA: ' + error.code);
+            throw error;
+        }
+
+        alert('Sve OK 1');
+        
+        my_app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+        my_app.exit(0);
+    });
+}
+
+
+
+
 
 
 $(document).on('click', '#quit_app', function(e) {
