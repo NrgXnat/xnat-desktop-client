@@ -397,7 +397,7 @@ function is_usr_local_lib_writable() {
 		try {
       const usr_local_lib_path = '/usr/local/lib';
 
-		  fs.accessSync(usr_local_lib_path, fs.constants.F_OK | fs.constants.W_OK);
+		  fs.accessSync(usr_local_lib_path, /*fs.constants.F_OK | */fs.constants.W_OK);
       // path exists, and it is writable - ALL OK
       return true;
 
