@@ -4,6 +4,7 @@ const path = require('path')
 
 // const mizer = require('./mizer');
 const glob = require('glob')
+const fs = require('fs');
 const electron = require('electron')
 
 const auth = require('./services/auth');
@@ -128,7 +129,7 @@ function initialize () {
       width: 1200,
       height: 700,
       alwaysOnTop: false,
-      show: true
+      show: false
     };
 
     mainWindow = new BrowserWindow(windowOptions);
@@ -397,7 +398,7 @@ function is_usr_local_lib_writable() {
 		try {
       const usr_local_lib_path = '/usr/local/lib';
 
-		  fs.accessSync(usr_local_lib_path, /*fs.constants.F_OK | */fs.constants.W_OK);
+		  fs.accessSync(usr_local_lib_path, fs.constants.F_OK | fs.constants.W_OK);
       // path exists, and it is writable - ALL OK
       return true;
 
