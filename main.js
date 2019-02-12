@@ -1,7 +1,5 @@
 const path = require('path')
 
-fix_java_path();
-
 // test_multiple_commands();
 
 // const mizer = require('./mizer');
@@ -32,6 +30,7 @@ if (isSecondInstance()){
 }
 
 if (is_usr_local_lib_writable()) {
+  fix_java_path();
   initialize();
 } else {
   initialize_usr_local_lib_app()
