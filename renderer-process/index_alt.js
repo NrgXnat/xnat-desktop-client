@@ -1,7 +1,7 @@
 const ipc = require('electron').ipcRenderer
 const app = require('electron').remote.app
-const sudo = require('sudo-prompt');
-const fs = require('fs');
+const sudo = require('sudo-prompt')
+const fs = require('fs')
 
 
 // ===============
@@ -38,12 +38,10 @@ function fix_mac_local_lib_path() {
     let my_sudo = shell_commands.join(' && ');
     let sudo_command = `sh -c "${my_sudo}"`;
 
-    alert(sudo_command);
-
     sudo.exec(sudo_command, options, function (error, stdout, stderr) {
         if (error) throw error;
 
-        alert('Sve je OK');
+        alert('Success! Application will relaunch now.');
 
         ipc.send('relaunch_app', {});
     });
