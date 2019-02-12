@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>XNAT Desktop Client</title>
+
+
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/cupertino/jquery-ui.css">
+
+    <link href="assets/css/style.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+    <header id="header_menu">
+        <a href="#home" class="logo-header"><img src="assets/images/logo-header.png"></a>
+        <span id="version-number" style="position: relative; float: left; padding: 8px 0; color: #fff"></span>
+    </header>
+
+    <main class="content js-content">
+        <section class="section js-section u-category-native-ui">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="logo col-sm-12">
+                        <p class="text-center"><img src="assets/images/xnat_logo.svg" /></p>
+                        <div class="intro-text">
+                            <p>In order to continue using XNAT Desktop Client, the application needs access to <code>/usr/local/lib</code> directory on your system.
+                                To allow access please click "Confirm Access" button.</p>
+
+                            <p class="text-center">
+                                <br>
+                                <button id="allow_local_lib_access" class="btn btn-blue">Confirm Access</button>
+                                &nbsp;&nbsp;&nbsp; OR &nbsp;&nbsp;&nbsp;
+                                <button id="quit_app" class="btn btn-gray">Quit</button>
+                            </p>
+                            
+                            <p class="text-center"><br><br><br><br>
+                                <a href="https://wiki.xnat.org/xnat-tools/dxm" target="_blank">XNAT Desktop Client Documentation</a></p>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+
+
+    <!-- Bootstrap core JavaScript
+  ================================================== -->
+    <script>
+        window.$ = window.jQuery = require('jquery');
+    </script>
+    <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+
+
+    <script>
+        require('./renderer-process/index_alt')
+        
+        var app = require('electron').remote.app
+        $('#version-number').text('v' + app.getVersion())
+        
+    </script>
+
+</body>
+
+</html>

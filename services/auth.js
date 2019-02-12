@@ -3,7 +3,7 @@ const path = require('path');
 const axios = require('axios');
 require('promise.prototype.finally').shim();
 const store = require('store2');
-
+const sha1 = require('sha1');
 const ipc = require('electron').ipcRenderer
 
 const {URL} = require('url');
@@ -168,7 +168,7 @@ let auth = {
             }
             let csrf_token_cache = store.get('csrf_token_cache')
     
-            let token_id = xnat_server + user_auth.username
+            let token_id = sha1(xnat_server + user_auth.username);
             let token_match = csrf_token_cache.filter(token => token_id === token.id)
     
             if (token_match.length && token_match[0].created + created_offset > now()) {

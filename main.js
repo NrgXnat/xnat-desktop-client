@@ -27,15 +27,86 @@ let uploadWindow = null;
 
 let startupExternalUrl;
 
+if (isSecondInstance()){
+  app.quit()
+}
 
-initialize();
+if (is_usr_local_lib_writable()) {
+  initialize();
+} else {
+  initialize_usr_local_lib_app()
+}
+
+function initialize_usr_local_lib_app() {
+  devToolsLog('initialize_usr_local_lib_app triggered')
+
+  //requireMainProcessAdditional()
+
+  let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
+  const iconPath = path.join(__dirname, iconSource);
+
+  function createWindow() {
+    var windowOptions = {
+      width: 800,
+      minWidth: 768,
+      height: 640,
+      title: app.getName(),
+      icon: iconPath,
+      show: true,
+      frame: false
+    };
+
+    mainWindow = new BrowserWindow(windowOptions);
+    mainWindow.loadURL(path.join('file://', __dirname, '/index_alt.html'));
+
+    // Launch fullscreen with DevTools open, usage: yarn dev
+    if (isDevEnv()) {
+      mainWindow.webContents.openDevTools()
+      //mainWindow.maximize()
+      require('devtron').install()
+    }
+
+    mainWindow.on('closed', function () {
+      mainWindow = null
+    });
+    
+    
+  }
+
+
+  app.on('ready', () => {
+    if (!isDevEnv()) {
+      //autoUpdater.checkForUpdatesAndNotify();
+      autoUpdater.checkForUpdates()
+    }
+
+    //app.setName('XNAT Desktop Client v' + app.getVersion());
+
+    devToolsLog('app.ready triggered')
+    createWindow();
+    devToolsLog('app.ready DONE')
+  })
+
+  app.on('window-all-closed', () => {
+    //showErrorBox('All Closed', 'All windows closed!');
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
+  })
+
+  // only MacOS
+  app.on('activate', (event, hasVisibleWindows) => {
+    if (mainWindow === null) {
+      createWindow()
+    }
+  })
+
+}
+
 
 
 function initialize () {
   devToolsLog('initialize triggered')
-
-  var shouldQuit = makeSingleInstance()
-  if (shouldQuit) return app.quit()
 
   initialTasks()
   prepareAutoUpdate()
@@ -275,7 +346,7 @@ function log(...args) {
 //
 // Returns true if the current version of the app should quit instead of
 // launching.
-function makeSingleInstance() {
+function isSecondInstance() {
   // if (process.mas) return false;
 
   return app.makeSingleInstance((argv, workingDirectory) => {
@@ -322,6 +393,23 @@ function delayed_notification(type, ...args) {
   }
 }
 
+function is_usr_local_lib_writable() {
+	if (process.platform === 'darwin') {
+		try {
+      const usr_local_lib_path = '/usr/local/lib';
+
+		  fs.accessSync(usr_local_lib_path, fs.constants.F_OK | fs.constants.W_OK);
+      // path exists, and it is writable - ALL OK
+      return true;
+
+		} catch (err) {
+		  return false;
+		}
+	}
+	
+	return true;
+}
+
 
 function fix_java_path() {
   const fs = require('fs');
@@ -351,7 +439,7 @@ function fix_java_path() {
       java_jre_path = path.resolve(jvm_file, '..');
       
       // to fix @rpath error on Mac
-      create_usr_local_lib();
+      //create_usr_local_lib();
 
       let local_lib_path = '/usr/local/lib';
       let libjvm_symlink = local_lib_path + '/libjvm.dylib';
