@@ -11,7 +11,7 @@ $(document).on('click', '#allow_local_lib_access', function(e) {
 
 function fix_mac_local_lib_path() {
     let options = {
-        name: app.getName()
+        name: 'XNAT Desktop Client'
     };
 
     const usr_local_path = '/usr/local';
@@ -38,8 +38,12 @@ function fix_mac_local_lib_path() {
     let my_sudo = shell_commands.join(' && ');
     let sudo_command = `sh -c "${my_sudo}"`;
 
+    alert(sudo_command);
+
     sudo.exec(sudo_command, options, function (error, stdout, stderr) {
         if (error) throw error;
+
+        alert('Sve je OK');
 
         ipc.send('relaunch_app', {});
     });
