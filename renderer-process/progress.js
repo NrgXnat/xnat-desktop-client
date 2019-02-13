@@ -398,7 +398,7 @@ function _init_download_progress_table() {
                 
                 if (done_files == total_files) {
                     item.download_status = error_files ? 'complete_with_errors' : 'finished';
-                } else if (done_files == 0) {
+                } else if (done_files == 0 && settings.get('transfering_download') !== transfer.id) {
                     item.download_status = 'queued';
                 } else {
                     item.download_status = done_files / total_files * 100;
@@ -467,6 +467,8 @@ $(document).on('show.bs.modal', '#download-details', function(e) {
     var file = $(e.relatedTarget).data('file');
 
     $(e.currentTarget).find('#file_basename').html(file);
+
+    $('.modal-content').attr('data-id', id);
 
     _init_download_details_table(id)
 });
@@ -1207,7 +1209,7 @@ ipc.on('progress_cell',function(e, item){
 
 
 ipc.on('download_progress',function(e, item){
-    console.log(item);
+    //console.log(item);
 
     if (item.table !== undefined) {
         

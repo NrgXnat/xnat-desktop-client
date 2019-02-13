@@ -1,9 +1,10 @@
 const path = require('path')
 
-fix_java_path();
+// test_multiple_commands();
 
-const mizer = require('./mizer');
+// const mizer = require('./mizer');
 const glob = require('glob')
+const fs = require('fs');
 const electron = require('electron')
 
 const auth = require('./services/auth');
@@ -11,114 +12,95 @@ const auth = require('./services/auth');
 const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
 
 const electron_log = require('electron-log');
-const {autoUpdater} = require("electron-updater");
-autoUpdater.autoDownload = false;
-
-//-------------------------------------------------------------------
-// Logging
-//
-// THIS SECTION IS NOT REQUIRED
-//
-// This logging setup is not required for auto-updates to work,
-// but it sure makes debugging easier :)
-//-------------------------------------------------------------------
-autoUpdater.logger = electron_log;
-autoUpdater.logger.transports.file.level = 'info';
+electron_log.transports.console.level = false;
 electron_log.info('App starting...');
 
 
-autoUpdater.on('checking-for-update', () => {
-  devToolsLog('Checking for update...');
-})
-autoUpdater.on('update-available', (info) => {
-  devToolsLog('Update available.');
-  delayed_notification('update-available', info);
-})
-autoUpdater.on('update-not-available', (info) => {
-  devToolsLog('Update not available.');
-})
-autoUpdater.on('error', (err) => {
-  delayed_notification('update-error', err);
-  devToolsLog('Error in auto-updater. ' + err);
-})
-autoUpdater.on('download-progress', (progressObj) => {
-  delayed_notification('download-progress', progressObj);
-  let log_message = "Download speed: " + progressObj.bytesPerSecond;
-  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
-  log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
-  devToolsLog(log_message);
-})
-autoUpdater.on('update-downloaded', (info) => {
-  //delayed_notification('update-downloaded', info);
-  devToolsLog('Update downloaded');
-  autoUpdater.quitAndInstall();
-});
+const {autoUpdater} = require("electron-updater");
 
 
+let mainWindow = null
 
-
-
-
-//SET ENV
-//process.env.NODE_ENV = 'production';
-log(process.env);
-
-
-const debug = /--debug/.test(process.argv[2])
-const iconPath = path.join(__dirname, 'assets/icons/png/XDC-tray-256.png');
-app.setName('XNAT Desktop Client v' + app.getVersion());
-
-log(process);
-
-//process.mas - A Boolean. For Mac App Store build, this property is true, for other builds it is undefined.
-if (process.mas) app.setName('XNAT Desktop Client v' + app.getVersion())
-
-var mainWindow = null
-
-var downloadWindow = null;
-var uploadWindow = null;
-
-
-app.isReallyReady = false;
-app.app_protocol = 'xnat';
-
-// used only to test login requests
-app.allow_insecure_ssl = false;
+let downloadWindow = null;
+let uploadWindow = null;
 
 let startupExternalUrl;
 
-app.setAsDefaultProtocolClient(app.app_protocol);
-app.setAsDefaultProtocolClient(app.app_protocol + 's');
+if (isSecondInstance()){
+  app.quit()
+}
 
+if (is_usr_local_lib_writable()) {
+  fix_java_path();
+  initialize();
+} else {
+  initialize_usr_local_lib_app()
+}
 
-app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
-  // On certificate error we disable default behaviour (stop loading the page)
-  // and we then say "it is all fine - true" to the callback
-  log('***** CERT ERROR ******', auth.allow_insecure_ssl(), app.allow_insecure_ssl);
-  
-  if (app.allow_insecure_ssl || auth.allow_insecure_ssl()) {
-    event.preventDefault();
-    callback(true);
-    //mainWindow.webContents.send('custom_error', 'Certificate OK', 'All OK');
-  } else {
-    let msg = `The specified server "${url}" supports HTTPS, but uses an unverified SSL certificate.
+function initialize_usr_local_lib_app() {
+  devToolsLog('initialize_usr_local_lib_app triggered')
 
-    You can allow this by checking the "Allow unverified certificates" option on the server definition. Note that this may expose sensitive information if the connection has been compromised. Please check with your system administrator if you're unsure how to proceed.`
-    mainWindow.webContents.send('custom_error', 'Certificate Error', msg);
+  let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
+  const iconPath = path.join(__dirname, iconSource);
+
+  function createWindow() {
+    var windowOptions = {
+      width: 800,
+      minWidth: 768,
+      height: 640,
+      title: app.getName(),
+      icon: iconPath,
+      show: true,
+      frame: false
+    };
+
+    mainWindow = new BrowserWindow(windowOptions);
+    mainWindow.loadURL(path.join('file://', __dirname, '/index_alt.html'));
+
+    if (isDevEnv()) {
+      mainWindow.webContents.openDevTools()
+      mainWindow.maximize()
+      require('devtron').install()
+    }
+
+    mainWindow.on('closed', function () {
+      mainWindow = null
+    });
   }
 
-});
+
+  app.on('ready', () => {
+    createWindow();
+  })
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
+  })
+
+  // only MacOS
+  app.on('activate', (event, hasVisibleWindows) => {
+    if (mainWindow === null) {
+      createWindow()
+    }
+  })
+
+}
+
 
 
 function initialize () {
-  var shouldQuit = makeSingleInstance()
-  if (shouldQuit) return app.quit()
-
   devToolsLog('initialize triggered')
 
-  loadDemos()
+  initialTasks()
+  prepareAutoUpdate()
+  requireMainProcessAdditional()
 
-  function createWindow () {
+  let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
+  const iconPath = path.join(__dirname, iconSource);
+
+  function createWindow() {
     var windowOptions = {
       width: 1080,
       minWidth: 768,
@@ -135,40 +117,20 @@ function initialize () {
       show: false
     };
 
-    
-
-    if (process.platform === 'linux') {
-      windowOptions.icon = path.join(__dirname, '/assets/icons/png/XDC.png');
-    }
-
     mainWindow = new BrowserWindow(windowOptions);
-
-    devToolsLog('createWindow triggered')
-
     mainWindow.loadURL(path.join('file://', __dirname, '/index.html'));
-
-    mainWindow.on('ready-to-show', () => {
-      //mainWindow.show();
-      //mainWindow.webContents.send('remove_current_session', true);
-    })
-
-    mainWindow.on('did-finish-load', () => {
-      //mainWindow.webContents.send('remove_current_session', true);
-    })
-
     
+
     childOptions.top = mainWindow;
 
-    console.log(childOptions);
-    
-    
+    // Upload window
     uploadWindow = new BrowserWindow(childOptions)
     uploadWindow.on('closed', function () {
       uploadWindow = null
     });
     uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload.html'));
 
-   
+    // Download window
     downloadWindow = new BrowserWindow(childOptions)
     downloadWindow.on('closed', function () {
       downloadWindow = null
@@ -177,18 +139,20 @@ function initialize () {
 
     
 
-    // Launch fullscreen with DevTools open, usage: npm run debug
-    if (debug) {
+    // Launch fullscreen with DevTools open, usage: yarn dev
+    if (isDevEnv()) {
       mainWindow.webContents.openDevTools()
       mainWindow.maximize()
       require('devtron').install()
 
-      //uploadWindow.webContents.openDevTools()
-          // downloadWindow.show()
-          // downloadWindow.webContents.openDevTools()
-          // uploadWindow.show()
-          // uploadWindow.webContents.openDevTools()
-      //uploadWindow.webContents.maximize()
+      // uploadWindow.show()
+      // downloadWindow.show()
+      
+      // uploadWindow.webContents.openDevTools()
+      // downloadWindow.webContents.openDevTools()
+      
+      // uploadWindow.webContents.maximize()
+      // downloadWindow.webContents.maximize()
     }
 
     mainWindow.on('closed', function () {
@@ -202,10 +166,6 @@ function initialize () {
       
       mainWindow = null
     });
-
-    
-    // TODO: REMOVE!!!
-    //mainWindow.webContents.openDevTools();
     
     // Protocol handler for win32
     if (process.platform == 'win32') {
@@ -214,13 +174,50 @@ function initialize () {
     }
     
     handle_protocol_request(startupExternalUrl, 'createWindow')
+    
+  }
 
+  function prepareAutoUpdate() {
+    autoUpdater.autoDownload = false;
+    // debugging with autoUpdater.logger not required but still useful
+    autoUpdater.logger = electron_log;
+    autoUpdater.logger.transports.file.level = 'info';
 
+    autoUpdater.on('checking-for-update', () => {
+      devToolsLog('Checking for update...');
+    })
+    autoUpdater.on('update-available', (info) => {
+      devToolsLog('Update available.');
+      delayed_notification('update-available', info);
+    })
+    autoUpdater.on('update-not-available', (info) => {
+      devToolsLog('Update not available.');
+    })
+    autoUpdater.on('error', (err) => {
+      delayed_notification('update-error', err);
+      devToolsLog('Error in auto-updater. ' + err);
+    })
+    autoUpdater.on('download-progress', (progressObj) => {
+      delayed_notification('download-progress', progressObj);
+      let log_message = "Download speed: " + progressObj.bytesPerSecond;
+      log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+      log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+      devToolsLog(log_message);
+    })
+    autoUpdater.on('update-downloaded', (info) => {
+      //delayed_notification('update-downloaded', info);
+      devToolsLog('Update downloaded');
+      autoUpdater.quitAndInstall();
+    });
   }
 
   app.on('ready', () => {
-    //autoUpdater.checkForUpdatesAndNotify();
-    autoUpdater.checkForUpdates()
+    if (!isDevEnv()) {
+      //autoUpdater.checkForUpdatesAndNotify();
+      autoUpdater.checkForUpdates()
+    }
+
+    //app.setName('XNAT Desktop Client v' + app.getVersion());
 
     devToolsLog('app.ready triggered')
     createWindow();
@@ -242,32 +239,70 @@ function initialize () {
   })
 
   app.on('will-finish-launching', () => {
-    // TODO: add autoupdater
-    //autoUpdater.initialize()
 
-    // only MacOS - Protocol handler
-    app.on('open-url', (event, url) => {
-      event.preventDefault();
-
-      if (app.isReady()) {
-        handle_protocol_request(url, 'open-url');
-      } else {
-        startupExternalUrl = url
-      }
-
-      setTimeout(function () {
-        // Required for protocol links opened from Chrome otherwise the confirmation dialog
-        // that Chrome shows causes Chrome to steal back the focus.
-        // Electron issue: https://github.com/atom/electron/issues/4338
-        if (mainWindow.isMinimized()) {
-          mainWindow.restore();
-        }
-        mainWindow.show();
-      }, 100)
-    });
-    
   });
+
+  // only MacOS - Protocol handler
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+
+    if (app.isReady()) {
+      handle_protocol_request(url, 'open-url');
+    } else {
+      startupExternalUrl = url
+    }
+
+    setTimeout(function () {
+      // Required for protocol links opened from Chrome otherwise the confirmation dialog
+      // that Chrome shows causes Chrome to steal back the focus.
+      // Electron issue: https://github.com/atom/electron/issues/4338
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.show();
+    }, 100)
+  });
+
+  
+  app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+    // On certificate error we disable default behaviour (stop loading the page)
+    // and we then say "it is all fine - true" to the callback
+    log('***** CERT ERROR ******', auth.allow_insecure_ssl(), app.allow_insecure_ssl);
+    
+    if (app.allow_insecure_ssl || auth.allow_insecure_ssl()) {
+      event.preventDefault();
+      callback(true);
+      //mainWindow.webContents.send('custom_error', 'Certificate OK', 'All OK');
+    } else {
+      let msg = `The specified server "${url}" supports HTTPS, but uses an unverified SSL certificate.
+
+      You can allow this by checking the "Allow unverified certificates" option on the server definition. Note that this may expose sensitive information if the connection has been compromised. Please check with your system administrator if you're unsure how to proceed.`
+      mainWindow.webContents.send('custom_error', 'Certificate Error', msg);
+    }
+  });
+  
 }
+
+
+function initialTasks() {
+  app.isReallyReady = false;
+  app.app_protocol = 'xnat';
+
+  // used only to test login requests
+  app.allow_insecure_ssl = false;
+
+  app.setAsDefaultProtocolClient(app.app_protocol);
+  app.setAsDefaultProtocolClient(app.app_protocol + 's');
+}
+
+// Require each JS file in the main-process dir
+function requireMainProcessAdditional () {
+  var files = glob.sync(path.join(__dirname, 'main-process/**/*.js'))
+  files.forEach(function (file) {
+    require(file)
+  })
+}
+
 
 // prints given message both in the terminal console and in the DevTools
 function devToolsLog(s) {
@@ -278,6 +313,17 @@ function devToolsLog(s) {
   }
 }
 
+
+function log(...args) {
+  if (app.isReallyReady) {
+    mainWindow.send('log', ...args)
+  } else {
+    ipcMain.once('appIsReady', () => {
+      mainWindow.send('log', ...args);
+    })
+  }
+}
+
 // Make this app a single instance app.
 //
 // The main window will be restored and focused instead of a second window
@@ -285,7 +331,7 @@ function devToolsLog(s) {
 //
 // Returns true if the current version of the app should quit instead of
 // launching.
-function makeSingleInstance() {
+function isSecondInstance() {
   // if (process.mas) return false;
 
   return app.makeSingleInstance((argv, workingDirectory) => {
@@ -313,33 +359,14 @@ function handle_protocol_request(url, place) {
   if (place === 'createWindow') {
     setTimeout(function(){
       mainWindow.webContents.send('handle_protocol_request', url);
-    }, 700)
+    }, 2700)
   } else {
     mainWindow.webContents.send('handle_protocol_request', url);
   }
   
 }
 
-// Require each JS file in the main-process dir
-function loadDemos () {
-  var files = glob.sync(path.join(__dirname, 'main-process/**/*.js'))
-  files.forEach(function (file) {
-    require(file)
-  })
-  //autoUpdater.updateMenu()
-}
 
-initialize();
-
-function log(...args) {
-  if (app.isReallyReady) {
-    mainWindow.send('log', ...args)
-  } else {
-    ipcMain.once('appIsReady', () => {
-      mainWindow.send('log', ...args);
-    })
-  }
-}
 
 function delayed_notification(type, ...args) {
   if (app.isReallyReady) {
@@ -351,72 +378,23 @@ function delayed_notification(type, ...args) {
   }
 }
 
-ipcMain.on('download_and_install', (e) => {
-  autoUpdater.downloadUpdate();
-})
+function is_usr_local_lib_writable() {
+	if (process.platform === 'darwin') {
+		try {
+      const usr_local_lib_path = '/usr/local/lib';
 
-// Catch Item Add
-ipcMain.on('redirect', (e, item) =>{
-  mainWindow.webContents.send('load:page', item);
-})
+		  fs.accessSync(usr_local_lib_path, fs.constants.F_OK | fs.constants.W_OK);
+      
+      // path exists, and it is writable - ALL OK
+      return true;
 
-
-ipcMain.on('launch_download_modal', (e, item) =>{
-  mainWindow.webContents.send('load:page', 'home.html');
-  mainWindow.webContents.send('launch_download_modal', item);
-})
-
-ipcMain.on('log', (e, item) =>{
-  mainWindow.webContents.send('console:log', item);
-})
-
-
-ipcMain.on('download_progress', (e, item) =>{
-  mainWindow.webContents.send('download_progress', item);
-})
-
-
-ipcMain.on('upload_progress', (e, item) =>{
-  mainWindow.webContents.send('upload_progress', item);
-})
-
-ipcMain.on('progress_cell', (e, item) =>{
-  mainWindow.webContents.send('progress_cell', item);
-})
-
-// ?
-ipcMain.on('progress_alert', (e, item) =>{
-  mainWindow.webContents.send('progress_alert', item);
-})
-
-// ?
-ipcMain.on('custom_error', (e, title, msg) =>{
-  mainWindow.webContents.send('custom_error', title, msg);
-})
-
-
-
-ipcMain.on('start_upload', (e, item) =>{
-  uploadWindow.webContents.send('start_upload', item);
-})
-
-
-ipcMain.on('reload_upload_window', (e, item) =>{
-  uploadWindow.reload(true);
-})
-ipcMain.on('reload_download_window', (e, item) =>{
-  downloadWindow.reload(true);
-})
-
-ipcMain.on('start_download', (e, item) =>{
-  mainWindow.webContents.send('console:log', 'start_download event (main.js)');
-  downloadWindow.webContents.send('start_download', item);
-})
-
-ipcMain.on('print_global', () => {
-  log(global.user_auth);
-})
-
+		} catch (err) {
+		  return false;
+		}
+	}
+	
+	return true;
+}
 
 
 function fix_java_path() {
@@ -447,12 +425,20 @@ function fix_java_path() {
       java_jre_path = path.resolve(jvm_file, '..');
       
       // to fix @rpath error on Mac
-      let libjvm_symlink = '/usr/local/lib/libjvm.dylib';
-      if (!isSymlink.sync(libjvm_symlink)) {
-        fs.symlinkSync(java_jre_path + '/libjvm.dylib', libjvm_symlink);
+      //create_usr_local_lib();
+
+      let local_lib_path = '/usr/local/lib';
+      let libjvm_symlink = local_lib_path + '/libjvm.dylib';
+      if (isSymlink.sync(libjvm_symlink)) {
+        fs.unlinkSync(libjvm_symlink);
       }
+      fs.symlinkSync(java_jre_path + '/libjvm.dylib', libjvm_symlink);
+      
 
     } else { // linux
+      // temporary fix until we resolve symlink issue
+      return;
+
       if (process.arch === 'x64') {
         jre_search_path = jre_search_base + '/lib/amd64/**/libjvm.so';
       } else {
@@ -489,6 +475,73 @@ function fix_java_path() {
   }
 }
 
+
+function create_usr_local_lib() {
+  const my_app = require('electron').app;
+  const fs = require('fs');
+  const sudo = require('sudo-prompt');
+  let options = {
+    name: 'XNAT Desktop Client'
+  };
+
+  let local_path = '/usr/local';
+  let local_lib_path = local_path + '/lib';
+
+  if (!fs.existsSync(local_path)) {
+    sudo.exec('mkdir ' + local_path, options, function(error, stdout, stderr) {
+      if (error) throw error;
+      
+      sudo.exec('mkdir ' + local_lib_path, options, function(error, stdout, stderr) {
+        if (error) throw error;
+        
+        sudo.exec('chown -R $USER:admin ' + local_lib_path, options, function(error, stdout, stderr) {
+          if (error) throw error;
+          
+          my_app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+          my_app.exit(0);
+        });
+      });
+
+    });
+  } else if (!fs.existsSync(local_lib_path)) {
+    sudo.exec('mkdir ' + local_lib_path, options, function(error, stdout, stderr) {
+      if (error) throw error;
+      
+      sudo.exec('chown -R $USER:admin ' + local_lib_path, options, function(error, stdout, stderr) {
+        if (error) throw error;
+        
+        my_app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+        my_app.exit(0);
+      });
+    });
+  }
+
+}
+
+
+function test_multiple_commands() {
+  const fs = require('fs');
+  const sudo = require('sudo-prompt');
+  
+  let options = {
+    name: 'XNAT Desktop Client'
+  };
+
+  let local_lib_path = '/usr/local/lib-334';
+
+  if (!fs.existsSync(local_lib_path)) {
+    let sudo_command = `sh -c "mkdir ${local_lib_path} && chown $USER:admin ${local_lib_path} && cd ${local_lib_path} && touch .darko && chmod 0777 .darko"`;
+    
+    sudo.exec(sudo_command, options, function(error, stdout, stderr) {
+      if (error) throw error;
+      
+      console.log('cool');
+    });
+  }
+}
+
+
+
 const showErrorBox = (title, msg) => {
   dialog.showErrorBox(title, msg)
 };
@@ -505,11 +558,93 @@ const showMessageBox = (options) => {
 
   dialog.showMessageBox(my_options);
 };
-/** RICK **/
+
+const isDevEnv = () => {
+  return process.argv && process.argv.length >= 3 && /--debug/.test(process.argv[2]);
+
+  // alternative
+  // return path.extname(__dirname) === '.asar'
+}
+
+
+
+ipcMain.on('download_and_install', (e) => {
+  autoUpdater.downloadUpdate();
+})
+
+// Catch Item Add
+ipcMain.on('redirect', (e, item) =>{
+  mainWindow.webContents.send('load:page', item);
+})
+
+
+ipcMain.on('launch_download_modal', (e, item) =>{
+  mainWindow.webContents.send('load:page', 'home.html');
+  mainWindow.webContents.send('launch_download_modal', item);
+})
+
+ipcMain.on('log', (e, ...args) =>{
+  mainWindow.webContents.send('console:log', ...args);
+})
+
+
+ipcMain.on('download_progress', (e, item) =>{
+  mainWindow.webContents.send('download_progress', item);
+})
+
+
+ipcMain.on('upload_progress', (e, item) =>{
+  mainWindow.webContents.send('upload_progress', item);
+})
+
+ipcMain.on('progress_cell', (e, item) =>{
+  mainWindow.webContents.send('progress_cell', item);
+})
+
+// ?
+ipcMain.on('progress_alert', (e, item) =>{
+  mainWindow.webContents.send('progress_alert', item);
+})
+
+// ?
+ipcMain.on('custom_error', (e, title, msg) =>{
+  mainWindow.webContents.send('custom_error', title, msg);
+})
+
+
+ipcMain.on('start_upload', (e, item) =>{
+  uploadWindow.webContents.send('start_upload', item);
+})
+
+
+ipcMain.on('reload_upload_window', (e, item) =>{
+  uploadWindow.reload(true);
+})
+ipcMain.on('reload_download_window', (e, item) =>{
+  downloadWindow.reload(true);
+})
+
+ipcMain.on('start_download', (e, item) =>{
+  mainWindow.webContents.send('console:log', 'start_download event (main.js)');
+  downloadWindow.webContents.send('start_download', item);
+})
+
+ipcMain.on('print_global', () => {
+  log(global.user_auth);
+})
+
+ipcMain.on('relaunch_app', (e, data) =>{
+  app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
+  app.exit(0);
+})
+
+
+
+/*
 exports.anonymize_single = (source, script, variables) => {
   return mizer.anonymize_single(source, script, variables);
 };
-/** RICK **/
+
 exports.getReferencedVariables = (contexts) => {
   return mizer.getReferencedVariables(contexts);
 };
@@ -529,7 +664,7 @@ exports.getVariables = (variables) => {
 exports.anonymize = (source, contexts, variables) => {
   return mizer.anonymize(source, contexts, variables);
 };
-
+*/
 
 
 global.user_auth = {

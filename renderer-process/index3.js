@@ -201,9 +201,9 @@ ipc.on('load:page',function(e, item){
 });
 
 
-ipc.on('console:log',function(e, item){
+ipc.on('console:log',function(e, ...args){
     console.log('================ console:log ================');
-    console.log(item);
+    console.log(...args);
 });
 
 

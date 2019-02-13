@@ -2,8 +2,8 @@ const settings = require('electron-settings');
 const path = require('path');
 const axios = require('axios');
 require('promise.prototype.finally').shim();
-
-
+const store = require('store2');
+const sha1 = require('sha1');
 const ipc = require('electron').ipcRenderer
 
 const {URL} = require('url');
@@ -159,29 +159,57 @@ let auth = {
         });
     },
 
-    get_csrf_token: (xnat_server, user_auth) => {
+    get_csrf_token: (xnat_server, user_auth, created_offset = 120) => {
+        const now = () => parseInt(new Date() / 1000);
+
         return new Promise(function (resolve, reject) {
-            return axios.get(xnat_server + '/', {
-                auth: user_auth
-            }).then(resp => {
-                let csrfTokenRequestData = resp.data;
-                let m, csrfToken = false;
-                const regex = /var csrfToken = '(.+?)';/g;
-
-                while ((m = regex.exec(csrfTokenRequestData)) !== null) {
-                    // This is necessary to avoid infinite loops with zero-width matches
-                    if (m.index === regex.lastIndex) {
-                        regex.lastIndex++;
-                    }
-
-                    csrfToken = m[1];
+            if (!store.has('csrf_token_cache')) {
+                store.set('csrf_token_cache', [])
+            }
+            let csrf_token_cache = store.get('csrf_token_cache')
+    
+            let token_id = sha1(xnat_server + user_auth.username);
+            let token_match = csrf_token_cache.filter(token => token_id === token.id)
+    
+            if (token_match.length && token_match[0].created + created_offset > now()) {
+                resolve(token_match[0].token)
+            } else {
+                // if there are cached tokens with same id => remove them
+                if (token_match.length) {
+                    csrf_token_cache = csrf_token_cache.filter(token => token_id !== token.id)
                 }
 
-                resolve(csrfToken);
-            }).catch(err => {
-                resolve(false);
-            });
-        });
+                axios.get(xnat_server + '/', {
+                    auth: user_auth
+                }).then(resp => {
+                    let csrfTokenRequestData = resp.data
+                    let m, csrfToken = false
+                    const regex = /var csrfToken = '(.+?)';/g
+    
+                    while ((m = regex.exec(csrfTokenRequestData)) !== null) {
+                        // This is necessary to avoid infinite loops with zero-width matches
+                        if (m.index === regex.lastIndex) {
+                            regex.lastIndex++
+                        }
+    
+                        csrfToken = m[1]
+                    }
+                    
+                    csrf_token_cache.push({
+                        id: token_id,
+                        created: now(),
+                        token: csrfToken
+                    })
+
+                    store.set('csrf_token_cache', csrf_token_cache)
+
+                    resolve(csrfToken)
+                }).catch(err => {
+                    resolve(false)
+                })
+            }
+            
+        })
     }
 }
 
