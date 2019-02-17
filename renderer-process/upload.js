@@ -17,6 +17,8 @@ const prettyBytes = require('pretty-bytes');
 const remote = require('electron').remote;
 const mizer = require('../mizer');
 
+const db_uploads = require('../services/db/uploads');
+
 const NProgress = require('nprogress');
 NProgress.configure({ 
     trickle: false,
@@ -1353,13 +1355,12 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
         status: 0,
         canceled: false
     };
-
-    let my_transfers = store.get('transfers.uploads');
-
-    my_transfers.push(upload_digest);
-    store.set('transfers.uploads', my_transfers);
-    
     console.log(upload_digest);
+
+    db_uploads().insert(upload_digest, (err, newItem) => {
+        console.log(newItem);
+    })
+    
 
     ipc.send('start_upload');
     

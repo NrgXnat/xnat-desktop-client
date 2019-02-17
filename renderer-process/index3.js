@@ -47,6 +47,9 @@ loadPage(active_page)
 ipc.send('appIsReady');
 app.isReallyReady = true;
 
+// *******************************************************************
+// *******************************************************************
+
 
 function loadPage(page) {
     // Import and add each page to the DOM
@@ -188,22 +191,13 @@ $(document).on('click', '[data-href]', function() {
         }, 30);
     }
     
-    //ipc.send('redirect', path);
     loadPage(path)
-
 });
 
 
 ipc.on('load:page',function(e, item){
-    //console.log('EVENTTT', e);
     console.log('Loading page ... ' + item)
     loadPage(item)
-});
-
-
-ipc.on('console:log',function(e, ...args){
-    console.log('================ console:log ================');
-    console.log(...args);
 });
 
 
@@ -225,8 +219,7 @@ ipc.on('custom_error',function(e, title, message){
 });
 
 ipc.on('log', (e, ...args) => {
-    console.log('                                   ');
-    console.log('============= IPC LOG =============');
+    console.log('%c============= IPC LOG =============', 'font-weight: bold; color: red');
     console.log(...args);
 });
 

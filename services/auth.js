@@ -159,7 +159,7 @@ let auth = {
         });
     },
 
-    get_csrf_token: (xnat_server, user_auth, created_offset = 120) => {
+    get_csrf_token: (xnat_server, user_auth, created_offset = 30) => {
         const now = () => parseInt(new Date() / 1000);
 
         return new Promise(function (resolve, reject) {

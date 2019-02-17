@@ -2,6 +2,7 @@ const ipc = require('electron').ipcRenderer
 const app = require('electron').remote.app
 const sudo = require('sudo-prompt')
 const fs = require('fs')
+const shell = require('electron').shell
 
 
 // ===============
@@ -57,4 +58,12 @@ $(document).on('click', '#quit_app', function(e) {
 // ===============
 $(document).on('click', 'a.logo-header', function(e){
     e.preventDefault();
+})
+
+$(document).on('click', 'a', function(e){
+    const href = $(this).attr('href');
+    if (href.indexOf('http') === 0) { // external link
+        e.preventDefault();
+        shell.openExternal(href)
+    }
 })

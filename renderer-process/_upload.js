@@ -17,6 +17,8 @@ const archiver = require('archiver');
 
 const tempDir = require('temp-dir');
 
+const db_uploads = require('../services/db/uploads');
+
 let summary_all = {};
 let csrfToken;
 
@@ -24,11 +26,11 @@ if (!settings.has('global_pause')) {
     settings.set('global_pause', false);
 }
 
-
+let items_uploaded = []
 
 let _queue_ = {
     items: [],
-    max_items: 4,
+    max_items: 1,
     add: function(transfer_id, series_id) {
         if (this.items.length < this.max_items) {
             let transfer_label = transfer_id + '::' + series_id;
@@ -57,14 +59,11 @@ let _queue_ = {
     }
 }
 
-if (!store.has('transfers.uploads')) {
-    store.set('transfers.uploads', []);
-}
 
 let transfering = false;
 
 console_log(__filename);
-//ipc.send('log', store.getAll())
+
 
 do_transfer();
 
@@ -79,9 +78,17 @@ setInterval(do_transfer, 10000);
 
 
 function console_log(...log_this) {
-    console.log(...log_this);
-    console.trace('<<<<== UPLOAD TRACE ==>>>>');
+    //console.log(...log_this);
+    //console.trace('<<<<== UPLOAD TRACE ==>>>>');
     ipc.send('log', ...log_this);
+}
+
+
+function console_red(...items) {
+    var title = items.shift()
+
+    console.log(`%c=== ${title} ===`, 'font-weight: bold; color: red; text-transform: uppercase');
+    console.log(...items)
 }
 
 
@@ -92,6 +99,20 @@ ipc.on('start_upload',function(e, item){
 
 
 function do_transfer() {
+    let xnat_server = settings.get('xnat_server');
+
+    let current_user_auth = auth.get_user_auth();
+    let user_auth = settings.get('user_auth');
+
+    let current_username = auth.get_current_user();
+
+    let db_filepath = db_uploads().filename;
+    console_red('server i username', {xnat_server, current_user_auth, user_auth, db_filepath})
+    db_uploads.listAll((err, my_transfers) => {
+        console_red('db_uploads.listAll', {my_transfers})
+    });
+
+
     if (settings.get('global_pause')) {
         return;
     }
@@ -100,35 +121,33 @@ function do_transfer() {
         return;
     }
     
-    let xnat_server = settings.get('xnat_server');
 
-    let current_user_auth = auth.get_user_auth();
-    let user_auth = settings.get('user_auth');
+    //let my_transfers = store.get('transfers.uploads'); 
+    db_uploads.listAll((err, my_transfers) => {
+        console_red('REAL db_uploads.listAll', {my_transfers})
 
-    let current_username = auth.get_current_user();
-
-
-    let my_transfers = store.get('transfers.uploads'); 
+        my_transfers.forEach((transfer) => {
+            // validate current user/server
+            if (transfer.xnat_server === xnat_server 
+                && transfer.user === current_username 
+                && transfer.canceled !== true
+            ) {
     
-    my_transfers.forEach(function(transfer) {
-        // validate current user/server
-        if (transfer.xnat_server === xnat_server 
-            && transfer.user === current_username 
-            && transfer.canceled !== true
-        ) {
-
-            if (typeof transfer.status == 'number') {
-                if (transfer.series_ids.length) {
-                    transfer.series_ids.forEach(function(series_id){
-                        if (_queue_.add(transfer.id, series_id)) {
-                            doUpload(transfer, series_id);
-                        }
-                    })
+                if (typeof transfer.status == 'number') {
+                    if (transfer.series_ids.length) {
+                        transfer.series_ids.forEach((series_id) => {
+                            if (_queue_.add(transfer.id, series_id)) {
+                                doUpload(transfer, series_id);
+                            }
+                        })
+                    }
                 }
             }
-        }
-        
-    });
+            
+        });
+    })
+    
+    
 
 }
 
@@ -332,6 +351,7 @@ function _time_offset(start_time) {
 
 
 function zip_and_upload(dirname, _files, transfer, series_id, csrfToken) {
+    console.count('zip_and_upload')
     let zip_timer = performance.now();
 
     let url_data = transfer.url_data, 
@@ -393,18 +413,8 @@ function zip_and_upload(dirname, _files, transfer, series_id, csrfToken) {
                     // Do whatever you want with the native progress event
                     console.log('=======', progressEvent, '===========');
                     console.log(progressEvent.loaded, progressEvent.total);
-                    //NProgress.set(progressEvent.loaded/progressEvent.total);
 
                     let new_progress = progressEvent.loaded / progressEvent.total * 100;
-                    // ipc.send('upload_progress', {
-                    //     table: '#upload-details-table',
-                    //     data: {
-                    //         id: table_row_id,
-                    //         row: {
-                    //             progress: new_progress
-                    //         }
-                    //     }
-                    // });
 
                     ipc.send('progress_cell', {
                         table: '#upload-details-table',
@@ -427,8 +437,77 @@ function zip_and_upload(dirname, _files, transfer, series_id, csrfToken) {
                     //console_log(`-- ZIP file "${zip_path}" was deleted.`);
                 });
 
-                let left_to_upload = mark_uploaded(transfer_id, series_id);
 
+                mark_uploaded(transfer_id, series_id)
+                .then(transfer => {
+                    console_red('mark_uploaded.then()', {transfer})
+
+                    if (transfer.series_ids.length === 0) {
+                        console_log(`**** COMMITING UPLOAD ${transfer_id} :: ${series_id}`);
+                        console_log(`***** res.statusText  = '${res.statusText }' ******`);
+                        console_log(`***** res.data = '${res.data}' ******`);
+                        console_log('***** res.status = ' + res.status + ' ****** (' + (typeof res.status) + ')');
+    
+                        let session_link;
+                        let reference_str = '/data/prearchive/projects/';
+                        
+                        let commit_timer = performance.now();
+                        let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
+                    
+                        console_log('-------- XCOMMIT_url ----------')
+                        console_log(`++++ Session commited. URL: ${commit_url}`);
+                        
+                        axios.post(commit_url, {
+                            auth: user_auth
+                        })
+                        .then(commit_res => {
+                            console_log('-------- XCOMMIT_SUCCESS ----------')
+                            console_log(commit_res);
+    
+                            if (commit_res.data.indexOf(reference_str) >= 0) {
+                                console_log(`+++ SESSION PREARCHIVED +++`);
+                                let str_start = commit_res.data.indexOf(reference_str) + reference_str.length;
+                                let session_str = commit_res.data.substr(str_start);
+        
+                                let res_arr = session_str.split('/');
+                                // let res_project_id = res_arr[0];
+                                // let res_timestamp = res_arr[1];
+                                // let res_session_label = res_arr[2];
+                                
+                                session_link = xnat_server + '/app/action/LoadImageData/project/' + res_arr[0] + '/timestamp/' + res_arr[1] + '/folder/' + res_arr[2];
+                                
+                                //update_transfer_data(transfer.id, 'session_link', session_link);
+                                db_uploads.updateProperty(transfer.id, 'session_link', session_link)
+                            }
+                            
+                        })
+                        .catch(err => {
+                            console_log('-------- XCOMMIT_ERR ----------')
+                            console_log(err.response.data);
+    
+                            if (err.response.status != 301) {
+                                update_transfer_summary(transfer.id, 'commit_errors', `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`);
+                            } else {
+                                console_log(`+++ SESSION ARCHIVED +++`);
+                                
+                                session_link = `${xnat_server}/data/archive/projects/${project_id}/subjects/${subject_id}/experiments/${expt_label}?format=html`
+                                
+                                //update_transfer_data(transfer.id, 'session_link', session_link);
+                                db_uploads.updateProperty(transfer.id, 'session_link', session_link)
+                            }
+                        })
+                        .finally(() => {
+                            let _time_took = ((performance.now() - commit_timer) / 1000).toFixed(2);
+                            update_transfer_summary(transfer.id, 'timer_commit', _time_took);
+                        });
+                    }
+                })
+                .finally(() => {
+                    remove_from_queue_and_respawn(transfer_id, series_id)
+                });
+
+                (function() {
+                /*
                 if (left_to_upload === 0) {
                     console_log(`**** COMMITING UPLOAD ${transfer_id} :: ${series_id}`);
                     console_log(`***** res.statusText  = '${res.statusText }' ******`);
@@ -485,23 +564,28 @@ function zip_and_upload(dirname, _files, transfer, series_id, csrfToken) {
                         update_transfer_summary(transfer.id, 'timer_commit', _time_took);
                     });
                 }
+                */
+
+                })
 
             })
             .catch(err => {
-                console_log(err);
+                console_red('upload error', err);
                 update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err));
-            })
-            .finally(() => {
+
+                remove_from_queue_and_respawn(transfer_id, series_id)
+            });
+
+            function remove_from_queue_and_respawn(transfer_id, series_id) {
+                console_red('remove_from_queue_and_respawn', {transfer_id, series_id})
                 let _time_took = ((performance.now() - upload_timer) / 1000).toFixed(2);
-                //summary_add(transfer.id, series_id, `${_time_took}sec`, 'UPLOAD time');
-                update_transfer_summary(transfer.id, 'timer_upload', _time_took);
-                console.log(`**** _queue_.remove(transfer_id, series_id); \ntransfer_id: ${transfer_id} \nseries_id: ${series_id}`);
-                
+
+                update_transfer_summary(transfer_id, 'timer_upload', _time_took);
                 _queue_.remove(transfer_id, series_id);
                 do_transfer();
-            });
+            }
+            
         });
-
 
     });
 
@@ -558,41 +642,28 @@ function zip_and_upload(dirname, _files, transfer, series_id, csrfToken) {
     // **********************************************************
 }
 
+
+
 function mark_uploaded(transfer_id, series_id) {
-    let my_transfers = store.get('transfers.uploads');
+    return new Promise((resolve, reject) => {
+        db_uploads.getById(transfer_id, (err, transfer) => {
 
-    let left_to_upload = -1;
-
-    // could be oprimized with for loop + continue
-    my_transfers.forEach(function(transfer) {
-        if (transfer.id === transfer_id) {
             let series_index = transfer.series_ids.indexOf(series_id);
-
+    
             if (series_index >= 0) {
                 transfer.series_ids.splice(series_index, 1);
             }
-
+    
             let finished = transfer.table_rows.length - transfer.series_ids.length;
             let total = transfer.table_rows.length;
             let new_status = finished == total ? 'finished' : finished / total * 100
-
+    
             transfer.status = new_status;
-
+    
             if (transfer.status == 'finished') {
                 Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
             }
-
-            // progress UI
-            // ipc.send('upload_progress', {
-            //     table: '#upload_monitor_table',
-            //     data: {
-            //         id: transfer_id,
-            //         row: {
-            //             status: new_status
-            //         }
-            //     }
-            // });
-
+    
             ipc.send('progress_cell', {
                 table: '#upload_monitor_table',
                 id: transfer_id,
@@ -600,15 +671,19 @@ function mark_uploaded(transfer_id, series_id) {
                 value: new_status
             });
 
-            left_to_upload = transfer.series_ids.length;
-        }
-    });
-
-    store.set('transfers.uploads', my_transfers);
-
-    return left_to_upload;
+            console_red('mark_uploaded => transfer.status', {transfer_status: transfer.status})
+    
+            db_uploads.replaceDoc(transfer_id, transfer, (err, nume) => {
+                resolve(transfer);
+            });
+    
+            // left_to_upload = transfer.series_ids.length;
+            
+        })
+    })
 }
 
+/*
 function summary_commit(transfer_id, series_id) {
     let my_transfers = store.get('transfers.uploads');
 
@@ -627,7 +702,8 @@ function summary_commit(transfer_id, series_id) {
 
     store.set('transfers.uploads', my_transfers);
 }
-
+*/
+/*
 function update_transfer_data(transfer_id, property, new_value) {
     let my_transfers = store.get('transfers.uploads');
 
@@ -640,8 +716,20 @@ function update_transfer_data(transfer_id, property, new_value) {
 
     store.set('transfers.uploads', my_transfers);
 }
+*/
 
 function update_transfer_summary(transfer_id, property, new_value) {
+    db_uploads.getById(transfer_id, (err, transfer) => {
+        transfer.summary = transfer.summary || {}
+        transfer.summary[property] = transfer.summary[property] || []
+        transfer.summary[property].push(new_value)
+
+        db_uploads.replaceDoc(transfer_id, transfer);
+    })
+}
+
+/*
+function update_transfer_summary__old(transfer_id, property, new_value) {
     let my_transfers = store.get('transfers.uploads');
 
     for (let i = 0; i < my_transfers.length; i++) {
@@ -661,8 +749,22 @@ function update_transfer_summary(transfer_id, property, new_value) {
 
     store.set('transfers.uploads', my_transfers);
 }
+*/
 
 function update_upload_table(transfer_id, table_row_id, new_progress) {
+    console.count('update_upload_table')
+    db_uploads.getById(transfer_id, (err, transfer) => {
+        let tbl_row = transfer.table_rows.find(t_row => t_row.id === table_row_id);
+
+        if (tbl_row) {
+            tbl_row.progress = new_progress;
+            db_uploads.replaceDoc(transfer_id, transfer);
+        }
+    })
+}
+
+/*
+function update_upload_table__old(transfer_id, table_row_id, new_progress) {
     let my_transfers = store.get('transfers.uploads');
 
     // could be oprimized with for loop + continue
@@ -678,7 +780,9 @@ function update_upload_table(transfer_id, table_row_id, new_progress) {
 
     store.set('transfers.uploads', my_transfers);
 }
+*/
 
+/*
 function update_modal_ui(transfer_id, uri) {
     let my_transfers = store.get('transfers.uploads');
 
@@ -733,7 +837,7 @@ function update_modal_ui(transfer_id, uri) {
     });
 
 }
-
+*/
 
 
 

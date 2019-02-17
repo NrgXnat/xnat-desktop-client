@@ -109,19 +109,17 @@ function initialize () {
       icon: iconPath,
       show: true
     };
+    
+    mainWindow = new BrowserWindow(windowOptions);
+    mainWindow.loadURL(path.join('file://', __dirname, '/index.html'));
 
     var childOptions = {
       width: 1200,
       height: 700,
       alwaysOnTop: false,
-      show: false
+      show: false,
+      top: mainWindow
     };
-
-    mainWindow = new BrowserWindow(windowOptions);
-    mainWindow.loadURL(path.join('file://', __dirname, '/index.html'));
-    
-
-    childOptions.top = mainWindow;
 
     // Upload window
     uploadWindow = new BrowserWindow(childOptions)
@@ -145,14 +143,13 @@ function initialize () {
       mainWindow.maximize()
       require('devtron').install()
 
-      // uploadWindow.show()
+      uploadWindow.show()
+      uploadWindow.webContents.openDevTools()
+      uploadWindow.maximize()
+
       // downloadWindow.show()
-      
-      // uploadWindow.webContents.openDevTools()
       // downloadWindow.webContents.openDevTools()
-      
-      // uploadWindow.webContents.maximize()
-      // downloadWindow.webContents.maximize()
+      // downloadWindow.maximize()
     }
 
     mainWindow.on('closed', function () {
@@ -221,6 +218,19 @@ function initialize () {
 
     devToolsLog('app.ready triggered')
     createWindow();
+
+    let log_paths = {
+      getAppPath: app.getAppPath(),
+      home: app.getPath('home'),
+      appData: app.getPath('appData'),
+      userData: app.getPath('userData'),
+      temp: app.getPath('temp'),
+      desktop: app.getPath('desktop'),
+      logs: app.getPath('logs'),
+      documents: app.getPath('documents')
+    };
+    log(log_paths)
+    
     devToolsLog('app.ready DONE')
   })
 
@@ -309,17 +319,17 @@ function devToolsLog(s) {
   electron_log.info(s);
   console.log(s)
   if (mainWindow && mainWindow.webContents) {
-    mainWindow.webContents.executeJavaScript(`console.log("${s}")`)
+    mainWindow.webContents.send('log', s);
   }
 }
 
 
 function log(...args) {
   if (app.isReallyReady) {
-    mainWindow.send('log', ...args)
+    mainWindow.webContents.send('log', ...args)
   } else {
     ipcMain.once('appIsReady', () => {
-      mainWindow.send('log', ...args);
+      mainWindow.webContents.send('log', ...args);
     })
   }
 }
@@ -425,8 +435,6 @@ function fix_java_path() {
       java_jre_path = path.resolve(jvm_file, '..');
       
       // to fix @rpath error on Mac
-      //create_usr_local_lib();
-
       let local_lib_path = '/usr/local/lib';
       let libjvm_symlink = local_lib_path + '/libjvm.dylib';
       if (isSymlink.sync(libjvm_symlink)) {
@@ -476,69 +484,6 @@ function fix_java_path() {
 }
 
 
-function create_usr_local_lib() {
-  const my_app = require('electron').app;
-  const fs = require('fs');
-  const sudo = require('sudo-prompt');
-  let options = {
-    name: 'XNAT Desktop Client'
-  };
-
-  let local_path = '/usr/local';
-  let local_lib_path = local_path + '/lib';
-
-  if (!fs.existsSync(local_path)) {
-    sudo.exec('mkdir ' + local_path, options, function(error, stdout, stderr) {
-      if (error) throw error;
-      
-      sudo.exec('mkdir ' + local_lib_path, options, function(error, stdout, stderr) {
-        if (error) throw error;
-        
-        sudo.exec('chown -R $USER:admin ' + local_lib_path, options, function(error, stdout, stderr) {
-          if (error) throw error;
-          
-          my_app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
-          my_app.exit(0);
-        });
-      });
-
-    });
-  } else if (!fs.existsSync(local_lib_path)) {
-    sudo.exec('mkdir ' + local_lib_path, options, function(error, stdout, stderr) {
-      if (error) throw error;
-      
-      sudo.exec('chown -R $USER:admin ' + local_lib_path, options, function(error, stdout, stderr) {
-        if (error) throw error;
-        
-        my_app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
-        my_app.exit(0);
-      });
-    });
-  }
-
-}
-
-
-function test_multiple_commands() {
-  const fs = require('fs');
-  const sudo = require('sudo-prompt');
-  
-  let options = {
-    name: 'XNAT Desktop Client'
-  };
-
-  let local_lib_path = '/usr/local/lib-334';
-
-  if (!fs.existsSync(local_lib_path)) {
-    let sudo_command = `sh -c "mkdir ${local_lib_path} && chown $USER:admin ${local_lib_path} && cd ${local_lib_path} && touch .darko && chmod 0777 .darko"`;
-    
-    sudo.exec(sudo_command, options, function(error, stdout, stderr) {
-      if (error) throw error;
-      
-      console.log('cool');
-    });
-  }
-}
 
 
 
@@ -584,7 +529,9 @@ ipcMain.on('launch_download_modal', (e, item) =>{
 })
 
 ipcMain.on('log', (e, ...args) =>{
-  mainWindow.webContents.send('console:log', ...args);
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('log', ...args)
+  }
 })
 
 
@@ -625,7 +572,7 @@ ipcMain.on('reload_download_window', (e, item) =>{
 })
 
 ipcMain.on('start_download', (e, item) =>{
-  mainWindow.webContents.send('console:log', 'start_download event (main.js)');
+  mainWindow.webContents.send('log', 'start_download event (main.js)');
   downloadWindow.webContents.send('start_download', item);
 })
 
@@ -638,7 +585,7 @@ ipcMain.on('relaunch_app', (e, data) =>{
   app.exit(0);
 })
 
-
+exports.log = log
 
 /*
 exports.anonymize_single = (source, script, variables) => {

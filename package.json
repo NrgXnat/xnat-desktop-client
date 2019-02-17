@@ -54,6 +54,7 @@
     "lokijs": "^1.5.3",
     "mime-types": "^2.1.18",
     "mkdir-recursive": "^0.4.0",
+    "nedb": "^1.8.0",
     "nprogress": "^0.2.0",
     "pnotify": "^3.2.1",
     "popper.js": "^1.12.9",
