@@ -22,6 +22,8 @@ const sha1 = require('sha1');
 
 const app = require('electron').remote.app;
 
+const db_downloads = require('electron').remote.require('./services/db/downloads')
+
 
 let xnat_server, user_auth, default_local_storage;
 let manifest_urls = new Map();
@@ -214,10 +216,10 @@ async function attempt_download(file_path, destination) {
             }
 
             console.log(download_digest);
-            
-            let my_transfers = store.transfers.get('downloads');
-            my_transfers.push(download_digest);
-            store.transfers.set('downloads', my_transfers);
+
+            db_downloads().insert(download_digest, (err, newItem) => {
+                console.log(newItem);
+            })
             
             console.log(manifest_urls);
             

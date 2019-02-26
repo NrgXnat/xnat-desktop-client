@@ -15,8 +15,8 @@ const auth = require('../services/auth');
 
 const FileSaver = require('file-saver');
 
-const db_uploads = require('../services/db/uploads');
-const db_uploads_archive = require('../services/db/uploads_archive');
+const db_uploads = require('electron').remote.require('./services/db/uploads')
+const db_uploads_archive = require('electron').remote.require('./services/db/uploads_archive')
 
 const NProgress = require('nprogress');
 NProgress.configure({ 

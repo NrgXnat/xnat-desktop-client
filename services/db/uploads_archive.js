@@ -1,35 +1,11 @@
-const Datastore = require('nedb');
-const path = require('path')
-
-const settings = require('electron-settings');
-const auth = require('../auth');
-const sha1 = require('sha1');
-
-let current_db;
+const db_init = require('./_init');
 
 module.exports = db;
 
 function db() {
-    // allow loading from main process
-    const app = require('electron').remote ? require('electron').remote.app : require('electron').app
-
-    // db.uploads_archive.<sha1(server + username)>.json
-
-    let xnat_server = settings.get('xnat_server');
-    let username = auth.get_current_user();
-
-    let file_name = `db.uploads_archive.${sha1(xnat_server + username)}.json`;
-    let db_path = path.join(app.getPath('userData'), file_name);
-
-    // console.log('db_path')
-
-    if (current_db && current_db.filename === db_path) {
-        return current_db;
-    } else {
-        current_db = new Datastore({ filename: db_path, autoload: true });
-        return current_db;
-    }
+    return db_init('uploads_archive', true)
 }
+
 
 module.exports.listAll = (callback) => { // callback(err, docs)
     db().find({}, callback);

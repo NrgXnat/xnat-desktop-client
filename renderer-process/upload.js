@@ -17,7 +17,7 @@ const prettyBytes = require('pretty-bytes');
 const remote = require('electron').remote;
 const mizer = require('../mizer');
 
-const db_uploads = require('../services/db/uploads');
+const db_uploads = require('electron').remote.require('./services/db/uploads')
 
 const NProgress = require('nprogress');
 NProgress.configure({ 

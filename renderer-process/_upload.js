@@ -17,7 +17,30 @@ const archiver = require('archiver');
 
 const tempDir = require('temp-dir');
 
-const db_uploads = require('../services/db/uploads');
+const db_uploads = require('electron').remote.require('./services/db/uploads')
+
+
+let summary_log = {};
+
+function summary_log_update(id, prop, val) {
+    summary_log[id] = summary_log[id] || {}
+    summary_log[id][prop] = summary_log[id][prop] || []
+
+    summary_log[id][prop].push(val)
+
+    console_red('summary_log_update', summary_log)
+
+    db_uploads.updateProperty(id, 'summary', summary_log[id])
+}
+
+function ini_summary_log() {
+
+}
+
+function emptyObject(myObj) {
+    return JSON.stringify(myObj) === '{}'
+}
+
 
 let summary_all = {};
 let csrfToken;
@@ -30,7 +53,7 @@ let items_uploaded = []
 
 let _queue_ = {
     items: [],
-    max_items: 1,
+    max_items: 15,
     add: function(transfer_id, series_id) {
         if (this.items.length < this.max_items) {
             let transfer_label = transfer_id + '::' + series_id;
@@ -38,6 +61,7 @@ let _queue_ = {
                 console_log('Added to queue ' + transfer_label);
                 
                 this.items.push(transfer_label);
+                console_red('_queue_items_ADD', this.items)
                 return true;
             } else {
                 
@@ -56,6 +80,7 @@ let _queue_ = {
         if (index > -1) {
             this.items.splice(index, 1);
         }
+        console_red('_queue_items_REMOVE', this.items)
     }
 }
 
@@ -74,7 +99,7 @@ do_transfer();
 //     ipc.send('custom_error', 'Upload Error', err.message);
 // }
 
-setInterval(do_transfer, 10000);
+setInterval(do_transfer, 1000000);
 
 
 function console_log(...log_this) {
@@ -87,8 +112,8 @@ function console_log(...log_this) {
 function console_red(...items) {
     var title = items.shift()
 
-    console.log(`%c=== ${title} ===`, 'font-weight: bold; color: red; text-transform: uppercase');
-    console.log(...items)
+    console.log(`%c=== ${title} ===`, 'font-weight: bold; color: red; text-transform: uppercase', ...items);
+    //console.log(...items)
 }
 
 
@@ -106,12 +131,9 @@ function do_transfer() {
 
     let current_username = auth.get_current_user();
 
-    let db_filepath = db_uploads().filename;
-    console_red('server i username', {xnat_server, current_user_auth, user_auth, db_filepath})
     db_uploads.listAll((err, my_transfers) => {
         console_red('db_uploads.listAll', {my_transfers})
     });
-
 
     if (settings.get('global_pause')) {
         return;
@@ -120,11 +142,10 @@ function do_transfer() {
     if (transfering) {
         return;
     }
-    
 
     //let my_transfers = store.get('transfers.uploads'); 
     db_uploads.listAll((err, my_transfers) => {
-        console_red('REAL db_uploads.listAll', {my_transfers})
+        //console_red('REAL db_uploads.listAll', {my_transfers})
 
         my_transfers.forEach((transfer) => {
             // validate current user/server
@@ -192,9 +213,7 @@ async function doUpload(transfer, series_id) {
         })
     }
 
-    console_log('******************************************');
-    console_log(series_index);
-    console_log('******************************************');
+    console_red('uploading series index', series_index);
     
     update_transfer_summary(transfer.id, 'total_files', _files.length);
     update_transfer_summary(transfer.id, 'total_size', total_size);
@@ -251,7 +270,9 @@ function getUserHome() {
     return process.env[(process.platform == 'win32') ? 'USERPROFILE' : 'HOME'];
 }
 
+
 function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
+    console_red('copy_and_anonymize')
     let _timer = performance.now();
 
     return new Promise(function(resolve, reject){
@@ -272,9 +293,92 @@ function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
                 directory: new_dirpath,
                 copy_success: [],
                 copy_error: []
-            }, files_processed = 0;
+            }, files_processed = 0, copy_errors = [];
+
+        // ============================================
+        // ============================================
+        const promiseSerial = funcs =>
+            funcs.reduce((promise, func) =>
+                promise.then(result => func().then(Array.prototype.concat.bind(result))),
+                Promise.resolve([]))
+
+        // some url's to resolve
+        //const urls = ['/url1', '/url2', '/url3']
+
+        // convert each url to a function that returns a promise
+        // const funcs = urls.map(url => () => $.ajax(url))
+        const funcs = filePaths.map(filePath => () => {
+            return new Promise((resolve, reject) => {
+                const source = filePath;
+                const target = path.join(new_dirpath, path.basename(filePath));
+                const targetDir = path.parse(target)['dir'];
+        
+                let readStream = fs.createReadStream(source);
+                
+                /*
+                // TODO: REFACTOR
+                // Make sure the target directory exists.
+                if (!fs.existsSync(targetDir)) {
+                    console_log("An error occurred trying to create the directory " + targetDir);
+                    return;
+                }
+                
+                readStream.once('error', (error) => {
+                    console_log(`An error occurred trying to copy the file ${source} to ${targetDir}`);
+                    console_log(error);
+                });
+        
+                readStream.once('end', () => {
+                    //console.log(source, 'readStream:END event')
+                });
+                */
+        
+                let writeStream = fs.createWriteStream(target);
+        
+                writeStream.on('finish', () => {
+                    try {
+                        mizer.anonymize(target, contexts, variables);
+                        console.count('anonymized')
+                        
+                        response.copy_success.push(target);
+                        resolve(true);
+                        
+                    } catch (error) {
+                        console.count('anonymization ERROR')
     
-        filePaths.forEach(filePath => {
+                        response.copy_success.push(target);
+                        copy_errors.push({
+                            file: source,
+                            error: error
+                        })
+                        /*
+                        response.copy_error.push({
+                            file: source,
+                            error: error
+                        });
+                        */
+    
+                        resolve(false);
+                    }
+                });
+        
+                readStream.pipe(writeStream);
+            })
+        })
+
+        // execute Promises in serial
+        promiseSerial(funcs)
+            .then((resp) => {
+                console_red('anon finished', {response, copy_errors})
+                resolve(response)
+            })
+    
+        // ============================================ 
+        // ============================================
+        /*
+        for (let i = 0; i < filePaths.length; i++) {
+            console.count('filePaths')
+            let filePath = filePaths[i]
             const source = filePath;
             const target = path.join(new_dirpath, path.basename(filePath));
             const targetDir = path.parse(target)['dir'];
@@ -306,6 +410,7 @@ function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
                     //console_log('BEFORE ANON');
                     mizer.anonymize(target, contexts, variables);
                     //console_log('AFTER ANON');
+                    console.count('anonymized')
                     
                     response.copy_success.push(target);
 
@@ -321,6 +426,8 @@ function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
                 } catch (error) {
                     console_log("An error occurred during anonymization: ");
                     console_log(error)
+
+                    console.count('anonymization ERROR')
 
                     response.copy_error.push({
                         file: source,
@@ -338,7 +445,9 @@ function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
             });
     
             readStream.pipe(writeStream);
-        });
+        }
+
+        */
     
     });
     
@@ -400,9 +509,9 @@ function zip_and_upload(dirname, _files, transfer, series_id, csrfToken) {
 
         fs.readFile(zip_path, (err, zip_content) => {
             if (err) throw err;
-            console.log('-------------' + xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken + '|||||||||||||||----------------------');
+            console_red('Commit url 1', xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken);
             
-            console.log('**************************** ZIP CONTENT '+zip_content.length+' ***************************');
+            // console_log('**************************** ZIP CONTENT '+zip_content.length+' ***************************');
 
 
             axios({
@@ -411,17 +520,10 @@ function zip_and_upload(dirname, _files, transfer, series_id, csrfToken) {
                 auth: user_auth,
                 onUploadProgress: function (progressEvent) {
                     // Do whatever you want with the native progress event
-                    console.log('=======', progressEvent, '===========');
-                    console.log(progressEvent.loaded, progressEvent.total);
+                    //console_log('=======', progressEvent, '===========');
+                    //console_log(progressEvent.loaded, progressEvent.total);
 
                     let new_progress = progressEvent.loaded / progressEvent.total * 100;
-
-                    ipc.send('progress_cell', {
-                        table: '#upload-details-table',
-                        id: table_row_id,
-                        field: "progress",
-                        value: new_progress
-                    });
 
                     update_upload_table(transfer_id, table_row_id, new_progress);
 
@@ -440,7 +542,7 @@ function zip_and_upload(dirname, _files, transfer, series_id, csrfToken) {
 
                 mark_uploaded(transfer_id, series_id)
                 .then(transfer => {
-                    console_red('mark_uploaded.then()', {transfer})
+                    console_red('mark_uploaded.then()', {series_id, transfer})
 
                     if (transfer.series_ids.length === 0) {
                         console_log(`**** COMMITING UPLOAD ${transfer_id} :: ${series_id}`);
@@ -571,18 +673,20 @@ function zip_and_upload(dirname, _files, transfer, series_id, csrfToken) {
             })
             .catch(err => {
                 console_red('upload error', err);
-                update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err));
+                update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
+                    remove_from_queue_and_respawn(transfer_id, series_id)
+                });
 
-                remove_from_queue_and_respawn(transfer_id, series_id)
             });
 
             function remove_from_queue_and_respawn(transfer_id, series_id) {
                 console_red('remove_from_queue_and_respawn', {transfer_id, series_id})
                 let _time_took = ((performance.now() - upload_timer) / 1000).toFixed(2);
 
-                update_transfer_summary(transfer_id, 'timer_upload', _time_took);
-                _queue_.remove(transfer_id, series_id);
-                do_transfer();
+                update_transfer_summary(transfer_id, 'timer_upload', _time_took, function() {
+                    _queue_.remove(transfer_id, series_id);
+                    do_transfer();
+                });
             }
             
         });
@@ -645,11 +749,15 @@ function zip_and_upload(dirname, _files, transfer, series_id, csrfToken) {
 
 
 function mark_uploaded(transfer_id, series_id) {
+    console.count('mark_uploaded')
+    console.count('mark_uploaded__' + series_id)
     return new Promise((resolve, reject) => {
-        db_uploads.getById(transfer_id, (err, transfer) => {
+        db_uploads.getById(transfer_id, (err, db_transfer) => {
+            // copy the response
+            var transfer = JSON.parse(JSON.stringify(db_transfer));
 
             let series_index = transfer.series_ids.indexOf(series_id);
-    
+
             if (series_index >= 0) {
                 transfer.series_ids.splice(series_index, 1);
             }
@@ -670,8 +778,6 @@ function mark_uploaded(transfer_id, series_id) {
                 field: "status",
                 value: new_status
             });
-
-            console_red('mark_uploaded => transfer.status', {transfer_status: transfer.status})
     
             db_uploads.replaceDoc(transfer_id, transfer, (err, nume) => {
                 resolve(transfer);
@@ -718,14 +824,42 @@ function update_transfer_data(transfer_id, property, new_value) {
 }
 */
 
-function update_transfer_summary(transfer_id, property, new_value) {
-    db_uploads.getById(transfer_id, (err, transfer) => {
+async function update_transfer_summary__OLD(transfer_id, property, new_value, callback = false) {
+    await db_uploads.getById(transfer_id, (err, db_transfer) => {
+        summary_log_update(transfer_id, property, new_value)
+        var transfer = JSON.parse(JSON.stringify(db_transfer));
+
         transfer.summary = transfer.summary || {}
         transfer.summary[property] = transfer.summary[property] || []
+
+        console_red('update_transfer_summary BEFORE', {transfer})
         transfer.summary[property].push(new_value)
+        console_red('update_transfer_summary AFTER', {transfer})
 
         db_uploads.replaceDoc(transfer_id, transfer);
     })
+
+    if (callback) {
+        callback()
+    }
+}
+
+
+async function update_transfer_summary(transfer_id, property, new_value, callback = false) {
+    summary_log_update(transfer_id, property, new_value)
+    //let db_transfer = await db_uploads._getById(transfer_id)
+    //let transfer = JSON.parse(JSON.stringify(db_transfer));
+
+
+    // transfer.summary = transfer.summary || {}
+    // transfer.summary[property] = transfer.summary[property] || []
+    // transfer.summary[property].push(new_value)
+
+    // await db_uploads._replaceDoc(transfer_id, transfer);
+
+    if (callback) {
+        callback()
+    }
 }
 
 /*
@@ -751,8 +885,16 @@ function update_transfer_summary__old(transfer_id, property, new_value) {
 }
 */
 
-function update_upload_table(transfer_id, table_row_id, new_progress) {
+function update_upload_table__OLD(transfer_id, table_row_id, new_progress) {
     console.count('update_upload_table')
+
+    ipc.send('progress_cell', {
+        table: '#upload-details-table',
+        id: table_row_id,
+        field: "progress",
+        value: new_progress
+    });
+
     db_uploads.getById(transfer_id, (err, transfer) => {
         let tbl_row = transfer.table_rows.find(t_row => t_row.id === table_row_id);
 
@@ -761,6 +903,28 @@ function update_upload_table(transfer_id, table_row_id, new_progress) {
             db_uploads.replaceDoc(transfer_id, transfer);
         }
     })
+}
+
+async function update_upload_table(transfer_id, table_row_id, new_progress) {
+    console.count('update_upload_table')
+
+    ipc.send('progress_cell', {
+        table: '#upload-details-table',
+        id: table_row_id,
+        field: "progress",
+        value: new_progress
+    });
+
+    let db_transfer = await db_uploads._getById(transfer_id);
+    let transfer = JSON.parse(JSON.stringify(db_transfer));
+    let tbl_row = transfer.table_rows.find(t_row => t_row.id === table_row_id);
+
+    if (tbl_row) {
+        tbl_row.progress = new_progress;
+        //summary_log_update(transfer_id, 'tbl_row', new_progress)
+
+        await db_uploads._replaceDoc(transfer_id, transfer);
+    }
 }
 
 /*

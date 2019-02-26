@@ -1,26 +1,56 @@
-let db = require('./_init')('uploads');
+const db_init = require('./_init');
 
 module.exports = db;
 
+function db() {
+    return db_init('downloads', true)
+}
+
 
 module.exports.listAll = (callback) => { // callback(err, docs)
-    db.find({}, callback);
+    db().find({}, callback);
 }
 
 module.exports.getById = (id, callback) => { // callback(err, doc)
-    db.findOne({id: id}, callback);
+    db().findOne({id: id}, callback);
 }
+
+module.exports._getById = (id) => { // callback(err, doc)
+    return new Promise((resolve, reject) => {
+        db().findOne({id: id}, (err, doc) => {
+            if (err) reject(err)
+            resolve(doc)
+        });
+    })
+}
+
+
+module.exports._replaceDoc = (id, doc) => { // callback(err, num)
+    // just in case
+    if (doc._id) {
+        delete doc._id
+    }
+
+    return new Promise((resolve, reject) => {
+        db().update({id: id}, doc, {}, (err, num) => {
+            if (err) reject(err)
+            resolve(doc)
+        })
+    })
+    
+}
+
 
 module.exports.replaceDoc = (id, doc, callback) => { // callback(err, num)
     // just in case
     if (doc._id) {
         delete doc._id
     }
-    db.update({id: id}, doc, {}, callback)
+    db().update({id: id}, doc, {}, callback)
 }
 
 module.exports.updateProperty = (id, property, value, callback) => { // callback(err, num)
-    db.update({ id: id }, { $set: { [property]: value } }, callback);
+    db().update({ id: id }, { $set: { [property]: value } }, callback);
 }
 
 
@@ -29,11 +59,11 @@ module.exports.updateProperty = (id, property, value, callback) => { // callback
 
 
 module.exports.insert_one = (name, callback) => { // callback(err, newDoc)
-    //db.insert({name: name}, callback);
+    //db().insert({name: name}, callback);
 }
 
 module.exports.remove_by_id = (id, callback) => { // callback(err, numRemoved)
-    //db.remove({ _id: id }, {}, callback);
+    //db().remove({ _id: id }, {}, callback);
 }
 
 /*
@@ -45,6 +75,6 @@ than current value. To work on arrays, you have $push, $pop, $addToSet, $pull, a
 the special $each and $slice. See examples below for the syntax.
 */
 module.exports.update_name = (id, newname, callback) => { // callback(err, num)
-    //db.update({ _id: id }, { $set: { name: newname } }, callback);
+    //db().update({ _id: id }, { $set: { name: newname } }, callback);
 }
 

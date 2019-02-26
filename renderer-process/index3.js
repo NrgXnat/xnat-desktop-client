@@ -218,11 +218,12 @@ ipc.on('custom_error',function(e, title, message){
     // })
 });
 
-ipc.on('log', (e, ...args) => {
+ipc.on('log', ipc_log);
+
+function ipc_log(e, ...args){
     console.log('%c============= IPC LOG =============', 'font-weight: bold; color: red');
     console.log(...args);
-});
-
+};
 
 
 ipc.on('update-available', (e, ...args) => {

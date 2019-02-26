@@ -9,10 +9,13 @@ const ipc = require('electron').ipcRenderer;
 const swal = require('sweetalert');
 const archiver = require('archiver');
 const mime = require('mime-types');
+const prettyBytes = require('pretty-bytes');
 
 const auth = require('../services/auth');
 
 const FileSaver = require('file-saver');
+
+const db_uploads_archive = require('electron').remote.require('./services/db/uploads_archive')
 
 const NProgress = require('nprogress');
 NProgress.configure({ 
@@ -161,14 +164,12 @@ function _init_upload_archive_table() {
         data: []
     });
 
-    let uploads = store.get('transfers.uploads_archive');
-    
+    db_uploads_archive.listAll((err, uploads) => {
         console.log(uploads);
     
         let my_data = [];
     
         uploads.forEach(function(transfer) {
-            console.log('+++++++++')
             console.log(transfer)
             if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
                 let study_label = transfer.session_data.studyId ? transfer.session_data.studyId : transfer.session_data.studyInstanceUid;
@@ -197,6 +198,8 @@ function _init_upload_archive_table() {
             .bootstrapTable('removeAll')    
             .bootstrapTable('append', my_data)
             .bootstrapTable('resetView');
+    })
+        
 }
 
 function _init_download_archive_table() {
@@ -477,7 +480,7 @@ $(document).on('show.bs.modal', '#error-log--download-archive', function(e) {
     var id = $(e.relatedTarget).data('id');
     let my_transfers = store.get('transfers.downloads_archive');
 
-console.log(id, my_transfers);
+    console.log(id, my_transfers);
 
     
     let error_text = '';
@@ -498,14 +501,6 @@ console.log(id, my_transfers);
 $(document).on('show.bs.modal', '#upload-archive-details', function(e) {
     var id = $(e.relatedTarget).data('id');
 
-    let my_transfers = store.get('transfers.uploads_archive');
-    for (let i = 0; i < my_transfers.length; i++) {
-        if (my_transfers[i].id === id) {
-            console.log(my_transfers[i]);
-            break;
-        }
-    }
-
     var session_label = $(e.relatedTarget).data('session_label');
 
     $(e.currentTarget).find('#session_label').html(session_label);
@@ -519,58 +514,43 @@ $(document).on('shown.bs.modal', '#upload-archive-details', function(e) {
 });
 
 $(document).on('show.bs.modal', '#upload-archive-success-log', function(e) {
-    let my_transfer = get_transfer($(e.relatedTarget).data('id'));
-
-    console.log(my_transfer);
-    console.log($(e.currentTarget));
-
-    let $log_text = $(e.currentTarget).find('.log-text');
-    $log_text.html('');
-
-    $('#upload-archive-details-link').data({
-        id: my_transfer.id,
-        session_label: my_transfer.url_data.expt_label
-    });
-
-
-    Object.keys(my_transfer.session_data).forEach(key => {
-        $log_text.append(`<p><b>${key}</b>: <span>${my_transfer.session_data[key]}</span></p>\n`);
-    });
-    let total_files = my_transfer.summary.total_files.reduce((prevVal, item) => {
-        return prevVal + item;
-    }, 0);
-    let total_size = my_transfer.summary.total_size.reduce((prevVal, item) => {
-        return prevVal + item;
-    }, 0);
-
-    $log_text.append(`<p><b>Total files</b>: <span>${total_files} (${(total_size / 1024 / 1024).toFixed(2)} MB)</span></p>\n`);
-    $log_text.append(`<p><a href="${my_transfer.session_link}" target="_blank"><b>Session Link</b></a><span style="display: none;">:</span> <a style="display: none;" href="${my_transfer.session_link}">${my_transfer.session_link}</a>`);
-
-    let $ul = $(`<ul>`);
-    Object.keys(my_transfer.anon_variables).forEach(key => {
-        $ul.append(`<li><b>${key}</b>: <span>${my_transfer.anon_variables[key]}</span></li>\n`);
-    });
-
-    $log_text.append(`<b>Anon variables:</b>\n`).append($ul);
-
+    db_uploads_archive.getById(transfer_id, (err, my_transfer) => {
+        console.log(my_transfer);
+        console.log($(e.currentTarget));
     
+        let $log_text = $(e.currentTarget).find('.log-text');
+        $log_text.html('');
+    
+        $('#upload-archive-details-link').data({
+            id: my_transfer.id,
+            session_label: my_transfer.url_data.expt_label
+        });
+    
+        for (key in my_transfer.session_data) {
+            $log_text.append(`<p><b>${key}</b>: <span>${my_transfer.session_data[key]}</span></p>\n`);
+        }
+
+        let total_files = my_transfer.summary.total_files.reduce((prevVal, item) => {
+            return prevVal + item;
+        }, 0);
+        let total_size = my_transfer.summary.total_size.reduce((prevVal, item) => {
+            return prevVal + item;
+        }, 0);
+    
+        $log_text.append(`<p><b>Total files</b>: <span>${total_files} (${prettyBytes(total_size)})</span></p>\n`);
+        $log_text.append(`<p><a href="${my_transfer.session_link}" target="_blank"><b>Session Link</b></a><span style="display: none;">:</span> <a style="display: none;" href="${my_transfer.session_link}">${my_transfer.session_link}</a>`);
+    
+        let $ul = $(`<ul>`);
+        for (key in my_transfer.anon_variables) {
+            $ul.append(`<li><b>${key}</b>: <span>${my_transfer.anon_variables[key]}</span></li>\n`);
+        }
+    
+        $log_text.append(`<b>Anon variables:</b>\n`).append($ul);
+    })
+
 
     //_init_upload_details_table(id)
 });
-
-function get_transfer(transfer_id) {
-    let my_transfers = store.get('transfers.uploads_archive');
-
-    let transfer = false;
-    for (let i = 0; i < my_transfers.length; i++) {
-        if (my_transfers[i].id === transfer_id) {
-            transfer = my_transfers[i];
-            break;
-        }
-    }
-
-    return transfer;
-}
 
 function _init_download_details_table(transfer_id) {
     
@@ -781,7 +761,8 @@ function _init_upload_details_table(transfer_id) {
                 align: 'right',
                 class: 'right-aligned',
                 formatter: function(value, row, index, field) {
-                    return `${(value / 1024 / 1024).toFixed(2)} MB`;
+                    return prettyBytes(value);
+                    //return `${(value / 1024 / 1024).toFixed(2)} MB`;
                 }
             }, 
             {
@@ -793,78 +774,30 @@ function _init_upload_details_table(transfer_id) {
         data: []
     });
 
-    let uploads = store.get('transfers.uploads_archive');
+    db_uploads_archive.getById(transfer_id, (err, transfer) => {
+        let $details = $('#upload-archive-details');
+        let $buttons = $details.find('.js_pause_upload, .js_cancel_upload');
+        if (transfer.status === 'finished') {
+            $buttons.hide();
+        } else {
+            $buttons.show();
 
-    let transfer;
-    for (let i = 0; i < uploads.length; i++) {
-        if (uploads[i].id === transfer_id) {
-            transfer = uploads[i];
-            break;
+            let cancel_button_html = transfer.canceled ? '<i class="fas fa-redo"></i> Restart Upload' : '<i class="far fa-stop-circle"></i> Cancel Upload';
+            $details.find('.js_cancel_upload').data({
+                'transfer_id': transfer_id,
+                'new_cancel_status': !transfer.canceled
+            }).html(cancel_button_html);
         }
-    }
+
+        $('#upload-archive-details-table')
+            .bootstrapTable('removeAll')    
+            .bootstrapTable('append', transfer.table_rows)
+            .bootstrapTable('resetView');
+    })
     
-    my_data = transfer.table_rows;
-
-    console.log(transfer);
-
-    let $details = $('#upload-archive-details');
-    let $buttons = $details.find('.js_pause_upload, .js_cancel_upload');
-    if (transfer.status === 'finished') {
-        $buttons.hide();
-    } else {
-        $buttons.show();
-
-        let cancel_button_html = transfer.canceled ? '<i class="fas fa-redo"></i> Restart Upload' : '<i class="far fa-stop-circle"></i> Cancel Upload';
-        $details.find('.js_cancel_upload').data({
-            'transfer_id': transfer_id,
-            'new_cancel_status': !transfer.canceled
-        }).html(cancel_button_html);
-    }
-    
-
-    $('#upload-archive-details-table')
-        .bootstrapTable('removeAll')    
-        .bootstrapTable('append', my_data)
-        .bootstrapTable('resetView');
 }
 
-$(document).on('click', '.___js_cancel_download', function(e){
-    let transfer_id = $(this).data('transfer_id');
-    let new_cancel_status = $(this).data('new_cancel_status');
 
-    let downloads = store.get('transfers.downloads_archive');
-    for (let i = 0; i < downloads.length; i++) {
-        if (downloads[i].id === transfer_id) {
-            downloads[i].canceled = new_cancel_status;
-            break;
-        }
-    }
-    store.set('transfers.downloads_archive', downloads);
-
-    let cancel_button_html = new_cancel_status ? '<i class="fas fa-redo"></i> Restart Download' : '<i class="far fa-stop-circle"></i> Cancel Download';
-    $(this).data('new_cancel_status', !new_cancel_status).html(cancel_button_html);
-
-    update_transfer_cancel_status('#download_archive_table', transfer_id, new_cancel_status);
-});
-
-$(document).on('click', '.___js_cancel_upload', function(e){
-    let transfer_id = $(this).data('transfer_id');
-    let new_cancel_status = $(this).data('new_cancel_status');
-
-    let uploads = store.get('transfers.uploads_archive');
-    for (let i = 0; i < uploads.length; i++) {
-        if (uploads[i].id === transfer_id) {
-            uploads[i].canceled = new_cancel_status;
-            break;
-        }
-    }
-    store.set('transfers.uploads_archive', uploads);
-
-    let cancel_button_html = new_cancel_status ? '<i class="fas fa-redo"></i> Restart Upload' : '<i class="far fa-stop-circle"></i> Cancel Upload';
-    $(this).data('new_cancel_status', !new_cancel_status).html(cancel_button_html);
-
-    update_transfer_cancel_status('#upload_archive_table', transfer_id, new_cancel_status);
-});
 
 $(document).on('click', '[data-save-txt]', function(){
     let text_content = $.trim($(this).closest('.modal-content').find('.modal-body').text());
@@ -926,122 +859,7 @@ $(document).on('click', '.___js_restart_all_transfers', function(){
     
 });
 
-function ___update_uploads_cancel_status(new_cancel_status) {
-    let my_transfers = store.get('transfers.uploads_archive'); 
 
-    let updated = 0;
-
-    my_transfers.forEach(function (transfer) {
-        // validate current user/server
-        if (transfer.xnat_server === xnat_server &&
-            transfer.user === user_auth.username &&
-            transfer.canceled != new_cancel_status && 
-            typeof transfer.status == 'number' &&
-            transfer.series_ids.length
-        ) {
-            updated++;
-            transfer.canceled = new_cancel_status;
-        }
-    });
-
-    store.set('transfers.uploads_archive', my_transfers);
-
-    return updated;
-}
-
-function ___update_downloads_cancel_status(new_cancel_status) {
-    let my_transfers = store.get('transfers.downloads_archive');
-
-    let updated = 0;
-
-    my_transfers.forEach(function(transfer) {
-        // validate current user/server
-        if (transfer.server === xnat_server && 
-            transfer.user === user_auth.username && 
-            transfer.canceled != new_cancel_status
-        ) {
-            let left_to_download = 0;
-    
-            transfer.sessions.forEach(function(session){
-                session.files.forEach(function(file){
-                    if (file.status === 0) {
-                        left_to_download++;
-                    }
-                });
-            });
-
-            if (left_to_download) {
-                updated++;
-                transfer.canceled = new_cancel_status;
-            }
-        }
-    });
-    
-    store.set('transfers.downloads_archive', my_transfers);
-
-    return updated;
-}
-
-/*
-function cancel_all_uploads() {
-    let my_transfers = store.get('transfers.uploads_archive'); 
-
-    let updated = 0;
-
-    my_transfers.forEach(function(transfer) {
-        // validate current user/server
-        if (transfer.xnat_server === xnat_server && 
-            transfer.user === user_auth.username &&
-            typeof transfer.status == 'number' && 
-            transfer.canceled == false && 
-            transfer.series_ids.length
-        ) {
-            updated++;
-            transfer.canceled = true;    
-        }
-    });
-
-    store.set('transfers.uploads_archive', my_transfers);
-
-    return updated;
-}
-
-
-
-function cancel_all_downloads() {
-    let my_transfers = store.get('transfers.downloads_archive');
-
-    let updated = 0;
-
-    my_transfers.forEach(function(transfer) {
-
-        // validate current user/server
-        if (transfer.server === xnat_server && transfer.user === user_auth.username) {
-            let manifest_urls = new Map();
-    
-            transfer.sessions.forEach(function(session){
-                session.files.forEach(function(file){
-                    if (file.status === 0) {
-                        manifest_urls.set(file.name, file.uri)
-                    }
-                });
-            });
-    
-            if (manifest_urls.size) {
-                if (transfer.canceled !== true) {
-                    updated++;
-                    transfer.canceled = true;
-                }
-            }
-        }
-        
-    });
-    
-    store.set('transfers.downloads_archive', my_transfers);
-
-    return updated;
-}
-*/
 
 $(document).on('click', '.___js_pause_all', function(){
     let new_pause_status = !settings.get('global_pause');
@@ -1101,62 +919,6 @@ function ___remove_transfers(include_canceled) {
     _init_download_archive_table();
 }
 
-function ___remove_finished_uploads(remove_canceled = false) {
-    let my_transfers = store.get('transfers.uploads_archive'); 
-
-    let to_delete = [];
-    
-    my_transfers.forEach(function(transfer, index) {
-        // validate current user/server
-        if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
-            let include_canceled = remove_canceled && transfer.canceled === true;
-            if (transfer.status === 'finished' || include_canceled) {
-                to_delete.push(index);
-            }
-        }
-    });
-
-    if (to_delete.length) {
-        to_delete = to_delete.reverse()
-
-        for(let i=0; i < to_delete.length; i++) {
-            my_transfers.splice(to_delete[i], 1);
-        }
-    
-        store.set('transfers.uploads_archive', my_transfers);
-    }
-
-    return to_delete.length;
-}
-
-function ___remove_finished_downloads(remove_canceled = false) {
-    let my_transfers = store.get('transfers.downloads_archive');
-
-    let to_delete = [];
-
-    my_transfers.forEach(function(transfer, index) {
-        // validate current user/server
-        if (transfer.server === xnat_server && transfer.user === user_auth.username) {
-            let include_canceled = remove_canceled && transfer.canceled === true;
-            if (transfer.status === 'finished' || transfer.status === 'complete_with_errors' || include_canceled) {
-                to_delete.push(index);
-            }
-        }
-        
-    });
-
-    if (to_delete.length) {
-        to_delete = to_delete.reverse()
-
-        for(let i=0; i < to_delete.length; i++) {
-            my_transfers.splice(to_delete[i], 1);
-        }
-    
-        store.set('transfers.downloads_archive', my_transfers);
-    }
-
-    return to_delete.length;
-}
 
 function pause_btn_content(status) {
     return status ? 
