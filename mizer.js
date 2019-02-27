@@ -42,6 +42,7 @@ console.log(jarDir);
     "dicomtools-1.7.5.jar",
     "framework-1.7.5.2.jar",
     "guava-20.0.jar",
+    "java-uuid-generator-3.1.4.jar",
     "jcl-over-slf4j-1.7.25.jar",
     "log4j-1.2.17.jar",
     "lombok-1.16.18.jar",
