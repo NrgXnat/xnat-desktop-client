@@ -14,11 +14,6 @@ const {URL} = require('url');
 
 reset_user_data();
 
-let transfers = store.namespace('transfers');
-if (!transfers.has('downloads')) {
-    transfers.set('downloads', []);
-}
-
 
 const links = document.querySelectorAll('link[rel="import"]')
 
@@ -137,9 +132,6 @@ function reset_user_data() {
     console.log('****************** reset_user_data **************');
     auth.remove_current_user();
     auth.set_allow_insecure_ssl(false);
-
-    //store.set('transfers.downloads', []);
-    //store.set('transfers.uploads', []);
 }
 
 

@@ -17,6 +17,8 @@ const archiver = require('archiver');
 
 const tempDir = require('temp-dir');
 
+const { console_red } = require('../services/logger');
+
 const db_uploads = require('electron').remote.require('./services/db/uploads')
 
 
@@ -106,14 +108,6 @@ function console_log(...log_this) {
     //console.log(...log_this);
     //console.trace('<<<<== UPLOAD TRACE ==>>>>');
     ipc.send('log', ...log_this);
-}
-
-
-function console_red(...items) {
-    var title = items.shift()
-
-    console.log(`%c=== ${title} ===`, 'font-weight: bold; color: red; text-transform: uppercase', ...items);
-    //console.log(...items)
 }
 
 
@@ -229,6 +223,7 @@ async function doUpload(transfer, series_id) {
         console_log(variables);
 
         copy_and_anonymize(transfer.id, _files, contexts, variables).then((res) => {
+            return;
 
             update_transfer_summary(transfer.id, 'anon_files', res.copy_success.length);
             if (res.copy_error.length) {
@@ -293,22 +288,91 @@ function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
                 directory: new_dirpath,
                 copy_success: [],
                 copy_error: []
-            }, files_processed = 0, copy_errors = [];
+        }, 
+        files_processed = 0, 
+        copy_errors = [];
+
 
         // ============================================
         // ============================================
-        const promiseSerial = funcs =>
-            funcs.reduce((promise, func) =>
-                promise.then(result => func().then(Array.prototype.concat.bind(result))),
-                Promise.resolve([]))
+        // group paths in batches which are sequetially parsed
+        if (false) {
+            const filePathsBatches = Helper.arrayBatch(filePaths, 4);
 
-        // some url's to resolve
-        //const urls = ['/url1', '/url2', '/url3']
+            const funcs_batch = filePathsBatches.map(filePathsBatch => () => {
+                const promise_batch = filePathsBatch.map(filePath => new Promise((resolve, reject) => {
+                    const source = filePath;
+                    const target = path.join(new_dirpath, path.basename(filePath));
+                    const targetDir = path.parse(target)['dir'];
+            
+                    let readStream = fs.createReadStream(source);
+                    
+                    /*
+                    // TODO: REFACTOR
+                    // Make sure the target directory exists.
+                    if (!fs.existsSync(targetDir)) {
+                        console_log("An error occurred trying to create the directory " + targetDir);
+                        return;
+                    }
+                    
+                    readStream.once('error', (error) => {
+                        console_log(`An error occurred trying to copy the file ${source} to ${targetDir}`);
+                        console_log(error);
+                    });
+            
+                    readStream.once('end', () => {
+                        //console.log(source, 'readStream:END event')
+                    });
+                    */
+            
+                    let writeStream = fs.createWriteStream(target);
+            
+                    writeStream.on('finish', () => {
+                        try {
+                            mizer.anonymize(target, contexts, variables);
+                            console.count('anonymized')
+                            
+                            response.copy_success.push(target);
+                            resolve(true);
+                            
+                        } catch (error) {
+                            console.count('anonymization ERROR')
+        
+                            response.copy_success.push(target);
+                            copy_errors.push({
+                                file: source,
+                                error: error
+                            })
+                            /*
+                            response.copy_error.push({
+                                file: source,
+                                error: error
+                            });
+                            */
+        
+                            resolve(false);
+                        }
+                    });
+            
+                    readStream.pipe(writeStream);
+                }));
+                
+                return Promise.all(promise_batch).then(function(values) {
+                    return values;
+                });
+            });
 
-        // convert each url to a function that returns a promise
-        // const funcs = urls.map(url => () => $.ajax(url))
-        const funcs = filePaths.map(filePath => () => {
-            return new Promise((resolve, reject) => {
+
+            // execute Promises in serial
+            Helper.promiseSerial(funcs_batch).then((resp) => {
+                console_red('anon finished', {response, copy_errors})
+                resolve(response)
+            });
+        }
+        
+
+        if (true) {
+            const funcs = filePaths.map(filePath => () => new Promise((resolve, reject) => {
                 const source = filePath;
                 const target = path.join(new_dirpath, path.basename(filePath));
                 const targetDir = path.parse(target)['dir'];
@@ -363,91 +427,14 @@ function copy_and_anonymize(transfer_id, filePaths, contexts, variables) {
                 });
         
                 readStream.pipe(writeStream);
-            })
-        })
-
-        // execute Promises in serial
-        promiseSerial(funcs)
-            .then((resp) => {
+            }));
+    
+            // execute Promises in serial
+            Helper.promiseSerial(funcs).then((resp) => {
                 console_red('anon finished', {response, copy_errors})
                 resolve(response)
-            })
-    
-        // ============================================ 
-        // ============================================
-        /*
-        for (let i = 0; i < filePaths.length; i++) {
-            console.count('filePaths')
-            let filePath = filePaths[i]
-            const source = filePath;
-            const target = path.join(new_dirpath, path.basename(filePath));
-            const targetDir = path.parse(target)['dir'];
-    
-            
-            // Make sure the target directory exists.
-            if (!fs.existsSync(targetDir)) {
-                console_log("An error occurred trying to create the directory " + targetDir);
-                return;
-            }
-    
-            let readStream = fs.createReadStream(source);
-    
-            readStream.once('error', (error) => {
-                console_log(`An error occurred trying to copy the file ${source} to ${targetDir}`);
-                console_log(error);
             });
-    
-            readStream.once('end', () => {
-                //console.log(source, 'readStream:END event')
-            });
-    
-            let writeStream = fs.createWriteStream(target);
-    
-            writeStream.on('finish', () => {
-                files_processed++;
-    
-                try {
-                    //console_log('BEFORE ANON');
-                    mizer.anonymize(target, contexts, variables);
-                    //console_log('AFTER ANON');
-                    console.count('anonymized')
-                    
-                    response.copy_success.push(target);
-
-                    if (files_processed === filePaths.length) {
-                        let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
-                        // summary_add(`${_time_took}sec`, 'Anonymization time');
-                        update_transfer_summary(transfer_id, 'timer_cp_anon', _time_took);
-
-                        console_log('++++ copy_and_anonymize SUCCESS');
-
-                        resolve(response);
-                    }
-                } catch (error) {
-                    console_log("An error occurred during anonymization: ");
-                    console_log(error)
-
-                    console.count('anonymization ERROR')
-
-                    response.copy_error.push({
-                        file: source,
-                        error: error
-                    });
-
-                    if (files_processed === filePaths.length) {
-                        let _time_took = ((performance.now() - _timer) / 1000).toFixed(2);
-
-                        console_log('---- copy_and_anonymize ERROR');
-
-                        resolve(response);
-                    }
-                }
-            });
-    
-            readStream.pipe(writeStream);
         }
-
-        */
     
     });
     
