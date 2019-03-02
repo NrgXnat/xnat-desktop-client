@@ -3,6 +3,9 @@
   "version": "1.0.55",
   "description": "XNAT Desktop Client",
   "main": "main.js",
+  "extraMetadata": {
+    "submitUrl": "http://localhost:9000/crashpad/report"
+  },
   "scripts": {
     "start": "npm-run-all -s sass:build electron-start",
     "dev": "npm-run-all -p electron-dev sass",

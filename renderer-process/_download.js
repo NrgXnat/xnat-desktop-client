@@ -6,15 +6,16 @@ require('promise.prototype.finally').shim();
 const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
 
+const electron = require('electron')
 const settings = require('electron-settings');
-const ipc = require('electron').ipcRenderer;
+const ipc = electron.ipcRenderer;
 
-const remote = require('electron').remote;
+const remote = electron.remote;
 const auth = require('../services/auth');
 
 const sha1 = require('sha1');
 const unzipper = require('unzipper');
-const shell = require('electron').shell;
+const shell = electron.shell;
 
 const filesize = require('filesize');
 
@@ -26,6 +27,15 @@ const electron_log = require('electron-log');
 const prettyBytes = require('pretty-bytes');
 const humanizeDuration = require('humanize-duration')
 
+const appMetaData = require('../package.json');
+
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
 
 if (!settings.has('global_pause')) {
     settings.set('global_pause', false);

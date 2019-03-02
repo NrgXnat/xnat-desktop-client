@@ -1,5 +1,6 @@
-const ipc = require('electron').ipcRenderer;
-const shell = require('electron').shell;
+const electron = require('electron');
+const ipc = electron.ipcRenderer;
+const shell = electron.shell;
 
 const fs = require('fs');
 
@@ -12,7 +13,7 @@ require('promise.prototype.finally').shim();
 const xml2js = require('xml2js');
 const swal = require('sweetalert');
 
-const remote = require('electron').remote;
+const remote = electron.remote;
 
 const FileSaver = require('file-saver');
 const zlib = require('zlib');
@@ -20,8 +21,16 @@ const zlib = require('zlib');
 const unzipper = require('unzipper');
 const sha1 = require('sha1');
 
-const app = require('electron').remote.app;
+const app = electron.remote.app;
+const appMetaData = require('../package.json');
 
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
 
 let xnat_server, user_auth, default_local_storage;
 let manifest_urls = new Map();

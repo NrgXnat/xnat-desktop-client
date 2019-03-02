@@ -8,8 +8,22 @@ const fs = require('fs');
 const electron = require('electron')
 
 const auth = require('./services/auth');
+const appMetaData = require('./package.json');
 
 const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
+
+console.log(`appMetaData.author: ${appMetaData.author}`);
+console.log(`appMetaData.name: ${appMetaData.name}`);
+console.log(`appMetaData.version: ${appMetaData.version}`);
+console.log(`appMetaData.extraMetadata.submitUrl: ${appMetaData.extraMetadata.submitUrl}`);
+
+electron.crashReporter.start({
+  companyName: appMetaData.author,
+  productName: appMetaData.name,
+  productVersion: appMetaData.version,
+  submitURL: appMetaData.extraMetadata.submitUrl,
+  uploadToServer: true
+});
 
 const electron_log = require('electron-log');
 electron_log.transports.console.level = false;

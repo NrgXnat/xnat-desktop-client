@@ -1,10 +1,20 @@
 const path = require('path');
 const settings = require('electron-settings')
-const ipc = require('electron').ipcRenderer
+const electron = require('electron');
+const ipc = electron.ipcRenderer
 const auth = require('../services/auth');
 const api = require('../services/api');
 
 const app = require('electron').remote.app
+const appMetaData = require('../package.json');
+
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
 
 let xnat_server = '';
 let user_auth = {

@@ -7,17 +7,25 @@ require('promise.prototype.finally').shim();
 const auth = require('../services/auth');
 const api = require('../services/api');
 const settings = require('electron-settings');
-const ipc = require('electron').ipcRenderer;
+const electron = require('electron');
+const ipc = electron.ipcRenderer;
 const swal = require('sweetalert');
 const archiver = require('archiver');
 const mime = require('mime-types');
-
 const prettyBytes = require('pretty-bytes');
-
-const remote = require('electron').remote;
+const remote = electron.remote;
 const mizer = require('../mizer');
-
 const NProgress = require('nprogress');
+const appMetaData = require('../package.json');
+
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
+
 NProgress.configure({ 
     trickle: false,
     easing: 'ease',

@@ -12,6 +12,15 @@ var electron = require('electron')
 var windows = require('./windows')
 
 var app = electron.app
+const appMetaData = require('../package.json');
+
+electron.crashReporter.start({
+  companyName: appMetaData.author,
+  productName: appMetaData.name,
+  productVersion: appMetaData.version,
+  submitURL: appMetaData.extraMetadata.submitUrl,
+  uploadToServer: true
+});
 
 function log (...args) {
   if (app.ipcReady) {

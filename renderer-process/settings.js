@@ -1,14 +1,24 @@
 //require('promise.prototype.finally').shim();
 const path = require('path');
 const settings = require('electron-settings')
-const ipc = require('electron').ipcRenderer
+const electron = require('electron');
+const ipc = electron.ipcRenderer
 const swal = require('sweetalert');
 
-const remote = require('electron').remote;
+const remote = electron.remote;
 
-const app = require('electron').remote.app
+const app = electron.remote.app
+const appMetaData = require('../package.json');
 
 const auth = require('../services/auth');
+
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
 
 //const blockUI = require('blockui-npm');
 let allow_insecure_ssl;

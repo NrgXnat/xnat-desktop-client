@@ -4,10 +4,19 @@ const axios = require('axios');
 require('promise.prototype.finally').shim();
 const store = require('store2');
 const sha1 = require('sha1');
-const ipc = require('electron').ipcRenderer
-
+const electron = require('electron');
+const ipc = electron.ipcRenderer
 const {URL} = require('url');
-const remote = require('electron').remote;
+const remote = electron.remote;
+const appMetaData = require('../package.json');
+
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
 
 let auth = {
     test: () => {

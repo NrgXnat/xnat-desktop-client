@@ -1,8 +1,17 @@
 const electron = require('electron');
 const path = require('path')
 const {app, BrowserWindow, Menu, shell, Tray} = electron;
+const appMetaData = require('../package.json');
 
 const version = app.getVersion();
+
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
 
 //create menu template
 let template = [

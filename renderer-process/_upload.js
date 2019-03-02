@@ -4,18 +4,28 @@ const path = require('path');
 const axios = require('axios');
 require('promise.prototype.finally').shim();
 const settings = require('electron-settings');
-const ipc = require('electron').ipcRenderer;
+const electron = require('electron');
+const ipc = electron.ipcRenderer;
 
 const filesize = require('filesize');
 
-const remote = require('electron').remote;
+const remote = electron.remote;
 const auth = require('../services/auth');
 
 const mizer = require('../mizer');
+const appMetaData = require('../package.json');
 
 const archiver = require('archiver');
 
 const tempDir = require('temp-dir');
+
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
 
 let summary_all = {};
 let csrfToken;
