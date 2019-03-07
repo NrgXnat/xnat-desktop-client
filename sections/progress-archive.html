@@ -1,56 +1,37 @@
 <template class="task-template">
-    <section id="progress-section" class="section js-section u-category-native-ui">
+    <section id="progress-archive-section" class="section js-section u-category-native-ui">
         <div class="container">
-            <h2 class="main-title">Progress Monitor</h2>
-            <div class="row hidden">
-                <div class="col"></div>
-                <div class="col-10">
-                    <div class="alert alert-danger text-center alert-dismissible fade show" role="alert">
-                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                            </button>
-                        <h2 class="red-title"><i class="fas fa-minus-circle"></i> Warning upload / download session failed !</h2>
-                        Upload / Download for user (user name) on server (server) failed.</br>
-                        Please check your monitor/log for details.
-                    </div>
-                </div>
-                <div class="col"></div>
-            </div>
-
+            <h2 class="main-title">Transfer Archive</h2>
+            
 
             <div class="row">
                 <div class="col button-row">
-                    <button type="button" class="btn btn-gray js_pause_all"><i class="far fa-pause-circle"></i> Pause All</button>
-                    <button type="button" class="btn btn-gray js_cancel_all_transfers"><i class="far fa-times-circle"></i> Cancel All</button>
-                    <button type="button" class="btn btn-gray js_restart_all_transfers"><i class="fas fa-redo"></i> Restart All Canceled</button>
-                    <button type="button" class="btn btn-gray js_clear_finished"><i class="far fa-trash-alt"></i> Clear Completed Transfers</button>
-                    <!-- <button type="button" class="btn btn-gray float-right"><i class="fas fa-archive"></i> Archive</button> -->
-                    <a class="btn btn-gray float-right" href="progress-archive.html"><i class="fas fa-archive"></i> View Archived Transfers</a>
+                    <a class="btn btn-gray float-right" href="progress.html"><i class="fas fa-archive"></i> View Current Transfers</a>
                 </div>
             </div>
 
             <nav>
                 <div class="nav nav-tabs" id="nav-tab" role="tablist">
                     <a class="nav-item nav-link active" id="nav-download-tab" data-toggle="tab" href="#nav-download" role="tab" aria-controls="nav-download"
-                        aria-selected="true">Download Progress</a>
+                        aria-selected="true">Archived Downloads</a>
                     <a class="nav-item nav-link" id="nav-upload-tab" data-toggle="tab" href="#nav-upload" role="tab" aria-controls="nav-upload"
-                        aria-selected="false">Upload Progress</a>
+                        aria-selected="false">Archived Uploads</a>
                 </div>
             </nav>
             <div class="tab-content" id="nav-tabContent">
                 <div class="tab-pane fade show active" id="nav-download" role="tabpanel" aria-labelledby="nav-download-tab">
-                    <table class="table table-bordered filtered-table" id="download_monitor_table"></table>
+                    <table class="table table-bordered filtered-table" id="download_archive_table"></table>
                 </div>
                 <div class="tab-pane fade" id="nav-upload" role="tabpanel" aria-labelledby="nav-upload-tab">
-                    <table class="table table-bordered filtered-table" id="upload_monitor_table"></table>
-                    <button data-href="upload.html" type="button" class="btn btn-gray"><i class="fas fa-upload"></i> Upload a New Session</button>
+                    <table class="table table-bordered filtered-table" id="upload_archive_table"></table>
+                    <!-- <button data-href="upload.html" type="button" class="btn btn-gray"><i class="fas fa-upload"></i> Upload a New Session</button> -->
                 </div>
             </div>
         </div>
 
 
         <!-- Modal -->
-        <div class="modal fade" id="error-log--download" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+        <div class="modal fade" id="error-log--download-archive" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -74,7 +55,7 @@
         </div>
 
         <!-- Modal -->
-        <div class="modal fade" id="error-log--upload" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+        <div class="modal fade" id="error-log--upload-archive" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -123,7 +104,7 @@
 
         
         <!-- Modal -->
-        <div class="modal fade" id="upload-success-log" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+        <div class="modal fade" id="upload-archive-success-log" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -140,9 +121,9 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
-                        <button id="upload-details-link" type="button" class="btn btn-blue" data-dismiss="modal" 
+                        <button id="upload-archive-details-link" type="button" class="btn btn-blue" data-dismiss="modal" 
                             data-toggle="modal" 
-                            data-target="#upload-details"
+                            data-target="#upload-archive-details"
                             data-id=""
                             data-session_label="">View Log</button>
                         <button type="button" class="btn btn-blue" data-save-txt>Save log as TXT</button>
@@ -153,7 +134,7 @@
         </div>
 
         <!-- Modal -->
-        <div class="modal fade" id="upload-details-old" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+        <div class="modal fade" id="upload-archive-details-old" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -249,7 +230,7 @@
         
 
         <!-- Modal -->
-        <div class="modal fade" id="download-details" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+        <div class="modal fade" id="download-archive-details" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -261,19 +242,16 @@
                     <div class="modal-body">
                         <div class="process-details">
                             
-                            <table class="table table-bordered filtered-table" id="download-details-table"></table>
+                            <table class="table table-bordered filtered-table" id="download-archive-details-table"></table>
 
                             <p>
                                 Transfer rate: <span id="download_rate">-</span>
-                                <!-- (Total: <span id="download_time">-</span>, <span id="download_size">-</span>) -->
                             </p>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <!--
                         <button type="button" class="btn btn-blue js_pause_download"><i class="far fa-pause-circle"></i> Pause</button>
                         <button type="button" class="btn btn-blue js_cancel_download"><i class="far fa-stop-circle"></i> Cancel Download</button>
-                        -->
                         <button type="button" class="btn btn-gray" data-dismiss="modal" aria-label="Close"><i class="fas fa-times-circle"></i> Close</button>
                     </div>
                 </div>
@@ -282,7 +260,7 @@
 
         
         <!-- Modal -->
-        <div class="modal fade" id="upload-details" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+        <div class="modal fade" id="upload-archive-details" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -294,7 +272,7 @@
                     <div class="modal-body">
                         <div class="process-details">
                             
-                            <table class="table table-bordered filtered-table" id="upload-details-table"></table>
+                            <table class="table table-bordered filtered-table" id="upload-archive-details-table"></table>
 
                             <p>
                                 Transfer rate: <span id="upload_rate">-</span>
@@ -313,8 +291,8 @@
 
 
         <script type="text/javascript">
-            require('./renderer-process/progress');
-            Helper.pageLoadTrigger('#progress-section');
+            require('./renderer-process/progress-archive');
+            Helper.pageLoadTrigger('#progress-archive-section');
         </script>
 
     </section>

@@ -1,16 +1,12 @@
 require('promise.prototype.finally').shim();
 const settings = require('electron-settings');
 const ipc = require('electron').ipcRenderer;
-const swal = require('sweetalert');
 const prettyBytes = require('pretty-bytes');
+
 const FileSaver = require('file-saver');
 
-const db_uploads = require('electron').remote.require('./services/db/uploads')
 const db_uploads_archive = require('electron').remote.require('./services/db/uploads_archive')
-const db_downloads = require('electron').remote.require('./services/db/downloads')
 const db_downloads_archive = require('electron').remote.require('./services/db/downloads_archive')
-
-const { console_red } = require('../services/logger');
 
 const NProgress = require('nprogress');
 NProgress.configure({ 
@@ -24,8 +20,8 @@ NProgress.configure({
 let xnat_server, user_auth;
 
 
-function _init_upload_progress_table() {
-    $('#upload_monitor_table').bootstrapTable({
+function _init_upload_archive_table() {
+    $('#upload_archive_table').bootstrapTable({
         filterControl: true,
         hideUnusedSelectOptions: true,
         uniqueId: 'id',
@@ -125,7 +121,7 @@ function _init_upload_progress_table() {
                             content = `
                             <button class="btn btn-block btn-success" 
                                 data-toggle="modal" 
-                                data-target="#upload-success-log"
+                                data-target="#upload-archive-success-log"
                                 data-id="${row.id}"
                                 ><i class="fas fa-download"></i> Log</button>
                             `;
@@ -135,7 +131,7 @@ function _init_upload_progress_table() {
                             content = `
                             <button class="btn btn-block btn-danger" 
                                 data-toggle="modal" 
-                                data-target="#error-log--upload"
+                                data-target="#error-log--upload-archive"
                                 data-id="${row.id}"
                                 ><i class="fas fa-exclamation-triangle"></i> Log</button>
                             `;
@@ -145,7 +141,7 @@ function _init_upload_progress_table() {
                             content = `
                                 <button class="btn btn-block btn-info" 
                                     data-toggle="modal" 
-                                    data-target="#upload-details"
+                                    data-target="#upload-archive-details"
                                     data-id="${row.id}"
                                     data-session_label="${row.session_label}"
                                     ><i class="fas fa-upload"></i> Details</button>
@@ -159,12 +155,13 @@ function _init_upload_progress_table() {
         data: []
     });
 
-    db_uploads.listAll((err, uploads) => {
+    db_uploads_archive.listAll((err, uploads) => {
         console.log(uploads);
-
+    
         let my_data = [];
-
-        uploads.forEach((transfer) => {
+    
+        uploads.forEach(function(transfer) {
+            console.log(transfer)
             if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
                 let study_label = transfer.session_data.studyId ? transfer.session_data.studyId : transfer.session_data.studyInstanceUid;
                 let item = {
@@ -180,25 +177,25 @@ function _init_upload_progress_table() {
                     user: transfer.user,
                     canceled: transfer.canceled === true ? true : false
                 };
-
+    
                 my_data.push(item);
             }
         });
-
+    
         console.log(my_data);
         
-
-        $('#upload_monitor_table')
+    
+        $('#upload_archive_table')
             .bootstrapTable('removeAll')    
             .bootstrapTable('append', my_data)
             .bootstrapTable('resetView');
     })
-
+        
 }
 
-function _init_download_progress_table() {
+function _init_download_archive_table() {
 
-    $('#download_monitor_table').bootstrapTable({
+    $('#download_archive_table').bootstrapTable({
         filterControl: true,
         hideUnusedSelectOptions: true,
         uniqueId: 'id',
@@ -300,7 +297,7 @@ function _init_download_progress_table() {
                             content = `
                             <button class="btn btn-block btn-success" 
                                 data-toggle="modal" 
-                                data-target="#download-details"
+                                data-target="#download-archive-details"
                                 data-id="${row.id}"
                                 data-file="${basename}"
                                 ><i class="fas fa-download"></i> Log</button>
@@ -311,7 +308,7 @@ function _init_download_progress_table() {
                             content = `
                             <button class="btn btn-block btn-danger" 
                                 data-toggle="modal" 
-                                data-target="#error-log--download"
+                                data-target="#error-log--download-archive"
                                 data-id="${row.id}"
                                 ><i class="fas fa-exclamation-triangle"></i> Log</button>
                             `;
@@ -321,7 +318,7 @@ function _init_download_progress_table() {
                             content = `
                                 <button class="btn btn-block btn-info" 
                                     data-toggle="modal" 
-                                    data-target="#download-details"
+                                    data-target="#download-archive-details"
                                     data-id="${row.id}"
                                     data-file="${basename}"
                                     ><i class="fas fa-upload"></i> Details</button>
@@ -335,14 +332,12 @@ function _init_download_progress_table() {
         data: []
     });
 
-
-    db_downloads.listAll((err, downloads) => {
+    db_downloads_archive.listAll((err, downloads) => {
         console.log(downloads);
-    
 
         let my_data = [];
     
-        downloads.forEach((transfer) => {
+        downloads.forEach(function(transfer) {
             if (transfer.server === xnat_server && transfer.user === user_auth.username) {
                 console.log('********************** DOWNLOAD transfer **********************');
                 console.log(transfer);
@@ -397,7 +392,7 @@ function _init_download_progress_table() {
                     
                     if (done_files == total_files) {
                         item.download_status = error_files ? 'complete_with_errors' : 'finished';
-                    } else if (done_files == 0 && settings.get('transfering_download') !== transfer.id) {
+                    } else if (done_files == 0) {
                         item.download_status = 'queued';
                     } else {
                         item.download_status = done_files / total_files * 100;
@@ -414,17 +409,16 @@ function _init_download_progress_table() {
         console.log(my_data);
         
     
-        $('#download_monitor_table')
+        $('#download_archive_table')
             .bootstrapTable('removeAll')    
             .bootstrapTable('append', my_data)
             .bootstrapTable('resetView');
     })
-
     
 }
 
 function _UI() {
-    $('#progress-section .date_field input.form-control').datepicker({
+    $('#progress-archive-section .date_field input.form-control').datepicker({
         changeMonth: true,
         changeYear: true,
         dateFormat: "yy/mm/dd",
@@ -435,10 +429,7 @@ function _UI() {
           var offset = $(input).outerWidth(false) - dp.outerWidth(false);
           dp.css('margin-right', offset);
         }
-      });
-
-    $('.js_pause_all').html(pause_btn_content(settings.get('global_pause')));
-
+    });
 }
 
 
@@ -446,8 +437,8 @@ function _init_variables() {
     xnat_server = settings.get('xnat_server');
     user_auth = settings.get('user_auth');
 
-    _init_download_progress_table();
-    _init_upload_progress_table();
+    _init_download_archive_table();
+    _init_upload_archive_table();
     _UI();
 }
 
@@ -458,33 +449,33 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
 }
 
 
-$(document).on('page:load', '#progress-section', function(e){
-    console.log('PROGRESS page:load triggered');
+$(document).on('page:load', '#progress-archive-section', function(e){
+    console.log('PROGRESS ARCHIVE page:load triggered');
     
     _init_variables();
 });
 
-$(document).on('show.bs.modal', '#download-details', function(e) {
+$(document).on('show.bs.modal', '#download-archive-details', function(e) {
     var id = $(e.relatedTarget).data('id');
     var file = $(e.relatedTarget).data('file');
 
     $(e.currentTarget).find('#file_basename').html(file);
 
-    $('.modal-content').attr('data-id', id);
-
     _init_download_details_table(id)
 });
 
-$(document).on('show.bs.modal', '#error-log--download', function(e) {
+
+$(document).on('show.bs.modal', '#error-log--download-archive', function(e) {
     var id = parseInt($(e.relatedTarget).data('id'));
     let $log_text = $(e.currentTarget).find('.log-text');
 
-    db_downloads.getById(id, (err, download) => {
+    db_downloads_archive.getById(id, (err, download) => {
         $log_text.html(download.error);
     });
 });
 
-$(document).on('show.bs.modal', '#upload-details', function(e) {
+
+$(document).on('show.bs.modal', '#upload-archive-details', function(e) {
     var id = $(e.relatedTarget).data('id');
 
     var session_label = $(e.relatedTarget).data('session_label');
@@ -495,28 +486,28 @@ $(document).on('show.bs.modal', '#upload-details', function(e) {
 });
 
 // fix modal from modal body overflow problem
-$(document).on('shown.bs.modal', '#upload-details', function(e) {
+$(document).on('shown.bs.modal', '#upload-archive-details', function(e) {
     $('body').addClass('modal-open')
 });
 
-$(document).on('show.bs.modal', '#upload-success-log', function(e) {
+$(document).on('show.bs.modal', '#upload-archive-success-log', function(e) {
     var transfer_id = $(e.relatedTarget).data('id');
-    db_uploads.getById(transfer_id, (err, my_transfer) => {
+    db_uploads_archive.getById(transfer_id, (err, my_transfer) => {
         console.log(my_transfer);
         console.log($(e.currentTarget));
     
         let $log_text = $(e.currentTarget).find('.log-text');
         $log_text.html('');
     
-        $('#upload-details-link').data({
+        $('#upload-archive-details-link').data({
             id: my_transfer.id,
             session_label: my_transfer.url_data.expt_label
         });
-
+    
         for (key in my_transfer.session_data) {
             $log_text.append(`<p><b>${key}</b>: <span>${my_transfer.session_data[key]}</span></p>\n`);
         }
-    
+
         let total_files = my_transfer.summary.total_files.reduce((prevVal, item) => {
             return prevVal + item;
         }, 0);
@@ -533,18 +524,18 @@ $(document).on('show.bs.modal', '#upload-success-log', function(e) {
         }
     
         $log_text.append(`<b>Anon variables:</b>\n`).append($ul);
-    
-    
-        //_init_upload_details_table(id)
     })
-    
+
+
+    //_init_upload_details_table(id)
 });
 
 
 function _init_download_details_table(transfer_id) {
+
     function init_bootstrap_table(transfer) {
-        $('#download-details-table').bootstrapTable('destroy');
-        $('#download-details-table').bootstrapTable({
+        $('#download-archive-details-table').bootstrapTable('destroy');
+        $('#download-archive-details-table').bootstrapTable({
             uniqueId: 'id',
             detailView: true,
             detailFormatter: function(index, row) {
@@ -574,7 +565,6 @@ function _init_download_details_table(transfer_id) {
                 });
     
                 return '<table class="table-sm table-bordered">' + html.join('') + '</table>';
-                
             },
             columns: [
                 {
@@ -635,13 +625,13 @@ function _init_download_details_table(transfer_id) {
             data: []
         });
     }
-    
-    db_downloads.getById(transfer_id, (err, transfer) => {
+
+    db_downloads_archive.getById(transfer_id, (err, transfer) => {
         init_bootstrap_table(transfer);
 
         let my_data = [];
 
-        let $details = $('#download-details');
+        let $details = $('#download-archive-details');
 
         let $buttons = $details.find('.js_pause_download, .js_cancel_download');
         if (transfer.status === 'finished' || transfer.status === 'complete_with_errors') {
@@ -688,21 +678,21 @@ function _init_download_details_table(transfer_id) {
 
         console.log(my_data);
 
-        $('#download-details-table')
+        $('#download-archive-details-table')
             .bootstrapTable('removeAll')    
             .bootstrapTable('append', my_data)
             .bootstrapTable('resetView');
+    
     });
 
-
     // TODO migrate open links to table!!! transfer.sessions[1].files[0].name ... up one directory
-    //$('#download-details-table').closest('.bootstrap-table').after(`<button type="button" data="" class="btn btn-blue">Open</button>`)
+    //$('#download-archive-details-table').closest('.bootstrap-table').after(`<button type="button" data="" class="btn btn-blue">Open</button>`)
 }
 
 function _init_upload_details_table(transfer_id) {
     function init_bootstrap_table(transfer) {
-        $('#upload-details-table').bootstrapTable('destroy');
-        $('#upload-details-table').bootstrapTable({
+        $('#upload-archive-details-table').bootstrapTable('destroy');
+        $('#upload-archive-details-table').bootstrapTable({
             uniqueId: 'id',
             columns: [
                 {
@@ -743,7 +733,7 @@ function _init_upload_details_table(transfer_id) {
                     class: 'right-aligned',
                     formatter: function(value, row, index, field) {
                         return prettyBytes(value);
-                        // return `${(value / 1024 / 1024).toFixed(2)} MB`;
+                        //return `${(value / 1024 / 1024).toFixed(2)} MB`;
                     }
                 }, 
                 {
@@ -755,12 +745,11 @@ function _init_upload_details_table(transfer_id) {
             data: []
         });
     }
-    
 
-    db_uploads.getById(transfer_id, (err, transfer) => {
+    db_uploads_archive.getById(transfer_id, (err, transfer) => {
         init_bootstrap_table(transfer);
 
-        let $details = $('#upload-details');
+        let $details = $('#upload-archive-details');
         let $buttons = $details.find('.js_pause_upload, .js_cancel_upload');
         if (transfer.status === 'finished') {
             $buttons.hide();
@@ -774,38 +763,14 @@ function _init_upload_details_table(transfer_id) {
             }).html(cancel_button_html);
         }
 
-        $('#upload-details-table')
+        $('#upload-archive-details-table')
             .bootstrapTable('removeAll')    
             .bootstrapTable('append', transfer.table_rows)
             .bootstrapTable('resetView');
-    });
+    })
     
 }
 
-
-$(document).on('click', '.js_cancel_download', function(e){
-    let transfer_id = $(this).data('transfer_id');
-    let new_cancel_status = $(this).data('new_cancel_status');
-
-    db_downloads.updateProperty(transfer_id, 'cancel', new_cancel_status);
-
-    let cancel_button_html = new_cancel_status ? '<i class="fas fa-redo"></i> Restart Download' : '<i class="far fa-stop-circle"></i> Cancel Download';
-    $(this).data('new_cancel_status', !new_cancel_status).html(cancel_button_html);
-
-    update_transfer_cancel_status('#download_monitor_table', transfer_id, new_cancel_status);
-});
-
-$(document).on('click', '.js_cancel_upload', function(e){
-    let transfer_id = $(this).data('transfer_id');
-    let new_cancel_status = $(this).data('new_cancel_status');
-
-    db_uploads.updateProperty(transfer_id, 'canceled', new_cancel_status)
-
-    let cancel_button_html = new_cancel_status ? '<i class="fas fa-redo"></i> Restart Upload' : '<i class="far fa-stop-circle"></i> Cancel Upload';
-    $(this).data('new_cancel_status', !new_cancel_status).html(cancel_button_html);
-
-    update_transfer_cancel_status('#upload_monitor_table', transfer_id, new_cancel_status);
-});
 
 $(document).on('click', '[data-save-txt]', function(){
     let text_content = $.trim($(this).closest('.modal-content').find('.modal-body').text());
@@ -818,344 +783,3 @@ $(document).on('click', '[data-save-txt]', function(){
     let blob = new Blob([text_content], {type: "text/plain;charset=utf-8"});
     FileSaver.saveAs(blob, "success_log.txt");
 });
-
-$(document).on('click', '.js_cancel_all_transfers', function(){
-    let global_pause = settings.get('global_pause')
-    settings.set('global_pause', true);
-
-    Promise.all([
-        update_uploads_cancel_status(true), 
-        update_downloads_cancel_status(true)
-    ]).then(([modified_uploads, modified_downloads]) => {
-        ipc.send('reload_upload_window');
-        ipc.send('reload_download_window');
-
-        settings.set('global_pause', global_pause);
-
-        if (modified_uploads + modified_downloads === 0) {
-            Helper.pnotify('Cancel All Tranfsers', 'No new transfers were canceled.', 'notice');
-        } else {
-            Helper.pnotify('Cancel All Tranfsers - Success', `Downloads canceled: ${modified_downloads}
-                Uploads canceled: ${modified_uploads}`);
-        }
-
-        _init_download_progress_table();
-        _init_upload_progress_table();
-    });
-    
-});
-
-$(document).on('click', '.js_restart_all_transfers', function(){
-    let global_pause = settings.get('global_pause');
-    settings.set('global_pause', true);
-
-    Promise.all([
-        update_uploads_cancel_status(false), 
-        update_downloads_cancel_status(false)
-    ]).then(([modified_uploads, modified_downloads]) => {
-        ipc.send('reload_upload_window');
-        ipc.send('reload_download_window');
-
-        settings.set('global_pause', global_pause);
-
-        if (modified_uploads + modified_downloads === 0) {
-            Helper.pnotify('Restart All Canceled', 'No transfers were restarted.', 'notice');
-        } else {
-            Helper.pnotify('Restart All Canceled - Success', `Downloads restarted: ${modified_downloads}
-                Uploads restarted: ${modified_uploads}`);
-        }
-    
-        _init_download_progress_table();
-        _init_upload_progress_table();
-    });
-    
-});
-
-$(document).on('click', '.js_pause_all', function(){
-    let new_pause_status = !settings.get('global_pause');
-
-    ipc.send('start_download');
-    
-    settings.set('global_pause', new_pause_status);
-    $(this).html(pause_btn_content(new_pause_status));
-
-    let title = new_pause_status ? 'Pause' : 'Resume';
-    let body = new_pause_status ? 'Paused' : 'Resumed';
-
-    Helper.pnotify(`${title} All Tranfsers`, `All Transfers Successfully ${body}.`, 'success', 3000);
-    
-});
-
-$(document).on('click', '.js_clear_finished', function(){
-    swal({
-        title: "Which transfers to clear?",
-        text: "Choose which transfers to clear.",
-        icon: "warning",
-        buttons: {
-            all: "Finished and Canceled",
-            finished: "Only Finished",
-            cancel: "Cancel"
-        },
-        closeOnEsc: false,
-        dangerMode: true
-    })
-        .then((toClear) => {
-            console.log(toClear);
-            switch (toClear) {
-                case "all":
-                    remove_transfers(true);
-                    break;
-
-                case "finished":
-                    remove_transfers(false);
-                    break;
-
-                default:
-                    
-            }
-        });
-
-    
-});
-
-
-function update_uploads_cancel_status(new_cancel_status) {
-    // db_uploads().find({canceled: {$ne: !new_cancel_status}, $where: () => this.series_ids.length }, (err, my_transfers) => {
-
-    // });
-
-    return new Promise((resolve, reject) => {
-        db_uploads.listAll((err, my_transfers) => {
-            let updated = 0;
-    
-            my_transfers.forEach((transfer) => {
-                // validate current user/server
-                if (transfer.xnat_server === xnat_server &&
-                    transfer.user === user_auth.username &&
-                    transfer.canceled != new_cancel_status && 
-                    typeof transfer.status == 'number' &&
-                    transfer.series_ids.length
-                ) {
-                    db_uploads.updateProperty(transfer.id, 'canceled', new_cancel_status)
-                    updated++;
-                }
-            });
-
-            // ugly hack
-            setTimeout(() => {
-                resolve(updated);
-            }, 500)
-        })
-    })
-
-}
-
-function update_downloads_cancel_status(new_cancel_status) {
-    return new Promise((resolve, reject) => {
-        db_downloads.listAll((err, my_transfers) => {
-            let updated = 0;
-    
-            my_transfers.forEach((transfer) => {
-                if (transfer.server === xnat_server && 
-                    transfer.user === user_auth.username && 
-                    transfer.canceled != new_cancel_status
-                ) {
-                    let left_to_download = 0;
-            
-                    transfer.sessions.forEach(function(session){
-                        session.files.forEach(function(file){
-                            if (file.status === 0) {
-                                left_to_download++;
-                            }
-                        });
-                    });
-        
-                    if (left_to_download) {
-                        db_downloads.updateProperty(transfer.id, 'canceled', new_cancel_status)
-                        updated++;
-                    }
-                }
-                
-            });
-
-            // ugly hack
-            setTimeout(() => {
-                resolve(updated);
-            }, 500)
-        })
-    })
-
-}
-
-function remove_transfers(include_canceled) {
-    Promise.all([
-        remove_finished_uploads(include_canceled), 
-        remove_finished_downloads(include_canceled)
-    ]).then(([removed_uploads, removed_download]) => {
-        console_red('remove_transfers -> then', {removed_uploads, removed_download})
-        Helper.pnotify(`Clear Completed Tranfsers`,  `Downloads Removed: ${removed_download}
-        Uploads Removed: ${removed_uploads}`, 'success');
-
-        //_init_download_progress_table();
-        //_init_upload_progress_table();
-    })
-}
-
-function remove_finished_uploads(remove_canceled = false) {
-    return new Promise((resolve, reject) => {
-        db_uploads.listAll((err, my_transfers) => {
-            let to_archive = [];
-            let delete_ids = [];
-    
-            my_transfers.forEach((transfer) => {
-                // validate current user/server
-                if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
-                    let include_canceled = remove_canceled && transfer.canceled === true;
-                    
-                    if (transfer.status === 'finished' || include_canceled) {
-                        delete_ids.push(transfer._id);
-                        to_archive.push(transfer)
-                    }
-                }
-            });
-
-            console_red('remove_finished_uploads', {to_archive, delete_ids})
-    
-            if (delete_ids.length) {
-                db_uploads().remove({_id: {$in: delete_ids}}, {multi: true}, (err, numRemoved) => {
-                    console.log(`Removed ${numRemoved} from ${delete_ids.length} from db.uploads`)
-        
-                    db_uploads_archive().insert(to_archive, function (err, newDocs) {
-                        //console.log(`Added ${newDocs.length} from ${to_archive.length} into db.uploads_archive`)
-        
-                        _init_upload_progress_table();
-    
-                        resolve(numRemoved)
-                    });
-                })
-            } else {
-                resolve(0)
-            }
-    
-        })
-    })
-
-}
-
-function remove_finished_downloads(remove_canceled = false) {
-    return new Promise((resolve, reject) => {
-        db_downloads.listAll((err, my_transfers) => {
-            let to_archive = [];
-            let delete_ids = [];
-
-            console_red('my_transfers', {my_transfers})
-    
-            my_transfers.forEach((transfer) => {
-                // validate current user/server
-                if (transfer.server === xnat_server && transfer.user === user_auth.username) {
-                    let include_canceled = remove_canceled && transfer.canceled === true;
-                    if (transfer.status === 'finished' || transfer.status === 'complete_with_errors' || include_canceled) {
-                        delete_ids.push(transfer._id);
-                        to_archive.push(transfer)
-                    }
-                }
-                
-            });
-
-            console_red('remove_finished_downloads', {to_archive, delete_ids})
-
-            if (delete_ids.length) {
-                db_downloads().remove({_id: {$in: delete_ids}}, {multi: true}, (err, numRemoved) => {
-                    console.log(`Removed ${numRemoved} from ${delete_ids.length} from db.uploads`)
-        
-                    db_downloads_archive().insert(to_archive, function (err, newDocs) {
-                        //console.log(`Added ${newDocs.length} from ${to_archive.length} into db.uploads_archive`)
-        
-                        _init_download_progress_table();
-    
-                        resolve(numRemoved)
-                    });
-                })
-            } else {
-                resolve(0);
-            }
-    
-        })
-    })
-
-}
-
-function pause_btn_content(status) {
-    return status ? 
-        '<i class="far fa-play-circle"></i> Resume All' :
-        '<i class="far fa-pause-circle"></i> Pause All';
-}
-
-function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status) {
-    $(table_id).bootstrapTable('updateByUniqueId', {
-        id: transfer_id,
-        row: {
-            canceled: new_cancel_status
-        }
-    });
-}
-
-
-ipc.on('progress_cell',function(e, item){
-    //console.log(item);
-    if ($(item.table).length) {
-        let $progress_bar = $(item.table).find(`[data-uniqueid="${item.id}"] .progress-bar`);
-
-        let reinit = typeof item.value != 'number' || $progress_bar.length == 0;
-        
-        $(item.table).bootstrapTable("updateCellById", {
-            id: item.id,
-            field: item.field,
-            value: item.value,
-            reinit: reinit
-        });
-
-        if (!reinit) {
-            let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
-            $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
-        }
-        
-    }
-
-});
-
-ipc.on('download_progress',function(e, item){
-    //console.log(item);
-
-    if (item.table !== undefined) {
-        
-        if ($(item.table).length) {
-            $(item.table).bootstrapTable('updateByUniqueId', item.data);
-        }
-    }
-
-    if (item.selector !== undefined) {
-        if ($(item.selector).length) {
-            $(item.selector).html(item.html);
-        }
-    }
-    
-});
-
-ipc.on('upload_progress',function(e, item) {
-    console.log(item);
-
-    if (item.table !== undefined) {
-        if ($(item.table).length) {
-            $(item.table).bootstrapTable('updateByUniqueId', item.data);
-        }
-    }
-
-    if (item.selector !== undefined) {
-        if ($(item.selector).length) {
-            $(item.selector).html(item.html);
-        }
-    }
-    
-});
-

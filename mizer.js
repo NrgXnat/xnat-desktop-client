@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 
-console.log(__dirname);
+//console.log(__dirname);
 
 
 const _app_path = __dirname;
@@ -32,27 +32,27 @@ console.log(jarDir);
 ["classes",
     "antlr-runtime-3.5.2.jar",
     "antlr4-4.5.3.jar",
-    "commons-io-2.5.jar",
-    "commons-lang3-3.5.jar",
-    "commons-logging-1.2.jar",
+    "commons-io-2.6.jar",
+    "commons-lang3-3.7.jar",
     "dcm4che-core-2.0.29.jar",
     "dcm4che-iod-2.0.29.jar",
     "dcm4che-net-2.0.29.jar",
-    "dicom-edit4-1.0.2-SNAPSHOT.jar",
-    "dicom-edit6-1.0.4-SNAPSHOT.jar",
-    "dicomtools-1.7.4.jar",
-    "framework-1.7.4.jar",
+    "dicom-edit4-1.0.3.jar",
+    "dicom-edit6-1.0.5.jar",
+    "dicomtools-1.7.5.jar",
+    "framework-1.7.5.2.jar",
     "guava-20.0.jar",
+    "java-uuid-generator-3.1.4.jar",
+    "jcl-over-slf4j-1.7.25.jar",
     "log4j-1.2.17.jar",
     "lombok-1.16.18.jar",
-    "nrg-mizer-1.0.4-SNAPSHOT.jar",
-    "reflections-0.9.10.jar",
+    "mizer-1.0.5.jar",
+    "reflections-0.9.11.jar",
     "slf4j-api-1.7.25.jar",
     "slf4j-log4j12-1.7.25.jar",
-    "spring-core-4.3.9.RELEASE.jar",
-    "transaction-1.7.4.jar"].forEach(jar => java.classpath.push(jarDir + jar));
-
-
+    "spring-core-4.3.17.RELEASE.jar",
+    "transaction-1.7.5.jar",
+].forEach(jar => java.classpath.push(jarDir + jar))
 
 const mizers = java.newInstanceSync("java.util.ArrayList");
 mizers.addSync(java.newInstanceSync("org.nrg.dcm.edit.mizer.DE4Mizer"));
@@ -74,10 +74,9 @@ const mizerService = java.newInstanceSync("org.nrg.dicom.mizer.service.impl.Base
  */
 mizer.getVariables = (variables) => {
     const properties = java.newInstanceSync("java.util.Properties");
-    console.log('-----------------------------------');
-    console.log(variables);
-    
-    console.log('-----------------------------------');
+    // console.log('-----------------------------------');
+    // console.log(variables);
+    // console.log('-----------------------------------');
     
     if (variables) {
         Object.keys(variables).forEach(key => {
@@ -257,26 +256,31 @@ mizer.get_mizer_scripts_old = (xnat_server, user_auth, project_id) => {
 
 
 mizer.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
-    let scripts = [];
-    return Promise.all([
-        get_global_anon_script(xnat_server, user_auth), 
-        get_project_anon_script(xnat_server, user_auth, project_id)
-    ]).then(values => {
-        console.log(values);
-        
-        values.forEach(function(script){
-            if (script) {
-                let parsed_script = remove_commented_lines(script);
-                if (parsed_script) {
-                    scripts.push(parsed_script)
+    return new Promise((resolve, reject) => {
+        Promise.all([
+            get_global_anon_script(xnat_server, user_auth), 
+            get_project_anon_script(xnat_server, user_auth, project_id)
+        ]).then(anon_scripts => {
+            let scripts = [];
+            //console.log('== BEFORE ==', anon_scripts);
+            
+            anon_scripts.forEach((script) => {
+                if (script) { // false if not enabled
+                    let parsed_script = remove_commented_lines(script);
+                    if (parsed_script) {
+                        scripts.push(parsed_script)
+                    }
                 }
-            }
-        });
-        console.log('================= SCRIPTS ====================');
-        console.log(scripts);
-        
-        return scripts;
-    })
+            });
+
+            //console.log('== AFTER ==', scripts);
+            
+            resolve(scripts);
+        }).catch(err => {
+            reject(err);
+        })
+    });
+    
 }
 
 // global anon script
@@ -285,7 +289,7 @@ function get_global_anon_script(xnat_server, user_auth) {
         axios.get(xnat_server + '/data/config/anon/script?format=json', {
             auth: user_auth
         }).then(resp => {
-            console.log('get_global_anon_script', resp.data.ResultSet.Result);
+            //console.log('get_global_anon_script', resp.data.ResultSet.Result);
 
             let global_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
             let global_anon_script = resp.data.ResultSet.Result[0].contents;
@@ -346,7 +350,7 @@ function remove_commented_lines(script) {
     let weeded_script_lines = [], 
         script_lines = script.split("\n");
 
-    console.log(script_lines);
+    //console.log(script_lines);
     for (let i = 0; i < script_lines.length; i++) {
         let line = $.trim(script_lines[i]);
         if (line.length && line.indexOf('//') !== 0) {
@@ -354,7 +358,7 @@ function remove_commented_lines(script) {
         }
     }
 
-    console.log(weeded_script_lines);
+    //console.log(weeded_script_lines);
 
     return weeded_script_lines.join("\n");
 }

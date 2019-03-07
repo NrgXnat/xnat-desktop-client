@@ -147,6 +147,40 @@ let Helper = {
         return a;
     },
 
+    arrayBatch: (arr, batch_size = 10) => {
+
+        return arr.reduce((accumulator, currentValue) => {
+            if (accumulator.length === 0) {
+                accumulator.push([currentValue]);
+            } else {
+                let last_arr_el = accumulator[accumulator.length - 1];
+                if (last_arr_el.length < batch_size) {
+                    last_arr_el.push(currentValue)
+                } else {
+                    accumulator.push([currentValue]);
+                }
+            }
+            
+            return accumulator;
+        }, []);
+    },
+
+    promiseSerial: (funcs) => {
+        const reducer = (promise, func) => {
+            return promise.then(result => {
+                return func().then(resp => {
+                    //return Array.prototype.concat.bind(result)(resp)
+                    return (resp !== false) ? result.concat(resp) : result
+                })
+            })
+        }
+
+        return funcs.reduce(reducer, Promise.resolve([]))
+    },
+
+    copy_obj: (obj) => JSON.parse(JSON.stringify(obj)),
+           
+
     // types => success (green), info (blue), notice (yellow), error (red)
     pnotify: (title, text, type = 'success', delay = 7000) => {
 

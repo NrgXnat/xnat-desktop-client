@@ -14,11 +14,6 @@ const {URL} = require('url');
 
 reset_user_data();
 
-let transfers = store.namespace('transfers');
-if (!transfers.has('downloads')) {
-    transfers.set('downloads', []);
-}
-
 
 const links = document.querySelectorAll('link[rel="import"]')
 
@@ -46,6 +41,9 @@ loadPage(active_page)
 
 ipc.send('appIsReady');
 app.isReallyReady = true;
+
+// *******************************************************************
+// *******************************************************************
 
 
 function loadPage(page) {
@@ -134,9 +132,6 @@ function reset_user_data() {
     console.log('****************** reset_user_data **************');
     auth.remove_current_user();
     auth.set_allow_insecure_ssl(false);
-
-    //store.set('transfers.downloads', []);
-    //store.set('transfers.uploads', []);
 }
 
 
@@ -188,22 +183,13 @@ $(document).on('click', '[data-href]', function() {
         }, 30);
     }
     
-    //ipc.send('redirect', path);
     loadPage(path)
-
 });
 
 
 ipc.on('load:page',function(e, item){
-    //console.log('EVENTTT', e);
     console.log('Loading page ... ' + item)
     loadPage(item)
-});
-
-
-ipc.on('console:log',function(e, ...args){
-    console.log('================ console:log ================');
-    console.log(...args);
 });
 
 
@@ -224,12 +210,12 @@ ipc.on('custom_error',function(e, title, message){
     // })
 });
 
-ipc.on('log', (e, ...args) => {
-    console.log('                                   ');
-    console.log('============= IPC LOG =============');
-    console.log(...args);
-});
+ipc.on('log', ipc_log);
 
+function ipc_log(e, ...args){
+    console.log('%c============= IPC LOG =============', 'font-weight: bold; color: red');
+    console.log(...args);
+};
 
 
 ipc.on('update-available', (e, ...args) => {

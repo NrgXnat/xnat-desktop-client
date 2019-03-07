@@ -152,7 +152,20 @@ function login_attempt(xnat_server, user_auth) {
         .catch(handleLoginFail);
 }
 
+function htmlEntities(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function handleLoginFail(error) {
+    let error_details = error.response ? error.response : error.message;
+    $('#login_error_details').html(JSON.stringify(error_details));
+    console.log('error.response', error.response);
+    
+    console.log('error.response.status', error.response);
+    console.log('error.request', error.request);
+
+
+    console.log('error.message', error.message);
     // reset temporary update
     app.allow_insecure_ssl = false;
 
