@@ -17,8 +17,9 @@ const archiver = require('archiver');
 const tempDir = require('temp-dir');
 
 const db_uploads = require('electron').remote.require('./services/db/uploads')
-const { console_red } = require('../services/logger');
 
+const { console_red } = require('../services/logger');
+//function console_red() {}
 
 let summary_log = {};
 
@@ -223,7 +224,7 @@ async function doUpload(transfer, series_id) {
 
 
 
-
+let upload_counter = 0;
 async function copy_and_anonymize(transfer, series_id, filePaths, contexts, variables, csrfToken) {
     console_red('copy_and_anonymize')
     let _timer = performance.now();
@@ -264,15 +265,15 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     
     // Fires when the entry's input has been processed and appended to the archive.
     archive.on('entry', function (entry_data) {
-        console.log(entry_data)
+        //console.log(entry_data)
         update_progress_details(transfer, table_row, entry_data.stats.size);
-        // fs.unlink(entry_data.sourcePath, (err) => {
-        //     if (err) {
-        //         //throw err;
-        //     } else {
-        //         //console_red(`-- ZIP file "${entry_data.sourcePath}" was deleted.`);
-        //     }
-        // });
+        fs.unlink(entry_data.sourcePath, (err) => {
+            if (err) {
+                //throw err;
+            } else {
+                //console_red(`-- ZIP file "${entry_data.sourcePath}" was deleted.`);
+            }
+        });
     })
 
     /**************************************************** */
@@ -559,7 +560,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         }
 
     }).catch(promiseSerialErrorHandler);
-    
+
 }
 
 

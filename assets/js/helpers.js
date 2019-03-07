@@ -165,17 +165,6 @@ let Helper = {
         }, []);
     },
 
-    promiseSerial_orig: (funcs) => {
-        const reducer = (promise, func) => {
-            return promise.then(result => {
-                console.count('reducer');
-                return func().then(Array.prototype.concat.bind(result))
-            })
-        }
-
-        return funcs.reduce(reducer, Promise.resolve([]))
-    },
-
     promiseSerial: (funcs) => {
         const reducer = (promise, func) => {
             return promise.then(result => {
