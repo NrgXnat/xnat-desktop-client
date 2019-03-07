@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 
-console.log(__dirname);
+//console.log(__dirname);
 
 
 const _app_path = __dirname;
@@ -74,10 +74,9 @@ const mizerService = java.newInstanceSync("org.nrg.dicom.mizer.service.impl.Base
  */
 mizer.getVariables = (variables) => {
     const properties = java.newInstanceSync("java.util.Properties");
-    console.log('-----------------------------------');
-    console.log(variables);
-    
-    console.log('-----------------------------------');
+    // console.log('-----------------------------------');
+    // console.log(variables);
+    // console.log('-----------------------------------');
     
     if (variables) {
         Object.keys(variables).forEach(key => {
@@ -257,26 +256,31 @@ mizer.get_mizer_scripts_old = (xnat_server, user_auth, project_id) => {
 
 
 mizer.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
-    let scripts = [];
-    return Promise.all([
-        get_global_anon_script(xnat_server, user_auth), 
-        get_project_anon_script(xnat_server, user_auth, project_id)
-    ]).then(values => {
-        console.log(values);
-        
-        values.forEach(function(script){
-            if (script) {
-                let parsed_script = remove_commented_lines(script);
-                if (parsed_script) {
-                    scripts.push(parsed_script)
+    return new Promise((resolve, reject) => {
+        Promise.all([
+            get_global_anon_script(xnat_server, user_auth), 
+            get_project_anon_script(xnat_server, user_auth, project_id)
+        ]).then(anon_scripts => {
+            let scripts = [];
+            //console.log('== BEFORE ==', anon_scripts);
+            
+            anon_scripts.forEach((script) => {
+                if (script) { // false if not enabled
+                    let parsed_script = remove_commented_lines(script);
+                    if (parsed_script) {
+                        scripts.push(parsed_script)
+                    }
                 }
-            }
-        });
-        console.log('================= SCRIPTS ====================');
-        console.log(scripts);
-        
-        return scripts;
-    })
+            });
+
+            //console.log('== AFTER ==', scripts);
+            
+            resolve(scripts);
+        }).catch(err => {
+            reject(err);
+        })
+    });
+    
 }
 
 // global anon script
@@ -285,7 +289,7 @@ function get_global_anon_script(xnat_server, user_auth) {
         axios.get(xnat_server + '/data/config/anon/script?format=json', {
             auth: user_auth
         }).then(resp => {
-            console.log('get_global_anon_script', resp.data.ResultSet.Result);
+            //console.log('get_global_anon_script', resp.data.ResultSet.Result);
 
             let global_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
             let global_anon_script = resp.data.ResultSet.Result[0].contents;
@@ -346,7 +350,7 @@ function remove_commented_lines(script) {
     let weeded_script_lines = [], 
         script_lines = script.split("\n");
 
-    console.log(script_lines);
+    //console.log(script_lines);
     for (let i = 0; i < script_lines.length; i++) {
         let line = $.trim(script_lines[i]);
         if (line.length && line.indexOf('//') !== 0) {
@@ -354,7 +358,7 @@ function remove_commented_lines(script) {
         }
     }
 
-    console.log(weeded_script_lines);
+    //console.log(weeded_script_lines);
 
     return weeded_script_lines.join("\n");
 }

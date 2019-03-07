@@ -491,6 +491,7 @@ $(document).on('shown.bs.modal', '#upload-archive-details', function(e) {
 });
 
 $(document).on('show.bs.modal', '#upload-archive-success-log', function(e) {
+    var transfer_id = $(e.relatedTarget).data('id');
     db_uploads_archive.getById(transfer_id, (err, my_transfer) => {
         console.log(my_transfer);
         console.log($(e.currentTarget));
@@ -531,14 +532,15 @@ $(document).on('show.bs.modal', '#upload-archive-success-log', function(e) {
 
 
 function _init_download_details_table(transfer_id) {
-    
-    $('#download-archive-details-table').bootstrapTable({
-        uniqueId: 'id',
-        detailView: true,
-        detailFormatter: function(index, row) {
-            var html = [];
 
-            db_downloads_archive.getById(id, (err, transfer) => {
+    function init_bootstrap_table(transfer) {
+        $('#download-archive-details-table').bootstrapTable('destroy');
+        $('#download-archive-details-table').bootstrapTable({
+            uniqueId: 'id',
+            detailView: true,
+            detailFormatter: function(index, row) {
+                var html = [];
+    
                 transfer.sessions.forEach(function(session){
                     if (session.id == row.id) {
                         session.files.forEach(function(file){
@@ -548,11 +550,11 @@ function _init_download_details_table(transfer_id) {
                                 case undefined:
                                     status_icon = '<i class="far fa-clock"></i>'
                                     break;
-
+    
                                 case 1:
                                     status_icon = '<i style="color: green" class="fas fa-check"></i>'
                                     break;
-
+    
                                 case -1:
                                     status_icon = '<i style="color: red" class="fas fa-exclamation-triangle"></i>'
                                     break;
@@ -561,72 +563,74 @@ function _init_download_details_table(transfer_id) {
                         });
                     }
                 });
-
+    
                 return '<table class="table-sm table-bordered">' + html.join('') + '</table>';
-            });
-
-        },
-        columns: [
-            {
-                field: 'id',
-                title: 'ID',
-                visible: false
-            }, 
-            {
-                field: 'transfer_id',
-                title: 'Transfer ID',
-                visible: false
             },
-            {
-                field: 'session',
-                title: 'Session',
-                sortable: true
-            }, 
-            {
-                field: 'session_number',
-                title: 'S/N',
-                sortable: true
-            }, 
-            {
-                field: 'file_count',
-                title: 'File Count',
-                sortable: true,
-                align: 'center',
-                visible: false
-            }, 
-            {
-                field: 'scan_count',
-                title: 'Scans',
-                sortable: true,
-                align: 'right',
-                class: 'right-aligned'
-            }, 
-            {
-                field: 'errors',
-                title: 'Errors',
-                sortable: true,
-                align: 'right',
-                class: 'right-aligned'
-            },
-            {
-                field: 'progress',
-                title: 'Download progress',
-                sortable: false,
-                formatter: function(value, row, index, field) {
-                    let percent = value / row.file_count * 100;
-                    return `
-                        <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="${row.file_count}" style="width:${percent}%; height:25px;">
-                            <span class="sr-only">In progress</span>
-                        </div>
-                    `;
+            columns: [
+                {
+                    field: 'id',
+                    title: 'ID',
+                    visible: false
+                }, 
+                {
+                    field: 'transfer_id',
+                    title: 'Transfer ID',
+                    visible: false
+                },
+                {
+                    field: 'session',
+                    title: 'Session',
+                    sortable: true
+                }, 
+                {
+                    field: 'session_number',
+                    title: 'S/N',
+                    sortable: true
+                }, 
+                {
+                    field: 'file_count',
+                    title: 'File Count',
+                    sortable: true,
+                    align: 'center',
+                    visible: false
+                }, 
+                {
+                    field: 'scan_count',
+                    title: 'Scans',
+                    sortable: true,
+                    align: 'right',
+                    class: 'right-aligned'
+                }, 
+                {
+                    field: 'errors',
+                    title: 'Errors',
+                    sortable: true,
+                    align: 'right',
+                    class: 'right-aligned'
+                },
+                {
+                    field: 'progress',
+                    title: 'Download progress',
+                    sortable: false,
+                    formatter: function(value, row, index, field) {
+                        let percent = value / row.file_count * 100;
+                        return `
+                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="${row.file_count}" style="width:${percent}%; height:25px;">
+                                <span class="sr-only">In progress</span>
+                            </div>
+                        `;
+                    }
                 }
-            }
-        ],
-        data: []
-    });
+            ],
+            data: []
+        });
+    }
 
+    db_downloads_archive.getById(transfer_id, (err, transfer) => {
+        init_bootstrap_table(transfer);
 
-    db_downloads_archive.getById(id, (err, transfer) => {
+        let my_data = [];
+
         let $details = $('#download-archive-details');
 
         let $buttons = $details.find('.js_pause_download, .js_cancel_download');
@@ -678,6 +682,7 @@ function _init_download_details_table(transfer_id) {
             .bootstrapTable('removeAll')    
             .bootstrapTable('append', my_data)
             .bootstrapTable('resetView');
+    
     });
 
     // TODO migrate open links to table!!! transfer.sessions[1].files[0].name ... up one directory
@@ -685,60 +690,65 @@ function _init_download_details_table(transfer_id) {
 }
 
 function _init_upload_details_table(transfer_id) {
-    $('#upload-archive-details-table').bootstrapTable({
-        uniqueId: 'id',
-        columns: [
-            {
-                field: 'id',
-                title: 'ID',
-                visible: false
-            }, 
-            {
-                field: 'series_number',
-                title: 'Series Number',
-                sortable: true,
-                align: 'right',
-                class: 'right-aligned'
-            },
-            {
-                field: 'description',
-                title: 'Series Description',
-                sortable: true
-            },  
-            {
-                field: 'progress',
-                title: 'Upload Progress',
-                sortable: false,
-                formatter: function(value, row, index, field) {
-                    let percent = value;
-                    return `
-                        <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="100" style="width:${percent}%; height:25px;">
-                            <span class="sr-only">In progress</span>
-                        </div>
-                    `;
+    function init_bootstrap_table(transfer) {
+        $('#upload-archive-details-table').bootstrapTable('destroy');
+        $('#upload-archive-details-table').bootstrapTable({
+            uniqueId: 'id',
+            columns: [
+                {
+                    field: 'id',
+                    title: 'ID',
+                    visible: false
+                }, 
+                {
+                    field: 'series_number',
+                    title: 'Series Number',
+                    sortable: true,
+                    align: 'right',
+                    class: 'right-aligned'
+                },
+                {
+                    field: 'description',
+                    title: 'Series Description',
+                    sortable: true
+                },  
+                {
+                    field: 'progress',
+                    title: 'Upload Progress',
+                    sortable: false,
+                    formatter: function(value, row, index, field) {
+                        let percent = value;
+                        return `
+                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="100" style="width:${percent}%; height:25px;">
+                                <span class="sr-only">In progress</span>
+                            </div>
+                        `;
+                    }
+                },
+                {
+                    field: 'size',
+                    title: 'Size (bytes)',
+                    sortable: true,
+                    align: 'right',
+                    class: 'right-aligned',
+                    formatter: function(value, row, index, field) {
+                        return prettyBytes(value);
+                        //return `${(value / 1024 / 1024).toFixed(2)} MB`;
+                    }
+                }, 
+                {
+                    field: 'series_id',
+                    title: 'Series ID',
+                    visible: false
                 }
-            },
-            {
-                field: 'size',
-                title: 'Size (bytes)',
-                sortable: true,
-                align: 'right',
-                class: 'right-aligned',
-                formatter: function(value, row, index, field) {
-                    return prettyBytes(value);
-                    //return `${(value / 1024 / 1024).toFixed(2)} MB`;
-                }
-            }, 
-            {
-                field: 'series_id',
-                title: 'Series ID',
-                visible: false
-            }
-        ],
-        data: []
-    });
+            ],
+            data: []
+        });
+    }
 
     db_uploads_archive.getById(transfer_id, (err, transfer) => {
+        init_bootstrap_table(transfer);
+
         let $details = $('#upload-archive-details');
         let $buttons = $details.find('.js_pause_upload, .js_cancel_upload');
         if (transfer.status === 'finished') {

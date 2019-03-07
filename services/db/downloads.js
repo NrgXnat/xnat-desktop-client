@@ -53,6 +53,14 @@ module.exports.updateProperty = (id, property, value, callback) => { // callback
     db().update({ id: id }, { $set: { [property]: value } }, callback);
 }
 
+module.exports._updateProperty = (id, property, value) => { 
+    return new Promise((resolve, reject) => {
+        db().update({ id: id }, { $set: { [property]: value } }, (err, num) => {
+            if (err) reject(err)
+            resolve(num)
+        });
+    });
+}
 
 
 

@@ -211,36 +211,13 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
     if (manifest_urls.size == 0) {
         let final_status = transfer_info.error_count ? 'complete_with_errors' : 'finished';
 
-        console_red('before final status')
-
-        // update_tranfer_data(transfer_id, {
-        //     status: final_status
-        // })
-        // .then(transfer => {
-        //     return db_downloads._getById(transfer.id)
-        // })
-        // .then(transfer => {
-        //     console_log('_getById', transfer);
-        // })
-
-
         //all done
         let updated_transfer = await update_tranfer_data(transfer_id, {
             status: final_status
         });
 
-        // const update_transfer_status = () => new Promise((resolve, reject) => {
-        //     db_downloads.updateProperty(transfer_id, 'status', final_status, (err, num) => {
-        //         if (err) reject(err)
-        //         resolve(num)
-        //     })
-        // })
 
-        // let updated_transfer = await update_transfer_status();
-        console_red('update_transfer_status', {updated_transfer});
-
-        let transfer_by_id = await db_downloads._getById(transfer_id)
-        console_red('transfer_by_id', {transfer_by_id});
+        // let transfer_by_id = await db_downloads._getById(transfer_id)
 
         ipc.send('progress_cell', {
             table: '#download_monitor_table',
@@ -248,8 +225,6 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
             field: "download_status",
             value: final_status
         });
-
-        console_red('after final status')
 
         return;
     }
@@ -411,7 +386,7 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
             // delete item from url map
             manifest_urls.delete(dir);
 
-            mark_error_file(transfer_id, uri)
+            mark_error_file(transfer_id, uri, `Resource doesn't exist. (404 response)`)
             .then(updated_tranfer => {
                 console_red('after mark_error_file', {updated_tranfer});
 
@@ -457,8 +432,8 @@ function mark_downloaded(transfer_id, uri) {
                         file.status = 1
                     }
                 });
-    
-                return db_downloads._replaceDoc(transfer_id, transfer)
+                
+                return db_downloads._replaceDoc(transfer_id, Helper.copy_obj(transfer))
 
             } else {
                 throw new Error(`mark_downloaded: No transfer with id: ${transfer_id}`)
@@ -533,10 +508,7 @@ function update_tranfer_data(transfer_id, data) {
             }
         })
         .then(transfer => {
-            console_red('before _replaceDoc', transfer);
-            let transfer_copy = JSON.parse(JSON.stringify(transfer));
-
-            return db_downloads._replaceDoc(transfer_id, transfer_copy)
+            return db_downloads._replaceDoc(transfer_id, Helper.copy_obj(transfer))
         })
         .then(num_replaced => {
             console_red('update_tranfer_data', num_replaced)
@@ -550,7 +522,7 @@ function update_tranfer_data(transfer_id, data) {
 }
 
 
-function mark_error_file(transfer_id, uri) {
+function mark_error_file(transfer_id, uri, error_message = 'File Download Error') {
     return new Promise((resolve, reject) => {
         db_downloads._getById(transfer_id)
         .then(transfer => {
@@ -560,12 +532,12 @@ function mark_error_file(transfer_id, uri) {
                     if (file) {
                         Object.assign(file, {
                             status: -1, 
-                            error: 'File Download Error'
+                            error: error_message
                         });
                     }
                 });
     
-                return db_downloads._replaceDoc(transfer_id, transfer)
+                return db_downloads._replaceDoc(transfer_id, Helper.copy_obj(transfer))
 
             } else {
                 throw new Error(`mark_error_file: No transfer with id: ${transfer_id}`)
