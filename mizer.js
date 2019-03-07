@@ -32,27 +32,27 @@ console.log(jarDir);
 ["classes",
     "antlr-runtime-3.5.2.jar",
     "antlr4-4.5.3.jar",
-    "commons-io-2.5.jar",
-    "commons-lang3-3.5.jar",
-    "commons-logging-1.2.jar",
+    "commons-io-2.6.jar",
+    "commons-lang3-3.7.jar",
     "dcm4che-core-2.0.29.jar",
     "dcm4che-iod-2.0.29.jar",
     "dcm4che-net-2.0.29.jar",
-    "dicom-edit4-1.0.2-SNAPSHOT.jar",
-    "dicom-edit6-1.0.4-SNAPSHOT.jar",
-    "dicomtools-1.7.4.jar",
-    "framework-1.7.4.jar",
+    "dicom-edit4-1.0.3.jar",
+    "dicom-edit6-1.0.5.jar",
+    "dicomtools-1.7.5.jar",
+    "framework-1.7.5.2.jar",
     "guava-20.0.jar",
+    "java-uuid-generator-3.1.4.jar",
+    "jcl-over-slf4j-1.7.25.jar",
     "log4j-1.2.17.jar",
     "lombok-1.16.18.jar",
-    "nrg-mizer-1.0.4-SNAPSHOT.jar",
-    "reflections-0.9.10.jar",
+    "mizer-1.0.5.jar",
+    "reflections-0.9.11.jar",
     "slf4j-api-1.7.25.jar",
     "slf4j-log4j12-1.7.25.jar",
-    "spring-core-4.3.9.RELEASE.jar",
-    "transaction-1.7.4.jar"].forEach(jar => java.classpath.push(jarDir + jar));
-
-
+    "spring-core-4.3.17.RELEASE.jar",
+    "transaction-1.7.5.jar",
+].forEach(jar => java.classpath.push(jarDir + jar))
 
 const mizers = java.newInstanceSync("java.util.ArrayList");
 mizers.addSync(java.newInstanceSync("org.nrg.dcm.edit.mizer.DE4Mizer"));
