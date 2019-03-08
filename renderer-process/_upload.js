@@ -326,6 +326,8 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         });
     }
 
+    console_red('request_settings', {request_settings})
+
     axios(request_settings)
     .then(async (res) => {
         console_red('zip upload done - res')
@@ -344,7 +346,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             throw err;
         }
     })
-    .then(data => {
+    .then(async data => {
         let {transfer, res} = data;
 
         let transfer_series_ids = transfer.series_ids;
@@ -362,6 +364,11 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             let reference_str = '/data/prearchive/projects/';
             
             let commit_timer = performance.now();
+
+            // have to make this call again if too much time has passed (large upload)
+            let csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
+
+
             let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
         
             console_log('-------- XCOMMIT_url ----------')
@@ -422,7 +429,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         if (axios.isCancel(err)) {
             console_red('upload canceled error: cancelCurrentUpload', err);
         } else {
-            console_red('upload error 2', err);
+            console_red('upload error 2', {err});
         }
         
         _queue_.remove(transfer.id, series_id);
