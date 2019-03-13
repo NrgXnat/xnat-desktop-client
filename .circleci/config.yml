@@ -18,7 +18,7 @@ jobs:
           key: cache-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
           name: Create link to Windows 64-bit JRE
-          command: ln -s /opt/java/win-x64 build_resources/jre/win-x64
+          command: ln -s /opt/java/win-x64/jre build_resources/jre/win-x64
       - run:
           name: Create link to Linux 64-bit JRE
           command: ln -s /opt/java/linux-x64 build_resources/jre/linux-x64
