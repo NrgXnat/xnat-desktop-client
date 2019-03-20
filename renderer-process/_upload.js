@@ -35,6 +35,35 @@ function summary_log_update(transfer_id, prop, val) {
     //db_uploads.updateProperty(transfer_id, 'summary', summary_log[transfer_id])
 }
 
+/*
+(async function(){
+    let xnat_server = 'http://xnat1.local';
+    let user_auth = auth.get_user_auth()
+    let csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
+    let commit_url = xnat_server + '/data/prearchive/projects/DARKO_1/20190319_160010026/DARKO_01_MR_1?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken
+    
+
+    console_red('data', {
+        csrfToken,
+        commit_url,
+        user_auth
+    })
+    
+    
+	axios.post(commit_url, {
+		auth: user_auth
+	})
+	.then(commit_res => {
+		console_red('XCOMMIT_SUCCESS', {commit_res});
+	})
+	.catch(err => {
+		console_red('XCOMMIT_ERR', {
+            err_response: err.response
+        });
+    })
+    
+})()
+*/
 
 
 let csrfToken;

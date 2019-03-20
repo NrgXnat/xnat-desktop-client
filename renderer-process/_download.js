@@ -331,8 +331,16 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
                         // file basename
                         let basename = path.basename(entry.path);
 
+                        // get directory substructure
+                        let entry_dirname = path.dirname(entry.path);
+                        let dir_substructure = '';
+                        if (entry_dirname.match(/\/files\//)) {
+                            let dir_parts = entry_dirname.split('/files/');
+                            dir_substructure = dir_parts[dir_parts.length - 1]
+                        }
+
                         // extract path where file will end up
-                        let extract_path = path.resolve(real_path, dir);
+                        let extract_path = path.join(real_path, dir, dir_substructure);
 
                         // create directory structure recursively
                         fx.mkdirSync(extract_path, function (err) {
@@ -346,7 +354,6 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
                     }
                 })
                 .on('finish', () => {
-                    // TODO - files are sometimes locked ... make unlock explicit          
                     fs.unlink(zip_path, (err) => {
                         if (err) throw err;
                         console_log('----' + zip_path + ' was DELETED');
