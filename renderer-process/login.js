@@ -158,7 +158,12 @@ function htmlEntities(str) {
 
 function handleLoginFail(error) {
     let error_details = error.response ? error.response : error.message;
-    $('#login_error_details').html(JSON.stringify(error_details));
+
+    var div = document.createElement("div");
+    div.innerHTML = JSON.stringify(error_details);
+    var text = div.textContent || div.innerText || "";
+
+    $('#login_error_details').html(text);
     console.log('error.response', error.response);
     
     console.log('error.response.status', error.response);

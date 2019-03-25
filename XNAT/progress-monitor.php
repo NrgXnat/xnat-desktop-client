@@ -73,7 +73,7 @@
           <div class="progress-container">
               <div class="progress-bar bg-success" role="progressbar" aria-valuenow="35" aria-valuemin="0" aria-valuemax="100" style="width:35%; height:25px;">
                   <span class="sr-only">In progress</span>
-                </div>
+              </div>
           </div>
         
       </td>
@@ -85,6 +85,10 @@
       <td>Download</td>
       <td>2018/02/06 2:20 PM</td>
       <td>
+      <div class="progress" style="height: 20px;">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100" style="width: 75%;"></div>
+      </div>
+      
         <div class="progress-bar bg-success" role="progressbar" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100" style="width:70%; height:25px;">
           <span class="sr-only">In progress</span>
         </div>

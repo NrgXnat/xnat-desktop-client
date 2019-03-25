@@ -97,9 +97,11 @@ function _init_upload_progress_table() {
                     if (typeof value !== 'string') {
                         let my_value = parseFloat(value);
                         return `
+                        <div class="progress-container">
                             <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${my_value}" aria-valuemin="0" aria-valuemax="100" style="width:${my_value}%; height:25px;">
                                 <span class="sr-only">In progress</span>
                             </div>
+                        </div>
                         `;
                     } else {
                         return value;
@@ -262,9 +264,11 @@ function _init_download_progress_table() {
                     if (typeof value !== 'string') {
                         let my_value = parseFloat(value);
                         return `
+                        <div class="progress-container">
                             <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${my_value}" aria-valuemin="0" aria-valuemax="100" style="width:${my_value}%; height:25px;">
                                 <span class="sr-only">In progress</span>
                             </div>
+                        </div>
                         `;
                     } else {
                         if (value == 'xnat_error') {
@@ -625,9 +629,11 @@ function _init_download_details_table(transfer_id) {
                     formatter: function(value, row, index, field) {
                         let percent = value / row.file_count * 100;
                         return `
+                        <div class="progress-container">
                             <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="${row.file_count}" style="width:${percent}%; height:25px;">
                                 <span class="sr-only">In progress</span>
                             </div>
+                        </div>
                         `;
                     }
                 }
@@ -729,9 +735,11 @@ function _init_upload_details_table(transfer_id) {
                     formatter: function(value, row, index, field) {
                         let percent = value;
                         return `
+                        <div class="progress-container">
                             <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="100" style="width:${percent}%; height:25px;">
                                 <span class="sr-only">In progress</span>
                             </div>
+                        </div>
                         `;
                     }
                 },
