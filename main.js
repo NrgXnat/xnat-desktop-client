@@ -143,9 +143,9 @@ function initialize () {
       mainWindow.maximize()
       require('devtron').install()
 
-      uploadWindow.show()
-      uploadWindow.webContents.openDevTools()
-      uploadWindow.maximize()
+      // uploadWindow.show()
+      // uploadWindow.webContents.openDevTools()
+      // uploadWindow.maximize()
 
       // downloadWindow.show()
       // downloadWindow.webContents.openDevTools()
@@ -236,9 +236,9 @@ function initialize () {
 
   app.on('window-all-closed', () => {
     //showErrorBox('All Closed', 'All windows closed!');
-    if (process.platform !== 'darwin') {
+    //if (process.platform !== 'darwin') {
       app.quit()
-    }
+    //}
   })
 
   // only MacOS
