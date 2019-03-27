@@ -48,7 +48,7 @@ function _init_upload_archive_table() {
                 title: 'Date',
                 filterControl: 'input',
                 sortable: true,
-                class: 'date_field'
+                //class: 'date_field'
             }, 
             {
                 field: 'session_label',
@@ -75,7 +75,7 @@ function _init_upload_archive_table() {
                 title: 'Transfer Date',
                 filterControl: 'input',
                 sortable: true,
-                class: 'date_field',
+                //class: 'date_field',
                 formatter: function(value, row, index, field) {
                     return Helper.date_time(value);
                 }
@@ -211,7 +211,7 @@ function _init_download_archive_table() {
                 title: 'Transfer Start',
                 filterControl: 'input',
                 sortable: true,
-                class: 'date_field',
+                //class: 'date_field',
                 formatter: function(value, row, index, field) {
                     return Helper.date_time(value);
                 }
@@ -421,7 +421,7 @@ function _UI() {
     $('#progress-archive-section .date_field input.form-control').datepicker({
         changeMonth: true,
         changeYear: true,
-        dateFormat: "yy/mm/dd",
+        dateFormat: "yy-mm-dd",
         beforeShow:function( input, inst ) {
           var dp = $(inst.dpDiv);
           console.log(inst, dp);
