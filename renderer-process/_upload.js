@@ -37,7 +37,7 @@ function summary_log_update(transfer_id, prop, val) {
     //db_uploads.updateProperty(transfer_id, 'summary', summary_log[transfer_id])
 }
 
-
+/*
 (async function(){
 
     function get_jsession_cookie(xnat_url) {
@@ -124,7 +124,7 @@ function summary_log_update(transfer_id, prop, val) {
     })
     
 })()
-
+*/
 
 
 let csrfToken;
