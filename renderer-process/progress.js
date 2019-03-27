@@ -52,7 +52,7 @@ function _init_upload_progress_table() {
                 title: 'Date',
                 filterControl: 'input',
                 sortable: true,
-                class: 'date_field'
+                //class: 'date_field'
             }, 
             {
                 field: 'session_label',
@@ -79,7 +79,7 @@ function _init_upload_progress_table() {
                 title: 'Transfer Date',
                 filterControl: 'input',
                 sortable: true,
-                class: 'date_field',
+                //class: 'date_field',
                 formatter: function(value, row, index, field) {
                     return Helper.date_time(value);
                 }
@@ -216,7 +216,7 @@ function _init_download_progress_table() {
                 title: 'Transfer Start',
                 filterControl: 'input',
                 sortable: true,
-                class: 'date_field',
+                //class: 'date_field',
                 formatter: function(value, row, index, field) {
                     return Helper.date_time(value);
                 }
@@ -431,13 +431,17 @@ function _UI() {
     $('#progress-section .date_field input.form-control').datepicker({
         changeMonth: true,
         changeYear: true,
-        dateFormat: "yy/mm/dd",
+        dateFormat: "yy-mm-dd",
         beforeShow:function( input, inst ) {
           var dp = $(inst.dpDiv);
           console.log(inst, dp);
           
           var offset = $(input).outerWidth(false) - dp.outerWidth(false);
           dp.css('margin-right', offset);
+        },
+        onSelect: function(dateText, inst) {
+            // $(this).closest('table.filtered-table').bootstrapTable('triggerSearch');
+            // console.log(dateText)
         }
       });
 
