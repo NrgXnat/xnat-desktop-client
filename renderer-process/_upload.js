@@ -550,9 +550,13 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     function copyAnonArchive(source) {
         return function() {
             return new Promise((resolve, reject) => {
-                const target = path.join(new_dirpath, path.basename(source));
-                
-                // TODO check if source path exists
+                const orig_target = path.join(new_dirpath, path.basename(source));
+                let target = orig_target;
+
+                let counter = 1;
+                while (fs.existsSync(target)) {
+                    target = orig_target + '-' + counter;
+                }
         
                 let readStream = fs.createReadStream(source);
                 
