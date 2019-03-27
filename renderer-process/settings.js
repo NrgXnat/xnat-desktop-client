@@ -164,6 +164,17 @@ function login_attempt(xnat_server, user_auth, old_user_data) {
             handleLoginSuccess(xnat_server, user_auth, old_user_data);
         })
         .catch(error => {
+            // more error details
+            let error_details = error.response ? error.response : {
+                error: error,
+                message: error.message
+            };
+            var div = document.createElement("div");
+            div.innerHTML = JSON.stringify(error_details);
+            var text = div.textContent || div.innerText || "";
+            $('#login_error_details').html(text);
+
+
             let msg = `
                 User credentials were not saved!<br>
                 XNAT server: ${xnat_server}<br>

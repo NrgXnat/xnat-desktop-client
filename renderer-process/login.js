@@ -83,6 +83,7 @@ $(document).on('submit', '#loginForm', function(e){
     allow_insecure_ssl = $('#allow_insecure_ssl').is(':checked');
 
     app.allow_insecure_ssl = allow_insecure_ssl;
+
     
     if (my_xnat_server.indexOf('http://') === 0 || my_xnat_server.indexOf('https://') === 0) {
         login_attempt(my_xnat_server, my_user_auth);
@@ -157,25 +158,28 @@ function htmlEntities(str) {
 }
 
 function handleLoginFail(error) {
-    let error_details = error.response ? error.response : error.message;
+    let error_details = error.response ? error.response : {
+        error: error,
+        message: error.message
+    };
 
     var div = document.createElement("div");
     div.innerHTML = JSON.stringify(error_details);
     var text = div.textContent || div.innerText || "";
 
     $('#login_error_details').html(text);
-    console.log('error.response', error.response);
+    //console.log('error.response', error.response);
     
-    console.log('error.response.status', error.response);
-    console.log('error.request', error.request);
+    //console.log('error.response.status', error.response);
+    //console.log('error.request', error.request);
 
 
-    console.log('error.message', error.message);
+    //console.log('error.message', error.message);
     // reset temporary update
     app.allow_insecure_ssl = false;
 
     let msg = Helper.errorMessage(error);
-    console.log(JSON.stringify(error))
+    //console.log(JSON.stringify(error))
         
     Helper.unblockModal('#login');
     
