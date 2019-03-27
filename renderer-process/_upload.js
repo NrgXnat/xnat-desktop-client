@@ -8,6 +8,8 @@ require('promise.prototype.finally').shim();
 const settings = require('electron-settings');
 const ipc = require('electron').ipcRenderer;
 
+const remote = require('electron').remote;
+
 const auth = require('../services/auth');
 
 const mizer = require('../mizer');
@@ -35,24 +37,83 @@ function summary_log_update(transfer_id, prop, val) {
     //db_uploads.updateProperty(transfer_id, 'summary', summary_log[transfer_id])
 }
 
-/*
+
 (async function(){
+
+    function get_jsession_cookie(xnat_url) {
+        return new Promise((resolve, reject) => {
+            let slash_url = xnat_url + '/';
+            
+            let jsession = {
+                id: null,
+                expiration: null
+            }
+            
+            // Query cookies associated with a specific url.
+            remote.session.defaultSession.cookies.get({url: slash_url}, (error, cookies) => {
+                if (cookies.length) {
+                    cookies.forEach(item => {
+                        if (item.name === 'JSESSIONID') {
+                            jsession.id = item.value
+                        }
+    
+                        if (item.name === 'SESSION_EXPIRATION_TIME') {
+                            jsession.expiration = item.value;
+                        }
+                    });
+                    
+                    if (jsession.id && jsession.expiration) {
+                        resolve(`JSESSIONID=${jsession.id}; SESSION_EXPIRATION_TIME=${jsession.expiration};`);
+                    } else {
+                        reject(xnat_url + ' [No JSESSIONID Cookie]')
+                    }
+                    
+                } else {
+                    reject(xnat_url + ' [No Cookies]')
+                }
+                
+            })
+        });
+    }
+    
+
+    //let url_fragment = '/data/prearchive/projects/DARKO_1/20190319_160010026/DARKO_01_MR_1?action=commit&SOURCE=uploader&XNAT_CSRF=';
+    let url_fragment = '/data/prearchive/projects/DARKO_1/20190325_173114775/DARKO_01_MR_2?action=commit&SOURCE=uploader&XNAT_CSRF=';
     let xnat_server = 'http://xnat1.local';
     let user_auth = auth.get_user_auth()
     let csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
-    let commit_url = xnat_server + '/data/prearchive/projects/DARKO_1/20190319_160010026/DARKO_01_MR_1?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken
+    let commit_url = xnat_server + url_fragment + csrfToken;
+
+    let jsession_cookie = await get_jsession_cookie(xnat_server)
+
+    let request_settings = {
+        //responseType: 'stream',
+        //adapter: httpAdapter,
+        headers: {
+            'Cookie': jsession_cookie
+        }
+    }
+
+    if (auth.allow_insecure_ssl()) {
+        // insecure SSL at request level
+        // request_settings.httpsAgent = new https.Agent({
+        //     rejectUnauthorized: false
+        // });
+    }
     
 
     console_red('data', {
         csrfToken,
         commit_url,
-        user_auth
+        request_settings
     })
     
+
     
-	axios.post(commit_url, {
-		auth: user_auth
-	})
+	// axios.post(commit_url, {
+	// 	//auth: user_auth
+    // })
+    axios.post(commit_url, request_settings)
 	.then(commit_res => {
 		console_red('XCOMMIT_SUCCESS', {commit_res});
 	})
@@ -63,7 +124,7 @@ function summary_log_update(transfer_id, prop, val) {
     })
     
 })()
-*/
+
 
 
 let csrfToken;
