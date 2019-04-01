@@ -1565,7 +1565,7 @@ function promise_projects() {
 }
 
 function promise_project_experiments(project_id) {
-    return axios.get(xnat_server + '/data/projects/'+project_id+'/experiments?columns==ID,label,xnat:experimentData/meta/status', {
+    return axios.get(xnat_server + '/data/projects/'+project_id+'/experiments?columns=ID,label,xnat:experimentData/meta/status', {
         auth: user_auth
     });
 }
