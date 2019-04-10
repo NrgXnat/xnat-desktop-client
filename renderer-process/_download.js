@@ -23,6 +23,10 @@ const tempDir = require('temp-dir');
 const isOnline = require('is-online');
 
 const electron_log = require('electron-log');
+electron_log.transports.console.level = false;
+electron_log.transports.file.level = 'warn';
+electron_log.transports.file.maxSize = 10 * 1024 * 1024
+
 const prettyBytes = require('pretty-bytes');
 const humanizeDuration = require('humanize-duration');
 

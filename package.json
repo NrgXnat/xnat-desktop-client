@@ -1,6 +1,6 @@
 {
   "name": "xnat-desktop-client",
-  "version": "1.0.60",
+  "version": "1.0.61",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "scripts": {
@@ -37,7 +37,7 @@
     "bootstrap-table": "^1.12.1",
     "bootstrap4-tagsinput-douglasanpa": "^4.1.2",
     "dicom-parser": "^1.7.6",
-    "electron-log": "^2.2.17",
+    "electron-log": "^3.0.5",
     "electron-settings": "^3.1.4",
     "electron-updater": "~3.0.3",
     "file-saver": "^1.3.8",
@@ -54,6 +54,7 @@
     "lokijs": "^1.5.3",
     "mime-types": "^2.1.18",
     "mkdir-recursive": "^0.4.0",
+    "moment": "^2.24.0",
     "nedb": "^1.8.0",
     "nprogress": "^0.2.0",
     "pnotify": "^3.2.1",

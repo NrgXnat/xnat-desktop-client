@@ -13,7 +13,13 @@ const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
 
 const electron_log = require('electron-log');
 electron_log.transports.console.level = false;
+electron_log.transports.file.level = 'warn';
+electron_log.transports.file.maxSize = 10 * 1024 * 1024
+
+//electron_log.transports.file.clear();
 electron_log.info('App starting...');
+
+//console.log(electron_log.transports.file);
 
 
 const {autoUpdater} = require("electron-updater");
