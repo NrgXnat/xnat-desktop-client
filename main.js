@@ -11,15 +11,11 @@ const auth = require('./services/auth');
 
 const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
 
-const electron_log = require('electron-log');
-electron_log.transports.console.level = false;
-electron_log.transports.file.level = 'warn';
-electron_log.transports.file.maxSize = 10 * 1024 * 1024
+const electron_log = require('./services/electron_log')
 
 //electron_log.transports.file.clear();
-electron_log.info('App starting...');
 
-//console.log(electron_log.transports.file);
+electron_log.info('App starting...');
 
 
 const {autoUpdater} = require("electron-updater");
@@ -184,7 +180,7 @@ function initialize () {
     autoUpdater.autoDownload = false;
     // debugging with autoUpdater.logger not required but still useful
     autoUpdater.logger = electron_log;
-    autoUpdater.logger.transports.file.level = 'info';
+    //autoUpdater.logger.transports.file.level = 'info';
 
     autoUpdater.on('checking-for-update', () => {
       devToolsLog('Checking for update...');
@@ -199,6 +195,7 @@ function initialize () {
     autoUpdater.on('error', (err) => {
       delayed_notification('update-error', err);
       devToolsLog('Error in auto-updater. ' + err);
+      electron_log.error(`Auto-updater error.`, err);
     })
     autoUpdater.on('download-progress', (progressObj) => {
       delayed_notification('download-progress', progressObj);

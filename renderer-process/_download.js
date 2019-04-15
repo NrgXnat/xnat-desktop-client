@@ -22,10 +22,7 @@ const tempDir = require('temp-dir');
 
 const isOnline = require('is-online');
 
-const electron_log = require('electron-log');
-electron_log.transports.console.level = false;
-electron_log.transports.file.level = 'warn';
-electron_log.transports.file.maxSize = 10 * 1024 * 1024
+const electron_log = require('electron').remote.require('./services/electron_log');
 
 const prettyBytes = require('pretty-bytes');
 const humanizeDuration = require('humanize-duration');
@@ -158,44 +155,12 @@ function start_transfer() {
                     download_items(transfer.server, user_auth, transfer, manifest_urls, true);
                 } catch(err) {
                     //console_log(err.message)
+                    electron_log.error('Download Error', err);
                     ipc.send('custom_error', 'Download Error', err.message);
                 }
             }
         }
 
-        /*
-        my_transfers.forEach((transfer) => {
-            // validate current user/server
-            if (transfer.server === current_xnat_server 
-                && transfer.user === current_username
-                && transfer.canceled !== true
-            ) {
-                manifest_urls = new Map();
-        
-                transfer.sessions.forEach((session) => {
-                    session.files.forEach((file) => {
-                        if (file.status === 0) {
-                            manifest_urls.set(file.name, file.uri)
-                        }
-                    });
-                });
-        
-                //console_log('manifest_urls.size ==> ' + manifest_urls.size);
-        
-                if (manifest_urls.size) {
-                    try {
-                        // start download
-                        download_items(transfer.server, user_auth, transfer, manifest_urls, true);
-                    } catch(err) {
-                        //console_log(err.message)
-                        ipc.send('custom_error', 'Download Error', err.message);
-                    }
-                }
-                
-            }
-            
-        });
-        */
     });
 
 }
@@ -389,6 +354,7 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
     })
     .catch(err => {
         console_log(err.response, err)
+        electron_log.error('Download error:', xnat_server + uri, Helper.errorMessage(err));
 
         if (err.response && err.response.status === 404) {
             // =============================================
@@ -598,6 +564,7 @@ function update_modal_ui(transfer_id, uri) {
 }
 
 window.onerror = function (errorMsg, url, lineNumber) {
+    electron_log.error(`[Custom Uncaught Error]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)
     console_log(__filename + ':: ' +  errorMsg);
     return false;
 }

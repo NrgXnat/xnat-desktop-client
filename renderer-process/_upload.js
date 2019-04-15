@@ -23,6 +23,8 @@ const db_uploads = require('electron').remote.require('./services/db/uploads')
 const { console_red } = require('../services/logger');
 //function console_red() {}
 
+const electron_log = require('electron').remote.require('./services/electron_log');
+
 let summary_log = {};
 
 function summary_log_update(transfer_id, prop, val) {
@@ -181,13 +183,14 @@ do_transfer();
 //     ipc.send('custom_error', 'Upload Error', err.message);
 // }
 
-setInterval(do_transfer, 300000000);
+setInterval(do_transfer, 60000);
 
 
 function console_log(...log_this) {
+    electron_log.info(...log_this);
     //console.log(...log_this);
     //console.trace('<<<<== UPLOAD TRACE ==>>>>');
-    ipc.send('log', ...log_this);
+    //ipc.send('log', ...log_this);
 }
 
 ipc.on('start_upload',function(e, item){
@@ -306,7 +309,9 @@ async function doUpload(transfer, series_id) {
         console_log(variables);
 
         copy_and_anonymize(transfer, series_id, _files, contexts, variables, csrfToken)
-    }).catch(function(error) {
+    })
+    .catch(function(error) {
+        electron_log.error(error);
         console_log(error); // Test with throwing random errors (and rejecting promises)
     });
 }
@@ -359,6 +364,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         update_progress_details(transfer, table_row, entry_data.stats.size);
         fs.unlink(entry_data.sourcePath, (err) => {
             if (err) {
+                electron_log.error(err)
                 //throw err;
             } else {
                 //console_red(`-- ZIP file "${entry_data.sourcePath}" was deleted.`);
@@ -492,6 +498,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                 console_log(err.response.data);
 
                 if (err.response.status != 301) {
+                    electron_log.error('commit_error', commit_url, JSON.stringify(err.response))
                     update_transfer_summary(transfer.id, 'commit_errors', `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`);
                 } else {
                     console_log(`+++ SESSION ARCHIVED +++`);
@@ -582,7 +589,8 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                         // if file wasn't copied for whatever reason
                         if (!fs.existsSync(target)) {
                             console_red('COPY ERROR', {source, target})
-                            fs.copyFileSync(source, target, fs.constants.COPYFILE_EXCL);
+                            //fs.copyFileSync(source, target, fs.constants.COPYFILE_EXCL);
+                            fs.writeFileSync(target, fs.readFileSync(source), 'wx')
                         }
         
                         mizer.anonymize(target, contexts, variables);
@@ -613,6 +621,8 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
     function promiseSerialErrorHandler(err) {
         console_red('anon failed', err)
+        electron_log.error('anon failed', err)
+
         //archive.finalize(); // TODO REMOVE THIS LINE
         archive.abort() // removing any pending queue tasks, ends both sides of the Transform stream
         // todo ... axios thinks everything is OK ... thinks the stream ended without a problem so we cancel it
@@ -898,6 +908,7 @@ async function update_upload_table(transfer_id, table_row_id, new_progress) {
 
 
 window.onerror = function (errorMsg, url, lineNumber) {
+    electron_log.error(`[Custom Uncaught Error]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)
     console_log('[ERRORRR]:: ' +__filename + ':: ' +  errorMsg);
     return false;
 }

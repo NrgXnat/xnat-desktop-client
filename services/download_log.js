@@ -1,6 +1,6 @@
 const fs = require('fs')
-const { dialog, app } = require('electron')
-const electron_log = require('electron-log');
+const { dialog, app, shell } = require('electron')
+const electron_log = require('./electron_log');
 const moment = require('moment');
 const archiver = require('archiver');
 const path = require('path')
@@ -65,5 +65,7 @@ function dialog_callback(filename) {
         archive.finalize();
 
         //fs.writeFileSync(filename, fs.readFileSync(electron_log.transports.file.findLogPath()))
+
+        shell.showItemInFolder(filename)
     }
 }

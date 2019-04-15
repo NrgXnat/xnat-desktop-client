@@ -81,7 +81,7 @@ $(document).on('change', '#xnt_manifest_file', function(e) {
     $(this).val('');
 });
 
-$(document).on('click', '.js_download_session_files', function(){
+$(document).on('click', '.js_download_session_files', async function(){
     // validate
     let error_message = '';
     let $alert = $(this).closest('.modal-content').find('.alert');
@@ -95,7 +95,7 @@ $(document).on('click', '.js_download_session_files', function(){
         error_message = 'Please set a download destination path.';
     } else {
         try {
-            attempt_download(xnt_file, destination)
+            await attempt_download(xnt_file, destination)
         } catch(err) {
             error_message = err.message;
         }
@@ -121,7 +121,7 @@ async function attempt_download(file_path, destination) {
             }
         ]
     });
-    console.log(parser);  
+    
 
     try {
         // add if (file_path starts with "xnat(s)://" and put THAT into data)
@@ -135,8 +135,6 @@ async function attempt_download(file_path, destination) {
             });
             
             let xml_resp = await xml_request; // wait till the promise resolves (*)
-            console.log('////////////////////////////////////////////////////////////////');
-            console.log(xml_resp);
             
             data = xml_resp.data;
         } else {
@@ -151,9 +149,8 @@ async function attempt_download(file_path, destination) {
     let parsing_error_message = 'An error occurred while parsing manifest file! Please try again or use another manifest file.';
 
     parser.parseString(data, function (err2, result) {
-        console.log(err2, result);
         if (err2) {
-            throw new Error(parsing_error_message);
+            throw new Error(`${parsing_error_message} (${err2.message})`);
         }
         
         try {
@@ -182,7 +179,6 @@ async function attempt_download(file_path, destination) {
             
             for (let i = 0; i < my_sets.length; i++) {
                 if (my_sets[i].hasOwnProperty('sets')) {
-                    console.log('=====================================')
 
                     let session = {
                         name: my_sets[i].$.description,
@@ -215,13 +211,13 @@ async function attempt_download(file_path, destination) {
                 }
             }
 
-            console.log(download_digest);
+            //console.log(download_digest);
 
             db_downloads().insert(download_digest, (err, newItem) => {
                 console.log(newItem);
             })
             
-            console.log(manifest_urls);
+            //console.log(manifest_urls);
             
             $('.modal').modal('hide');
 
@@ -229,27 +225,20 @@ async function attempt_download(file_path, destination) {
             ipc.send('redirect', 'progress.html');
 
         } catch(parse_error) {
-            console.log(parse_error.message);
-            
-            throw new Error(parsing_error_message);
+            throw new Error(`${parsing_error_message} (${parse_error.message})`);
         }
 
     });
+    
 }
 
 function _init_variables() {
-    console.log(':::::::::::::: >>> HOME _init_variables');
-    console.log(remote.getGlobal('user_auth').password);
-    
-    
     xnat_server = settings.get('xnat_server');
     user_auth = settings.get('user_auth');
     default_local_storage = settings.get('default_local_storage')
 }
 
 ipc.on('launch_download_modal',function(e, data){
-    console.log(':::::::::::::: >>> launch_download_modal');
-
     setTimeout(function(){
         console.log(data);
         protocol_data = data;

@@ -19,6 +19,8 @@ const mizer = require('../mizer');
 
 const db_uploads = require('electron').remote.require('./services/db/uploads')
 
+const electron_log = require('electron').remote.require('./services/electron_log');
+
 const NProgress = require('nprogress');
 NProgress.configure({ 
     trickle: false,
@@ -353,9 +355,13 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
         if (error.type == 'axios') {
             title = "XNAT Connection Error";
             message = `${Helper.errorMessage(error.data)} \n\n${error.data.request.responseURL}`;
+
+            electron_log.error(title, message)
         } else {
             title = "Anonymization script error - Please contact XNAT Admin";
             message = error.message;
+
+            electron_log.error(title, error)
         }
 
         swal({

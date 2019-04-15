@@ -9,6 +9,7 @@ const api = require('../services/api');
 
 const swal = require('sweetalert');
 
+const electron_log = require('electron').remote.require('./services/electron_log');
 
 const {URL} = require('url');
 
@@ -35,7 +36,7 @@ if (!settings.has('user_auth')) {
     Helper.UI.userMenuShow();
 }
 
-console.log('ACTIVE PAGE: ', active_page);
+console_log('ACTIVE PAGE: ', active_page);
 
 loadPage(active_page)
 
@@ -51,7 +52,7 @@ function loadPage(page) {
     Array.prototype.forEach.call(links, function (link) {
 
         if (link.href.endsWith(page)) {
-            console.log('Our page: ' + page);
+            console_log('Our page: ' + page);
             let template = link.import.querySelector('.task-template')
             let clone = document.importNode(template.content, true)
         
@@ -61,7 +62,7 @@ function loadPage(page) {
             // while (contentContainer.firstChild) {
             //     contentContainer.removeChild(contentContainer.firstChild);
             // }
-            //console.log(clone);
+            //console_log(clone);
             contentContainer.appendChild(clone);
             document.body.scrollTop = 0;
 
@@ -92,7 +93,7 @@ function logout() {
             let msg;
 
             isOnline().then(onlineStatus => {
-                console.log(onlineStatus);
+                console_log(onlineStatus);
                 //=> true
                 if (onlineStatus) {
                     msg = Helper.errorMessage(error);
@@ -100,7 +101,7 @@ function logout() {
                     msg = 'You computer seems to be offline!';
                 }
 
-                console.log('Error: ' + msg);
+                console_log('Error: ' + msg);
                 
                 swal({
                     title: 'Connection error',
@@ -129,7 +130,7 @@ function clearLoginSession() {
 
 
 function reset_user_data() {
-    console.log('****************** reset_user_data **************');
+    console_log('****************** reset_user_data **************');
     auth.remove_current_user();
     auth.set_allow_insecure_ssl(false);
 }
@@ -188,7 +189,7 @@ $(document).on('click', '[data-href]', function() {
 
 
 ipc.on('load:page',function(e, item){
-    console.log('Loading page ... ' + item)
+    console_log('Loading page ... ' + item)
     loadPage(item)
 });
 
@@ -198,7 +199,7 @@ ipc.on('remove_current_session',function(e, item){
 });
 
 ipc.on('custom_error',function(e, title, message){
-    console.log(title, message);
+    console_log(title, message);
     
     swal(title, message, 'error');
     // swal({
@@ -213,8 +214,8 @@ ipc.on('custom_error',function(e, title, message){
 ipc.on('log', ipc_log);
 
 function ipc_log(e, ...args){
-    console.log('%c============= IPC LOG =============', 'font-weight: bold; color: red');
-    console.log(...args);
+    console_log('%c============= IPC LOG =============', 'font-weight: bold; color: red');
+    console_log(...args);
 };
 
 
@@ -226,14 +227,8 @@ ipc.on('update-available', (e, ...args) => {
         keyboard: false,
         backdrop: 'static'
     })
-    //let str = args.join(' | ')
-    //Helper.pnotify('Naslov', 'Poruka: ' + str);
     console_log('update-available')
-    // path:"XNAT-Desktop-App-Setup-1.0.31.exe"
-    // releaseDate:"2018-10-03T15:31:07.365Z"
-    // sha512:"Njq6TxgaQslo1deUQ4J3B4aGjGxv35ov7UGYKYoEQ8fzeNXlLTwEJF19s4R2psdAY3NarHdNRKcJ56HCv8M6/A=="
-    // version:"1.0.31"
-    console.log(args);
+    console_log(args);
 })
 
 ipc.on('update-error', (e, ...args) => {
@@ -241,15 +236,16 @@ ipc.on('update-error', (e, ...args) => {
     //Helper.pnotify('Naslov', 'Poruka: ' + str);
     console_log('update-error')
     swal('Update error', 'An error occured during update download.', 'error');
-    console.log(args);
+    electron_log.error('update-error', e)
+    console_log(args);
 })
 
 ipc.on('download-progress', (e, ...args) => {
     //let str = args.join(' | ')
     //Helper.pnotify('Naslov', 'Poruka: ' + str);
     console_log('download-progress')
-    console.log(args);
-    console.log(args[0].percent)
+    console_log(args);
+    console_log(args[0].percent)
 
     $('#auto_update_progress').attr("value", Math.ceil(args[0].percent))
 })
@@ -258,7 +254,7 @@ ipc.on('update-downloaded', (e, ...args) => {
     //let str = args.join(' | ')
     //Helper.pnotify('Naslov', 'Poruka: ' + str);
     console_log('update-downloaded')
-    console.log(args);
+    console_log(args);
 })
 
 $(document).on('click', '#download_and_install', function(e) {
@@ -273,7 +269,7 @@ $(document).on('click', '#download_and_install', function(e) {
 ipc.on('handle_protocol_request', protocol_request)
 
 async function protocol_request(e, url) {
-    console.log(' ************* handle_protocol_request ***********');
+    console_log(' ************* handle_protocol_request ***********');
 
     let app_protocols = [app.app_protocol, app.app_protocol + 's'];
 
@@ -286,7 +282,7 @@ async function protocol_request(e, url) {
         if (url.indexOf(app_protocol + '://') === 0) {
             try {
                 let url_object = new URL(url);
-                console.log(url_object);
+                console_log(url_object);
                 
                 let safe_protocol = '';
                 if (app_protocol === app.app_protocol + 's') {
@@ -332,7 +328,7 @@ async function protocol_request(e, url) {
                     password: url_params.s
                 };
 
-                console.log(server, my_user_auth);
+                console_log(server, my_user_auth);
                 
                 let real_username;
                 try {
@@ -348,7 +344,7 @@ async function protocol_request(e, url) {
                     throw_new_error('Connection Error', Helper.errorMessage(err));
                 }
 
-                console.log(url_object);
+                console_log(url_object);
 
                 let url_data = {
                     title: 'External URL trigger',
@@ -361,7 +357,7 @@ async function protocol_request(e, url) {
                     SECRET: url_params.s
                 };
 
-                console.log(url_data);
+                console_log(url_data);
 
                 
 
@@ -386,7 +382,7 @@ async function protocol_request(e, url) {
 
             } catch (err) {
                 var error_obj = parse_error_message(err);
-                console.log(error_obj);
+                console_log(error_obj);
                 //alert(error_obj.title);
                 //alert(error_obj.body);
                 
@@ -395,7 +391,7 @@ async function protocol_request(e, url) {
             
 
         } else {
-            console.log(`handle_protocol_request::${app_protocol} - NOT MATCHED`, url);
+            console_log(`handle_protocol_request::${app_protocol} - NOT MATCHED`, url);
         }
     }
 
@@ -453,6 +449,12 @@ function parse_error_message(err) {
     return msg;
 }
 
-function console_log(log_this) {
-    console.log(log_this);
+function console_log(...log_this) {
+    console.log(...log_this);
+}
+
+window.onerror = function (errorMsg, url, lineNumber) {
+    electron_log.error(`[Custom Uncaught Error]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)
+    console_log(__filename + ':: ' +  errorMsg);
+    return false;
 }
