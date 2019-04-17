@@ -176,3 +176,10 @@ body>.ui-pnotify {
         box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25)
     }
 }
+
+#login_error_details {
+    white-space: pre-wrap;
+    font-size: 0.6em !important;
+    max-height: 300px;
+    overflow: auto;
+}

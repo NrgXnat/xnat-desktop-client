@@ -210,6 +210,31 @@ let auth = {
             }
             
         })
+    },
+
+    anonymize_response: (data, anon = '***REMOVED***') => {
+        let conf;
+
+        if (data.config) {
+            conf = data.config
+        }
+
+        if (data.error && data.error.config) {
+            conf = data.error.config
+        }
+
+        if (conf) {
+            if (conf.auth && conf.auth.password) {
+                conf.auth.password = anon
+            }
+
+            if (conf.headers && conf.headers.Authorization) {
+                conf.headers.Authorization = anon
+            }
+            
+        }
+
+        return data
     }
 }
 

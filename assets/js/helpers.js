@@ -52,6 +52,9 @@ let Helper = {
             //console.log(error.response.status);
             //console.log(error.response.data);
             //console.log(error.response.headers);
+            
+            error.response = auth.anonymize_response(error.response, '***ANON***')
+            
             switch (error.response.status) {
                 case 401:
                     msg = 'Invalid username or password!';
@@ -60,7 +63,7 @@ let Helper = {
                     msg = 'Invalid XNAT server address!';
                     break;
                 default:
-                    msg =  `An error occured. Please try again. (${JSON.stringify(error.response)})`;
+                    msg =  `An error occured. Please try again. (${JSON.stringify(error.response, undefined, 2)})`;
             }
 
         } else if (error.request) {

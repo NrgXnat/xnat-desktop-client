@@ -4,7 +4,10 @@ const ipc = require('electron').ipcRenderer
 const auth = require('../services/auth');
 const api = require('../services/api');
 
-const app = require('electron').remote.app
+const remote = require('electron').remote;
+
+const electron_log = remote.require('./services/electron_log');
+const app = remote.app
 
 let xnat_server = '';
 let user_auth = {
@@ -118,7 +121,6 @@ $(document).on('click', '#remove_login', function(e){
                 username: $('#username').val(),
                 password: $('#password').val()
             }
-            console.log('--------', xnat_server, user_auth)
 
             let logins = settings.get('logins');
             
@@ -163,18 +165,17 @@ function handleLoginFail(error) {
         message: error.message
     };
 
+    error_details = auth.anonymize_response(error_details)
+
     var div = document.createElement("div");
-    div.innerHTML = JSON.stringify(error_details);
+    div.innerHTML = JSON.stringify(error_details, undefined, 4);
     var text = div.textContent || div.innerText || "";
 
+    text = text.replace(/<!--[\s\S]*?-->/g, "")
+    electron_log.error(text)
+
     $('#login_error_details').html(text);
-    //console.log('error.response', error.response);
-    
-    //console.log('error.response.status', error.response);
-    //console.log('error.request', error.request);
 
-
-    //console.log('error.message', error.message);
     // reset temporary update
     app.allow_insecure_ssl = false;
 

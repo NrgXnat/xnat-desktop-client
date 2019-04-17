@@ -6,7 +6,9 @@ const swal = require('sweetalert');
 
 const remote = require('electron').remote;
 
-const app = require('electron').remote.app
+const electron_log = remote.require('./services/electron_log');
+
+const app = remote.app
 
 const auth = require('../services/auth');
 
@@ -169,9 +171,16 @@ function login_attempt(xnat_server, user_auth, old_user_data) {
                 error: error,
                 message: error.message
             };
+
+            error_details = auth.anonymize_response(error_details)
+
             var div = document.createElement("div");
             div.innerHTML = JSON.stringify(error_details);
             var text = div.textContent || div.innerText || "";
+            
+            text = text.replace(/<!--[\s\S]*?-->/g, "")
+            electron_log.error(text)
+
             $('#login_error_details').html(text);
 
 
