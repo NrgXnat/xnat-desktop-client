@@ -13,6 +13,8 @@ const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
 
 const electron_log = require('./services/electron_log')
 
+const { isDevEnv } = require('./services/app_utils');
+
 //electron_log.transports.file.clear();
 
 electron_log.info('App starting...');
@@ -508,14 +510,6 @@ const showMessageBox = (options) => {
 
   dialog.showMessageBox(my_options);
 };
-
-const isDevEnv = () => {
-  return process.argv && process.argv.length >= 3 && /--debug/.test(process.argv[2]);
-
-  // alternative
-  // return path.extname(__dirname) === '.asar'
-}
-
 
 
 ipcMain.on('download_and_install', (e) => {

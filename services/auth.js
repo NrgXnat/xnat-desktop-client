@@ -10,10 +10,6 @@ const {URL} = require('url');
 const remote = require('electron').remote;
 
 let auth = {
-    test: () => {
-        console.log('auth.test() radi');
-    },
-
     login_promise: (xnat_server, user_auth) => {
         return axios.get(xnat_server + '/data/auth', {
             auth: user_auth
@@ -210,6 +206,52 @@ let auth = {
             }
             
         })
+    },
+
+    get_jsession_cookie: (xnat_url = false) => {
+        return new Promise((resolve, reject) => {
+            let xnat_server;
+
+            if (xnat_url) {
+                xnat_server = xnat_url
+            } else if (settings.has('xnat_server')) {
+                xnat_server = settings.get('xnat_server')
+            } else {
+                reject('get_jsession_cookie() error: no server URL provided')
+            }
+
+            let slash_url = xnat_server + '/';
+            
+            let jsession = {
+                id: null,
+                expiration: null
+            }
+            
+            // Query cookies associated with a specific url.
+            remote.session.defaultSession.cookies.get({url: slash_url}, (error, cookies) => {
+                if (cookies.length) {
+                    cookies.forEach(item => {
+                        if (item.name === 'JSESSIONID') {
+                            jsession.id = item.value
+                        }
+    
+                        if (item.name === 'SESSION_EXPIRATION_TIME') {
+                            jsession.expiration = item.value;
+                        }
+                    });
+                    
+                    if (jsession.id && jsession.expiration) {
+                        resolve(`JSESSIONID=${jsession.id}; SESSION_EXPIRATION_TIME=${jsession.expiration};`);
+                    } else {
+                        reject(xnat_url + ' [No JSESSIONID Cookie]')
+                    }
+                    
+                } else {
+                    reject(xnat_url + ' [No Cookies]')
+                }
+                
+            })
+        });
     },
 
     anonymize_response: (data, anon = '***REMOVED***') => {

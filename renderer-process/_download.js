@@ -22,14 +22,14 @@ const tempDir = require('temp-dir');
 
 const isOnline = require('is-online');
 
-const electron_log = require('electron').remote.require('./services/electron_log');
+const electron_log = remote.require('./services/electron_log');
 
 const prettyBytes = require('pretty-bytes');
 const humanizeDuration = require('humanize-duration');
 
 const { console_red } = require('../services/logger');
 
-const db_downloads = require('electron').remote.require('./services/db/downloads')
+const db_downloads = remote.require('./services/db/downloads')
 
 
 if (!settings.has('global_pause')) {
@@ -39,42 +39,6 @@ if (!settings.has('global_pause')) {
 // always set to false when initializing the page
 settings.set('transfering_download', false);
 
-
-function get_jsession_cookie(xnat_url) {
-	return new Promise((resolve, reject) => {
-		let slash_url = xnat_url + '/';
-		
-		let jsession = {
-			id: null,
-			expiration: null
-		}
-		
-		// Query cookies associated with a specific url.
-		remote.session.defaultSession.cookies.get({url: slash_url}, (error, cookies) => {
-			if (cookies.length) {
-				cookies.forEach(item => {
-					if (item.name === 'JSESSIONID') {
-						jsession.id = item.value
-					}
-
-					if (item.name === 'SESSION_EXPIRATION_TIME') {
-						jsession.expiration = item.value;
-					}
-				});
-				
-				if (jsession.id && jsession.expiration) {
-					resolve(`JSESSIONID=${jsession.id}; SESSION_EXPIRATION_TIME=${jsession.expiration};`);
-				} else {
-					reject(xnat_url + ' [No JSESSIONID Cookie]')
-				}
-				
-			} else {
-				reject(xnat_url + ' [No Cookies]')
-			}
-			
-		})
-	});
-}
 
 
 console_log(__filename);
@@ -227,7 +191,7 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
     // fix multliple session creation with token login
     // let user_auth_fix = user_auth.username === auth.get_current_user() ? user_auth : undefined;    
 
-    let jsession_cookie = await get_jsession_cookie(xnat_server)
+    let jsession_cookie = await auth.get_jsession_cookie(xnat_server)
 
     let request_settings = {
         //auth: user_auth_fix,

@@ -18,14 +18,16 @@ const archiver = require('archiver');
 
 const tempDir = require('temp-dir');
 
-const db_uploads = require('electron').remote.require('./services/db/uploads')
+const db_uploads = remote.require('./services/db/uploads')
 
 const { console_red } = require('../services/logger');
 //function console_red() {}
 
-const electron_log = require('electron').remote.require('./services/electron_log');
+const electron_log = remote.require('./services/electron_log');
 
 let summary_log = {};
+
+let userAgentString = remote.getCurrentWindow().webContents.getUserAgent()
 
 function summary_log_update(transfer_id, prop, val) {
     summary_log[transfer_id] = summary_log[transfer_id] || {}
@@ -39,45 +41,27 @@ function summary_log_update(transfer_id, prop, val) {
     //db_uploads.updateProperty(transfer_id, 'summary', summary_log[transfer_id])
 }
 
-/*
-(async function(){
 
-    function get_jsession_cookie(xnat_url) {
-        return new Promise((resolve, reject) => {
-            let slash_url = xnat_url + '/';
-            
-            let jsession = {
-                id: null,
-                expiration: null
-            }
-            
-            // Query cookies associated with a specific url.
-            remote.session.defaultSession.cookies.get({url: slash_url}, (error, cookies) => {
-                if (cookies.length) {
-                    cookies.forEach(item => {
-                        if (item.name === 'JSESSIONID') {
-                            jsession.id = item.value
-                        }
-    
-                        if (item.name === 'SESSION_EXPIRATION_TIME') {
-                            jsession.expiration = item.value;
-                        }
-                    });
-                    
-                    if (jsession.id && jsession.expiration) {
-                        resolve(`JSESSIONID=${jsession.id}; SESSION_EXPIRATION_TIME=${jsession.expiration};`);
-                    } else {
-                        reject(xnat_url + ' [No JSESSIONID Cookie]')
-                    }
-                    
-                } else {
-                    reject(xnat_url + ' [No Cookies]')
-                }
-                
-            })
-        });
-    }
-    
+/*
+const { isDevEnv } = remote.require('./services/app_utils');
+
+if (isDevEnv()) {
+    (async function() {
+        try {
+            let jsession_cookie = await auth.get_jsession_cookie()
+            electron_log.info(jsession_cookie)
+        } catch (err) {
+            electron_log.error(err)
+        }
+
+        electron_log.warn('ovo se izvrsava')
+    })()
+} else {
+    electron_log.info('Not Dev ENV')
+}
+*/
+
+(async function(){
 
     //let url_fragment = '/data/prearchive/projects/DARKO_1/20190319_160010026/DARKO_01_MR_1?action=commit&SOURCE=uploader&XNAT_CSRF=';
     let url_fragment = '/data/prearchive/projects/DARKO_1/20190325_173114775/DARKO_01_MR_2?action=commit&SOURCE=uploader&XNAT_CSRF=';
@@ -86,11 +70,15 @@ function summary_log_update(transfer_id, prop, val) {
     let csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
     let commit_url = xnat_server + url_fragment + csrfToken;
 
-    let jsession_cookie = await get_jsession_cookie(xnat_server)
+    let jsession_cookie;
+    try {
+        jsession_cookie = await auth.get_jsession_cookie(xnat_server)
+    } catch (err) {
+        electron_log.error(err)
+    }
+    
 
     let request_settings = {
-        //responseType: 'stream',
-        //adapter: httpAdapter,
         headers: {
             'Cookie': jsession_cookie
         }
@@ -104,7 +92,7 @@ function summary_log_update(transfer_id, prop, val) {
     }
     
 
-    console_red('data', {
+    electron_log.info('data', {
         csrfToken,
         commit_url,
         request_settings
@@ -126,7 +114,7 @@ function summary_log_update(transfer_id, prop, val) {
     })
     
 })()
-*/
+
 
 
 let csrfToken;
@@ -379,13 +367,15 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
     let upload_timer = performance.now();
 
+    let jsession_cookie = await auth.get_jsession_cookie()
+
     let CancelToken = axios.CancelToken;
     let request_settings = {
         method: 'post',
         url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
         //url: 'http://localhost:3007',
         adapter: httpAdapter,
-        auth: user_auth,
+        //auth: user_auth,
         maxContentLength: (1024 * 1024 * 1024 * 1024), // default 10MB - must be increased ~ 1TB
         maxRedirects: 0, // default 5, has to be 0 to avoid back pressure (RAM filling)
         onUploadProgress: function (progressEvent) {
@@ -400,7 +390,9 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             //update_upload_table(transfer.id, table_row.id, new_progress);
         },
         headers: {
-            'Content-Type': 'application/zip'
+            'User-Agent': userAgentString,
+            'Content-Type': 'application/zip',
+            'Cookie': jsession_cookie
         },
         cancelToken: new CancelToken(function executor(c) {
             // An executor function receives a cancel function as a parameter
@@ -469,10 +461,28 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         
             console_log('-------- XCOMMIT_url ----------')
             console_log(`++++ Session commited. URL: ${commit_url}`);
-            
-            axios.post(commit_url, {
+
+
+            let jsession_cookie = await auth.get_jsession_cookie()
+            let commit_request_settings = {
+                headers: {
+                    'User-Agent': userAgentString,
+                    'Cookie': jsession_cookie
+                }
+            }
+            if (auth.allow_insecure_ssl()) {
+                // insecure SSL at request level
+                commit_request_settings.httpsAgent = new https.Agent({
+                    rejectUnauthorized: false
+                });
+            }
+
+            // todo - replace TRUE with proper "check is session still valid" method
+            let request_settings = true ? commit_request_settings : {
                 auth: user_auth
-            })
+            };
+            
+            axios.post(commit_url, request_settings)
             .then(commit_res => {
                 console_log('-------- XCOMMIT_SUCCESS ----------')
                 console_log(commit_res);
