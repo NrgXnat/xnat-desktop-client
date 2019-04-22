@@ -60,7 +60,7 @@ if (isDevEnv()) {
     electron_log.info('Not Dev ENV')
 }
 */
-
+/*
 (async function(){
 
     //let url_fragment = '/data/prearchive/projects/DARKO_1/20190319_160010026/DARKO_01_MR_1?action=commit&SOURCE=uploader&XNAT_CSRF=';
@@ -114,7 +114,7 @@ if (isDevEnv()) {
     })
     
 })()
-
+*/
 
 
 let csrfToken;
@@ -375,7 +375,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
         //url: 'http://localhost:3007',
         adapter: httpAdapter,
-        //auth: user_auth,
+        auth: user_auth,
         maxContentLength: (1024 * 1024 * 1024 * 1024), // default 10MB - must be increased ~ 1TB
         maxRedirects: 0, // default 5, has to be 0 to avoid back pressure (RAM filling)
         onUploadProgress: function (progressEvent) {
@@ -407,12 +407,11 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         data: archive
     };
 
+    let https_agent_options = { keepAlive: true };
     if (auth.allow_insecure_ssl()) {
-        // insecure SSL at request level
-        request_settings.httpsAgent = new https.Agent({
-            rejectUnauthorized: false
-        });
+        https_agent_options.rejectUnauthorized = false // insecure SSL at request level
     }
+    request_settings.httpsAgent = new https.Agent(https_agent_options);
 
     console_red('request_settings', {request_settings})
 
@@ -465,24 +464,21 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
             let jsession_cookie = await auth.get_jsession_cookie()
             let commit_request_settings = {
+                auth: user_auth,
                 headers: {
                     'User-Agent': userAgentString,
                     'Cookie': jsession_cookie
                 }
             }
-            if (auth.allow_insecure_ssl()) {
-                // insecure SSL at request level
-                commit_request_settings.httpsAgent = new https.Agent({
-                    rejectUnauthorized: false
-                });
-            }
 
-            // todo - replace TRUE with proper "check is session still valid" method
-            let request_settings = true ? commit_request_settings : {
-                auth: user_auth
-            };
+            let https_agent_options = { keepAlive: true };
+            if (auth.allow_insecure_ssl()) {
+                https_agent_options.rejectUnauthorized = false // insecure SSL at request level
+            }
+            commit_request_settings.httpsAgent = new https.Agent(https_agent_options);
+
             
-            axios.post(commit_url, request_settings)
+            axios.post(commit_url, commit_request_settings)
             .then(commit_res => {
                 console_log('-------- XCOMMIT_SUCCESS ----------')
                 console_log(commit_res);

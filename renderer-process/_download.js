@@ -193,6 +193,7 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
 
     let jsession_cookie = await auth.get_jsession_cookie(xnat_server)
 
+    // todo - test if we need user auth here
     let request_settings = {
         //auth: user_auth_fix,
         responseType: 'stream',
@@ -202,12 +203,20 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
         }
     }
 
+    let https_agent_options = { keepAlive: true };
+    if (auth.allow_insecure_ssl()) {
+        https_agent_options.rejectUnauthorized = false // insecure SSL at request level
+    }
+    request_settings.httpsAgent = new https.Agent(https_agent_options);
+
+    /*
     if (auth.allow_insecure_ssl()) {
         // insecure SSL at request level
         request_settings.httpsAgent = new https.Agent({
             rejectUnauthorized: false
         });
     }
+    */
 
     //console.log('********* request_settings *********')
     //console.log(request_settings);
