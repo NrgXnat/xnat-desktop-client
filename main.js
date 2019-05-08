@@ -193,6 +193,7 @@ function initialize () {
     })
     autoUpdater.on('update-not-available', (info) => {
       devToolsLog('Update not available.');
+      delayed_notification('update-not-available', info);
     })
     autoUpdater.on('error', (err) => {
       delayed_notification('update-error', err);

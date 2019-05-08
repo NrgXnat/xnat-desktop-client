@@ -11,12 +11,18 @@ const electron_log = remote.require('./services/electron_log');
 const app = remote.app
 
 const auth = require('../services/auth');
+const user_settings = require('../services/user_settings');
 
 //const blockUI = require('blockui-npm');
 let allow_insecure_ssl;
 
 $(document).on('page:load', '#settings-section', function(e){
     console.log('Ucitano................')
+
+    if (auth.get_current_user()) {
+        $('.nav-tabs a.hidden').removeClass('hidden');
+        display_user_preferences()
+    }
     
     render_users();
     show_default_email_address();
@@ -30,6 +36,67 @@ $(document).on('page:load', '#settings-section', function(e){
     });
 
 });
+
+function display_user_preferences() {
+    display_missing_anon_script_warnings_settings();
+}
+
+function display_missing_anon_script_warnings_settings() {
+    let suppress = user_settings.get('suppress_anon_script_missing_warning');
+    let warning_suppressed = suppress ? suppress : [];
+
+    let table_rows = [];
+
+    warning_suppressed.forEach(function(el, i){
+        let items = el.split('|');
+        table_rows.push({
+            server: items[0],
+            project_id: items[1],
+            action: ''
+        });
+    });
+
+    let bt_options = $('#suppress_anon_script_missing_warnings').bootstrapTable('getOptions');
+
+    if ($.isPlainObject(bt_options)) { // bootstrap table already initialized
+        $('#suppress_anon_script_missing_warnings').bootstrapTable('destroy')
+    }
+
+    $('#suppress_anon_script_missing_warnings').bootstrapTable({
+        filterControl: table_rows.length > 4 ? true : false,
+        height: table_rows.length > 4 ? 242 : 0,
+        columns: [
+            {
+                field: 'server',
+                title: 'Server',
+                sortable: true,
+                filterControl: 'input'
+            }, 
+            {
+                field: 'project_id',
+                title: 'Project ID',
+                sortable: true,
+                filterControl: 'input'
+            }, 
+            {
+                field: 'action',
+                title: 'Actions',
+                width: '100px',
+                class: 'action',
+                formatter: function(value, row, index, field) {
+                    return `
+                
+                    <a href="#" 
+                        class="trash js_remove_suppress_anon_warning"
+                        data-match="${row.server}|${row.project_id}"
+                        ><i class="fas fa-trash-alt"></i></a>
+                    `;
+                }
+            }
+        ],
+        data: table_rows
+    });
+}
 
 
 function show_default_local_storage() {
@@ -343,4 +410,13 @@ $(document).on('click', '.js_remove_login', function(e){
             // })
         }
     });
+});
+
+
+$(document).on('click', '.js_remove_suppress_anon_warning', function(e){
+    let match = $(this).data('match');
+    
+    user_settings.pop('suppress_anon_script_missing_warning', match)
+
+    display_user_preferences()
 });

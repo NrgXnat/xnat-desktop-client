@@ -14,6 +14,8 @@ const mime = require('mime-types');
 
 const prettyBytes = require('pretty-bytes');
 
+const user_settings = require('../services/user_settings');
+
 const remote = require('electron').remote;
 const mizer = require('../mizer');
 
@@ -37,6 +39,41 @@ let pet_tracers = [];
 let anon_variables = {};
 
 async function _init_variables() {
+    /*
+    console.log(user_settings.get())
+    console.log(user_settings.get('xxx'))
+
+    user_settings.set('ime', 'Darko');
+    user_settings.set('prezime', 'Ljubic');
+    user_settings.set('neki_niz', [1, 3, 5])
+    console.log(user_settings.get('ime'))
+    console.log(user_settings.get())
+
+    let neki_niz = user_settings.get('neki_niz')
+    if (Array.isArray(neki_niz)) {
+        neki_niz.push(10)
+    } else {
+        neki_niz = [10]
+    }
+    user_settings.set('neki_niz', neki_niz)
+    console.log(user_settings.get())
+
+    user_settings.unset('prezime');
+    console.log(user_settings.get())
+
+    user_settings.pop('neki_niz', 10)
+    user_settings.pop('neki_niz', 3)
+    user_settings.push('neki_niz', 4)
+    user_settings.pop('neki_niz', 4)
+    user_settings.push('neki_niz', 2)
+    user_settings.push('neki_niz', 1)
+    
+    user_settings.push('neki_niz', 4)
+    user_settings.push('neki_niz', 4)
+    user_settings.push('neki_niz', 4, false)
+    console.log(user_settings.get())
+    */
+
     console.log(':::::::::::::: >>> UPLOAD _init_variables');
     
     xnat_server = settings.get('xnat_server');
@@ -324,18 +361,59 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
 
     let project_id = $(this).data('project_id');
 
+
     mizer.get_mizer_scripts(xnat_server, user_auth, project_id).then(scripts => {
-        if (scripts.length === 0) {
+        let suppress = user_settings.get('suppress_anon_script_missing_warning');
+
+        let warning_suppressed = Array.isArray(suppress) && 
+            (suppress.indexOf('*|*') !== -1 || 
+            suppress.indexOf(`${xnat_server}|*`) !== -1 || 
+            suppress.indexOf(`${xnat_server}|${project_id}`) !== -1);
+
+        if (scripts.length === 0 && !warning_suppressed) {
+            
+            let html = $(`<div class="outer">
+
+                <div class="container">
+                    <div class="row">
+                        <div class="col-sm-8">
+                            <div class="checkbox" style="font-size: 0.8rem; color: #777; text-align: right;">
+                                <label data-toggle="collapse" data-target="#collapseOptions" aria-expanded="false" aria-controls="collapseOptions">
+                                    <input type="checkbox" name="suppress_toggle" id="suppress_toggle"/> Don't show this message again
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-sm-2" style="padding: 0">
+                            <div id="collapseOptions" aria-expanded="false" class="collapse">
+                                <select class="form-control" name="suppress_anon_script_missing_warning" id="suppress_anon_script_missing_warning" 
+                                    style="font-size: 0.8rem; color: #777; height: auto; padding: 1px;">
+                                    <option value="${xnat_server}|${project_id}">For this project</option>
+                                    <option value="${xnat_server}|*">For This Server</option>
+                                    <option value="*|*">For Any Server</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            `);
+
             swal({
                 title: `Warning: No anonymization scripts found!`,
                 text: `Anonymization scripts are not set for this site or this project. Do you want to continue?`,
+                content: html.get(0),
                 icon: "warning",
                 buttons: ['Choose a different project', 'Continue'],
                 dangerMode: true
             })
-            .then((proceed) => {
-                console.log(proceed);
-                
+            .then(proceed => {
+
+                if ($('#suppress_toggle').is(':checked')) {
+                    let suppress_error = $('#suppress_anon_script_missing_warning').val()
+                    user_settings.push('suppress_anon_script_missing_warning', suppress_error)
+                }
+        
                 if (proceed) {
                     
                 } else {
@@ -344,7 +422,8 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
 
                     $('#upload-project a.selected').removeClass('selected');
                 }
-            });
+            })
+
         }
 
         let contexts = mizer.getScriptContexts(scripts);
@@ -417,6 +496,7 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
         .then(res => {
             if (res.status === 200) {
                 pet_tracers = res.data.split(/\s+/);
+                pet_tracers.push('OTHER')
             } else {
                 promise_server_pet_tracers()
                     .then(res1 => {
@@ -425,6 +505,7 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
                         } else {
                             pet_tracers = settings.get('default_pet_tracers').split(",");
                         }
+                        pet_tracers.push('OTHER')
                     })
             }
             
@@ -670,6 +751,17 @@ $(document).on('input propertychange change', '#form_new_subject input[type=text
 });
 
 $(document).on('change', '#pet_tracer', function(e) {
+    if ($(this).val() === 'OTHER') {
+        $('#custom_pet_tracer').removeClass('hidden').focus();
+    } else {
+        $('#custom_pet_tracer').addClass('hidden');
+
+        $('#experiment_label').val(get_default_expt_label($(this).val()));
+    }
+})
+
+$(document).on('keyup', '#custom_pet_tracer', function(e) {
+
     $('#experiment_label').val(get_default_expt_label($(this).val()));
 })
 
@@ -880,9 +972,10 @@ function select_session_id(new_session_id) {
                     <b>Set tracer</b>:
                 </label>
                 <div class="input-group col-sm-10">
-                    <select class="form-control" id="pet_tracer" required>
+                    <select class="form-control" id="pet_tracer" style="width: 20%" required>
                         ${pet_tracer_options.join("\n")}
                     </select>
+                    <input type="text" id="custom_pet_tracer" name="custom_pet_tracer" class="form-control hidden" style="width: 70%">
                 </div>
             </div>
         `);

@@ -229,15 +229,23 @@ ipc.on('update-available', (e, ...args) => {
     })
     console_log('update-available')
     console_log(args);
+
+    store.set('version-info-update', 'Updated version available.')
+})
+
+ipc.on('update-not-available', (e, ...args) => {
+    store.set('version-info-update', 'You are running the latest version.')
 })
 
 ipc.on('update-error', (e, ...args) => {
     //let str = args.join(' | ')
     //Helper.pnotify('Naslov', 'Poruka: ' + str);
     console_log('update-error')
-    swal('Update error', 'An error occured during update download.', 'error');
+    swal('Update error', 'An error occurred during update download.', 'error');
     electron_log.error('update-error', e)
     console_log(args);
+
+    store.set('version-info-update', 'An error occurred during update download.')
 })
 
 ipc.on('download-progress', (e, ...args) => {
