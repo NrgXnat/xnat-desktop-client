@@ -224,6 +224,7 @@ function initialize () {
     devToolsLog('app.ready triggered')
     createWindow();
 
+    /*
     let log_paths = {
       getAppPath: app.getAppPath(),
       home: app.getPath('home'),
@@ -235,7 +236,7 @@ function initialize () {
       documents: app.getPath('documents')
     };
     log(log_paths)
-    
+    */
     devToolsLog('app.ready DONE')
   })
 
