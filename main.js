@@ -32,14 +32,16 @@ let startupExternalUrl;
 
 if (isSecondInstance()){
   app.quit()
+} else {
+  if (is_usr_local_lib_writable()) {
+    fix_java_path();
+    initialize();
+  } else {
+    initialize_usr_local_lib_app()
+  }
 }
 
-if (is_usr_local_lib_writable()) {
-  fix_java_path();
-  initialize();
-} else {
-  initialize_usr_local_lib_app()
-}
+
 
 function initialize_usr_local_lib_app() {
   devToolsLog('initialize_usr_local_lib_app triggered')

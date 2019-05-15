@@ -239,12 +239,19 @@ function _init_variables() {
 }
 
 ipc.on('launch_download_modal',function(e, data){
-    setTimeout(function(){
-        console.log(data);
+    var $dm = $('#download_modal');
+
+    var show_modal = function(){
+        //console.log(data);
         protocol_data = data;
 
         $('#xnt_manifest_text').val(data.URL);
-        
-        $('#download_modal').modal('show');
-    }, 300);
+        $dm.modal('show');
+    }
+
+    $dm.modal('hide');
+    $('.modal-backdrop').remove();
+
+    setTimeout(show_modal, 500)
+    
 });
