@@ -29,7 +29,9 @@ const humanizeDuration = require('humanize-duration');
 
 const { console_red } = require('../services/logger');
 
-const db_downloads = remote.require('./services/db/downloads')
+const db_downloads = remote.require('./services/db/downloads');
+
+let userAgentString = remote.getCurrentWindow().webContents.getUserAgent()
 
 
 if (!settings.has('global_pause')) {
@@ -199,7 +201,8 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
         responseType: 'stream',
         adapter: httpAdapter,
         headers: {
-            'Cookie': jsession_cookie
+            'Cookie': jsession_cookie,
+            'User-Agent': userAgentString
         }
     }
 
