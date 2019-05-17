@@ -10,6 +10,9 @@ const db_uploads_archive = require('electron').remote.require('./services/db/upl
 const db_downloads = require('electron').remote.require('./services/db/downloads')
 const db_downloads_archive = require('electron').remote.require('./services/db/downloads_archive')
 
+const nedb_log_reader = require('electron').remote.require('./services/db/nedb_log_reader')
+const moment = require('moment');
+
 const { console_red } = require('../services/logger');
 
 const NProgress = require('nprogress');
@@ -500,6 +503,35 @@ $(document).on('show.bs.modal', '#upload-details', function(e) {
     $(e.currentTarget).find('#session_label').html(session_label);
 
     _init_upload_details_table(id)
+
+    nedb_log_reader.fetch_log(id, (err, docs) => {
+        console.log(docs);
+        $('#upload-nedb-log').html('');
+        $('#upload-nedb-log').append(`
+            <tr>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Date/Time</th>
+            </tr>
+        `)
+        
+        docs.forEach(doc => {
+            let datetime = moment(doc.timestamp).format('YYYY-MM-DD HH:mm:ss')
+            $('#upload-nedb-log').append(`
+                <tr>
+                    <td>${doc.level}</td>
+                    <td>${doc.message}</td>
+                    <td>${datetime}</td>
+                    <!-- <td>${doc.details}</td> -->
+                </tr>
+            `)
+        })
+    })
+    
+});
+
+$(document).on('hidden.bs.modal', function(){
+    $('#upload-nedb-log-container').collapse("hide");
 });
 
 // fix modal from modal body overflow problem
@@ -899,18 +931,37 @@ $(document).on('click', '.js_pause_all', function(){
 });
 
 $(document).on('click', '.js_clear_finished', function(){
-    swal({
+    let my_buttons = {
+        all: "Finished and Canceled",
+        finished: "Only Finished",
+        cancel: "Cancel"
+    }
+
+    
+    let xxx = {
         title: "Which transfers to clear?",
         text: "Choose which transfers to clear.",
         icon: "warning",
-        buttons: {
-            all: "Finished and Canceled",
-            finished: "Only Finished",
-            cancel: "Cancel"
-        },
+        buttons: my_buttons,
         closeOnEsc: false,
         dangerMode: true
-    })
+    }
+
+    my_buttons = {
+        all: "Yes",
+        cancel: "Cancel"
+    }
+
+    xxx = {
+        title: "Clear finished transfers?",
+        text: "All finished transfers will be archived.",
+        icon: "warning",
+        buttons: my_buttons,
+        closeOnEsc: false,
+        dangerMode: true
+    }
+
+    swal(xxx)
         .then((toClear) => {
             console.log(toClear);
             switch (toClear) {

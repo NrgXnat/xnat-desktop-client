@@ -25,6 +25,8 @@ const { console_red } = require('../services/logger');
 
 const electron_log = remote.require('./services/electron_log');
 
+const nedb_logger = require('electron').remote.require('./services/db/nedb_logger')
+
 let summary_log = {};
 
 let userAgentString = remote.getCurrentWindow().webContents.getUserAgent()
@@ -300,6 +302,7 @@ async function doUpload(transfer, series_id) {
     })
     .catch(function(error) {
         electron_log.error(error);
+        nedb_logger.error(transfer.id, 'upload', error.message, error);
         console_log(error); // Test with throwing random errors (and rejecting promises)
     });
 }
@@ -353,6 +356,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         fs.unlink(entry_data.sourcePath, (err) => {
             if (err) {
                 electron_log.error(err)
+                nedb_logger.error(transfer.id, 'upload', err.message, err);
                 //throw err;
             } else {
                 //console_red(`-- ZIP file "${entry_data.sourcePath}" was deleted.`);
@@ -425,6 +429,8 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         };
         try {
             data.transfer = await mark_uploaded(transfer.id, series_id);
+            nedb_logger.success(transfer.id, 'upload', `Series uploaded ${series_id}.`);
+            
             _queue_.remove(transfer.id, series_id);
 
             return data;
@@ -505,7 +511,11 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
                 if (err.response.status != 301) {
                     electron_log.error('commit_error', commit_url, JSON.stringify(err.response))
-                    update_transfer_summary(transfer.id, 'commit_errors', `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`);
+                    let error_message = `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`;
+                    
+                    nedb_logger.error(transfer.id, 'upload', error_message, err.response);
+
+                    update_transfer_summary(transfer.id, 'commit_errors', error_message);
                 } else {
                     console_log(`+++ SESSION ARCHIVED +++`);
                     
@@ -520,6 +530,8 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
                 // TODO - remove this from here
                 Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
+
+                nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
             });
         }
 

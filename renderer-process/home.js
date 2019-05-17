@@ -24,6 +24,9 @@ const app = require('electron').remote.app;
 
 const db_downloads = require('electron').remote.require('./services/db/downloads')
 
+const nedb_logger = require('electron').remote.require('./services/db/nedb_logger')
+const nedb_log_reader = require('electron').remote.require('./services/db/nedb_log_reader')
+
 
 let xnat_server, user_auth, default_local_storage;
 let manifest_urls = new Map();
@@ -39,6 +42,35 @@ NProgress.configure({
     minimum: 0.03
 });
 
+$(document).on('click', '#nedb_log_insert', function() {
+    let transfer_id, type, message, details_object;
+
+    transfer_id = Math.random();
+    type = 'upload';
+    message = `Some message for ... ${transfer_id}`;
+    
+    nedb_logger.debug(transfer_id, type, message)
+    nedb_logger.info(transfer_id, type, message)
+    nedb_logger.error(transfer_id, type, message)
+    nedb_logger.success(transfer_id, type, message)
+
+    
+
+    transfer_id = 152;
+    type = 'upload';
+    message = `Some message for ... ${transfer_id}`;
+    
+    nedb_logger.debug(transfer_id, type, message)
+    nedb_logger.info(transfer_id, type, message)
+    nedb_logger.error(transfer_id, type, message)
+    nedb_logger.success(transfer_id, type, message)
+});
+
+$(document).on('click', '#nedb_log_read', function() {
+    nedb_log_reader.fetch_log(152, (err, docs) => {
+        console.log(docs);
+    })
+});
 
 $(document).on('page:load', '#home-section', function(e){
     console.log('HOME page:load triggered');

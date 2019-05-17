@@ -56,6 +56,7 @@
     "mkdir-recursive": "^0.4.0",
     "moment": "^2.24.0",
     "nedb": "^1.8.0",
+    "nedb-logger": "^0.1.0",
     "nprogress": "^0.2.0",
     "pnotify": "^3.2.1",
     "popper.js": "^1.12.9",

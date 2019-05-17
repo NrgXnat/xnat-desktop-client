@@ -254,6 +254,10 @@ async@0.2.10:
   version "0.2.10"
   resolved "https://registry.yarnpkg.com/async/-/async-0.2.10.tgz#b6bbe0b0674b9d719708ca38de8c237cb526c3d1"
 
+async@0.2.9:
+  version "0.2.9"
+  resolved "https://registry.yarnpkg.com/async/-/async-0.2.9.tgz#df63060fbf3d33286a76aaf6d55a2986d9ff8619"
+
 async@2.5.0:
   version "2.5.0"
   resolved "https://registry.yarnpkg.com/async/-/async-2.5.0.tgz#843190fd6b7357a0b9e1c956edddd5ec8462b54d"
@@ -322,6 +326,12 @@ big-integer@^1.6.17:
 binary-extensions@^1.0.0:
   version "1.11.0"
   resolved "https://registry.yarnpkg.com/binary-extensions/-/binary-extensions-1.11.0.tgz#46aa1751fb6a2f93ee5e689bb1087d4b14c6c205"
+
+binary-search-tree@0.2.3:
+  version "0.2.3"
+  resolved "https://registry.yarnpkg.com/binary-search-tree/-/binary-search-tree-0.2.3.tgz#b76b362b40df435f6da165f5bd319aee36efdd76"
+  dependencies:
+    underscore "~1.4.4"
 
 binary-search-tree@0.2.5:
   version "0.2.5"
@@ -2324,6 +2334,10 @@ mkdirp@0.5.0:
   dependencies:
     minimist "0.0.8"
 
+mkdirp@~0.3.5:
+  version "0.3.5"
+  resolved "https://registry.yarnpkg.com/mkdirp/-/mkdirp-0.3.5.tgz#de3e5f8961c88c787ee1368df849ac4413eca8d7"
+
 mkpath@^0.1.0:
   version "0.1.0"
   resolved "https://registry.yarnpkg.com/mkpath/-/mkpath-0.1.0.tgz#7554a6f8d871834cc97b5462b122c4c124d6de91"
@@ -2359,6 +2373,22 @@ nan@2.7.0:
 nan@^2.3.0, nan@^2.3.2:
   version "2.8.0"
   resolved "https://registry.yarnpkg.com/nan/-/nan-2.8.0.tgz#ed715f3fe9de02b57a5e6252d90a96675e1f085a"
+
+nedb-logger@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/nedb-logger/-/nedb-logger-0.1.0.tgz#b39777fe5f8c8b1332644f6fc96f6e8079e52dae"
+  dependencies:
+    mkdirp "~0.3.5"
+    nedb "0.9.1"
+
+nedb@0.9.1:
+  version "0.9.1"
+  resolved "https://registry.yarnpkg.com/nedb/-/nedb-0.9.1.tgz#6e94cd0f23798c4083ca2deac63dd89eaf88d2a7"
+  dependencies:
+    async "0.2.9"
+    binary-search-tree "0.2.3"
+    mkdirp "~0.3.5"
+    underscore "~1.4.4"
 
 nedb@^1.8.0:
   version "1.8.0"
