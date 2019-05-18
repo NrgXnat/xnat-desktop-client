@@ -144,12 +144,14 @@ function _init_upload_progress_table() {
                             break;
                         
                         default: // float
+                            let display_transfer_rate = (typeof row.status !== 'string') ? true : false;
                             content = `
                                 <button class="btn btn-block btn-info" 
                                     data-toggle="modal" 
                                     data-target="#upload-details"
                                     data-id="${row.id}"
                                     data-session_label="${row.session_label}"
+                                    data-show_transfer_rate="${display_transfer_rate}"
                                     ><i class="fas fa-upload"></i> Details</button>
                             `;
                     }
@@ -289,6 +291,9 @@ function _init_download_progress_table() {
                 formatter: function(value, row, index, field) {
                     let content;
                     let basename = row.basename.split('?')[0];
+
+                    let display_transfer_rate = (typeof row.download_status !== 'string') ? true : false;
+
                     switch(row.download_status) {
                         // TODO show info
                         case 'queued':
@@ -307,6 +312,7 @@ function _init_download_progress_table() {
                                 data-target="#download-details"
                                 data-id="${row.id}"
                                 data-file="${basename}"
+                                data-show_transfer_rate="${display_transfer_rate}"
                                 ><i class="fas fa-download"></i> Log</button>
                             `;
                             break;
@@ -328,6 +334,7 @@ function _init_download_progress_table() {
                                     data-target="#download-details"
                                     data-id="${row.id}"
                                     data-file="${basename}"
+                                    data-show_transfer_rate="${display_transfer_rate}"
                                     ><i class="fas fa-upload"></i> Details</button>
                             `;
                     }
@@ -475,6 +482,8 @@ $(document).on('page:load', '#progress-section', function(e){
 $(document).on('show.bs.modal', '#download-details', function(e) {
     var id = $(e.relatedTarget).data('id');
     var file = $(e.relatedTarget).data('file');
+    var show_transfer_rate = $(e.relatedTarget).data('show_transfer_rate');
+    $(e.currentTarget).find('#transfer_rate_download').toggle(show_transfer_rate)
 
     $(e.currentTarget).find('#file_basename').html(file);
 
@@ -494,6 +503,9 @@ $(document).on('show.bs.modal', '#error-log--download', function(e) {
 
 $(document).on('show.bs.modal', '#upload-details', function(e) {
     var id = $(e.relatedTarget).data('id');
+
+    var show_transfer_rate = $(e.relatedTarget).data('show_transfer_rate');
+    $(e.currentTarget).find('#transfer_rate_upload').toggle(show_transfer_rate)
 
     var session_label = $(e.relatedTarget).data('session_label');
 
@@ -598,13 +610,24 @@ function _init_download_details_table(transfer_id) {
                 {
                     field: 'session',
                     title: 'Session',
-                    sortable: true
-                }, 
-                {
-                    field: 'session_number',
-                    title: 'S/N',
-                    sortable: true
-                }, 
+                    sortable: true,
+                    formatter: function(str, row, index, field) {
+                        const regex_project = /project: (\w+)/i;
+                        const regex_subject = /subject: (\w+)/i;
+                        const regex_label = /label: (\w+)/i;
+                        let p, s, l;
+
+                        if (
+                            (p = regex_project.exec(str)) !== null &&
+                            (s = regex_subject.exec(str)) !== null &&
+                            (l = regex_label.exec(str)) !== null
+                        ) {
+                            return `<b>${l[1]}</b> (Subject: ${s[1]}, Project: ${p[1]})`;
+                        } else {
+                            return str;
+                        }
+                    }
+                },  
                 {
                     field: 'file_count',
                     title: 'File Count',
@@ -672,7 +695,6 @@ function _init_download_details_table(transfer_id) {
                 id: session.id,
                 transfer_id: transfer.id,
                 session: session.name,
-                session_number: '-',
                 file_count: session.files.length,
                 scan_count: 0,
                 progress: 0,
