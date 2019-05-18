@@ -48,8 +48,14 @@ function _init_upload_progress_table() {
                 sortable: true
             }, */
             {
+                field: 'experiment_label',
+                title: 'Session',
+                filterControl: 'input',
+                sortable: true
+            }, 
+            {
                 field: 'date',
-                title: 'Date',
+                title: 'Session Date',
                 filterControl: 'input',
                 sortable: true,
                 //class: 'date_field'
@@ -61,12 +67,6 @@ function _init_upload_progress_table() {
                 sortable: true,
                 visible: false
             },
-            {
-                field: 'experiment_label',
-                title: 'Session Label',
-                filterControl: 'input',
-                sortable: true
-            }, 
             // {
             //     field: 'transfer_type',
             //     title: 'Process',
@@ -88,6 +88,7 @@ function _init_upload_progress_table() {
                 field: 'status', //VALUES: queued, finished, xnat_error, in_progress, <float 0-100>
                 title: 'Status',
                 filterControl: 'select',
+                filterData: 'json: {"Canceled": "Canceled", "queued": "Queued", "Completed": "Completed", "xnat_error": "XNAT Error"}',
                 sortable: true,
                 formatter: function(value, row, index, field) {
                     if (row.canceled) {
@@ -104,7 +105,8 @@ function _init_upload_progress_table() {
                         </div>
                         `;
                     } else {
-                        return value;
+                        //return value
+                        return value === 'finished' ? 'Completed' : value;
                     } 
                 }
             }, 
@@ -171,9 +173,15 @@ function _init_upload_progress_table() {
         uploads.forEach((transfer) => {
             if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
                 let study_label = transfer.session_data.studyId ? transfer.session_data.studyId : transfer.session_data.studyInstanceUid;
+                let session_datetime = '';
+                if (transfer.session_data.studyDate) {
+                    session_datetime += transfer.session_data.studyDate
+                    session_datetime += transfer.session_data.studyTime ? ' ' + transfer.session_data.studyTime : '00:00:00'
+                }
+
                 let item = {
                     id: transfer.id,
-                    date: transfer.session_data.studyDate,
+                    date: session_datetime,
                     session_label: study_label,
                     experiment_label: transfer.anon_variables.experiment_label,
                     //transfer_type: 'Upload',
@@ -257,6 +265,7 @@ function _init_download_progress_table() {
                 field: 'download_status', //VALUES: queued, finished, xnat_error, in_progress, <float 0-100>
                 title: 'Status',
                 filterControl: 'select',
+                filterData: 'json: {"Canceled": "Canceled", "In progress": "In progress", "queued": "Queued", "Completed": "Completed", "XNAT Error": "XNAT Error", "complete_with_errors": "complete_with_errors"}',
                 sortable: true,
                 formatter: function(value, row, index, field) {
                     if (row.canceled) {
@@ -277,6 +286,9 @@ function _init_download_progress_table() {
                             return `<i class="fas fa-exclamation-triangle"></i> XNAT Error`
                         } else if (value == 'complete_with_errors') {
                             return 'complete_with_errors';
+                            //return `<i class="fas fa-exclamation-triangle"></i> Complete With Errors`
+                        } else if (value == 'finished') {
+                            return 'Completed';
                             //return `<i class="fas fa-exclamation-triangle"></i> Complete With Errors`
                         } else {
                             return value;
@@ -931,8 +943,8 @@ $(document).on('click', '.js_clear_finished', function(){
         text: "Choose which transfers to clear.",
         icon: "warning",
         buttons: {
-            all: "Finished and Canceled",
-            finished: "Only Finished",
+            all: "Completed and Canceled",
+            finished: "Only Completed",
             cancel: "Cancel"
         },
         closeOnEsc: false,
