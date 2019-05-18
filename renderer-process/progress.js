@@ -110,7 +110,7 @@ function _init_upload_progress_table() {
             }, 
             {
                 field: 'actions',
-                title: 'Log Upload',
+                title: 'Log',
                 escape: false,
                 formatter: function(value, row, index, field) {
                     let content;
@@ -286,7 +286,7 @@ function _init_download_progress_table() {
             }, 
             {
                 field: 'actions',
-                title: 'Log download',
+                title: 'Log',
                 escape: false,
                 formatter: function(value, row, index, field) {
                     let content;
@@ -558,6 +558,11 @@ $(document).on('show.bs.modal', '#upload-success-log', function(e) {
         //_init_upload_details_table(id)
     })
     
+});
+
+$(document).on('shown.bs.tab', '#progress-section .nav-tabs a', function (e) {
+    let transfer_label = e.currentTarget.id === 'nav-upload-tab' ? 'Upload' : 'Download';
+    $('#progress-section #transfer-type').text(transfer_label)
 });
 
 
