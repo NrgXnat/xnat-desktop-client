@@ -2,6 +2,9 @@
 
 .btn {
 	padding: .2rem 1.5rem;
+	@include breakpoint(w992) {
+		padding: .2rem 0.4rem;
+	}
 }
 .btn-known-user {
 	color: $dark-blue;
