@@ -23,7 +23,7 @@
                     <button type="button" class="btn btn-gray js_pause_all"><i class="far fa-pause-circle"></i> Pause All</button>
                     <button type="button" class="btn btn-gray js_cancel_all_transfers"><i class="far fa-times-circle"></i> Cancel All</button>
                     <!-- <button type="button" class="btn btn-gray js_restart_all_transfers"><i class="fas fa-redo"></i> Restart All Canceled</button> -->
-                    <button type="button" class="btn btn-gray js_clear_finished"><i class="fas fa-folder-plus"></i> Archive Completed Transfers</button>
+                    <button type="button" class="btn btn-gray js_clear_finished"><i class="fas fa-archive"></i> Archive Completed Transfers</button>
                     <!-- <button type="button" class="btn btn-gray float-right"><i class="fas fa-archive"></i> Archive</button> -->
                     <a class="btn btn-gray float-right" href="progress-archive.html"><i class="fas fa-folder-open"></i> View Archived Transfers</a>
                 </div>
@@ -144,7 +144,8 @@
                             data-toggle="modal" 
                             data-target="#upload-details"
                             data-id=""
-                            data-session_label="">View Log</button>
+                            data-session_label=""
+                            data-show_transfer_rate="false">View Log</button>
                         <button type="button" class="btn btn-blue" data-save-txt>Save log as TXT</button>
                         <!-- <button type="button" class="btn btn-blue">Save log as PDF</button> -->
                     </div>
@@ -152,101 +153,6 @@
             </div>
         </div>
 
-        <!-- Modal -->
-        <div class="modal fade" id="upload-details-old" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="exampleModalLongTitle">Session transfer details <br> <span class="session-id">001012_mr_v1</span></h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <i class="far fa-window-close"></i>
-                          </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="process-details">
-                            <table class="table table-bordered" id="table" data-toggle="table" data-click-to-select="true">
-                                <thead>
-                                    <tr>
-                                        <th data-field="scan-type" data-sortable="true">Scan Type</th>
-                                        <th data-field="series-number" data-sortable="true">S/N</th>
-                                        <th data-field="upload-progress">Upload Progress</th>
-                                        <th data-field="file-count" data-sortable="true">File Count</th>
-                                        <th data-field="size" data-sortable="true">Size (bytes)</th>
-
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Lorem ipsum dolor sit amet</td>
-                                        <td>97841</td>
-                                        <td>
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100" style="width:70%; height:25px;">
-                                                <span class="sr-only">In progress</span>
-                                            </div>
-                                        </td>
-                                        <td>8</td>
-                                        <td>1.19 MB</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Lorem ipsum dolor sit amet</td>
-                                        <td>97842</td>
-                                        <td>
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="90" aria-valuemin="0" aria-valuemax="100" style="width:90%; height:25px;">
-                                                <span class="sr-only">In progress</span>
-                                            </div>
-                                        </td>
-                                        <td>2</td>
-                                        <td>1.12 MB</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Lorem ipsum dolor sit amet</td>
-                                        <td>97843</td>
-                                        <td>
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100" style="width:40%; height:25px;">
-                                                <span class="sr-only">In progress</span>
-                                            </div>
-                                        </td>
-                                        <td>5</td>
-                                        <td>1.10 MB</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Lorem ipsum dolor sit amet</td>
-                                        <td>97844</td>
-                                        <td>
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width:60%; height:25px;">
-                                                <span class="sr-only">In progress</span>
-                                            </div>
-                                        </td>
-                                        <td>7</td>
-                                        <td>1.11 MB</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Lorem ipsum dolor sit amet</td>
-                                        <td>97845</td>
-                                        <td>
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100" style="width:20%; height:25px;">
-                                                <span class="sr-only">In progress</span>
-                                            </div>
-                                        </td>
-                                        <td>8</td>
-                                        <td>1.13 MB</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <p>
-                                Estimated time left: 3min 45sec <br/> Transfer rate: 100KB/sec
-                            </p>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-gray" disabled>Go to summary</button>
-                        <button type="button" class="btn btn-blue"><i class="far fa-pause-circle"></i> Pause</button>
-                        <button type="button" class="btn btn-blue"><i class="far fa-stop-circle"></i> Stop</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
 
         <!-- Modal -->
         <div class="modal fade" id="download-details" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
@@ -263,7 +169,7 @@
                             
                             <table class="table table-bordered filtered-table" id="download-details-table"></table>
 
-                            <p>
+                            <p id="transfer_rate_download">
                                 Transfer rate: <span id="download_rate">-</span>
                                 <!-- (Total: <span id="download_time">-</span>, <span id="download_size">-</span>) -->
                             </p>
@@ -296,7 +202,7 @@
                             
                             <table class="table table-bordered filtered-table" id="upload-details-table"></table>
 
-                            <p>
+                            <p id="transfer_rate_upload">
                                 Transfer rate: <span id="upload_rate">-</span>
                             </p>
                         </div>

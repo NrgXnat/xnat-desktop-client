@@ -580,12 +580,23 @@ function _init_download_details_table(transfer_id) {
                 {
                     field: 'session',
                     title: 'Session',
-                    sortable: true
-                }, 
-                {
-                    field: 'session_number',
-                    title: 'S/N',
-                    sortable: true
+                    sortable: true,
+                    formatter: function(str, row, index, field) {
+                        const regex_project = /project: (\w+)/i;
+                        const regex_subject = /subject: (\w+)/i;
+                        const regex_label = /label: (\w+)/i;
+                        let p, s, l;
+
+                        if (
+                            (p = regex_project.exec(str)) !== null &&
+                            (s = regex_subject.exec(str)) !== null &&
+                            (l = regex_label.exec(str)) !== null
+                        ) {
+                            return `<b>${l[1]}</b> (Subject: ${s[1]}, Project: ${p[1]})`;
+                        } else {
+                            return str;
+                        }
+                    }
                 }, 
                 {
                     field: 'file_count',
@@ -652,7 +663,6 @@ function _init_download_details_table(transfer_id) {
                 id: session.id,
                 transfer_id: transfer.id,
                 session: session.name,
-                session_number: '-',
                 file_count: session.files.length,
                 scan_count: 0,
                 progress: 0,
