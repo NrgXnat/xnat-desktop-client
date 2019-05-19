@@ -33,6 +33,8 @@ function _init_upload_progress_table() {
         hideUnusedSelectOptions: true,
         uniqueId: 'id',
         //height: 300,
+        sortName: 'transfer_date',
+        sortOrder: 'desc',
         columns: [
             {
                 field: 'id',
@@ -91,7 +93,7 @@ function _init_upload_progress_table() {
                 field: 'status', //VALUES: queued, finished, xnat_error, in_progress, <float 0-100>
                 title: 'Status',
                 filterControl: 'select',
-                filterData: 'json: {"Canceled": "Canceled", "queued": "Queued", "Completed": "Completed", "xnat_error": "XNAT Error"}',
+                filterData: 'json: {"In progress": "In progress", "Canceled": "Canceled", "queued": "Queued", "Completed": "Completed", "xnat_error": "XNAT Error"}',
                 sortable: true,
                 formatter: function(value, row, index, field) {
                     if (row.canceled) {
@@ -218,6 +220,8 @@ function _init_download_progress_table() {
         hideUnusedSelectOptions: true,
         uniqueId: 'id',
         //height: 300,
+        sortName: 'transfer_start',
+        sortOrder: 'desc',
         columns: [
             {
                 field: 'id',
@@ -1206,12 +1210,15 @@ function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status)
 
 ipc.on('progress_cell',function(e, item){
     //console.log(item);
-    if ($(item.table).length) {
-        let $progress_bar = $(item.table).find(`[data-uniqueid="${item.id}"] .progress-bar`);
+    let $item_table = $(item.table);
+    let $tbl_row = $(`${item.table} [data-uniqueid="${item.id}"]`);
+
+    if ($item_table.length && $tbl_row.length) {
+        let $progress_bar = $tbl_row.find('.progress-bar');
 
         let reinit = typeof item.value != 'number' || $progress_bar.length == 0;
         
-        $(item.table).bootstrapTable("updateCellById", {
+        $item_table.bootstrapTable("updateCellById", {
             id: item.id,
             field: item.field,
             value: item.value,
