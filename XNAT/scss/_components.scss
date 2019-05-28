@@ -284,6 +284,19 @@ div.progress-container {
 	background-size: 100% 1000%;
 	animation: barberpole 10s linear infinite;
 	background-position: 0 0;
+
+	.transfer-canceled & {
+		animation: none;
+		background-image:
+			repeating-linear-gradient(63deg,
+			transparent,
+			transparent 10px,
+			rgba(251, 167, 21, 0.3) 10px,
+			rgba(251, 167, 21, 0.3) 20px);
+		.bg-success {
+			background-color: #fba715!important;
+		}
+	}
 }
 
 @keyframes barberpole {

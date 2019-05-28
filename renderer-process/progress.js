@@ -315,7 +315,11 @@ function _init_download_progress_table() {
                         case 'queued':
                             content = `
                                 <button class="btn btn-block btn-warning" 
-                                    disabled
+                                    data-toggle="modal" 
+                                    data-target="#download-details"
+                                    data-id="${row.id}"
+                                    data-file="${basename}"
+                                    data-show_transfer_rate="${display_transfer_rate}"
                                     ><i class="far fa-pause-circle"></i> Queued</button>
                             `;
                             break;
@@ -424,6 +428,9 @@ function _init_download_progress_table() {
                     
                     if (done_files == total_files) {
                         item.download_status = error_files ? 'complete_with_errors' : 'finished';
+
+                        // added status for finished item (maybe move to _download.js)
+                        db_downloads.updateProperty(transfer.id, 'status', item.download_status);
                     } else if (done_files == 0 && settings.get('transfering_download') !== transfer.id) {
                         item.download_status = 'queued';
                     } else {
@@ -505,8 +512,41 @@ $(document).on('show.bs.modal', '#download-details', function(e) {
 
     $('.modal-content').attr('data-id', id);
 
+    set_download_details_total_percentage(id)
+
     _init_download_details_table(id)
 });
+
+function set_download_details_total_percentage(transfer_id) {
+
+    db_downloads._getById(transfer_id)
+        .then(transfer => {
+            if (transfer) {
+                let total_files = transfer.sessions.reduce((total, session) => {
+                    return total + session.files.length
+                }, 0);
+                
+                let transfered_files = transfer.sessions.reduce((total, session) => {
+                    let transfered = session.files.reduce((t, file) => {
+                        let add = file.status !== 0 ? 1 : 0;
+                        return t + add
+                    }, 0);
+                    return total + transfered
+                }, 0);
+
+                let percent = 100 * transfered_files / total_files;
+                let $details_total_progress_bar = $('#transfer_rate_download .progress-bar');
+                $details_total_progress_bar.attr('aria-valuenow', percent).css('width', percent + '%');
+        
+            } else {
+                throw new Error('greska')
+            }
+        })
+        .catch(err => {
+
+        });
+
+}
 
 $(document).on('show.bs.modal', '#error-log--download', function(e) {
     var id = parseInt($(e.relatedTarget).data('id'));
@@ -527,8 +567,34 @@ $(document).on('show.bs.modal', '#upload-details', function(e) {
 
     $(e.currentTarget).find('#session_label').html(session_label);
 
+    $('#upload-details .modal-content').attr('data-id', id);
+
+    set_upload_details_total_percentage(id)
+
     _init_upload_details_table(id)
 });
+
+function set_upload_details_total_percentage(transfer_id) {
+
+    db_uploads._getById(transfer_id)
+        .then(transfer => {
+            if (transfer) {
+                let total_files = transfer.series.length;
+                let transfered_files = transfer.done_series_ids ? transfer.done_series_ids.length : 0;
+
+                let percent = 100 * transfered_files / total_files;
+                let $details_total_progress_bar = $('#transfer_rate_upload .progress-bar');
+                $details_total_progress_bar.attr('aria-valuenow', percent).css('width', percent + '%');
+        
+            } else {
+                throw new Error('greska')
+            }
+        })
+        .catch(err => {
+
+        });
+
+}
 
 // fix modal from modal body overflow problem
 $(document).on('shown.bs.modal', '#upload-details', function(e) {
@@ -537,6 +603,9 @@ $(document).on('shown.bs.modal', '#upload-details', function(e) {
 
 $(document).on('show.bs.modal', '#upload-success-log', function(e) {
     var transfer_id = $(e.relatedTarget).data('id');
+
+    $('#upload-success-log .modal-content').attr('data-id', transfer_id);
+
     db_uploads.getById(transfer_id, (err, my_transfer) => {
         console.log(my_transfer);
         console.log($(e.currentTarget));
@@ -709,6 +778,8 @@ function _init_download_details_table(transfer_id) {
                 'new_cancel_status': !transfer.canceled
             }).html(cancel_button_html);
         }
+
+        $('#download-details').find('.modal-content').toggleClass('transfer-canceled', transfer.canceled);
         
 
         transfer.sessions.forEach(function(session){
@@ -757,6 +828,8 @@ function _init_upload_details_table(transfer_id) {
         $('#upload-details-table').bootstrapTable('destroy');
         $('#upload-details-table').bootstrapTable({
             uniqueId: 'id',
+            sortName: 'series_number',
+            sortOrder: 'asc',
             columns: [
                 {
                     field: 'id',
@@ -829,6 +902,8 @@ function _init_upload_details_table(transfer_id) {
             }).html(cancel_button_html);
         }
 
+        $('#upload-details').find('.modal-content').toggleClass('transfer-canceled', transfer.canceled);
+
         $('#upload-details-table')
             .bootstrapTable('removeAll')    
             .bootstrapTable('append', transfer.table_rows)
@@ -839,27 +914,127 @@ function _init_upload_details_table(transfer_id) {
 
 
 $(document).on('click', '.js_cancel_download', function(e){
-    let transfer_id = $(this).data('transfer_id');
-    let new_cancel_status = $(this).data('new_cancel_status');
+    let $button = $(this);
+    
+    let transfer_id = $button.data('transfer_id');
+    let new_cancel_status = $button.data('new_cancel_status');
 
-    db_downloads.updateProperty(transfer_id, 'cancel', new_cancel_status);
 
-    let cancel_button_html = new_cancel_status ? '<i class="fas fa-redo"></i> Restart Download' : '<i class="far fa-stop-circle"></i> Cancel Download';
-    $(this).data('new_cancel_status', !new_cancel_status).html(cancel_button_html);
 
-    update_transfer_cancel_status('#download_monitor_table', transfer_id, new_cancel_status);
+    // disable button to prevent further submission
+    $button.attr("disabled", true);
+
+    //db_downloads.updateProperty(transfer_id, 'canceled', new_cancel_status);
+
+
+    db_downloads._updateProperty(transfer_id, 'canceled', new_cancel_status)
+    .then(num => {
+
+        setTimeout(() => {
+            db_downloads._getById(transfer_id)
+                .then(transfer => {
+                    if (transfer) {
+                        //TODO check if all transfered and disable cancel if so
+
+                        if (transfer.canceled === new_cancel_status) {
+                            if (new_cancel_status) {
+                                console_red('js_cancel_download SUCCESS', {
+                                    new_cancel_status,
+                                    num
+                                })
+
+                                ipc.send('cancel_download', transfer_id);
+                            } else {
+                                ipc.send('start_download');
+                            }
+                            
+                            $('#download-details').find('.modal-content').toggleClass('transfer-canceled', new_cancel_status);
+                        
+                            let cancel_button_html = new_cancel_status ? '<i class="fas fa-redo"></i> Restart Download' : '<i class="far fa-stop-circle"></i> Cancel Download';
+                            $button.attr("disabled", false).data('new_cancel_status', !new_cancel_status).html(cancel_button_html);
+                        
+                            update_transfer_cancel_status('#download_monitor_table', transfer_id, new_cancel_status);
+                            
+                        } else {
+                            console_red('FAIL TRY AGAIN', 'ok')
+                            $button.attr("disabled", false).trigger('click')
+                        }
+                    } else {
+                        throw new Error('greska')
+                    }
+                })
+                .catch(err => {
+                    $button.attr("disabled", false)
+                    console_red('IMMEDIATE ERROR', {err})
+                })
+        }, 200)
+        
+        
+    })
+    .catch(err => {
+        console_red('js_cancel_download', {err})
+    })
+
+
 });
 
 $(document).on('click', '.js_cancel_upload', function(e){
-    let transfer_id = $(this).data('transfer_id');
-    let new_cancel_status = $(this).data('new_cancel_status');
+    let $button = $(this);
+    
+    let transfer_id = $button.data('transfer_id');
+    let new_cancel_status = $button.data('new_cancel_status');
 
-    db_uploads.updateProperty(transfer_id, 'canceled', new_cancel_status)
+    // disable button to prevent further submission
+    $button.attr("disabled", true);
 
-    let cancel_button_html = new_cancel_status ? '<i class="fas fa-redo"></i> Restart Upload' : '<i class="far fa-stop-circle"></i> Cancel Upload';
-    $(this).data('new_cancel_status', !new_cancel_status).html(cancel_button_html);
+    db_uploads._updateProperty(transfer_id, 'canceled', new_cancel_status)
+        .then(num => {
+            setTimeout(() => {
+                db_uploads._getById(transfer_id)
+                    .then(transfer => {
+                        if (transfer) {
+                            console_red('TRANSFER', {transfer})
+                            //TODO check if all transfered and disable cancel if so
+                            if (transfer.canceled === new_cancel_status) {
+                                if (new_cancel_status) {
+                                    console_red('js_cancel_upload SUCCESS', {
+                                        new_cancel_status,
+                                        num
+                                    })
+                    
+                                    ipc.send('cancel_upload', transfer_id);
+                                } else {
+                                    ipc.send('start_upload');
+                                }
+                                
+                                $('#upload-details').find('.modal-content').toggleClass('transfer-canceled', new_cancel_status);
+                            
+                                let cancel_button_html = new_cancel_status ? '<i class="fas fa-redo"></i> Restart Upload' : '<i class="far fa-stop-circle"></i> Cancel Upload';
+                                $button.attr("disabled", false).data('new_cancel_status', !new_cancel_status).html(cancel_button_html);
+                            
+                                update_transfer_cancel_status('#upload_monitor_table', transfer_id, new_cancel_status);
+                                
+                            } else {
+                                console_red('FAIL TRY AGAIN', 'ok')
+                                $button.attr("disabled", false).trigger('click')
+                            }
+                        } else {
+                            throw new Error('greska upload')
+                        }
+                    })
+                    .catch(err => {
+                        $button.attr("disabled", false)
+                        console_red('IMMEDIATE ERROR upload', {err})
+                    })
+            }, 200)
 
-    update_transfer_cancel_status('#upload_monitor_table', transfer_id, new_cancel_status);
+        
+        })
+        .catch(err => {
+            console_red('js_cancel_upload', {err})
+        })
+
+    
 });
 
 $(document).on('click', '[data-save-txt]', function(){
@@ -1155,9 +1330,20 @@ function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status)
     });
 }
 
+ipc.on('upload_finished',function(e, transfer_id){
+    let $modal_content = $(`#upload-details [data-id=${transfer_id}]`);
+
+    console_red('ipc.on upload_finished', $modal_content.length, $modal_content.is(':visible'))
+
+    if ($modal_content.is(':visible')) {
+        $(`#upload-details`).modal('hide');
+        $(`tr[data-uniqueid=${transfer_id}] button[data-toggle=modal]`).trigger('click');
+    }
+})
+
 
 ipc.on('progress_cell',function(e, item){
-    //console.log(item);
+    console_red('progress_cell', item);
     let $item_table = $(item.table);
     let $tbl_row = $(`${item.table} [data-uniqueid="${item.id}"]`);
 
@@ -1177,6 +1363,54 @@ ipc.on('progress_cell',function(e, item){
             let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
             $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
         }
+
+
+
+        if (item.table === '#download_monitor_table') {
+            let $modal_content = $(`#download-details [data-id=${item.id}]`);
+            
+            if (typeof item.value != 'number') {
+                
+                $modal_content.find('.js_cancel_download').hide();
+    
+                let set_not_canceled = false;
+                db_downloads._updateProperty(item.id, 'canceled', set_not_canceled)
+                    .then(num => {
+                        console.log('xxx', $modal_content.length, item.id)
+                        $modal_content.find('#transfer_rate_download').hide();
+                        $modal_content.toggleClass('transfer-canceled', set_not_canceled);
+                        update_transfer_cancel_status('#download_monitor_table', item.id, set_not_canceled);
+                    })
+                    .catch(err => {
+                        console_red('progress_cell error', {err})
+                    })
+            }
+
+            if ($modal_content.is(':visible')) {
+                let $details_total_progress_bar = $modal_content.find('#transfer_rate_download .progress-bar');
+
+                let percent = 100 * item.value / parseInt($details_total_progress_bar.attr('aria-valuemax'));
+                $details_total_progress_bar.attr('aria-valuenow', percent).css('width', percent + '%');
+            }
+        }
+
+        if (item.table === '#upload_monitor_table') {
+            let $modal_content = $(`#upload-details [data-id=${item.id}]`);
+
+            if (typeof item.value != 'number') {
+                $modal_content.find('.js_cancel_upload').hide();
+                $modal_content.find('#transfer_rate_upload').hide();
+            }
+
+            if ($modal_content.is(':visible')) {
+                let $details_total_progress_bar = $modal_content.find('#transfer_rate_upload .progress-bar');
+
+                let percent = 100 * item.value / parseInt($details_total_progress_bar.attr('aria-valuemax'));
+                $details_total_progress_bar.attr('aria-valuenow', percent).css('width', percent + '%');
+            }
+        }
+
+        
         
     }
 
@@ -1201,7 +1435,7 @@ ipc.on('download_progress',function(e, item){
 });
 
 ipc.on('upload_progress',function(e, item) {
-    console.log(item);
+    //console.log(item);
 
     if (item.table !== undefined) {
         if ($(item.table).length) {

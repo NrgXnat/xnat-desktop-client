@@ -42,6 +42,66 @@ function summary_log_update(transfer_id, prop, val) {
 }
 
 
+
+ipc.on('start_upload',function(e, item){
+    console_red('ipc.on :: start_upload');
+    setTimeout(do_transfer, 200);
+});
+
+ipc.on('cancel_upload',function(e, transfer_id){
+    console_red('ipc.on :: cancel_upload', transfer_id);
+    execute_cancel_token(transfer_id)
+});
+
+/**
+ * // array
+ * cancel_tokens = [
+ *      {
+ *          transfer_id: ... , // int
+ *          series_id: ... , // string
+ *          cancel: ... // function
+ *      },
+ *      
+ *      ...
+ * ]
+ */
+
+let cancel_tokens = [];
+
+
+const remove_cancel_token = (transfer_id, series_id = false) => {
+    console_red('remove_cancel_token::BEFORE', {cancel_tokens})
+    cancel_tokens = cancel_tokens.filter(ct => {
+        if (series_id === false) {
+            return ct.transfer_id !== transfer_id
+        } else {
+            return ct.transfer_id !== transfer_id || ct.series_id !== series_id
+        }
+    });
+
+    console_red('remove_cancel_token::AFTER', {cancel_tokens})
+}
+
+const execute_cancel_token = (transfer_id) => {
+    console_red('execute_cancel_token', {transfer_id, cancel_tokens})
+
+    cancel_tokens = cancel_tokens.filter(ct => {
+        // execute cancel token if it matches transfer_id
+        if (ct.transfer_id === transfer_id) {
+            ct.cancel('cancel_many');
+        }
+
+        // and remove it
+        return ct.transfer_id !== transfer_id
+    });
+
+    console_red('execute_cancel_token :: AFTER', {transfer_id, cancel_tokens})
+
+}
+
+
+
+
 /*
 const { isDevEnv } = remote.require('./services/app_utils');
 
@@ -155,6 +215,10 @@ let _queue_ = {
             this.items.splice(index, 1);
         }
         console_red('_queue_items_REMOVE', this.items)
+    },
+    remove_many: function(transfer_id) {
+        console_red('_queue_.remove_many()', this.items);
+        this.items = this.items.filter(single => single.indexOf(`${transfer_id}::`) !== 0)
     }
 }
 
@@ -180,10 +244,6 @@ function console_log(...log_this) {
     //console.trace('<<<<== UPLOAD TRACE ==>>>>');
     //ipc.send('log', ...log_this);
 }
-
-ipc.on('start_upload',function(e, item){
-    setTimeout(do_transfer, 200);
-});
 
 
 function do_transfer(source_series_id = 'initial', source_upload_success = true) {
@@ -397,6 +457,12 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         cancelToken: new CancelToken(function executor(c) {
             // An executor function receives a cancel function as a parameter
             cancelCurrentUpload = c;
+
+            cancel_tokens.push({
+                transfer_id: transfer.id,
+                series_id: series_id,
+                cancel: c
+            })
         }),
         // transformRequest: [(data, headers) => {
         //     // Do whatever you want to transform the data
@@ -415,9 +481,20 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
     console_red('request_settings', {request_settings})
 
+    // plug in test to see if upload is not canceled in the meantime
+    var current_transfer = await db_uploads._getById(transfer.id);
+
+    if (current_transfer.canceled === true) {
+        _queue_.remove_many(transfer.id);
+        respawn_transfer(transfer.id, series_id, false)
+        return;
+    }
+
     axios(request_settings)
     .then(async (res) => {
         console_red('zip upload done - res')
+
+        remove_cancel_token(transfer.id, series_id)
         //console.log(res)
 
         let data = {
@@ -495,9 +572,18 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                     
                     session_link = xnat_server + '/app/action/LoadImageData/project/' + res_arr[0] + '/timestamp/' + res_arr[1] + '/folder/' + res_arr[2];
                     
-                    db_uploads.updateProperty(transfer.id, 'session_link', session_link)
+                    return db_uploads._updateProperty(transfer.id, 'session_link', session_link)
+                } else {
+                    return false;
                 }
                 
+            })
+            .then(num_updated => {
+                console_red('num_updated 1', {num_updated})
+                if (num_updated) {
+                    Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
+                    ipc.send('upload_finished', transfer.id);
+                }
             })
             .catch(err => {
                 console_log('-------- XCOMMIT_ERR ----------')
@@ -511,15 +597,23 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                     
                     session_link = `${xnat_server}/data/archive/projects/${project_id}/subjects/${subject_id}/experiments/${expt_label}?format=html`
                     
-                    db_uploads.updateProperty(transfer.id, 'session_link', session_link)
+                    db_uploads._updateProperty(transfer.id, 'session_link', session_link)
+                        .then(num_updated => {
+                            console_red('num_updated 2', {num_updated})
+                            if (num_updated) {
+                                Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
+                                ipc.send('upload_finished', transfer.id);
+                            }
+                        });
                 }
             })
             .finally(() => {
+                console_log(`+++ FINALLY +++`);
                 // let _time_took = ((performance.now() - commit_timer) / 1000).toFixed(2);
                 // update_transfer_summary(transfer.id, 'timer_commit', _time_took);
 
                 // TODO - remove this from here
-                Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
+                // Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
             });
         }
 
@@ -529,17 +623,30 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         respawn_transfer(transfer.id, series_id, true)
     })
     .catch(err => {
+        let is_error = true;
+
+        remove_cancel_token(transfer.id, series_id)
+
         if (axios.isCancel(err)) {
             console_red('upload canceled error: cancelCurrentUpload', err);
+
+            if (err.message === 'cancel_many') {
+                is_error = false;
+            }
         } else {
             console_red('upload error 2', {err});
         }
         
         _queue_.remove(transfer.id, series_id);
 
-        update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
-            respawn_transfer(transfer.id, series_id, false)
-        });
+        if (is_error) {
+            update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
+                respawn_transfer(transfer.id, series_id, false)
+            });
+        } else {
+            // respawn_transfer(transfer.id, series_id, false)
+        }
+        
     });
 
     function respawn_transfer(transfer_id, series_id, success) {
@@ -632,7 +739,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         //archive.finalize(); // TODO REMOVE THIS LINE
         archive.abort() // removing any pending queue tasks, ends both sides of the Transform stream
         // todo ... axios thinks everything is OK ... thinks the stream ended without a problem so we cancel it
-        cancelCurrentUpload();
+        cancelCurrentUpload('cancel_single');
     }
 
     // execute Promises in serial
