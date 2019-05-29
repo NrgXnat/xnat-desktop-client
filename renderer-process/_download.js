@@ -41,19 +41,67 @@ if (!settings.has('global_pause')) {
 // always set to false when initializing the page
 settings.set('transfering_download', false);
 
+/**
+ * // array
+ * cancel_tokens = [
+ *      {
+ *          transfer_id: ... , // int
+ *          uri: ... , // string
+ *          cancel: ... // function
+ *      },
+ *      
+ *      ...
+ * ]
+ */
+let cancel_tokens = [];
+
+const remove_cancel_token = (transfer_id, uri = false) => {
+    //console_red('remove_cancel_token::BEFORE', {cancel_tokens})
+    cancel_tokens = cancel_tokens.filter(ct => {
+        if (uri === false) {
+            return ct.transfer_id !== transfer_id
+        } else {
+            return ct.transfer_id !== transfer_id || ct.uri !== uri
+        }
+    });
+
+    //console_red('remove_cancel_token::AFTER', {cancel_tokens})
+}
+
+const execute_cancel_token = (transfer_id) => {
+    console_red('execute_cancel_token', {transfer_id, cancel_tokens})
+
+    cancel_tokens = cancel_tokens.filter(ct => {
+        // execute cancel token if it matches transfer_id
+        if (ct.transfer_id === transfer_id) {
+            console_red('execute_cancel_token', transfer_id)
+            ct.cancel('Operation canceled by the user - CANCEL TOKEN.');
+        }
+
+        // and remove it
+        return ct.transfer_id !== transfer_id
+    });
+
+}
+
 
 
 console_log(__filename);
 
 function console_log(...log_this) {
     electron_log.info(...log_this);
-    //console.log(...log_this);
+    console.log(...log_this);
     //console.trace('<<<<== DOWNLOAD TRACE ==>>>>');
     //ipc.send('log', ...log_this);
 }
 
 ipc.on('start_download',function(e, item){
     do_transfer();
+});
+
+ipc.on('cancel_download',function(e, transfer_id){
+    console.log(transfer_id);
+    execute_cancel_token(transfer_id)
 });
 
 do_transfer();
@@ -118,7 +166,7 @@ function start_transfer() {
             if (manifest_urls.size) {
                 try {
                     // start download
-                    download_items(transfer.server, user_auth, transfer, manifest_urls, true);
+                    download_items(transfer, manifest_urls, true);
                 } catch(err) {
                     //console_log(err.message)
                     electron_log.error('Download Error', err);
@@ -131,10 +179,13 @@ function start_transfer() {
 
 }
 
-async function download_items(xnat_server, user_auth, transfer, manifest_urls, create_dir_structure = false) {
+async function download_items(transfer, manifest_urls, create_dir_structure = false) {
     settings.set('transfering_download', false);
 
     if (settings.get('global_pause')) return; 
+
+    let xnat_server = transfer.server;
+    let user_auth = auth.get_user_auth();
 
     let transfer_id = transfer.id;
     let transfer_info = await get_transfer_info(transfer_id);
@@ -191,19 +242,32 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
     let stream_timer;
 
     // fix multliple session creation with token login
-    // let user_auth_fix = user_auth.username === auth.get_current_user() ? user_auth : undefined;    
+    let user_auth_fix = user_auth.username === auth.get_current_user() ? user_auth : undefined;    
 
     let jsession_cookie = await auth.get_jsession_cookie(xnat_server)
 
+    
+    let CancelToken = axios.CancelToken;
+
     // todo - test if we need user auth here
     let request_settings = {
-        //auth: user_auth_fix,
+        auth: user_auth_fix,
         responseType: 'stream',
         adapter: httpAdapter,
         headers: {
             'Cookie': jsession_cookie,
             'User-Agent': userAgentString
-        }
+        },
+        cancelToken: new CancelToken(function executor(c) {
+            // An executor function receives a cancel function as a parameter
+            //cancelCurrentUpload = c;
+
+            cancel_tokens.push({
+                transfer_id: transfer_id,
+                uri: uri,
+                cancel: c
+            })
+        })
     }
 
     let https_agent_options = { keepAlive: true };
@@ -227,6 +291,10 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
     axios.get(xnat_server + uri, request_settings)
     .then(resp => {
         let zip_path = path.resolve(temp_zip_path, sha1(xnat_server + uri) + '__YYY__' + Math.random() + '.zip');
+        // let clean_uri = uri.split('?');
+        // let uri_str = clean_uri[0].replace(/\//g, '_');
+        // let zip_path = path.resolve(temp_zip_path, uri_str +  '__YYY__' + Math.random() + '.zip');
+
 
         let stream = resp.data;
         stream.on('data', (chunk) => {  // chunk is an ArrayBuffer
@@ -250,10 +318,17 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
                 }, 500);
             }
 
-            fs.appendFileSync(zip_path, Buffer(chunk));
+            try {
+                fs.appendFileSync(zip_path, Buffer(chunk));
+            } catch (err) {
+                console_red(`${zip_path} - appended to file!`, {err});
+            }
+            
         });
 
         stream.on('end', () => {
+            remove_cancel_token(transfer_id, uri);
+
             //console_log('stream on.end', bytes_total);
             let timer_now = new Date() / 1000;
             let total_time_ms = (timer_now - timer_start) * 1000;
@@ -268,13 +343,17 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
                 html: humanizeDuration(total_time_ms, { round: true })
             });
 
+            let skip_finish = false;
             let unzip_promise = new Promise((resolve, reject) => {
+                console.log({zip_path});
                 fs.createReadStream(zip_path)
                 .pipe(unzipper.Parse())
                 .on('entry', function (entry) {
                     if (entry.type === 'File') {
                         // file basename
                         let basename = path.basename(entry.path);
+
+                        //console_red(basename, entry)
 
                         // get directory substructure
                         let entry_dirname = path.dirname(entry.path);
@@ -298,18 +377,37 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
                         entry.autodrain();
                     }
                 })
-                .on('finish', () => {
-                    fs.unlink(zip_path, (err) => {
-                        if (err) throw err;
+                .on('error', (err) => {
+                    skip_finish = true;
+                    console_red('unzipper error', {err});
+
+                    fs.unlink(zip_path, (unlink_err) => {
+                        // if (err) throw err;
                         console_log('----' + zip_path + ' was DELETED');
 
-                        resolve()
+                        reject(err)
                     });
+
+                    //reject()
+                })
+                .on('finish', () => {
+                    if (!skip_finish) {
+                        fs.unlink(zip_path, (err) => {
+                            // if (err) throw err;
+                            console_log('++++' + zip_path + ' was DELETED');
+    
+                            resolve()
+                        });
+                    } else {
+                        console_red('skipped finish', 'OK')
+                    }
+                    
+                    //resolve()
                 });
             });
 
             unzip_promise.then(() => {
-                console_red('after unzip_promise', {transfer});
+                //console_red('after unzip_promise', {transfer});
 
                 // delete item from url map
                 manifest_urls.delete(dir);
@@ -317,56 +415,92 @@ async function download_items(xnat_server, user_auth, transfer, manifest_urls, c
                 return mark_downloaded(transfer_id, uri)
             })
             .then(updated_tranfer => {
-                console_red('after mark_downloaded', {updated_tranfer});
+                //console_red('after mark_downloaded', {updated_tranfer});
 
                 return update_modal_ui(transfer_id, uri);
             })
             .then(() => {
-                download_items(xnat_server, user_auth, transfer, manifest_urls)                
+                // check to see if the transfer is canceled in the meantime
+                db_downloads._getById(transfer_id)
+                .then(transfer => {
+                    if (transfer) {
+                        if (!transfer.canceled || manifest_urls.size == 0) {
+                            console_red('TRANSFER NOT CANCELED', 'Continuing with download_items...')
+                            download_items(transfer, manifest_urls)  
+                        } else {
+                            console_red('DOWNLOAD CANCELED IN THE MEANTIME', transfer)
+                            settings.set('transfering_download', false);
+                        }
+                    } else {
+                        throw new Error(`mark_downloaded: No transfer with id: ${transfer_id}`)
+                    }
+                })
+                .catch(err => {
+                    console_red('IMMEDIATE ERROR', {err})
+                    throw err;
+                })
+            })
+            .catch(err => {
+                console_red('unzip_promise FAIL', err)
+                settings.set('transfering_download', false);
             })
             
         });
 
+        stream.on('error', (err) => {
+            console_log(err);
+            console_red('STREAM ERROR', err);
+        })
+
     })
     .catch(err => {
-        console_log(err.response, err)
-        electron_log.error('Download error:', xnat_server + uri, Helper.errorMessage(err));
+        console_red('AXIOS CATCH ERROR', err)
 
-        if (err.response && err.response.status === 404) {
-            // =============================================
-            // SOFT FAIL
-            // =============================================
-            // delete item from url map
-            manifest_urls.delete(dir);
+        remove_cancel_token(transfer_id, uri);
 
-            mark_error_file(transfer_id, uri, `Resource doesn't exist. (404 response)`)
-            .then(updated_tranfer => {
-                console_red('after mark_error_file', {updated_tranfer});
-
-                return update_modal_ui(transfer_id, uri);
-            })
-            .then(() => {
-                download_items(xnat_server, user_auth, transfer, manifest_urls)
-            })
-            
-            // =============================================
+        if (axios.isCancel(err)) {
+            settings.set('transfering_download', false);
+            console_red('Request canceled', {err});
+            electron_log.error('Download error:', xnat_server + uri, JSON.stringify(err));
         } else {
-            update_tranfer_data(transfer_id, {
-                status: 'xnat_error',
-                error: Helper.errorMessage(err)
-            }).then(updated_tranfer => {
-                console_red('after update_tranfer_data', {updated_tranfer});
-
-                ipc.send('progress_cell', {
-                    table: '#download_monitor_table',
-                    id: transfer_id,
-                    field: "download_status",
-                    value: "xnat_error"
-                });
+            electron_log.error('Download error:', xnat_server + uri, Helper.errorMessage(err));
+    
+            if (err.response && err.response.status === 404) {
+                // =============================================
+                // SOFT FAIL
+                // =============================================
+                // delete item from url map
+                manifest_urls.delete(dir);
+    
+                mark_error_file(transfer_id, uri, `Resource doesn't exist. (404 response)`)
+                .then(updated_tranfer => {
+                    console_red('after mark_error_file', {updated_tranfer});
+    
+                    return update_modal_ui(transfer_id, uri);
+                })
+                .then(() => {
+                    console_red('SOFT_FAIL', 'Continuing with download_items...')
+                    download_items(transfer, manifest_urls)
+                })
                 
-                settings.set('transfering_download', false);
-            })
-            
+                // =============================================
+            } else {
+                update_tranfer_data(transfer_id, {
+                    status: 'xnat_error',
+                    error: Helper.errorMessage(err)
+                }).then(updated_tranfer => {
+                    console_red('after update_tranfer_data', {updated_tranfer});
+    
+                    ipc.send('progress_cell', {
+                        table: '#download_monitor_table',
+                        id: transfer_id,
+                        field: "download_status",
+                        value: "xnat_error"
+                    });
+                    
+                    settings.set('transfering_download', false);
+                })
+            }
         }
 
     })
@@ -393,11 +527,11 @@ function mark_downloaded(transfer_id, uri) {
             }
         })
         .then(transfer => {
-            console_red('mark_downloaded', transfer, uri)
+            //console_red('mark_downloaded', transfer, uri)
             resolve(transfer);
         })
         .catch(err => {
-            throw err;
+            reject(err);
         })
     })
 
@@ -443,7 +577,7 @@ function get_transfer_info(transfer_id) {
 
         })
         .catch(err => {
-            throw err;
+            reject(err);
         })
     })
 
@@ -468,7 +602,7 @@ function update_tranfer_data(transfer_id, data) {
             resolve(num_replaced);
         })
         .catch(err => {
-            throw err;
+            reject(err);
         })
     })
 
@@ -501,7 +635,7 @@ function mark_error_file(transfer_id, uri, error_message = 'File Download Error'
             resolve(transfer);
         })
         .catch(err => {
-            throw err;
+            reject(err);
         })
     })
 }
@@ -533,14 +667,14 @@ function update_modal_ui(transfer_id, uri) {
             }
         })
         .catch(err => {
-            throw err;
+            reject(err);
         })
     })
 
 }
 
 window.onerror = function (errorMsg, url, lineNumber) {
-    electron_log.error(`[Custom Uncaught Error]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)
+    electron_log.error(`[Custom Uncaught Error - Download]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)
     console_log(__filename + ':: ' +  errorMsg);
     return false;
 }

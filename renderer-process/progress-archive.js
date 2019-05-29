@@ -716,6 +716,8 @@ function _init_upload_details_table(transfer_id) {
         $('#upload-archive-details-table').bootstrapTable('destroy');
         $('#upload-archive-details-table').bootstrapTable({
             uniqueId: 'id',
+            sortName: 'series_number',
+            sortOrder: 'asc',
             columns: [
                 {
                     field: 'id',

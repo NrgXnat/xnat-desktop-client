@@ -566,6 +566,16 @@ ipcMain.on('start_upload', (e, item) =>{
   uploadWindow.webContents.send('start_upload', item);
 })
 
+ipcMain.on('cancel_upload', (e, transfer_id) => {
+  mainWindow.webContents.send('log', 'cancel_upload event (main.js)');
+  uploadWindow.webContents.send('cancel_upload', transfer_id);
+})
+
+
+ipcMain.on('upload_finished', (e, transfer_id) =>{
+  mainWindow.webContents.send('upload_finished', transfer_id);
+})
+
 
 ipcMain.on('reload_upload_window', (e, item) =>{
   uploadWindow.reload(true);
@@ -577,6 +587,11 @@ ipcMain.on('reload_download_window', (e, item) =>{
 ipcMain.on('start_download', (e, item) =>{
   mainWindow.webContents.send('log', 'start_download event (main.js)');
   downloadWindow.webContents.send('start_download', item);
+})
+
+ipcMain.on('cancel_download', (e, transfer_id) =>{
+  mainWindow.webContents.send('log', 'cancel_download event (main.js)');
+  downloadWindow.webContents.send('cancel_download', transfer_id);
 })
 
 ipcMain.on('print_global', () => {
