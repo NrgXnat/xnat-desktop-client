@@ -61,6 +61,7 @@ function initialize_usr_local_lib_app() {
 
     mainWindow = new BrowserWindow(windowOptions);
     mainWindow.loadURL(path.join('file://', __dirname, '/index_alt.html'));
+    updateUserAgentString(mainWindow);
 
     if (isDevEnv()) {
       mainWindow.webContents.openDevTools()
@@ -118,6 +119,7 @@ function initialize () {
     
     mainWindow = new BrowserWindow(windowOptions);
     mainWindow.loadURL(path.join('file://', __dirname, '/index.html'));
+    updateUserAgentString(mainWindow);
 
     var childOptions = {
       width: 1200,
@@ -133,6 +135,7 @@ function initialize () {
       uploadWindow = null
     });
     uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload.html'));
+    updateUserAgentString(uploadWindow);
 
     // Download window
     downloadWindow = new BrowserWindow(childOptions)
@@ -140,6 +143,7 @@ function initialize () {
       downloadWindow = null
     });
     downloadWindow.loadURL(path.join('file://', __dirname, '/sections/_download.html'));
+    updateUserAgentString(downloadWindow);
 
     
 
@@ -385,6 +389,13 @@ function handle_protocol_request(url, place) {
     mainWindow.webContents.send('handle_protocol_request', url);
   }
   
+}
+
+function updateUserAgentString(window) {
+  let userAgentString = window.webContents.getUserAgent()
+  userAgentString = userAgentString.replace(app.getName(), 'XNATDesktopClient');
+
+  window.webContents.setUserAgent(userAgentString)
 }
 
 
