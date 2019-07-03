@@ -14,6 +14,7 @@
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false">Select Folder</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Verify Visit Date</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Review and Verify</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-visual" role="tab" aria-controls="nav-visual" aria-selected="false">Visual PHI Check</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Summary</a>
                         </div>
                     </nav>
@@ -188,10 +189,80 @@
                                 <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
                                 <button type="button" class="btn btn-gray js_prev" type="button">
                                     <i class="fas fa-angle-left"></i> Prev</button>
+                                <button type="button" class="btn btn-blue js_next disabled">Next
+                                    <i class="fas fa-angle-right"></i>
+                                </button>
                                 <button type="button" class="btn btn-blue js_upload">Upload</button>
                             </div>
 
                         </div>
+
+                        <div class="tab-pane fade" id="nav-visual" role="tabpanel" aria-labelledby="nav-visual-tab">
+                            <h2 class="section-title">Required Visual Check for Burned-in PHI</h2>
+                            
+
+                            <p>This project requires one or more scans that you have selected to upload go through a visual check to identify and block out any burned-in PHI. If you are not sure what consistutes PHI in your project, contact a project or site administrator. For help using this feature, view our <a href="">PHI Inspection Tutorial</a>.</p>
+                            
+                            <div class="col">
+                                <div class="row" style="background: #444; color: white;">
+                                    <div class="col-sm-12">
+                                        <div id="image-toolbar-wrap">
+                                            <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                                                <label class="btn btn-sm btn-primary active">
+                                                    <input type="radio" name="left_click" value="Length" id="LengthTool" autocomplete="off" checked> Length Tool
+                                                </label>
+                                                <label class="btn btn-sm btn-primary">
+                                                    <input type="radio" name="left_click" value="RectangleRoi" id="RectangleRoiTool" autocomplete="off"> Rectangle Tool
+                                                </label>
+                                                <label class="btn btn-sm btn-primary">
+                                                    <input type="radio" name="left_click" value="Probe" id="ProbeTool" autocomplete="off"> Probe Tool
+                                                </label>
+                                                <label class="btn btn-sm btn-primary">
+                                                    <input type="radio" name="left_click" value="Bidirectional" id="BidirectionalTool" autocomplete="off"> Bidirectional Tool
+                                                </label>
+                                                <label class="btn btn-sm btn-primary">
+                                                    <input type="radio" name="left_click" value="Pan" id="PanTool" autocomplete="off"> Pan Tool
+                                                </label>
+                                                <label class="btn btn-sm btn-primary">
+                                                    <input type="radio" name="left_click" value="Zoom" id="ZoomTool" autocomplete="off"> Zoom Tool
+                                                </label>
+                                            </div>
+                                            <!--
+                                            <ul>
+                                                <li><button id="tool-stack_scrool">Stack Scroll</button></li>
+                                                <li><button id="tool-zoom">Zoom</button></li>
+                                                <li><button id="tool-pan">Pan</button></li>
+                                                <li><button id="tool-select_area">Select Area</button></li>
+                                            </ul>
+                                            -->
+
+                                            <ul>
+                                                <li><button class="btn btn-sm btn-default" id="tool-reset_scan">Reset Scan</button></li>
+                                                <li><button class="btn btn-sm btn-default" id="tool-save_scan">Save Scan</button></li>
+                                            </ul>
+                                        </div>
+
+                                    </div>
+                                    <div class="col-sm-2">
+                                        <ul id="series_thumbs"></ul>
+                                    </div>
+                                    <div class="col-sm-10">
+                                        <div id="dicom_image_container" style="width: 800px; height: 500px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="dicomImageThumb" style="width: 200px;height:200px"></div>
+
+
+                            <div class="col text-right button-row">
+                                <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                <button type="button" class="btn btn-gray js_prev" type="button">
+                                    <i class="fas fa-angle-left"></i> Prev</button>
+                                <button type="button" class="btn btn-blue js_upload">Finish and Upload</button>
+                            </div>
+                        </div>
+
                         <div class="tab-pane fade" id="nav-summary" role="tabpanel" aria-labelledby="nav-profile-tab">
                             <h2 class="section-title">Summary</h2>
 
@@ -340,6 +411,36 @@
 
             Helper.pageLoadTrigger('#upload-section'); 
         </script>
+
+        <style>
+            #image-toolbar-wrap {
+                display: flex; 
+                justify-content: space-between; 
+            }
+            #image-toolbar-wrap ul {
+                display: inline-flex;
+                padding-left: 0;
+                list-style-type: none;
+            }
+
+            #image-toolbar-wrap li {
+                margin: 0 2px;
+            }
+
+            #image-toolbar-wrap label.btn.btn-sm.btn-primary {
+                padding: 4px 15px;
+                height: 32px;
+            }
+
+            #series_thumbs {
+                list-style-type: none;
+                padding: 0;
+            }
+            
+            #series_thumbs li {
+                margin-bottom: 20px;
+            }
+        </style>
 
     </section>
 </template>

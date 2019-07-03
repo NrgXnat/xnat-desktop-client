@@ -492,6 +492,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
     axios(request_settings)
     .then(async (res) => {
+        console.log({res});
         console_red('zip upload done - res')
 
         remove_cancel_token(transfer.id, series_id)
@@ -624,6 +625,8 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     })
     .catch(err => {
         let is_error = true;
+
+        console.log({err});
 
         remove_cancel_token(transfer.id, series_id)
 

@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const dicomParser = require('dicom-parser');
+
 const getSize = require('get-folder-size');
 const axios = require('axios');
 require('promise.prototype.finally').shim();
@@ -21,6 +21,38 @@ const db_uploads = require('electron').remote.require('./services/db/uploads')
 
 const electron_log = require('electron').remote.require('./services/electron_log');
 
+
+// ===================
+const dicomParser = require('dicom-parser');
+const cornerstone = require('cornerstone-core');
+
+const cornerstoneWADOImageLoader = require('cornerstone-wado-image-loader');
+let WADOImageLoaderPath = path.dirname(require.resolve('cornerstone-wado-image-loader'));
+let WADOImageLoaderWebWorkerPath = path.join(WADOImageLoaderPath, 'cornerstoneWADOImageLoaderWebWorker.js');
+let WADOImageLoaderCodecsPath = path.join(WADOImageLoaderPath, 'cornerstoneWADOImageLoaderCodecs.js');
+
+cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+
+var WADOWebWorkerConfig = {
+    webWorkerPath : WADOImageLoaderWebWorkerPath,
+    taskConfiguration: {
+        'decodeTask' : {
+            codecsPath: WADOImageLoaderCodecsPath
+        }
+    }
+};
+cornerstoneWADOImageLoader.webWorkerManager.initialize(WADOWebWorkerConfig);
+
+const cornerstoneMath = require('cornerstone-math');
+const cornerstoneTools = require('cornerstone-tools');
+const Hammer = require('hammerjs');
+
+cornerstoneTools.external.cornerstone = cornerstone;
+cornerstoneTools.external.cornerstoneMath = cornerstoneMath;
+cornerstoneTools.external.Hammer = Hammer;
+// ===================
+
 const NProgress = require('nprogress');
 NProgress.configure({ 
     trickle: false,
@@ -36,8 +68,11 @@ let pet_tracers = [];
 
 let anon_variables = {};
 
+let allow_visual_phi_check;
+
 async function _init_variables() {
     console.log(':::::::::::::: >>> UPLOAD _init_variables');
+    allow_visual_phi_check = true;
     
     xnat_server = settings.get('xnat_server');
 
@@ -105,14 +140,23 @@ async function _init_variables() {
     resseting_functions.set(3, function(){
         console.log('resseting values in tab 3');
 
+        $('#anon_variables').find(':input[required]').removeClass('is-invalid');
 
         $('#nav-verify').find('.js_next').addClass('disabled');
     });
 
-    // Summary
+    // Visual PHI Check
     resseting_functions.set(4, function(){
+        console.log('resseting values in tab 4');
+
+
+        $('#nav-visual').find('.js_next').addClass('disabled');
+    });
+
+    // Summary
+    resseting_functions.set(5, function(){
         summary_clear();
-        console.log('resseting values in tab 4')
+        console.log('resseting values in tab 5')
     });
 
     resetSubsequentTabs();
@@ -253,10 +297,112 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
 }
 
 
+// triggered when selected tab (#nav-verify) is displayed
+$(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]', function(){
+    validate_upload_form();
+    $('#nav-verify .js_next').toggleClass('hidden', !allow_visual_phi_check);
+    $('#nav-verify .js_upload').toggleClass('hidden', allow_visual_phi_check);
+
+    
+});
+
+let image_thumbnails = [];
+// triggered when selected tab (#nav-verify) is displayed
+$(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]', function(){
+    image_thumbnails = [];
+
+    console.log({selected_session_id, session_map})
+    console.log(session_map.get(selected_session_id).scans);
+    session_map.get(selected_session_id).scans.forEach(function(scan, key) {
+        image_thumbnails.push({
+            series_id: key,
+            series_description: scan[0].seriesDescription,
+            series_number: parseInt(scan[0].seriesNumber),
+            thumb_path: scan[0].filepath,
+            scans: scan.length
+        })
+    })
+
+    image_thumbnails.sort((a,b) => (a.series_number > b.series_number) ? 1 : ((b.series_number > a.series_number) ? -1 : 0));
+
+
+    cornerstoneTools.init({
+        touchEnabled: false
+    });
+
+
+    // reset
+    $('#series_thumbs').html('');
+    var element = $('#dicomImageThumb').get(0);
+    cornerstone.enable(element);
+
+    image_thumbnails.forEach(function(series) {
+        let imageId = `wadouri:http://localhost:7714/?path=${series.thumb_path}`;
+
+        console.log(imageId);
+
+        // ==== custom canvas
+        // var element = document.createElement("div");
+        // element.style.width = "250px";
+        // element.style.height = "250px";
+
+        
+
+        // load image
+        cornerstone.loadAndCacheImage(imageId)
+            .then((image) => {
+                var viewport = cornerstone.getDefaultViewportForImage(element, image);
+                cornerstone.displayImage(element, image, viewport);
+
+                var $img = $('<img>');
+                var $li = $('<li>');
+
+                console.log($(element).find("canvas"));
+
+                $img.attr('src', $(element).find("canvas").get(0).toDataURL("image/jpeg"));
+                $li.append($img);
+
+                $('#series_thumbs').append($li);
+                //$('#series_thumbs').append(element);
+            });
+    })
+
+
+    
+
+});
+
+
 $(document).on('page:load', '#upload-section', async function(e){
     console.log('Upload page:load triggered');
     
     _init_variables();
+
+    // Instance the tour
+    var tour = new Tour({
+        steps: [{
+                element: ".section-title",
+                title: "What is this?",
+                content: "A section-title"
+            },
+            {
+                element: "#upload-project-filter",
+                title: "What is this?",
+                content: "Project selection box. Lorem ipsum dolor sit amet, consectetur adipisicing elit. Quae atque suscipit veniam est officia. Consequatur accusantium voluptatum adipisci necessitatibus numquam."
+            }
+        ]
+    });
+
+    // Initialize the tour
+    //tour.init();
+
+    // Start the tour
+    // tour.start();
+    
+
+    $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', !allow_visual_phi_check);
+
+
 
     csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
     console.log(csrfToken);
@@ -560,15 +706,15 @@ $(document).on('input', '#upload_session_date', function(e) {
     }
 });
 
-$(document).on('click', '.js_upload', function() {
-    let selected = $('#image_session').bootstrapTable('getSelections');
-
-    let $required_inputs = $('#anon_variables').find(':input[required]');
+function validate_upload_form() {
     let required_input_error = false;
+
+    let selected = $('#image_session').bootstrapTable('getSelections');
+    let $required_inputs = $('#anon_variables').find(':input[required]');
 
     if ($('#experiment_label').hasClass('is-invalid')) {
         $('#experiment_label').focus();
-        return false;
+        required_input_error = true;
     }
 
     $required_inputs.each(function(){
@@ -576,10 +722,26 @@ $(document).on('click', '.js_upload', function() {
             $(this).addClass('is-invalid');
             required_input_error = true;
         }
-    })
-    
-    
-    if (selected.length && !required_input_error) {
+    });
+
+    if (selected.length === 0) {
+        required_input_error = true;
+    }
+
+    $('#nav-verify .js_next').toggleClass('disabled', required_input_error);
+
+    return required_input_error;
+}
+
+
+
+
+$(document).on('click', '.js_upload', function() {
+    let upload_form_error = validate_upload_form();
+
+    if (!upload_form_error) {
+        let selected = $('#image_session').bootstrapTable('getSelections');
+
         let selected_series = selected.map(function(item){
             return item.series_id;
         });
@@ -620,11 +782,15 @@ $(document).on('click', '.js_upload', function() {
     
 
 });
+
 $(document).on('input', '#anon_variables :input[required]', function(e){
-    let $input = $(this);
-    $input.on('input', function(){
-        $input.removeClass('is-invalid');
-    });
+    $(this).removeClass('is-invalid');
+    validate_upload_form();
+});
+
+$(document).on('change click', '#upload-section #nav-verify .bs-checkbox :checkbox', function(e) {
+    resetSubsequentTabs();
+    validate_upload_form();
 });
 
 

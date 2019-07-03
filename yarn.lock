@@ -394,6 +394,13 @@ bootstrap-table@^1.12.1:
   version "1.12.1"
   resolved "https://registry.yarnpkg.com/bootstrap-table/-/bootstrap-table-1.12.1.tgz#c9c3973067842a937c05d8639ecccb02abd6ba65"
 
+bootstrap-tour@^0.12.0:
+  version "0.12.0"
+  resolved "https://registry.yarnpkg.com/bootstrap-tour/-/bootstrap-tour-0.12.0.tgz#c56eb48debe9cf788378a20184ef5a761b13b650"
+  dependencies:
+    bootstrap "~3"
+    jquery ">=1.8"
+
 bootstrap4-tagsinput-douglasanpa@^4.1.2:
   version "4.1.2"
   resolved "https://registry.yarnpkg.com/bootstrap4-tagsinput-douglasanpa/-/bootstrap4-tagsinput-douglasanpa-4.1.2.tgz#01a0451ceef6e17a2b90ad88a07cdc407f64b06f"
@@ -401,6 +408,10 @@ bootstrap4-tagsinput-douglasanpa@^4.1.2:
 bootstrap@^4.0.0:
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/bootstrap/-/bootstrap-4.0.0.tgz#ceb03842c145fcc1b9b4e15da2a05656ba68469a"
+
+bootstrap@~3:
+  version "3.4.1"
+  resolved "https://registry.yarnpkg.com/bootstrap/-/bootstrap-3.4.1.tgz#c3a347d419e289ad11f4033e3c4132b87c081d72"
 
 boxen@^1.2.1:
   version "1.3.0"
@@ -2016,6 +2027,10 @@ java@^0.9.0:
 jquery@>=1.6.0, jquery@^3.3.1:
   version "3.3.1"
   resolved "https://registry.yarnpkg.com/jquery/-/jquery-3.3.1.tgz#958ce29e81c9790f31be7792df5d4d95fc57fbca"
+
+jquery@>=1.8:
+  version "3.4.1"
+  resolved "https://registry.yarnpkg.com/jquery/-/jquery-3.4.1.tgz#714f1f8d9dde4bdfa55764ba37ef214630d80ef2"
 
 js-base64@^2.1.8:
   version "2.4.3"

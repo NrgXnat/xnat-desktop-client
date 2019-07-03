@@ -66,6 +66,28 @@ $(document).on('change', 'input[name="left_click"]', function(){
 })
 
 
+$(document).on('cornerstonetoolsmeasurementadded', '#dicomImage', (e) => {
+    // Making sure this is the type is 'freehand' 
+    // which is the tool used for drawing ROI
+    // if (e.detail.toolType == 'freehand')
+    //   // Changing the color.
+    //   e.detail.measurementData.color = this.pickColor
+
+    console.log({event_details: e.detail});
+});
+
+
+$(document).on('cornerstonetoolsmeasurementcompleted', '#dicomImage', (e) => {
+    // Making sure this is the type is 'freehand' 
+    // which is the tool used for drawing ROI
+    // if (e.detail.toolType == 'freehand')
+    //   // Changing the color.
+    //   e.detail.measurementData.color = this.pickColor
+
+    console.log({event_details: e.detail});
+});
+
+
 function dynamicExample() {
     // var element = $('#dicomImage').get(0);
     // cornerstone.enable(element);
@@ -176,6 +198,7 @@ function dynamicExample() {
         const LengthTool = cornerstoneTools.LengthTool;
         cornerstoneTools.addTool(LengthTool);
         cornerstoneTools.setToolActive("Length", { mouseButtonMask: 1 });
+        cornerstoneTools.addToolState(element, 'Length', {x: 0});
 
         const RectangleRoiTool = cornerstoneTools.RectangleRoiTool;
         cornerstoneTools.addTool(RectangleRoiTool);
@@ -194,12 +217,13 @@ function dynamicExample() {
 
 
 
-        setInterval(() => {
-            var element = $('#dicomImage').get(0);
-            var tool_state = cornerstoneTools.getElementToolStateManager(element)
-            let current_index = tool_state.toolState.stack.data[0].currentImageIdIndex;
-            console.log({currentImageIdIndex: current_index});
-        }, 1000);
+        // setInterval(() => {
+        //     var element = $('#dicomImage').get(0);
+        //     var tool_state = cornerstoneTools.getElementToolStateManager(element)
+        //     let current_index = tool_state.toolState.stack.data[0].currentImageIdIndex;
+        //     let toolState = tool_state.toolState;
+        //     console.log({current_index: tool_state.toolState.stack});
+        // }, 1000);
         
 
         // =====================================

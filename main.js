@@ -153,9 +153,9 @@ function initialize () {
       mainWindow.maximize()
       require('devtron').install()
 
-      // uploadWindow.show()
-      // uploadWindow.webContents.openDevTools()
-      // uploadWindow.maximize()
+      uploadWindow.show()
+      uploadWindow.webContents.openDevTools()
+      uploadWindow.maximize()
 
       // downloadWindow.show()
       // downloadWindow.webContents.openDevTools()
