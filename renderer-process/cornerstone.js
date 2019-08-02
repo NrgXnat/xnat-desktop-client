@@ -58,6 +58,61 @@ $(document).on('page:load', '#cornerstone-section', function(e){
     // staticExample()
 
     dynamicExample()
+
+    $('#dicomImage').off('cornerstonetoolsmeasurementcompleted').on('cornerstonetoolsmeasurementcompleted', (e) => {
+        // Making sure this is the type is 'freehand' 
+        // which is the tool used for drawing ROI
+        // if (e.detail.toolType == 'freehand')
+        //   // Changing the color.
+        //   e.detail.measurementData.color = this.pickColor
+    
+        console.log({event_details: e.detail});
+    });
+
+    $('#dicomImage').off('cornerstonetoolsmeasurementadded').on('cornerstonetoolsmeasurementadded', (e) => {
+        // Making sure this is the type is 'freehand' 
+        // which is the tool used for drawing ROI
+        // if (e.detail.toolType == 'freehand')
+        //   // Changing the color.
+        //   e.detail.measurementData.color = this.pickColor
+    
+        //console.log({event_details: e.detail});
+    });
+
+    $('#get_tool_state').on('click', function() {
+        var element = $('#dicomImage').get(0);
+        var tool_state = cornerstoneTools.getElementToolStateManager(element);
+        
+
+        
+
+        let toolState = tool_state.get(element, 'RectangleRoi');
+        let new_data = JSON.parse(JSON.stringify(toolState.data[0]));
+
+        new_data.handles.start.x = 10;
+        new_data.handles.start.y = 10;
+        new_data.handles.end.x = 50;
+        new_data.handles.end.y = 50;
+
+        console.log({new_data});
+
+        cornerstoneTools.addToolState(element, 'RectangleRoi', new_data)
+
+        window.dispatchEvent(new Event('resize'))
+        
+        
+        toolState = tool_state.get(element, 'RectangleRoi');
+
+        console.log({toolState})
+        let all_rects = [];
+        for(let i = 0; i < toolState.data.length; i++) {
+            all_rects.push({
+                start: toolState.data[0].handles.start,
+                end: toolState.data[0].handles.end
+            })
+        }
+        console.log({all_rects});
+    })
 });
 
 $(document).on('change', 'input[name="left_click"]', function(){
@@ -66,26 +121,10 @@ $(document).on('change', 'input[name="left_click"]', function(){
 })
 
 
-$(document).on('cornerstonetoolsmeasurementadded', '#dicomImage', (e) => {
-    // Making sure this is the type is 'freehand' 
-    // which is the tool used for drawing ROI
-    // if (e.detail.toolType == 'freehand')
-    //   // Changing the color.
-    //   e.detail.measurementData.color = this.pickColor
-
-    console.log({event_details: e.detail});
-});
 
 
-$(document).on('cornerstonetoolsmeasurementcompleted', '#dicomImage', (e) => {
-    // Making sure this is the type is 'freehand' 
-    // which is the tool used for drawing ROI
-    // if (e.detail.toolType == 'freehand')
-    //   // Changing the color.
-    //   e.detail.measurementData.color = this.pickColor
 
-    console.log({event_details: e.detail});
-});
+
 
 
 function dynamicExample() {
@@ -120,6 +159,7 @@ function dynamicExample() {
         // load images and set the stack
         cornerstone.loadAndCacheImage(imageIds[0])
             .then((image) => {
+                console.log({image})
                 var viewport = cornerstone.getDefaultViewportForImage(element, image);
                 cornerstone.displayImage(element, image, viewport)
                 cornerstoneTools.addStackStateManager(element, ['stack'])

@@ -70,6 +70,8 @@ let anon_variables = {};
 
 let allow_visual_phi_check;
 
+let resizing_tm;
+
 async function _init_variables() {
     console.log(':::::::::::::: >>> UPLOAD _init_variables');
     allow_visual_phi_check = true;
@@ -309,10 +311,12 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]'
 let image_thumbnails = [];
 // triggered when selected tab (#nav-verify) is displayed
 $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]', function(){
+    $('.main-title').focus()
+
     image_thumbnails = [];
 
-    console.log({selected_session_id, session_map})
-    console.log(session_map.get(selected_session_id).scans);
+    //console.log({selected_session_id, session_map})
+    console.log({xxx_scans: session_map.get(selected_session_id).scans.get('1.2.840.113654.2.45.2.109191')});
     session_map.get(selected_session_id).scans.forEach(function(scan, key) {
         image_thumbnails.push({
             series_id: key,
@@ -333,72 +337,399 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]'
 
     // reset
     $('#series_thumbs').html('');
-    var element = $('#dicomImageThumb').get(0);
-    cornerstone.enable(element);
+    image_thumbnails.map(el => {
+        $('#series_thumbs').append(`<li id="LI_${el.series_id}">`);
+    });
 
-    image_thumbnails.forEach(function(series) {
+    console.log({image_thumbnails});
+    
+    image_thumbnails.forEach(function(series, index) {
+        var element = document.createElement('div');
+        
+        element.style.cssText = "width: 150px; height: 150px;";
+        document.body.appendChild(element);
+
+        cornerstone.enable(element);
+
         let imageId = `wadouri:http://localhost:7714/?path=${series.thumb_path}`;
 
-        console.log(imageId);
-
-        // ==== custom canvas
-        // var element = document.createElement("div");
-        // element.style.width = "250px";
-        // element.style.height = "250px";
-
-        
 
         // load image
         cornerstone.loadAndCacheImage(imageId)
             .then((image) => {
+                
+                //console.log({image})
                 var viewport = cornerstone.getDefaultViewportForImage(element, image);
                 cornerstone.displayImage(element, image, viewport);
 
-                var $img = $('<img>');
-                var $li = $('<li>');
+                setTimeout(function() {
+                    var $img = $('<img>');
+                    let img_data_src = $(element).find("canvas").get(0).toDataURL();
+                    $img.attr('src', img_data_src);
+                    $img.attr('id', 'ID_' + series.series_id.replace(/\./g, '_'));
+                    $img.attr('data-series_id', series.series_id);
+                    $img.attr('data-order', index);
+                    $img.attr('data-path', series.thumb_path);
 
-                console.log($(element).find("canvas"));
+                    $img.attr('draggable', true);
+                    //$img.attr('ondragstart', "dragstart_dicom(event)")
 
-                $img.attr('src', $(element).find("canvas").get(0).toDataURL("image/jpeg"));
-                $li.append($img);
+                    $img.on('dragstart', function (event) {
+                        dragstart_dicom(event.originalEvent)
+                    });
 
-                $('#series_thumbs').append($li);
-                //$('#series_thumbs').append(element);
+                    var $div = $('<div>');
+                    $div.append($img);
+
+                    console.log({series});
+                    
+                    //$div.append(`<p style="text-align: center">S:${series.series_number}  (F:${series.scans})</p>`)
+                    $div.append(`<div style="text-align: center; font-size: 12px; color: #9ccef9; margin: 3px 0 35px; position: relative;">
+                        <div style="float: left;">S:${series.series_number} </div>
+                        <div style="float: right;">F:${series.scans}</div>
+                        <div style="position: absolute; top: -30px; right: 1px;" class="green_mark">
+                            <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24" 
+                            class="ng-element" data-id="96fa9fda3ac34ae1a658b748b35654f0" 
+                            style="opacity: 1; mix-blend-mode: normal; fill: rgb(23, 209, 6); width: 24px; height: 24px;
+                            "><g><path xmlns:default="http://www.w3.org/2000/svg" 
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
+                            style="fill: rgb(23, 209, 6);"></path></g></svg>
+                        </div>
+                    </div>`)
+
+                    $('#series_thumbs li').eq(index).append($div);
+
+                    document.body.removeChild(element);
+                }, 100);
+                
             });
+    });
+
+    // Load first image
+    load_dicom_image(image_thumbnails[0].series_id);
+    $('#series_thumbs li').eq(0).addClass('highlite-outline');
+
+    $("html, body").stop().animate({scrollTop:0}, 50);
+
+
+    var anno2 = new Anno([{
+        target  : '#series_thumbs', // second block of code
+        position: 'top',
+        content : 'This pane shows scan thumbnails. Drag a thumbnail into the viewer pane to view it. ',
+        className: 'pera-klasa'
+      }, {
+        target  : '#dicom_image_container',
+        position: 'center-top',
+        content : 'This pane is the viewer. Scroll on this pane or click and drag up and down using the "Scroll Stack" tool to move through the image stack. ',
+      }, {
+        target  : '#dicom_image_tools',
+        position: 'top',
+        content : 'This is the toolbar. Toggle between tools to change how you use the viewer. Use "Select Area" to select an area to black out PHI.'
+      }, {
+        target  : '#scans_save_toolbar',
+        position: 'center-top',
+        content : 'When you have completed your review, use these controls to save or remove your changes to each scan, or mark it okay as is.'
+      }]);
+
+    if(!store.has('dicom_viewer_tour_shown')) {
+        store.set('dicom_viewer_tour_shown',  true);
+        anno2.show();
+    }
+
+    $('#show_div_tour').on('click', function(e) {
+        e.preventDefault();
+        anno2.show();
     })
 
+    $('#save-scan-btn').off('click').on('click', function() {
+        var element = $('#dicom_image_container').get(0);
+        let toolState = get_tool_state(element, 'RectangleOverlay')
 
-    
+        console.log({toolState})
+        let all_rects = [];
+        if (toolState !== undefined) {
+            for(let i = 0; i < toolState.data.length; i++) {
+                all_rects.push({
+                    start: toolState.data[0].handles.start,
+                    end: toolState.data[0].handles.end
+                })
+            }
+        }
+
+        let series_id = get_current_series_id();
+
+        $('#series_thumbs li.highlite-outline').find('.green_mark').show();
+        
+        console.log({series_id, all_rects});
+    })
 
 });
 
+function get_tool_state(element, tool) {
+    var tool_state = cornerstoneTools.getElementToolStateManager(element);
+    return tool_state.get(element, tool);
+}
+
+
+
+
+$(document).on('dragover', '#dicom_image_container', function(event) {
+    dragover_dicom(event.originalEvent)
+})
+$(document).on('drop', '#dicom_image_container', function(event) {
+    drop_dicom(event.originalEvent)
+})
+
+$(document).on('click', '#series_thumbs img', function() {
+    console.log(this.id);
+});
+
+function dragstart_dicom(ev) {
+	// Add the target element's id to the data transfer object
+	console.log(ev.target.id, $(ev.target).attr('data-path'), $(ev.target).data('path'))
+
+	ev.dataTransfer.setData("dicomimg/id", ev.target.id);
+	ev.dataTransfer.setData("dicomimg/path", $(ev.target).attr('data-path'));
+	ev.dataTransfer.setData("dicomimg/series_id", $(ev.target).attr('data-series_id'));
+	ev.dataTransfer.dropEffect = "link";
+}
+
+function dragover_dicom(ev) {
+	ev.preventDefault();
+	ev.dataTransfer.dropEffect = "link";
+}
+
+function drop_dicom(ev) {
+	ev.preventDefault();
+	// Get the id of the target and add the moved element to the target's DOM
+
+	console.log(ev.dataTransfer.getData("dicomimg/id"))
+    console.log(ev.dataTransfer.getData("dicomimg/path"))
+    console.log(ev.dataTransfer.getData("dicomimg/series_id"))
+    
+    var id = "#" + ev.dataTransfer.getData("dicomimg/id");
+    $(id).closest('li').addClass('highlite-outline').siblings().removeClass('highlite-outline');
+
+	load_dicom_image(ev.dataTransfer.getData("dicomimg/series_id"))
+}
+
+$(document).on('click', '#dicom_image_tools a', function(e){
+    e.preventDefault();
+
+    // disable current tool
+    let active_tool = $('#dicom_image_tools a.active').data('tool');
+    cornerstoneTools.setToolEnabled(active_tool);
+
+    
+    // enable selected tool
+    let tool_name = $(this).data('tool');
+    if (tool_name === 'StackScrollMouseWheel') {
+        cornerstoneTools.setToolActive(tool_name, {});
+    } else {
+        cornerstoneTools.setToolActive(tool_name, {mouseButtonMask: 1});
+    }
+
+    // update UI
+    $('#dicom_image_tools a').removeClass('active');
+    $(this).addClass('active');
+})
+
+function get_series_files(series_id) {
+    let files = [];
+    let series_scans = session_map.get(selected_session_id).scans.get(series_id);
+    console.log({series_scans});
+
+    //series_scans.sort((a,b) => (a.filepath > b.filepath) ? 1 : ((b.filepath > a.filepath) ? -1 : 0));
+    series_scans.sort((a,b) => a.filepath.localeCompare(b.filepath));
+     
+    series_scans.forEach(function(scan) {
+        files.push(scan.filepath);
+    });
+
+    console.log({files});
+    return files;
+}
+
+
+
+function load_dicom_image(series_id) {
+    let _files = get_series_files(series_id);
+    const imageIds = _files.map(file => `wadouri:http://localhost:7714/?path=${file}`);
+
+    let element = $('#dicom_image_container').get(0);
+    cornerstone.enable(element);
+    //let imageId = `wadouri:http://localhost:7714/?path=${path}`;
+
+
+    const ZoomTool = cornerstoneTools.ZoomTool;
+    cornerstoneTools.addTool(ZoomTool);
+    //cornerstoneTools.setToolActive("Zoom", {mouseButtonMask: 1});
+    
+    const PanTool = cornerstoneTools.PanTool;
+    cornerstoneTools.addTool(PanTool);
+    
+    const RectangleOverlayTool = cornerstoneTools.RectangleOverlayTool;
+    cornerstoneTools.addTool(RectangleOverlayTool);
+    cornerstoneTools.setToolActive("RectangleOverlay", {mouseButtonMask: 1});
+
+
+    
+
+    element.addEventListener("cornerstonetoolsmeasurementadded", handle_measurement_update);
+    
+    element.addEventListener("cornerstonetoolsmeasurementmodified", handle_measurement_update);
+    
+    element.addEventListener("cornerstonetoolsmeasurementcompleted", handle_measurement_update);
+
+    element.addEventListener("cornerstonetoolsmeasurementremoved", handle_measurement_update);
+
+    element.addEventListener("cornerstonetoolskeypress", handle_measurement_update);
+
+    element.addEventListener("cornerstonetoolsmousewheel", handle_stack_scroll);
+
+    //element.addEventListener("cornerstonetoolsstackscroll", handle_stack_scroll);
+
+    //define the stack
+    const stack = {
+        currentImageIdIndex: 0,
+        imageIds
+    };
+
+    cornerstone.loadAndCacheImage(imageIds[0])
+        .then((image) => {
+            console.log({image})
+            var viewport = cornerstone.getDefaultViewportForImage(element, image);
+            cornerstone.displayImage(element, image, viewport);
+
+            cornerstoneTools.addStackStateManager(element, ['stack'])
+            cornerstoneTools.addToolState(element, 'stack', stack);
+
+        });
+
+    const StackScrollMouseWheelTool = cornerstoneTools.StackScrollMouseWheelTool;
+    cornerstoneTools.addTool(StackScrollMouseWheelTool)
+    cornerstoneTools.setToolActive('StackScrollMouseWheel', {});
+}
+
+function handle_stack_scroll(e) {
+    console.log('STACK_SCROLL:', e)
+
+    let series_id = get_current_series_id();
+    let element = e.srcElement;
+
+    let rectangle_state = find_registry_state(series_id);
+
+    if (rectangle_state !== undefined) {
+        cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+        
+        rectangle_state.data.forEach(state => {
+            // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
+
+            const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
+            toolStateManager.add(element, 'RectangleOverlay', state);
+        });
+
+        setTimeout(() => {
+            window.dispatchEvent(new Event('resize'));
+        }, 200)
+        
+    }
+}
+
+let rectangle_state_registry = [];
+let event_timeout;
+function handle_measurement_update(e) {
+    clearTimeout(event_timeout);
+    event_timeout = setTimeout(() => {
+        console.log(`EVENT DATA:`, e);
+        console.log(`TYPE: ${e.type}`);
+        console.log('DATA:', e.detail.measurementData);
+
+
+        let series_id = get_current_series_id();
+        let element = e.srcElement;
+        
+        let toolState = get_tool_state(element, 'RectangleOverlay');
+
+
+        if (toolState !== undefined) {
+            let state_data = {
+                series_id: series_id,
+                data: toolState.data
+            };
+
+            let rectangle_state = find_registry_state(series_id);
+
+            if (rectangle_state !== undefined) {
+                console.log({toolState_data: toolState.data});
+                rectangle_state.data = toolState.data
+            } else {
+                rectangle_state_registry.push(state_data)
+            }
+
+            console.log({data_0: rectangle_state_registry[0].data});
+        }
+        
+        //const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
+        //toolStateManager.clearToolState(element, 'RectangleOverlay')
+        //cornerstoneTools.addToolState(element, 'RectangleOverlay', new_data)
+    }, 100);
+}
+
+
+
+function find_registry_state(series_id) {
+    return rectangle_state_registry.find((el) => el.series_id === series_id)
+}
+
+function get_current_series_id() {
+    return $('#series_thumbs li.highlite-outline').find('img[data-series_id]').data('series_id');
+}
 
 $(document).on('page:load', '#upload-section', async function(e){
     console.log('Upload page:load triggered');
+
+    rectangle_state_registry = [];
+
+    //Modal
+    $('#closeBtn').on('click', function (e) {
+        $('#fullscreenModal').modal('hide')
+    });
+    $('#fullscreenModal').on('show.bs.modal', function (e) {
+        $('body').addClass('dicomImageViewerFS');
+        var contentCut = $("#fullscreenContent").detach()
+        contentCut.appendTo("#fullscreenModal .modal-body");
+        $('#series_thumbs').css('max-height', `${($(window).height() - 41 - 70 - 20)}px`);
+        $('#dicom_image_container').css('height', `${($(window).height() - 41 - 70)}px`);
+    })
+
+    $('#fullscreenModal').on('hide.bs.modal', function (e) {
+        var contentCutAgain = $(".modal-body #fullscreenContent").detach()
+        contentCutAgain.appendTo("#fullscreenMode .container .row")
+        $('body').removeClass('dicomImageViewerFS');
+
+        $('#series_thumbs').css('max-height', '480px');
+        $('#dicom_image_container').css('height', `500px`);
+    })
+
+    $('#fullscreenModal').on('hidden.bs.modal shown.bs.modal', function (e) {
+        window.dispatchEvent(new Event('resize'))
+    })
+
+    
+    $(window).on('resize', function() {
+        console.log('trigger resize EVENT');
+        clearTimeout(resizing_tm);
+        resizing_tm = setTimeout(() => {
+            console.log('resize EVENT');
+            
+            $('.dicomImageViewerFS #series_thumbs').css('max-height', `${($(window).height() - 41 - 70 - 20)}px`);
+            $('.dicomImageViewerFS #dicom_image_container').css('height', `${($(window).height() - 41 - 70)}px`);
+        }, 20);
+    });
     
     _init_variables();
 
-    // Instance the tour
-    var tour = new Tour({
-        steps: [{
-                element: ".section-title",
-                title: "What is this?",
-                content: "A section-title"
-            },
-            {
-                element: "#upload-project-filter",
-                title: "What is this?",
-                content: "Project selection box. Lorem ipsum dolor sit amet, consectetur adipisicing elit. Quae atque suscipit veniam est officia. Consequatur accusantium voluptatum adipisci necessitatibus numquam."
-            }
-        ]
-    });
-
-    // Initialize the tour
-    //tour.init();
-
-    // Start the tour
-    // tour.start();
-    
 
     $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', !allow_visual_phi_check);
 
@@ -1069,28 +1400,28 @@ function get_form_value(field, data) {
 }
 
 
-$.queue = {
+$.queuer = {
     _timer: null,
     _queue: [],
     add: function(fn, context, time) {
         var setTimer = function(time) {
-            $.queue._timer = setTimeout(function() {
-                time = $.queue.add();
-                if ($.queue._queue.length) {
+            $.queuer._timer = setTimeout(function() {
+                time = $.queuer.add();
+                if ($.queuer._queue.length) {
                     setTimer(time);
                 }
             }, time || 0);
         }
 
         if (fn) {
-            $.queue._queue.push([fn, context, time]);
-            if ($.queue._queue.length == 1) {
+            $.queuer._queue.push([fn, context, time]);
+            if ($.queuer._queue.length == 1) {
                 setTimer(time);
             }
             return;
         }
 
-        var next = $.queue._queue.shift();
+        var next = $.queuer._queue.shift();
         if (!next) {
             return 0;
         }
@@ -1098,8 +1429,8 @@ $.queue = {
         return next[2];
     },
     clear: function() {
-        clearTimeout($.queue._timer);
-        $.queue._queue = [];
+        clearTimeout($.queuer._timer);
+        $.queuer._queue = [];
     }
 };
 
@@ -1152,7 +1483,7 @@ function dicomParse(_files, root_path) {
     });
 
     let timer_start;
-    $.queue.add(function(){
+    $.queuer.add(function(){
         timer_start = performance.now();
         console.time('dicomParse');
     }, this);
@@ -1262,8 +1593,8 @@ function dicomParse(_files, root_path) {
             $progress_bar.attr('value', i_max);
         };
 
-        $.queue.add(parse_file_bundle, this);
-        $.queue.add(show_bundle_progress, this);
+        $.queuer.add(parse_file_bundle, this);
+        $.queuer.add(show_bundle_progress, this);
     }
     
 
@@ -1298,7 +1629,7 @@ function dicomParse(_files, root_path) {
     };
 
     // for testing only - skipping 
-    // $.queue.add(display_results, this);
+    // $.queuer.add(display_results, this);
 
     let handle_results = function(){
 
@@ -1400,9 +1731,9 @@ function dicomParse(_files, root_path) {
     };
 
 
-    $.queue.add(handle_results, this);
+    $.queuer.add(handle_results, this);
 
-    $.queue.add(function(){
+    $.queuer.add(function(){
         console.log(session_map);
         
     }, this);
