@@ -66,7 +66,6 @@ let Helper = {
                 try {
                     msg =  `An error occured. Please try again. (${JSON.stringify(error.response, undefined, 2)})`;
                 } catch (e) {
-                    console.log({helper_error: error})
                     msg =  `An error occured. Please try again. (${error.response.status})`;
                 }
             }
