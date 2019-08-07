@@ -266,7 +266,7 @@ function _init_session_selection_table(tbl_data) {
                 formatter: function(value, row, index, field) {
                     return `
                     <button data-session_id="${row.id}" type="button" 
-                        class="btn btn-primary btn-sm" 
+                        class="btn btn-blue btn-sm" 
                         style="margin: 2px 0;">Select</button>
                     
                     `;
