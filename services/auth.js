@@ -180,7 +180,7 @@ let auth = {
                 }).then(resp => {
                     let csrfTokenRequestData = resp.data
                     let m, csrfToken = false
-                    const regex = /var csrfToken = '(.+?)';/g
+                    const regex = /var csrfToken = ['"](.+?)['"];/g
     
                     while ((m = regex.exec(csrfTokenRequestData)) !== null) {
                         // This is necessary to avoid infinite loops with zero-width matches
