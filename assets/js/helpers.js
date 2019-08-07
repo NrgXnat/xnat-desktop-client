@@ -63,7 +63,11 @@ let Helper = {
                     msg = 'Invalid XNAT server address!';
                     break;
                 default:
+                try {
                     msg =  `An error occured. Please try again. (${JSON.stringify(error.response, undefined, 2)})`;
+                } catch (e) {
+                    msg =  `An error occured. Please try again. (${error.response.status})`;
+                }
             }
 
         } else if (error.request) {
