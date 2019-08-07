@@ -183,3 +183,41 @@ body>.ui-pnotify {
     max-height: 300px;
     overflow: auto;
 }
+
+// SWEETALERT style FIX
+.swal-modal {
+    border-radius: 0;
+}
+.swal-footer {
+    margin-top: 30px;
+    background: #f4f4f4;
+}
+.swal-button {
+    @extend .btn;
+}
+.swal-button--confirm {
+    @extend .btn-blue;
+}
+.swal-button--cancel {
+    @extend .btn-gray;
+}
+// END sweetalrt FIX
+
+.nav-tabs {
+    border-bottom: 6px solid #1A75BB;
+}
+.nav-tabs .nav-item {
+    margin-bottom: 0.5px;
+    margin-right: 4px;
+    border-bottom: none !important;
+}
+
+// Processing message
+.blockUI.blockMsg.blockPage {
+    border-radius: 0 !important;
+}
+
+// Pnotify
+.stack-bar-bottom {
+    margin-bottom: 10px;
+}
