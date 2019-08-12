@@ -1025,6 +1025,8 @@ function dicomParse(_files, root_path) {
                             const seriesDescription = dicom.string('x0008103e');
                             const seriesInstanceUid = dicom.string('x0020000e');
                             const seriesNumber = dicom.string('x00200011');
+
+                            const SOPInstanceUID = dicom.string('x00080018');
                             
                             // ++++
                             const modality = dicom.string('x00080060');
@@ -1058,7 +1060,11 @@ function dicomParse(_files, root_path) {
                             let file_name = path.basename(file);
                             let file_size = getFilesizeInBytes(file);
                             let my_scans = session_map.get(studyInstanceUid).scans.get(seriesInstanceUid);
-                            let filtered = my_scans.filter(el => el.filename === file_name && el.filesize === file_size);
+                            let filtered = my_scans.filter(el => 
+                                el.filename === file_name && 
+                                el.filesize === file_size && 
+                                el.SOPInstanceUID === SOPInstanceUID
+                            );
             
                             // only add unique files
                             if (filtered.length === 0) {
@@ -1069,7 +1075,8 @@ function dicomParse(_files, root_path) {
                                     seriesDescription: seriesDescription,
                                     seriesInstanceUid: seriesInstanceUid,
                                     seriesNumber: seriesNumber,
-                                    modality: modality
+                                    modality: modality,
+                                    SOPInstanceUID: SOPInstanceUID
                                 }); 
                             }
                                        
