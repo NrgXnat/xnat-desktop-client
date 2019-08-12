@@ -198,6 +198,7 @@ body>.ui-pnotify {
 }
 .swal-button {
     @extend .btn;
+    @extend .btn-blue;
 }
 .swal-button--confirm {
     @extend .btn-blue;

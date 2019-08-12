@@ -1166,6 +1166,8 @@ $(document).on('click', '.js_clear_finished', function(){
         dangerMode: true
     }
 
+    /*
+
     my_buttons = {
         all: "Yes",
         cancel: "Cancel"
@@ -1179,6 +1181,8 @@ $(document).on('click', '.js_clear_finished', function(){
         closeOnEsc: false,
         dangerMode: true
     }
+
+    */
 
     swal(xxx)
         .then((toClear) => {
