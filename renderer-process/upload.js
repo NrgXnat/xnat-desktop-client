@@ -996,28 +996,28 @@ function get_form_value(field, data) {
 }
 
 
-$.queue = {
+$.queuer = {
     _timer: null,
     _queue: [],
     add: function(fn, context, time) {
         var setTimer = function(time) {
-            $.queue._timer = setTimeout(function() {
-                time = $.queue.add();
-                if ($.queue._queue.length) {
+            $.queuer._timer = setTimeout(function() {
+                time = $.queuer.add();
+                if ($.queuer._queue.length) {
                     setTimer(time);
                 }
             }, time || 0);
         }
 
         if (fn) {
-            $.queue._queue.push([fn, context, time]);
-            if ($.queue._queue.length == 1) {
+            $.queuer._queue.push([fn, context, time]);
+            if ($.queuer._queue.length == 1) {
                 setTimer(time);
             }
             return;
         }
 
-        var next = $.queue._queue.shift();
+        var next = $.queuer._queue.shift();
         if (!next) {
             return 0;
         }
@@ -1025,8 +1025,8 @@ $.queue = {
         return next[2];
     },
     clear: function() {
-        clearTimeout($.queue._timer);
-        $.queue._queue = [];
+        clearTimeout($.queuer._timer);
+        $.queuer._queue = [];
     }
 };
 
@@ -1079,7 +1079,7 @@ function dicomParse(_files, root_path) {
     });
 
     let timer_start;
-    $.queue.add(function(){
+    $.queuer.add(function(){
         timer_start = performance.now();
         console.time('dicomParse');
     }, this);
@@ -1189,8 +1189,8 @@ function dicomParse(_files, root_path) {
             $progress_bar.attr('value', i_max);
         };
 
-        $.queue.add(parse_file_bundle, this);
-        $.queue.add(show_bundle_progress, this);
+        $.queuer.add(parse_file_bundle, this);
+        $.queuer.add(show_bundle_progress, this);
     }
     
 
@@ -1225,7 +1225,7 @@ function dicomParse(_files, root_path) {
     };
 
     // for testing only - skipping 
-    // $.queue.add(display_results, this);
+    // $.queuer.add(display_results, this);
 
     let handle_results = function(){
 
@@ -1327,9 +1327,9 @@ function dicomParse(_files, root_path) {
     };
 
 
-    $.queue.add(handle_results, this);
+    $.queuer.add(handle_results, this);
 
-    $.queue.add(function(){
+    $.queuer.add(function(){
         console.log(session_map);
         
     }, this);
