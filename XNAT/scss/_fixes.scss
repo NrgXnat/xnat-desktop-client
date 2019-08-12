@@ -122,7 +122,11 @@ progress[value] {
 .project-subjects-holder {
     display: none;
 }
+
 #found_sessions {
+    .fixed-table-container[style^="height"] & {
+        margin-bottom: 42px !important;
+    }
     td.break-all {
         word-break: break-all;
     }
