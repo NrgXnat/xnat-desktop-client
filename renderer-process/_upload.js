@@ -589,6 +589,14 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                 if (num_updated) {
                     Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
                     nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
+                    
+                    ipc.send('progress_cell', {
+                        table: '#upload_monitor_table',
+                        id: transfer.id,
+                        field: 'status',
+                        value: 'finished'
+                    });
+                    
                     ipc.send('upload_finished', transfer.id);
                 }
             })
@@ -614,6 +622,14 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                             if (num_updated) {
                                 Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
                                 nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
+                                
+                                ipc.send('progress_cell', {
+                                    table: '#upload_monitor_table',
+                                    id: transfer.id,
+                                    field: 'status',
+                                    value: 'finished'
+                                });
+
                                 ipc.send('upload_finished', transfer.id);
                             }
                         });
@@ -830,9 +846,9 @@ function mark_uploaded(transfer_id, series_id) {
                 table: '#upload_monitor_table',
                 id: transfer_id,
                 field: "status",
-                value: new_status
+                value: (finished / total * 100)
             });
-
+            
             db_uploads().update({ id: transfer_id }, {$set: {
                     status: new_status, 
                     series_ids: transfer.series_ids,
