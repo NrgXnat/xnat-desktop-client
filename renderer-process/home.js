@@ -136,7 +136,7 @@ $(document).on('click', '.js_download_session_files', async function(){
     }
 
     if (error_message.length) {
-        $alert.show().find('.error_message').text(error_message);
+        $alert.show().find('.error_message').html(error_message);
     } else {
         $alert.hide();
     }
@@ -167,8 +167,7 @@ async function attempt_download(file_path, destination) {
         
     } catch(err) {
         electron_log.error('Download Destination Permission Error', err);
-        swal('Permission Error', `Path "${destination}" is not writeable. Please choose a different destination path.`, 'error');
-        return;
+        throw new Error(`Destination "${destination}" is not writable. Please choose a different destination path.`);
     }
 
     
@@ -196,11 +195,11 @@ async function attempt_download(file_path, destination) {
         throw new Error('File reading error. Please choose another XML manifest file.');
     }
 
-    let parsing_error_message = 'An error occurred while parsing manifest file! Please try again or use another manifest file.';
+    let parsing_error_message = 'An error occurred while parsing manifest file! Please try again, use another manifest file or check the documentation (<a href="https://wiki.xnat.org/xnat-tools/xnat-desktop-client-dxm/downloading-image-sessions">Downloading Image Sessions</a>).';
 
     parser.parseString(data, function (err2, result) {
         if (err2) {
-            throw new Error(`${parsing_error_message} (${err2.message})`);
+            throw new Error(`${parsing_error_message} <br><small>[Error: ${err2.message}]</small>`);
         }
         
         try {
@@ -275,7 +274,7 @@ async function attempt_download(file_path, destination) {
             ipc.send('redirect', 'progress.html');
 
         } catch(parse_error) {
-            throw new Error(`${parsing_error_message} (${parse_error.message})`);
+            throw new Error(`${parsing_error_message} <br><small>[Error: ${parse_error.message}]</small>`);
         }
 
     });
