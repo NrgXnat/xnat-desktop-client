@@ -13,6 +13,7 @@ const xml2js = require('xml2js');
 const swal = require('sweetalert');
 
 const remote = require('electron').remote;
+const electron_log = remote.require('./services/electron_log');
 
 const FileSaver = require('file-saver');
 const zlib = require('zlib');
@@ -141,6 +142,7 @@ $(document).on('click', '.js_download_session_files', async function(){
     }
 });
 
+
 async function attempt_download(file_path, destination) {
     let data;
     let parser = new xml2js.Parser({
@@ -153,6 +155,22 @@ async function attempt_download(file_path, destination) {
             }
         ]
     });
+
+    let test_path = '__TEST__'  + (new Date() / 1);
+    let write_test_path = path.join(destination, test_path)
+    
+    
+    // using a workaround since fs.accessSync(destination, fs.constants.R_OK | fs.constants.W_OK) does not work
+    try {
+        fs.mkdirSync(write_test_path);
+        fs.rmdirSync(write_test_path);
+        
+    } catch(err) {
+        electron_log.error('Download Destination Permission Error', err);
+        swal('Permission Error', `Path "${destination}" is not writeable. Please choose a different destination path.`, 'error');
+        return;
+    }
+
     
 
     try {
