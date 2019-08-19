@@ -108,12 +108,6 @@ do_transfer();
 
 setInterval(do_transfer, 10000);
 
-for(let i = 0; i < 100000000000; i++) {
-    // do nothing
-    if (i % 1000000 == 0) {
-        console.log(i / 1000000)
-    }
-}
 
 function do_transfer() {
     start_transfer();
