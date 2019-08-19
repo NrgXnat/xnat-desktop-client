@@ -25,7 +25,7 @@ const { console_red } = require('../services/logger');
 
 const electron_log = remote.require('./services/electron_log');
 
-const nedb_logger = require('electron').remote.require('./services/db/nedb_logger')
+const nedb_logger = remote.require('./services/db/nedb_logger')
 
 let summary_log = {};
 

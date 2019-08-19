@@ -16,6 +16,6 @@ let db_logger = new Datastore({ filename: db_path });
 
 module.exports.fetch_log = (transfer_id, callback) => {
     db_logger.loadDatabase();
-    db_logger.find({transfer_id: transfer_id}, callback); // callback(err, docs)
+    db_logger.find({transfer_id: transfer_id}).sort({ timestamp: -1 }).exec(callback); // callback(err, docs)
 }
 
