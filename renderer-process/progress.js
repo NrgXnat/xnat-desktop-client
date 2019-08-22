@@ -1200,59 +1200,97 @@ $(document).on('click', '.js_pause_all', function(){
 });
 
 $(document).on('click', '.js_clear_finished', function(){
-    let my_buttons = {
-        all: "Completed and Canceled",
-        finished: "Only Completed",
-        cancel: "Cancel"
-    }
 
-    
-    let xxx = {
-        title: "Which transfers to clear?",
-        text: "Choose which transfers to clear.",
-        icon: "warning",
-        buttons: my_buttons,
+    Promise.all([
+        db_uploads._listAll(), 
+        db_downloads._listAll()
+    ]).then(([all_uploads, all_downloads]) => {
+        const cancel_reducer = (total, transfer) => {
+            return total + transfer.canceled
+        }
+        let canceled_count = all_uploads.reduce(cancel_reducer, 0) + all_downloads.reduce(cancel_reducer, 0);
+        
 
-        closeOnEsc: false,
-        dangerMode: true
-    }
+        const finished_reducer = (total, transfer) => {
+            return total + (transfer.hasOwnProperty('status') && (transfer.status === "finished" || transfer.status === "complete_with_errors"))
+        }
 
-    /*
+        let finished_count = all_uploads.reduce(finished_reducer, 0) + all_downloads.reduce(finished_reducer, 0);
 
-    my_buttons = {
-        all: "Yes",
-        cancel: "Cancel"
-    }
 
-    xxx = {
-        title: "Clear completed transfers?",
-        text: "All completed transfers will be archived.",
-        icon: "warning",
-        buttons: my_buttons,
-        closeOnEsc: false,
-        dangerMode: true
-    }
+        console.log({all_uploads, all_downloads, canceled_count, finished_count});
 
-    */
-
-    swal(xxx)
-        .then((toClear) => {
-            console.log(toClear);
-            switch (toClear) {
-                case "all":
-                    remove_transfers(true);
-                    break;
-
-                case "finished":
-                    remove_transfers(false);
-                    break;
-
-                default:
-                    
+        let question;
+        if (canceled_count > 0 && finished_count > 0) {
+            
+            question = {
+                title: "Which transfers to archive?",
+                text: "Choose which uploads and downloads to archive.",
+                icon: "warning",
+                buttons: {
+                    all: "Completed and Canceled",
+                    finished: "Only Completed",
+                    cancel: "Cancel"
+                },
+        
+                closeOnEsc: false,
+                dangerMode: true
             }
-        });
 
-    
+
+        } else if (finished_count > 0) {
+
+            question = {
+                title: "Archive completed transfers?",
+                text: "All completed uploads and downloads will be archived.",
+                icon: "warning",
+                buttons: {
+                    all: "Yes",
+                    cancel: "Cancel"
+                },
+        
+                closeOnEsc: false,
+                dangerMode: true
+            }
+
+        } else if (canceled_count > 0) {
+            question = {
+                title: "Archive canceled transfers?",
+                text: "There are no completed transfers. Archive CANCELED transfers?",
+                icon: "warning",
+                buttons: {
+                    all: "Yes",
+                    cancel: "Cancel"
+                },
+        
+                closeOnEsc: false,
+                dangerMode: true
+            }
+        } else {
+            swal('Nothing to archive!', 'There are no finished or canceled transfers', 'warning');
+            return;
+        }
+
+        swal(question)
+            .then((toClear) => {
+                console.log(toClear);
+                switch (toClear) {
+                    case "all":
+                        remove_transfers(true);
+                        break;
+
+                    case "finished":
+                        remove_transfers(false);
+                        break;
+
+                    default:
+                        
+                }
+            });
+        
+    });
+
+
 });
 
 

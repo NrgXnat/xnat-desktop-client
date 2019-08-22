@@ -1,3 +1,4 @@
+const electron = require('electron');
 const fs = require('fs');
 const fx = require('mkdir-recursive');
 const path = require('path');
@@ -29,7 +30,16 @@ const nedb_logger = remote.require('./services/db/nedb_logger')
 
 let summary_log = {};
 
-let userAgentString = remote.getCurrentWindow().webContents.getUserAgent()
+let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
+
+const appMetaData = require('../package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
 
 function summary_log_update(transfer_id, prop, val) {
     summary_log[transfer_id] = summary_log[transfer_id] || {}

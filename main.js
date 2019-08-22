@@ -19,6 +19,8 @@ const { isDevEnv } = require('./services/app_utils');
 
 electron_log.info('App starting...');
 
+app.commandLine.appendSwitch('remote-debugging-port', '9222')
+
 const appMetaData = require('./package.json');
 electron.crashReporter.start({
     companyName: appMetaData.author,

@@ -11,6 +11,15 @@ module.exports.listAll = (callback) => { // callback(err, docs)
     db().find({}, callback);
 }
 
+module.exports._listAll = () => {
+    return new Promise((resolve, reject) => {
+        db().find({}, (err, doc) => {
+            if (err) reject(err)
+            resolve(doc)
+        });
+    })
+}
+
 module.exports.getById = (id, callback) => { // callback(err, doc)
     db().findOne({id: id}, callback);
 }

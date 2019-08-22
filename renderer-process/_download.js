@@ -34,7 +34,16 @@ const { console_red } = require('../services/logger');
 
 const db_downloads = remote.require('./services/db/downloads');
 
-let userAgentString = remote.getCurrentWindow().webContents.getUserAgent()
+let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
+
+const appMetaData = require('../package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
 
 
 if (!settings.has('global_pause')) {
