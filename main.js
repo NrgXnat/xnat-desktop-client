@@ -19,6 +19,15 @@ const { isDevEnv } = require('./services/app_utils');
 
 electron_log.info('App starting...');
 
+const appMetaData = require('./package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
+
 
 const {autoUpdater} = require("electron-updater");
 

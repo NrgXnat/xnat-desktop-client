@@ -8,6 +8,15 @@ const isOnline = require('is-online');
 const auth = require('../services/auth');
 const api = require('../services/api');
 
+const appMetaData = require('../package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
+
 
 const swal = require('sweetalert');
 

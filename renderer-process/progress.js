@@ -13,6 +13,8 @@ const db_downloads_archive = require('electron').remote.require('./services/db/d
 const nedb_log_reader = require('electron').remote.require('./services/db/nedb_log_reader')
 const moment = require('moment');
 
+const { objArrayToCSV } = require('../services/app_utils');
+
 const { console_red } = require('../services/logger');
 
 const NProgress = require('nprogress');
@@ -505,6 +507,29 @@ $(document).on('page:load', '#progress-section', function(e){
     _init_variables();
 });
 
+$(document).on('click', '#download_log_csv, #upload_log_csv', function(e) {
+    let id = $(this).closest('.modal-content').attr('data-id');
+
+    nedb_log_reader.fetch_log(id, (err, docs) => {
+
+        let relevant_data = docs.map(obj => {
+            return Object.assign({}, {
+                timestamp: obj.timestamp,
+                type: obj.type, 
+                status: obj.level,
+                transfer_id: obj.transfer_id,
+                message: obj.message,
+                details: JSON.parse(obj.details)
+            });
+        });
+
+        let csv = objArrayToCSV(relevant_data);
+
+        var file = new File([csv], `log_export-${id}.csv`, {type: "text/csv;charset=utf-8"});
+        FileSaver.saveAs(file);
+
+    })
+})
 $(document).on('show.bs.modal', '#download-details', function(e) {
     var id = $(e.relatedTarget).data('id');
     var file = $(e.relatedTarget).data('file');
@@ -518,6 +543,31 @@ $(document).on('show.bs.modal', '#download-details', function(e) {
     set_download_details_total_percentage(id)
 
     _init_download_details_table(id)
+
+
+    nedb_log_reader.fetch_log(id, (err, docs) => {
+        console.log(docs);
+        $('#download-nedb-log').html('');
+        $('#download-nedb-log').append(`
+            <tr>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Date/Time</th>
+            </tr>
+        `)
+        
+        docs.forEach(doc => {
+            let datetime = moment(doc.timestamp).format('YYYY-MM-DD HH:mm:ss')
+            $('#download-nedb-log').append(`
+                <tr>
+                    <td>${doc.level}</td>
+                    <td>${doc.message}</td>
+                    <td>${datetime}</td>
+                    <!-- <td>${doc.details}</td> -->
+                </tr>
+            `)
+        })
+    })
 });
 
 function set_download_details_total_percentage(transfer_id) {
@@ -601,6 +651,7 @@ $(document).on('show.bs.modal', '#upload-details', function(e) {
     })
     
 });
+
 
 $(document).on('hidden.bs.modal', function(){
     $('#upload-nedb-log-container').collapse("hide");

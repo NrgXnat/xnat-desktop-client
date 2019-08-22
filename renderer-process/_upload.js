@@ -506,6 +506,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         };
         try {
             data.transfer = await mark_uploaded(transfer.id, series_id);
+
             nedb_logger.success(transfer.id, 'upload', `Series uploaded ${series_id}.`);
             
             _queue_.remove(transfer.id, series_id);
