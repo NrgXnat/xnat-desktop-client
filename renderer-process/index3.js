@@ -1,15 +1,26 @@
+const electron = require('electron');
 const settings = require('electron-settings')
-const ipc = require('electron').ipcRenderer
-const app = require('electron').remote.app
-const shell = require('electron').shell
+const ipc = electron.ipcRenderer
+const app = electron.remote.app
+const shell = electron.shell
 const axios = require('axios');
 const isOnline = require('is-online');
 const auth = require('../services/auth');
 const api = require('../services/api');
 
+const appMetaData = require('../package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
+
+
 const swal = require('sweetalert');
 
-const electron_log = require('electron').remote.require('./services/electron_log');
+const electron_log = electron.remote.require('./services/electron_log');
 
 const {URL} = require('url');
 

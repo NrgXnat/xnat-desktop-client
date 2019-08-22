@@ -1,3 +1,4 @@
+const electron = require('electron');
 const fs = require('fs');
 const fx = require('mkdir-recursive');
 const path = require('path');
@@ -25,11 +26,20 @@ const { console_red } = require('../services/logger');
 
 const electron_log = remote.require('./services/electron_log');
 
-const nedb_logger = require('electron').remote.require('./services/db/nedb_logger')
+const nedb_logger = remote.require('./services/db/nedb_logger')
 
 let summary_log = {};
 
-let userAgentString = remote.getCurrentWindow().webContents.getUserAgent()
+let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
+
+const appMetaData = require('../package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
 
 function summary_log_update(transfer_id, prop, val) {
     summary_log[transfer_id] = summary_log[transfer_id] || {}
@@ -506,6 +516,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         };
         try {
             data.transfer = await mark_uploaded(transfer.id, series_id);
+
             nedb_logger.success(transfer.id, 'upload', `Series uploaded ${series_id}.`);
             
             _queue_.remove(transfer.id, series_id);

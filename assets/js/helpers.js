@@ -220,6 +220,20 @@ let Helper = {
         options.delay = delay
 
         new PNotify(options);
+    },
+
+    string_download: (filename, text, mime = 'text/plain') => {
+        console.log(document)
+        let element = document.createElement('a');
+        element.setAttribute('href', 'data:'+mime+';charset=utf-8,' + encodeURIComponent(text));
+        element.setAttribute('download', filename);
+      
+        element.style.display = 'none';
+        document.body.appendChild(element);
+      
+        element.click();
+        console.log('done download')
+        document.body.removeChild(element);
     }
 }
 

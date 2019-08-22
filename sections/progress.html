@@ -178,6 +178,15 @@
                                     </div>
                                 </div>
                             </div>
+
+
+                            <button data-toggle="collapse" class="btn btn-blue" data-target="#download-nedb-log-container">Download Log</button>
+                            <button id="download_log_csv" class="btn btn-gray right">CSV Export</button>
+
+                            <div id="download-nedb-log-container" class="collapse">
+                                <table id="download-nedb-log" class="table"></table>
+                            </div>
+
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -220,7 +229,8 @@
                             </div>
 
                             
-                            <button data-toggle="collapse" data-target="#upload-nedb-log-container">Upload Log</button>
+                            <button data-toggle="collapse" class="btn btn-blue" data-target="#upload-nedb-log-container">Upload Log</button>
+                            <button id="upload_log_csv" class="btn btn-gray right">CSV Export</button>
 
                             <div id="upload-nedb-log-container" class="collapse">
                                 <table id="upload-nedb-log" class="table"></table>

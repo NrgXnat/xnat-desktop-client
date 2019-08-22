@@ -19,6 +19,17 @@ const { isDevEnv } = require('./services/app_utils');
 
 electron_log.info('App starting...');
 
+app.commandLine.appendSwitch('remote-debugging-port', '9222')
+
+const appMetaData = require('./package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: true
+});
+
 
 const {autoUpdater} = require("electron-updater");
 
@@ -71,6 +82,12 @@ function initialize_usr_local_lib_app() {
 
     mainWindow.on('closed', function () {
       mainWindow = null
+    });
+
+    // handle crash events
+    mainWindow.webContents.on('crashed', (e) => {
+      mainWindow.webContents.reload()
+      electron_log.error('mainWindow crashed')
     });
   }
 
@@ -153,14 +170,32 @@ function initialize () {
       mainWindow.maximize()
       require('devtron').install()
 
-      // uploadWindow.show()
-      // uploadWindow.webContents.openDevTools()
-      // uploadWindow.maximize()
+      uploadWindow.show()
+      uploadWindow.webContents.openDevTools()
+      uploadWindow.maximize()
 
-      // downloadWindow.show()
-      // downloadWindow.webContents.openDevTools()
-      // downloadWindow.maximize()
+      downloadWindow.show()
+      downloadWindow.webContents.openDevTools()
+      downloadWindow.maximize()
     }
+
+    // handle crash events
+    mainWindow.webContents.on('crashed', (e) => {
+      mainWindow.webContents.reload()
+      uploadWindow.webContents.reload()
+      downloadWindow.webContents.reload()
+      electron_log.error('mainWindow crashed')
+    });
+
+    uploadWindow.webContents.on('crashed', (e) => {
+      uploadWindow.webContents.reload()
+      electron_log.error('uploadWindow crashed')
+    });
+
+    downloadWindow.webContents.on('crashed', (e) => {
+      downloadWindow.webContents.reload()
+      electron_log.error('downloadWindow crashed')
+    });
 
     mainWindow.on('closed', function () {
       //showErrorBox('mainWindow Closed', 'mainWindow closed!');
