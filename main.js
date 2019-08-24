@@ -210,7 +210,7 @@ function initialize () {
     });
     
     // Protocol handler for win32
-    if (process.platform == 'win32') {
+    if (process.platform == 'win32' || process.platform == 'linux') {
       // Keep only command line / deep linked arguments
       startupExternalUrl = process.argv.slice(1)
     }
@@ -404,7 +404,7 @@ function isSecondInstance() {
 
       // Protocol handler for win32
       // argv: An array of the second instance’s (command line / deep linked) arguments
-      if (process.platform == 'win32') {
+      if (process.platform == 'win32' || process.platform == 'linux') {
         handle_protocol_request(argv.slice(1), 'app.makeSingleInstance');
       }
       
@@ -415,11 +415,10 @@ function isSecondInstance() {
 function handle_protocol_request(url, place) {
   log(place, url);
 
-  // TODO - handle better initial delay (through events)
   if (place === 'createWindow') {
-    setTimeout(function(){
+    mainWindow.webContents.on('did-finish-load', (e) => {
       mainWindow.webContents.send('handle_protocol_request', url);
-    }, 2700)
+    });
   } else {
     mainWindow.webContents.send('handle_protocol_request', url);
   }
