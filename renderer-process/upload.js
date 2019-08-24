@@ -687,6 +687,14 @@ $(document).on('click', '.js_upload', function() {
             my_anon_variables[$field.attr('name')] = $field.val();
         });
 
+        if (my_anon_variables.hasOwnProperty('pet_tracer')) {
+            if (my_anon_variables.pet_tracer === 'OTHER') {
+                my_anon_variables.tracer = my_anon_variables.custom_pet_tracer;
+            } else {
+                my_anon_variables.tracer = my_anon_variables.pet_tracer;
+            }
+        }
+
         //doUpload(url_data, selected_session_id, selected_series);
         storeUpload(url_data, selected_session_id, selected_series, my_anon_variables);
 
@@ -752,9 +760,9 @@ $(document).on('input propertychange change', '#form_new_subject input[type=text
 
 $(document).on('change', '#pet_tracer', function(e) {
     if ($(this).val() === 'OTHER') {
-        $('#custom_pet_tracer').removeClass('hidden').focus();
+        $('#custom_pet_tracer').prop('required',true).removeClass('hidden').focus();
     } else {
-        $('#custom_pet_tracer').addClass('hidden');
+        $('#custom_pet_tracer').prop('required',false).addClass('hidden');
 
         $('#experiment_label').val(get_default_expt_label($(this).val()));
     }
@@ -972,7 +980,7 @@ function select_session_id(new_session_id) {
                     <b>Set tracer</b>:
                 </label>
                 <div class="input-group col-sm-10">
-                    <select class="form-control" id="pet_tracer" style="width: 20%" required>
+                    <select class="form-control" id="pet_tracer" name="pet_tracer" style="width: 20%" required>
                         ${pet_tracer_options.join("\n")}
                     </select>
                     <input type="text" id="custom_pet_tracer" name="custom_pet_tracer" class="form-control hidden" style="width: 70%">

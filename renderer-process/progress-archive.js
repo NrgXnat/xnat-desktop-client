@@ -26,6 +26,8 @@ function _init_upload_archive_table() {
         hideUnusedSelectOptions: true,
         uniqueId: 'id',
         //height: 300,
+        sortName: 'transfer_date',
+        sortOrder: 'desc',
         columns: [
             {
                 field: 'id',
@@ -208,6 +210,8 @@ function _init_download_archive_table() {
         hideUnusedSelectOptions: true,
         uniqueId: 'id',
         //height: 300,
+        sortName: 'transfer_start',
+        sortOrder: 'desc',
         columns: [
             {
                 field: 'id',

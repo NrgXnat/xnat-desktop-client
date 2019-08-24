@@ -507,7 +507,16 @@ $(document).on('page:load', '#progress-section', function(e){
     _init_variables();
 });
 
-$(document).on('click', '#download_log_csv, #upload_log_csv', function(e) {
+const csv_export_buttons = [
+    '#download_log_csv',
+    '#upload_log_csv',
+
+    '#upload-success-log [data-save-csv]',
+    '#error-log--download [data-save-csv]',
+    '#error-log--upload [data-save-csv]'
+];
+
+$(document).on('click', csv_export_buttons.join(','), function(e) {
     let id = $(this).closest('.modal-content').attr('data-id');
 
     nedb_log_reader.fetch_log(id, (err, docs) => {
@@ -538,7 +547,7 @@ $(document).on('show.bs.modal', '#download-details', function(e) {
 
     $(e.currentTarget).find('#file_basename').html(file);
 
-    $('.modal-content').attr('data-id', id);
+    $('#download-details .modal-content').attr('data-id', id);
 
     set_download_details_total_percentage(id)
 
@@ -602,12 +611,20 @@ function set_download_details_total_percentage(transfer_id) {
 }
 
 $(document).on('show.bs.modal', '#error-log--download', function(e) {
-    var id = parseInt($(e.relatedTarget).data('id'));
+    var transfer_id = $(e.relatedTarget).data('id');
+    $('#error-log--download .modal-content').attr('data-id', transfer_id);
+
+    var id = parseInt(transfer_id);
     let $log_text = $(e.currentTarget).find('.log-text');
 
     db_downloads.getById(id, (err, download) => {
         $log_text.html(download.error);
     });
+});
+
+$(document).on('show.bs.modal', '#error-log--upload', function(e) {
+    var transfer_id = $(e.relatedTarget).data('id');
+    $('#error-log--upload .modal-content').attr('data-id', transfer_id);
 });
 
 $(document).on('show.bs.modal', '#upload-details', function(e) {
@@ -1131,6 +1148,8 @@ $(document).on('click', '[data-save-txt]', function(){
     let blob = new Blob([text_content], {type: "text/plain;charset=utf-8"});
     FileSaver.saveAs(blob, "success_log.txt");
 });
+
+
 
 $(document).on('click', '.js_cancel_all_transfers', function(){
     let global_pause = settings.get('global_pause')

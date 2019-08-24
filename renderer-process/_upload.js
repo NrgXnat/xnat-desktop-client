@@ -571,8 +571,11 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             }
             commit_request_settings.httpsAgent = new https.Agent(https_agent_options);
 
+            let commit_data = transfer.anon_variables.hasOwnProperty('tracer') ? {
+                "xnat:petSessionData/tracer/name": transfer.anon_variables.tracer
+            } : {};
             
-            axios.post(commit_url, commit_request_settings)
+            axios.post(commit_url, commit_data, commit_request_settings)
             .then(commit_res => {
                 console_log('-------- XCOMMIT_SUCCESS ----------')
                 console_log(commit_res);
