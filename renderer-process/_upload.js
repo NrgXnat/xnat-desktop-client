@@ -38,7 +38,7 @@ electron.crashReporter.start({
     productName: appMetaData.name,
     productVersion: appMetaData.version,
     submitURL: appMetaData.extraMetadata.submitUrl,
-    uploadToServer: true
+    uploadToServer: settings.get('send_crash_reports') || false
 });
 
 function summary_log_update(transfer_id, prop, val) {
@@ -571,9 +571,18 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             }
             commit_request_settings.httpsAgent = new https.Agent(https_agent_options);
 
-            let commit_data = transfer.anon_variables.hasOwnProperty('tracer') ? {
-                "xnat:petSessionData/tracer/name": transfer.anon_variables.tracer
-            } : {};
+
+            let commit_data = {};
+
+            console.log({transfer_XXX: transfer});
+
+            if (transfer.anon_variables.hasOwnProperty('tracer')) {
+                let label = transfer.session_data.modality.indexOf('MR') >=0 ? 'xnat:petMrSessionData/tracer/name' : 'xnat:petSessionData/tracer/name';                
+
+                commit_data[label] = transfer.anon_variables.tracer;
+            }
+
+            console.log({commit_data});
             
             axios.post(commit_url, commit_data, commit_request_settings)
             .then(commit_res => {

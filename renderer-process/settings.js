@@ -289,6 +289,11 @@ $(document).on('click', '#save_default_pet_tracers', function(e) {
     $(this).prop('disabled', true);
 })
 
+$(document).on('change', '#send-crash-reports', function(e) {
+    let send_crash_reports = $('#send-crash-reports').val() === '1';
+    settings.set('send_crash_reports', send_crash_reports);
+    Helper.pnotify('Success!', `Crash Report status was updated! (${send_crash_reports ? 'ON' : 'OFF'})`);
+})
 
 
 $(document).on('click', '#save_default_email_address', function(e) {

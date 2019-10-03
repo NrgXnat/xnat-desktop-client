@@ -42,7 +42,7 @@ electron.crashReporter.start({
     productName: appMetaData.name,
     productVersion: appMetaData.version,
     submitURL: appMetaData.extraMetadata.submitUrl,
-    uploadToServer: true
+    uploadToServer: settings.get('send_crash_reports') || false
 });
 
 

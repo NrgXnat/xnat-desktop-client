@@ -225,6 +225,25 @@ function _init_img_sessions_table(table_rows) {
         data: table_rows
     });
 
+    $('#image_session').on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table', function (e) {
+        let selected = $('#image_session').bootstrapTable('getSelections');
+
+        let has_pt_scan = selected.reduce((total, row) => row.modality === 'PT' ? true : total, false);
+
+        //$('#pet_tracer_container').toggle(has_pt_scan);
+        $('#pet_tracer').prop('required', has_pt_scan).prop('disabled', !has_pt_scan);
+
+        let custom_pt_required = has_pt_scan && $('#pet_tracer').val() === 'OTHER';
+        $('#custom_pet_tracer').prop('required', custom_pt_required).prop('disabled', !custom_pt_required)
+        
+        if (has_pt_scan) {
+            $('#pet_tracer').trigger('change');
+        } else {
+            $('#experiment_label').val(experiment_label());
+        }
+    })
+
+
     $img_session_tbl.bootstrapTable('resetView');
 }
 
@@ -306,7 +325,9 @@ $(document).on('page:load', '#upload-section', async function(e){
     global_require_date().then(handle_global_require_date).catch(handle_error);
     
 
-
+    $.blockUI({
+        message: '<h1>Processing...</h1>'
+    });
     promise_projects()
         .then(function(resp) {
             let totalRecords = resp.data.ResultSet.Result.length;
@@ -332,6 +353,9 @@ $(document).on('page:load', '#upload-section', async function(e){
         })
         .catch(function(err) {
             console.log(err.message);
+        })
+        .finally(function() {
+            $.unblockUI();
         })
     
 
@@ -389,7 +413,8 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
                                     style="font-size: 0.8rem; color: #777; height: auto; padding: 1px;">
                                     <option value="${xnat_server}|${project_id}">For this project</option>
                                     <option value="${xnat_server}|*">For This Server</option>
-                                    <option value="*|*">For Any Server</option>
+                                    
+                                    <!-- <option value="*|*">For Any Server</option> -->
                                 </select>
                             </div>
                         </div>
@@ -668,7 +693,7 @@ $(document).on('click', '.js_upload', function() {
         let expt_label_val = $('#experiment_label').val();
 
         let url_data = {
-            expt_label: expt_label_val ? expt_label_val : get_default_expt_label(),
+            expt_label: expt_label_val ? expt_label_val : experiment_label(),
             project_id: get_form_value('project_id', 'project_id'),
             subject_id: get_form_value('subject_id', 'subject_label')
         };
@@ -682,7 +707,7 @@ $(document).on('click', '.js_upload', function() {
             my_anon_variables['session'] = url_data.expt_label;
         }
 
-        $('#anon_variables').find(':input').each(function(){
+        $('#anon_variables').find(':input:visible').each(function(){
             let $field = $(this);
             my_anon_variables[$field.attr('name')] = $field.val();
         });
@@ -695,6 +720,7 @@ $(document).on('click', '.js_upload', function() {
             }
         }
 
+        console.log({my_anon_variables});
         //doUpload(url_data, selected_session_id, selected_series);
         storeUpload(url_data, selected_session_id, selected_series, my_anon_variables);
 
@@ -759,18 +785,19 @@ $(document).on('input propertychange change', '#form_new_subject input[type=text
 });
 
 $(document).on('change', '#pet_tracer', function(e) {
-    if ($(this).val() === 'OTHER') {
-        $('#custom_pet_tracer').prop('required',true).removeClass('hidden').focus();
-    } else {
-        $('#custom_pet_tracer').prop('required',false).addClass('hidden');
+    let custom_pt_required = $(this).val() === 'OTHER';
+    
+    $('#custom_pet_tracer').prop('required', custom_pt_required).prop('disabled', !custom_pt_required).toggleClass('hidden', !custom_pt_required);
 
-        $('#experiment_label').val(get_default_expt_label($(this).val()));
+    if (custom_pt_required) {
+        $('#custom_pet_tracer').focus();
     }
+
+    $('#experiment_label').val(experiment_label());
 })
 
 $(document).on('keyup', '#custom_pet_tracer', function(e) {
-
-    $('#experiment_label').val(get_default_expt_label($(this).val()));
+    $('#experiment_label').val(experiment_label());
 })
 
 $(document).on('submit', '#form_new_subject', function(e) {
@@ -932,7 +959,7 @@ function select_session_id(new_session_id) {
     console.log(selected_session.modality);
     console.log(selected_session.studyInstanceUid);
 
-    let expt_label = get_default_expt_label();
+    let expt_label = experiment_label();
     
     $('#experiment_label').val(expt_label);
 
@@ -963,16 +990,13 @@ function select_session_id(new_session_id) {
     // search for PET scan
     $('#pet_tracer_container').remove();
     
-    let lc_modalities = all_modalities.map(function(el) {
-        return el.toLowerCase();
-    });
-    if (lc_modalities.indexOf('pt') !== -1) {
+    if (all_modalities.indexOf('PT') !== -1) {
         
         let pet_tracer_options = pet_tracers.map(function(el) {
             return `<option value="${el}">${el}</option>`;
         });
 
-        pet_tracer_options.unshift('<option value="">Select modality</option>')
+        pet_tracer_options.unshift('<option value="">...</option>')
 
         let $pet_tracer_container = $(`
             <div class="form-group row" id="pet_tracer_container">
@@ -1143,24 +1167,28 @@ function dicomParse(_files, root_path) {
                                     studyId: studyId,
                                     studyInstanceUid: studyInstanceUid,
                                     studyDescription: studyDescription,
-                                    modality: modality,
+                                    modality: [],
                                     accession: accession,
                                     date: study_date,
                                     time: study_time,
                                     scans: new Map()
                                 });
-                                // TODO fix global modality
-                                //session_map.get(studyInstanceUid).modality = [];
-                                //session_map.get(studyInstanceUid).modality.push(modality);
+                            }
+
+                            let studyInstance = session_map.get(studyInstanceUid);
+
+                            // TODO fix global modality
+                            if (modality && studyInstance.modality.indexOf(modality) === -1) {
+                                studyInstance.modality.push(modality.toUpperCase());
                             }
                 
-                            if (!session_map.get(studyInstanceUid).scans.has(seriesInstanceUid)) {
-                                session_map.get(studyInstanceUid).scans.set(seriesInstanceUid, []);
+                            if (!studyInstance.scans.has(seriesInstanceUid)) {
+                                studyInstance.scans.set(seriesInstanceUid, []);
                             }
                             
                             let file_name = path.basename(file);
                             let file_size = getFilesizeInBytes(file);
-                            let my_scans = session_map.get(studyInstanceUid).scans.get(seriesInstanceUid);
+                            let my_scans = studyInstance.scans.get(seriesInstanceUid);
                             let filtered = my_scans.filter(el => 
                                 el.filename === file_name && 
                                 el.filesize === file_size && 
@@ -1176,7 +1204,7 @@ function dicomParse(_files, root_path) {
                                     seriesDescription: seriesDescription,
                                     seriesInstanceUid: seriesInstanceUid,
                                     seriesNumber: seriesNumber,
-                                    modality: modality,
+                                    modality: modality ? modality.toUpperCase() : '',
                                     SOPInstanceUID: SOPInstanceUID
                                 }); 
                             }
@@ -1351,28 +1379,69 @@ function dicomParse(_files, root_path) {
 
 }
 
-function get_default_expt_label(tracer) {
-    let modality;
+function experiment_label() {
+    let modality = '';
     let subject_id = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
 
-    if (typeof tracer === "undefined") {
-        modality = session_map.get(selected_session_id).modality;
+    let selected = $('#image_session').bootstrapTable('getSelections');
+
+    let pet_tracer = $('#pet_tracer').length ? $('#pet_tracer').val() : '';
+    let custom_pet_tracer = ('' + $('#custom_pet_tracer').val()).trim().split(' ').join('_');
+
+    console.log({pet_tracer: pet_tracer});
+
+
+    var PRIMARY_MODALITIES = ['CR', 'CT', 'MR', 'PT', 'DX', 'ECG', 'EPS', 'ES', 'GM', 'HD', 'IO', 'MG', 'NM', 'OP', 'OPT', 'RF', 'SM', 'US', 'XA', 'XC', 'OT'];
+
+    var upload_modalities_index = selected.reduce((allModalities, row) => {
+        if (PRIMARY_MODALITIES.indexOf(row.modality) !== -1) {
+            if (allModalities.hasOwnProperty(row.modality)) {
+                allModalities[row.modality]++;
+            } else {
+                allModalities[row.modality] = 1;
+            }
+        }
+        
+        return allModalities;
+    }, {});
+
+    let upload_modalities = Object.keys(upload_modalities_index);
+
+
+    if (upload_modalities.indexOf('PT') >= 0) {
+        modality = pet_tracer === 'OTHER' ? custom_pet_tracer : pet_tracer;
+    } else if (upload_modalities.length == 1) {
+        modality = upload_modalities[0];
     } else {
-        modality = tracer;
+        //remove OT from upload_modalities_index
+        delete upload_modalities_index['OT'];
+
+        // chose most frequent modality (with most series)
+        let greatest_mod_value = 0;
+        for (let mod in upload_modalities_index) {
+            if (upload_modalities_index[mod] > greatest_mod_value) {
+                greatest_mod_value = upload_modalities_index[mod]
+                modality = mod
+            }
+        }
     }
-    
+
+
     let expt_label = subject_id.split(' ').join('_') + '_' + modality + '_';
-    for (let i = 1; i < 10000; i++) {
+    for (let i = 1; i < 100000; i++) {
         let my_expt_label = expt_label + i;
         if (defined_project_exp_labels.indexOf(my_expt_label) === -1) {
             expt_label = my_expt_label;
             break;
         }
     }
-    console.log('EXPT_LABEL', expt_label);
+
+    console.log('EXPT_LABEL_NEW', expt_label);
 
     return expt_label;
+
 }
+
 
 function storeUpload(url_data, session_id, series_ids, anon_variables) {
     console.log('==== anon_variables ====', anon_variables);

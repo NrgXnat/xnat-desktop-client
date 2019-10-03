@@ -15,6 +15,10 @@ const electron_log = require('./services/electron_log')
 
 const { isDevEnv } = require('./services/app_utils');
 
+
+const settings = require('electron-settings');
+
+
 //electron_log.transports.file.clear();
 
 electron_log.info('App starting...');
@@ -27,7 +31,7 @@ electron.crashReporter.start({
     productName: appMetaData.name,
     productVersion: appMetaData.version,
     submitURL: appMetaData.extraMetadata.submitUrl,
-    uploadToServer: true
+    uploadToServer: settings.get('send_crash_reports') || false
 });
 
 

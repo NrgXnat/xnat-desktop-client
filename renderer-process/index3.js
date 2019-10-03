@@ -14,8 +14,27 @@ electron.crashReporter.start({
     productName: appMetaData.name,
     productVersion: appMetaData.version,
     submitURL: appMetaData.extraMetadata.submitUrl,
-    uploadToServer: true
+    uploadToServer: settings.get('send_crash_reports') || false
 });
+
+
+
+
+
+try {
+    let mizer = require('../mizer');
+} catch(e) {
+    if (process.platform === "win32" && e.message.includes('nodejavabridge_bindings.node')) {
+        $('#win_install_cpp').modal({
+            keyboard: false,
+            backdrop: 'static'
+        })
+    } else {
+        throw e;
+    }
+}
+
+
 
 
 const swal = require('sweetalert');
@@ -36,7 +55,7 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     active_page = settings.has('active_page') ? settings.get('active_page') : 'login.html';
 }
 
-logins = settings.has('logins') ? settings.get('logins') : [];
+logins = settings.get('logins') || [];
 settings.set('logins', logins);
 
 
@@ -70,10 +89,7 @@ function loadPage(page) {
             let contentContainer = document.querySelector('.content');
     
             contentContainer.innerHTML = '';
-            // while (contentContainer.firstChild) {
-            //     contentContainer.removeChild(contentContainer.firstChild);
-            // }
-            //console_log(clone);
+
             contentContainer.appendChild(clone);
             document.body.scrollTop = 0;
 
@@ -81,7 +97,6 @@ function loadPage(page) {
 
             return;
         }
-        
 
     });
 
