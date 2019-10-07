@@ -1,7 +1,6 @@
 build_config: &build_config
   BUILD_IMAGE_NAME: xnat/node-java-build
   BUILD_IMAGE_TAG: latest
-  MAC_IMAGE: "10.3.0"
   NODE_VERSION: "v8.16.1"
   NVM_VERSION: "v0.35.0"
   JAVA_VERSION: "zulu8.40.0.25-ca-jdk8.0.222"
@@ -76,7 +75,7 @@ jobs:
       JAVA_HOME: "${HOME}/java"
 
     macos:
-      xcode: ${MAC_IMAGE}
+      xcode: "10.3.0"
 
     working_directory: ~/build
 
