@@ -1,12 +1,20 @@
 build_config: &build_config
   BUILD_IMAGE_NAME: xnat/node-java-build
   BUILD_IMAGE_TAG: latest
+  MAC_IMAGE: "10.3.0"
+  NODE_VERSION: "v8.16.1"
+  NVM_VERSION: "v0.35.0"
+  JAVA_VERSION: "zulu8.40.0.25-ca-jdk8.0.222"
 
 version: 2
+
 jobs:
+
   build_win_and_linux:
+
     environment:
       <<: *build_config
+
     docker:
       - image: ${BUILD_IMAGE_NAME}:${BUILD_IMAGE_TAG}
 
@@ -31,10 +39,14 @@ jobs:
             - node_modules
       - run:
           name: Build Windows 64-bit executable and installer
-          command: yarn dist-win-x64
+          command: |
+              export JAVA_HOME="/opt/java/win-x64"
+              yarn dist-win-x64
       - run:
           name: Build Linux 64-bit executable and installer
-          command: yarn dist-linux-x64
+          command: |
+              export JAVA_HOME="/opt/java/linux-x64"
+              yarn dist-linux-x64
       - run:
           name: Copy build artifacts to artifacts folder
           command: |
@@ -58,8 +70,13 @@ jobs:
           path: artifacts
 
   build_mac:
+
+    environment:
+      <<: *build_config
+      JAVA_HOME: "${HOME}/java"
+
     macos:
-      xcode: "10.1.0"
+      xcode: ${MAC_IMAGE}
 
     working_directory: ~/build
 
@@ -68,14 +85,14 @@ jobs:
           name: Install httpie
           command: pip install --upgrade httpie
       - run:
-          name: Install NVM and node@8.15.0
+          name: Install NVM and node
           command: |
             set +e
-            http https://raw.githubusercontent.com/creationix/nvm/v0.33.11/install.sh | bash
-            echo 'export NVM_DIR="$HOME/.nvm"' >> $BASH_ENV
-            echo '[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"' >> $BASH_ENV
-            echo "nvm install v8.15.0" >> $BASH_ENV
-            echo "nvm alias default v8.15.0" >> $BASH_ENV
+            http https://raw.githubusercontent.com/creationix/nvm/${NVM_VERSION}/install.sh | bash
+            echo 'export NVM_DIR="${HOME}/.nvm"' >> ${BASH_ENV}
+            echo '[ -s "${NVM_DIR}/nvm.sh" ] && source "${NVM_DIR}/nvm.sh"' >> ${BASH_ENV}
+            echo "nvm install ${NODE_VERSION}" >> ${BASH_ENV}
+            echo "nvm alias default ${NODE_VERSION}" >> ${BASH_ENV}
       - checkout
       - restore_cache:
           key: cache-mac-{{ .Branch }}-{{ checksum "package.json" }}
@@ -83,9 +100,10 @@ jobs:
           name: Download and expand JRE for Mac
           command: |
             [[ ! -d build_resources/jre/mac ]] && {
-                http --download https://cdn.azul.com/zulu/bin/zulu8.33.0.1-jdk8.0.192-macosx_x64.zip --output build_resources/jre/zulu8.33.0.1-jdk8.0.192-macosx_x64.zip
-                unzip -d build_resources/jre build_resources/jre/zulu8.33.0.1-jdk8.0.192-macosx_x64.zip
-                mv build_resources/jre/zulu8.33.0.1-jdk8.0.192-macosx_x64 build_resources/jre/mac
+                http --download https://cdn.azul.com/zulu/bin/${JAVA_VERSION}-macosx_x64.zip
+                unzip ${JAVA_VERSION}-macosx_x64.zip
+                mv ${JAVA_VERSION}-macosx_x64 java
+                cp -R java/jre build_resources/jre/mac
             }
       - run:
           name: Install and build node dependencies
@@ -121,8 +139,11 @@ jobs:
           path: artifacts
 
 workflows:
+
   version: 2
+
   build_all:
+
     jobs:
       - build_win_and_linux:
           context: dxm
