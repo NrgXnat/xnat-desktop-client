@@ -100,10 +100,11 @@ jobs:
           name: Download and expand JRE for Mac
           command: |
             [[ ! -d build_resources/jre/mac ]] && {
-                http --download https://cdn.azul.com/zulu/bin/${JAVA_VERSION}-macosx_x64.zip
-                unzip ${JAVA_VERSION}-macosx_x64.zip
-                mv ${JAVA_VERSION}-macosx_x64 java
-                cp -R java/jre build_resources/jre/mac
+                JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
+                http --download https://cdn.azul.com/zulu/bin/${JAVA_TARGET}.zip
+                unzip ${JAVA_TARGET}.zip
+                mv ${JAVA_TARGET}/jre build_resources/jre/mac
+                rm -rf ${JAVA_TARGET}.zip ${JAVA_TARGET}
             }
       - run:
           name: Install and build node dependencies
