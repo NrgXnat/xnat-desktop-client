@@ -1,9 +1,10 @@
 build_config: &build_config
   BUILD_IMAGE_NAME: xnat/node-java-build
   BUILD_IMAGE_TAG: latest
+  CACHE_VERSION: v1
   NODE_VERSION: "8.16.1"
   NVM_VERSION: "0.35.0"
-  JAVA_VERSION: "zulu8.40.0.25-ca-jdk8.0.222"
+  JAVA_VERSION: "zulu8.40.0.25-ca-jre8.0.222"
 
 version: 2
 
@@ -22,7 +23,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: cache-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
           name: Create link to Windows 64-bit JRE
           command: ln -s /opt/java/win-x64/jre build_resources/jre/win-x64
@@ -33,7 +34,7 @@ jobs:
           name: Install and build node dependencies
           command: yarn install
       - save_cache:
-          key: cache-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
           paths:
             - node_modules
       - run:
@@ -95,7 +96,7 @@ jobs:
             nvm use default
       - checkout
       - restore_cache:
-          key: cache-mac-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
           name: Download and expand JRE for Mac
           command: |
@@ -103,20 +104,24 @@ jobs:
                 JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
                 http --download https://cdn.azul.com/zulu/bin/${JAVA_TARGET}.zip
                 unzip ${JAVA_TARGET}.zip
-                mv ${JAVA_TARGET}/jre build_resources/jre/mac
-                rm -rf ${JAVA_TARGET}.zip ${JAVA_TARGET}
+                mv ${JAVA_TARGET} build_resources/jre/mac
+                rm -rf ${JAVA_TARGET}.zip
             }
       - run:
           name: Install and build node dependencies
-          command: yarn install
+          command: |
+            JAVA_HOME=$(/usr/libexec/java_home)
+            yarn install
       - save_cache:
-          key: cache-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
           paths:
             - node_modules
             - build_resources/jre/mac
       - run:
           name: Build Mac executable and installer
-          command: yarn dist-mac
+          command: |
+            JAVA_HOME=$(/usr/libexec/java_home)
+            yarn dist-mac
       - run:
           name: Copy build artifacts to artifacts folder
           command: |
