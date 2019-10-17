@@ -1,0 +1,40 @@
+
+const http = require('http');  
+const url = require('url');
+const fs = require('fs');
+
+const { parse } = require('querystring');
+
+
+// Create an instance of the http server to handle HTTP requests
+let server = http.createServer((request, response) => { 
+    
+    if (request.url == '/post' && request.method == 'POST') {
+        console.log('POST')
+        var body = ''
+        
+        request.on('data', function(data) {
+          body += data
+          //console.log('Partial body: ' + body)
+        })
+        request.on('end', function() {
+          console.log('====================================')
+          console.log('************* Body ***********************')
+          console.log('====================================')
+          let data = parse(body);
+          console.log(data._companyName)
+          response.writeHead(200, {'Content-Type': 'text/html'})
+          response.end('post received')
+        })
+    } else {
+        response.writeHead(404, {'Content-Type': 'text/html'})
+        response.end('Baad')
+    }
+    
+    
+	
+});
+
+// Start the server on port 3000
+server.listen(7715, '127.0.0.1');  
+console.log('Node server running on port 7715');  

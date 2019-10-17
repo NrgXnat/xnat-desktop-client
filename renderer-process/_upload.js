@@ -1,3 +1,4 @@
+const electron = require('electron');
 const fs = require('fs');
 const fx = require('mkdir-recursive');
 const path = require('path');
@@ -25,9 +26,20 @@ const { console_red } = require('../services/logger');
 
 const electron_log = remote.require('./services/electron_log');
 
+const nedb_logger = remote.require('./services/db/nedb_logger')
+
 let summary_log = {};
 
-let userAgentString = remote.getCurrentWindow().webContents.getUserAgent()
+let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
+
+const appMetaData = require('../package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: settings.get('send_crash_reports') || false
+});
 
 function summary_log_update(transfer_id, prop, val) {
     summary_log[transfer_id] = summary_log[transfer_id] || {}
@@ -360,6 +372,7 @@ async function doUpload(transfer, series_id) {
     })
     .catch(function(error) {
         electron_log.error(error);
+        nedb_logger.error(transfer.id, 'upload', error.message, error);
         console_log(error); // Test with throwing random errors (and rejecting promises)
     });
 }
@@ -413,6 +426,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         fs.unlink(entry_data.sourcePath, (err) => {
             if (err) {
                 electron_log.error(err)
+                nedb_logger.error(transfer.id, 'upload', err.message, err);
                 //throw err;
             } else {
                 //console_red(`-- ZIP file "${entry_data.sourcePath}" was deleted.`);
@@ -502,6 +516,9 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         };
         try {
             data.transfer = await mark_uploaded(transfer.id, series_id);
+
+            nedb_logger.success(transfer.id, 'upload', `Series uploaded ${series_id}.`);
+            
             _queue_.remove(transfer.id, series_id);
 
             return data;
@@ -554,8 +571,20 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             }
             commit_request_settings.httpsAgent = new https.Agent(https_agent_options);
 
+
+            let commit_data = {};
+
+            console.log({transfer_XXX: transfer});
+
+            if (transfer.anon_variables.hasOwnProperty('tracer')) {
+                let label = transfer.session_data.modality.indexOf('MR') >=0 ? 'xnat:petMrSessionData/tracer/name' : 'xnat:petSessionData/tracer/name';                
+
+                commit_data[label] = transfer.anon_variables.tracer;
+            }
+
+            console.log({commit_data});
             
-            axios.post(commit_url, commit_request_settings)
+            axios.post(commit_url, commit_data, commit_request_settings)
             .then(commit_res => {
                 console_log('-------- XCOMMIT_SUCCESS ----------')
                 console_log(commit_res);
@@ -582,6 +611,15 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                 console_red('num_updated 1', {num_updated})
                 if (num_updated) {
                     Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
+                    nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
+                    
+                    ipc.send('progress_cell', {
+                        table: '#upload_monitor_table',
+                        id: transfer.id,
+                        field: 'status',
+                        value: 'finished'
+                    });
+                    
                     ipc.send('upload_finished', transfer.id);
                 }
             })
@@ -591,7 +629,11 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
                 if (err.response.status != 301) {
                     electron_log.error('commit_error', commit_url, JSON.stringify(err.response))
-                    update_transfer_summary(transfer.id, 'commit_errors', `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`);
+                    let error_message = `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`;
+                    
+                    nedb_logger.error(transfer.id, 'upload', error_message, err.response);
+
+                    update_transfer_summary(transfer.id, 'commit_errors', error_message);
                 } else {
                     console_log(`+++ SESSION ARCHIVED +++`);
                     
@@ -602,6 +644,15 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                             console_red('num_updated 2', {num_updated})
                             if (num_updated) {
                                 Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
+                                nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
+                                
+                                ipc.send('progress_cell', {
+                                    table: '#upload_monitor_table',
+                                    id: transfer.id,
+                                    field: 'status',
+                                    value: 'finished'
+                                });
+
                                 ipc.send('upload_finished', transfer.id);
                             }
                         });
@@ -818,9 +869,9 @@ function mark_uploaded(transfer_id, series_id) {
                 table: '#upload_monitor_table',
                 id: transfer_id,
                 field: "status",
-                value: new_status
+                value: (finished / total * 100)
             });
-
+            
             db_uploads().update({ id: transfer_id }, {$set: {
                     status: new_status, 
                     series_ids: transfer.series_ids,

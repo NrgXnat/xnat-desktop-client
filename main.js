@@ -15,9 +15,24 @@ const electron_log = require('./services/electron_log')
 
 const { isDevEnv } = require('./services/app_utils');
 
+
+const settings = require('electron-settings');
+
+
 //electron_log.transports.file.clear();
 
 electron_log.info('App starting...');
+
+app.commandLine.appendSwitch('remote-debugging-port', '9222')
+
+const appMetaData = require('./package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: settings.get('send_crash_reports') || false
+});
 
 
 const {autoUpdater} = require("electron-updater");
@@ -71,6 +86,12 @@ function initialize_usr_local_lib_app() {
 
     mainWindow.on('closed', function () {
       mainWindow = null
+    });
+
+    // handle crash events
+    mainWindow.webContents.on('crashed', (e) => {
+      mainWindow.webContents.reload()
+      electron_log.error('mainWindow crashed')
     });
   }
 
@@ -153,14 +174,32 @@ function initialize () {
       mainWindow.maximize()
       require('devtron').install()
 
-      // uploadWindow.show()
-      // uploadWindow.webContents.openDevTools()
-      // uploadWindow.maximize()
+      uploadWindow.show()
+      uploadWindow.webContents.openDevTools()
+      uploadWindow.maximize()
 
-      // downloadWindow.show()
-      // downloadWindow.webContents.openDevTools()
-      // downloadWindow.maximize()
+      downloadWindow.show()
+      downloadWindow.webContents.openDevTools()
+      downloadWindow.maximize()
     }
+
+    // handle crash events
+    mainWindow.webContents.on('crashed', (e) => {
+      mainWindow.webContents.reload()
+      uploadWindow.webContents.reload()
+      downloadWindow.webContents.reload()
+      electron_log.error('mainWindow crashed')
+    });
+
+    uploadWindow.webContents.on('crashed', (e) => {
+      uploadWindow.webContents.reload()
+      electron_log.error('uploadWindow crashed')
+    });
+
+    downloadWindow.webContents.on('crashed', (e) => {
+      downloadWindow.webContents.reload()
+      electron_log.error('downloadWindow crashed')
+    });
 
     mainWindow.on('closed', function () {
       //showErrorBox('mainWindow Closed', 'mainWindow closed!');
@@ -175,7 +214,7 @@ function initialize () {
     });
     
     // Protocol handler for win32
-    if (process.platform == 'win32') {
+    if (process.platform == 'win32' || process.platform == 'linux') {
       // Keep only command line / deep linked arguments
       startupExternalUrl = process.argv.slice(1)
     }
@@ -199,6 +238,7 @@ function initialize () {
     })
     autoUpdater.on('update-not-available', (info) => {
       devToolsLog('Update not available.');
+      delayed_notification('update-not-available', info);
     })
     autoUpdater.on('error', (err) => {
       delayed_notification('update-error', err);
@@ -368,7 +408,7 @@ function isSecondInstance() {
 
       // Protocol handler for win32
       // argv: An array of the second instance’s (command line / deep linked) arguments
-      if (process.platform == 'win32') {
+      if (process.platform == 'win32' || process.platform == 'linux') {
         handle_protocol_request(argv.slice(1), 'app.makeSingleInstance');
       }
       
@@ -379,11 +419,10 @@ function isSecondInstance() {
 function handle_protocol_request(url, place) {
   log(place, url);
 
-  // TODO - handle better initial delay (through events)
   if (place === 'createWindow') {
-    setTimeout(function(){
+    mainWindow.webContents.on('did-finish-load', (e) => {
       mainWindow.webContents.send('handle_protocol_request', url);
-    }, 2700)
+    });
   } else {
     mainWindow.webContents.send('handle_protocol_request', url);
   }

@@ -1,15 +1,45 @@
+const electron = require('electron');
 const settings = require('electron-settings')
-const ipc = require('electron').ipcRenderer
-const app = require('electron').remote.app
-const shell = require('electron').shell
+const ipc = electron.ipcRenderer
+const app = electron.remote.app
+const shell = electron.shell
 const axios = require('axios');
 const isOnline = require('is-online');
 const auth = require('../services/auth');
 const api = require('../services/api');
 
+const appMetaData = require('../package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: settings.get('send_crash_reports') || false
+});
+
+
+
+
+
+try {
+    let mizer = require('../mizer');
+} catch(e) {
+    if (process.platform === "win32" && e.message.includes('nodejavabridge_bindings.node')) {
+        $('#win_install_cpp').modal({
+            keyboard: false,
+            backdrop: 'static'
+        })
+    } else {
+        throw e;
+    }
+}
+
+
+
+
 const swal = require('sweetalert');
 
-const electron_log = require('electron').remote.require('./services/electron_log');
+const electron_log = electron.remote.require('./services/electron_log');
 
 const {URL} = require('url');
 
@@ -25,7 +55,7 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     active_page = settings.has('active_page') ? settings.get('active_page') : 'login.html';
 }
 
-logins = settings.has('logins') ? settings.get('logins') : [];
+logins = settings.get('logins') || [];
 settings.set('logins', logins);
 
 
@@ -59,10 +89,7 @@ function loadPage(page) {
             let contentContainer = document.querySelector('.content');
     
             contentContainer.innerHTML = '';
-            // while (contentContainer.firstChild) {
-            //     contentContainer.removeChild(contentContainer.firstChild);
-            // }
-            //console_log(clone);
+
             contentContainer.appendChild(clone);
             document.body.scrollTop = 0;
 
@@ -70,7 +97,6 @@ function loadPage(page) {
 
             return;
         }
-        
 
     });
 
@@ -229,15 +255,23 @@ ipc.on('update-available', (e, ...args) => {
     })
     console_log('update-available')
     console_log(args);
+
+    store.set('version-info-update', 'Updated version available.')
+})
+
+ipc.on('update-not-available', (e, ...args) => {
+    store.set('version-info-update', 'You are running the latest version.')
 })
 
 ipc.on('update-error', (e, ...args) => {
     //let str = args.join(' | ')
     //Helper.pnotify('Naslov', 'Poruka: ' + str);
     console_log('update-error')
-    swal('Update error', 'An error occured during update download.', 'error');
+    swal('Update error', 'An error occurred during update download.', 'error');
     electron_log.error('update-error', e)
     console_log(args);
+
+    store.set('version-info-update', 'An error occurred during update download.')
 })
 
 ipc.on('download-progress', (e, ...args) => {

@@ -10,6 +10,11 @@ const db_uploads_archive = require('electron').remote.require('./services/db/upl
 const db_downloads = require('electron').remote.require('./services/db/downloads')
 const db_downloads_archive = require('electron').remote.require('./services/db/downloads_archive')
 
+const nedb_log_reader = require('electron').remote.require('./services/db/nedb_log_reader')
+const moment = require('moment');
+
+const { objArrayToCSV } = require('../services/app_utils');
+
 const { console_red } = require('../services/logger');
 
 const NProgress = require('nprogress');
@@ -502,6 +507,38 @@ $(document).on('page:load', '#progress-section', function(e){
     _init_variables();
 });
 
+const csv_export_buttons = [
+    '#download_log_csv',
+    '#upload_log_csv',
+
+    '#upload-success-log [data-save-csv]',
+    '#error-log--download [data-save-csv]',
+    '#error-log--upload [data-save-csv]'
+];
+
+$(document).on('click', csv_export_buttons.join(','), function(e) {
+    let id = $(this).closest('.modal-content').attr('data-id');
+
+    nedb_log_reader.fetch_log(id, (err, docs) => {
+
+        let relevant_data = docs.map(obj => {
+            return Object.assign({}, {
+                timestamp: obj.timestamp,
+                type: obj.type, 
+                status: obj.level,
+                transfer_id: obj.transfer_id,
+                message: obj.message,
+                details: JSON.parse(obj.details)
+            });
+        });
+
+        let csv = objArrayToCSV(relevant_data);
+
+        var file = new File([csv], `log_export-${id}.csv`, {type: "text/csv;charset=utf-8"});
+        FileSaver.saveAs(file);
+
+    })
+})
 $(document).on('show.bs.modal', '#download-details', function(e) {
     var id = $(e.relatedTarget).data('id');
     var file = $(e.relatedTarget).data('file');
@@ -510,11 +547,36 @@ $(document).on('show.bs.modal', '#download-details', function(e) {
 
     $(e.currentTarget).find('#file_basename').html(file);
 
-    $('.modal-content').attr('data-id', id);
+    $('#download-details .modal-content').attr('data-id', id);
 
     set_download_details_total_percentage(id)
 
     _init_download_details_table(id)
+
+
+    nedb_log_reader.fetch_log(id, (err, docs) => {
+        console.log(docs);
+        $('#download-nedb-log').html('');
+        $('#download-nedb-log').append(`
+            <tr>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Date/Time</th>
+            </tr>
+        `)
+        
+        docs.forEach(doc => {
+            let datetime = moment(doc.timestamp).format('YYYY-MM-DD HH:mm:ss')
+            $('#download-nedb-log').append(`
+                <tr>
+                    <td>${doc.level}</td>
+                    <td>${doc.message}</td>
+                    <td>${datetime}</td>
+                    <!-- <td>${doc.details}</td> -->
+                </tr>
+            `)
+        })
+    })
 });
 
 function set_download_details_total_percentage(transfer_id) {
@@ -549,12 +611,20 @@ function set_download_details_total_percentage(transfer_id) {
 }
 
 $(document).on('show.bs.modal', '#error-log--download', function(e) {
-    var id = parseInt($(e.relatedTarget).data('id'));
+    var transfer_id = $(e.relatedTarget).data('id');
+    $('#error-log--download .modal-content').attr('data-id', transfer_id);
+
+    var id = parseInt(transfer_id);
     let $log_text = $(e.currentTarget).find('.log-text');
 
     db_downloads.getById(id, (err, download) => {
         $log_text.html(download.error);
     });
+});
+
+$(document).on('show.bs.modal', '#error-log--upload', function(e) {
+    var transfer_id = $(e.relatedTarget).data('id');
+    $('#error-log--upload .modal-content').attr('data-id', transfer_id);
 });
 
 $(document).on('show.bs.modal', '#upload-details', function(e) {
@@ -572,6 +642,36 @@ $(document).on('show.bs.modal', '#upload-details', function(e) {
     set_upload_details_total_percentage(id)
 
     _init_upload_details_table(id)
+
+    nedb_log_reader.fetch_log(id, (err, docs) => {
+        console.log(docs);
+        $('#upload-nedb-log').html('');
+        $('#upload-nedb-log').append(`
+            <tr>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Date/Time</th>
+            </tr>
+        `)
+        
+        docs.forEach(doc => {
+            let datetime = moment(doc.timestamp).format('YYYY-MM-DD HH:mm:ss')
+            $('#upload-nedb-log').append(`
+                <tr>
+                    <td>${doc.level}</td>
+                    <td>${doc.message}</td>
+                    <td>${datetime}</td>
+                    <!-- <td>${doc.details}</td> -->
+                </tr>
+            `)
+        })
+    })
+    
+});
+
+
+$(document).on('hidden.bs.modal', function(){
+    $('#upload-nedb-log-container').collapse("hide");
 });
 
 function set_upload_details_total_percentage(transfer_id) {
@@ -1049,6 +1149,8 @@ $(document).on('click', '[data-save-txt]', function(){
     FileSaver.saveAs(blob, "success_log.txt");
 });
 
+
+
 $(document).on('click', '.js_cancel_all_transfers', function(){
     let global_pause = settings.get('global_pause')
     settings.set('global_pause', true);
@@ -1117,35 +1219,97 @@ $(document).on('click', '.js_pause_all', function(){
 });
 
 $(document).on('click', '.js_clear_finished', function(){
-    swal({
-        title: "Which transfers to clear?",
-        text: "Choose which transfers to clear.",
-        icon: "warning",
-        buttons: {
-            all: "Completed and Canceled",
-            finished: "Only Completed",
-            cancel: "Cancel"
-        },
-        closeOnEsc: false,
-        dangerMode: true
-    })
-        .then((toClear) => {
-            console.log(toClear);
-            switch (toClear) {
-                case "all":
-                    remove_transfers(true);
-                    break;
 
-                case "finished":
-                    remove_transfers(false);
-                    break;
+    Promise.all([
+        db_uploads._listAll(), 
+        db_downloads._listAll()
+    ]).then(([all_uploads, all_downloads]) => {
+        const cancel_reducer = (total, transfer) => {
+            return total + transfer.canceled
+        }
+        let canceled_count = all_uploads.reduce(cancel_reducer, 0) + all_downloads.reduce(cancel_reducer, 0);
+        
 
-                default:
-                    
+        const finished_reducer = (total, transfer) => {
+            return total + (transfer.hasOwnProperty('status') && (transfer.status === "finished" || transfer.status === "complete_with_errors"))
+        }
+
+        let finished_count = all_uploads.reduce(finished_reducer, 0) + all_downloads.reduce(finished_reducer, 0);
+
+
+        console.log({all_uploads, all_downloads, canceled_count, finished_count});
+
+        let question;
+        if (canceled_count > 0 && finished_count > 0) {
+            
+            question = {
+                title: "Which transfers to archive?",
+                text: "Choose which uploads and downloads to archive.",
+                icon: "warning",
+                buttons: {
+                    all: "Completed and Canceled",
+                    finished: "Only Completed",
+                    cancel: "Cancel"
+                },
+        
+                closeOnEsc: false,
+                dangerMode: true
             }
-        });
 
-    
+
+        } else if (finished_count > 0) {
+
+            question = {
+                title: "Archive completed transfers?",
+                text: "All completed uploads and downloads will be archived.",
+                icon: "warning",
+                buttons: {
+                    all: "Yes",
+                    cancel: "Cancel"
+                },
+        
+                closeOnEsc: false,
+                dangerMode: true
+            }
+
+        } else if (canceled_count > 0) {
+            question = {
+                title: "Archive canceled transfers?",
+                text: "There are no completed transfers. Archive CANCELED transfers?",
+                icon: "warning",
+                buttons: {
+                    all: "Yes",
+                    cancel: "Cancel"
+                },
+        
+                closeOnEsc: false,
+                dangerMode: true
+            }
+        } else {
+            swal('Nothing to archive!', 'There are no finished or canceled transfers', 'warning');
+            return;
+        }
+
+        swal(question)
+            .then((toClear) => {
+                console.log(toClear);
+                switch (toClear) {
+                    case "all":
+                        remove_transfers(true);
+                        break;
+
+                    case "finished":
+                        remove_transfers(false);
+                        break;
+
+                    default:
+                        
+                }
+            });
+        
+    });
+
+
 });
 
 

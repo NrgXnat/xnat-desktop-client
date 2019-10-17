@@ -1,12 +1,20 @@
 build_config: &build_config
   BUILD_IMAGE_NAME: xnat/node-java-build
   BUILD_IMAGE_TAG: latest
+  CACHE_VERSION: v1
+  NODE_VERSION: "8.16.1"
+  NVM_VERSION: "0.35.0"
+  JAVA_VERSION: "zulu8.40.0.25-ca-jre8.0.222"
 
 version: 2
+
 jobs:
+
   build_win_and_linux:
+
     environment:
       <<: *build_config
+
     docker:
       - image: ${BUILD_IMAGE_NAME}:${BUILD_IMAGE_TAG}
 
@@ -15,7 +23,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: cache-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
           name: Create link to Windows 64-bit JRE
           command: ln -s /opt/java/win-x64/jre build_resources/jre/win-x64
@@ -26,15 +34,19 @@ jobs:
           name: Install and build node dependencies
           command: yarn install
       - save_cache:
-          key: cache-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
           paths:
             - node_modules
       - run:
           name: Build Windows 64-bit executable and installer
-          command: yarn dist-win-x64
+          command: |
+              export JAVA_HOME="/opt/java/win-x64"
+              yarn dist-win-x64
       - run:
           name: Build Linux 64-bit executable and installer
-          command: yarn dist-linux-x64
+          command: |
+              export JAVA_HOME="/opt/java/linux-x64"
+              yarn dist-linux-x64
       - run:
           name: Copy build artifacts to artifacts folder
           command: |
@@ -58,46 +70,58 @@ jobs:
           path: artifacts
 
   build_mac:
+
+    environment:
+      <<: *build_config
+
     macos:
-      xcode: "10.1.0"
+      xcode: "11.1.0"
 
     working_directory: ~/build
 
     steps:
       - run:
-          name: Install httpie
+          name: Install and upgrade httpie
           command: pip install --upgrade httpie
       - run:
-          name: Install NVM and node@8.15.0
+          name: Install NVM and node
           command: |
             set +e
-            http https://raw.githubusercontent.com/creationix/nvm/v0.33.11/install.sh | bash
-            echo 'export NVM_DIR="$HOME/.nvm"' >> $BASH_ENV
-            echo '[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"' >> $BASH_ENV
-            echo "nvm install v8.15.0" >> $BASH_ENV
-            echo "nvm alias default v8.15.0" >> $BASH_ENV
+            http --body https://raw.githubusercontent.com/creationix/nvm/v${NVM_VERSION}/install.sh | bash
+            echo "export NVM_DIR=\""'${HOME}'"/.nvm\"" >> ~/.bash_profile
+            echo "[ -s \""'${NVM_DIR}'"/nvm.sh\" ] && source \""'${NVM_DIR}'"/nvm.sh\"" >> ~/.bash_profile
+            source ~/.bash_profile
+            nvm install ${NODE_VERSION}
+            nvm alias default ${NODE_VERSION}
+            nvm use default
       - checkout
       - restore_cache:
-          key: cache-mac-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
           name: Download and expand JRE for Mac
           command: |
             [[ ! -d build_resources/jre/mac ]] && {
-                http --download https://cdn.azul.com/zulu/bin/zulu8.33.0.1-jdk8.0.192-macosx_x64.zip --output build_resources/jre/zulu8.33.0.1-jdk8.0.192-macosx_x64.zip
-                unzip -d build_resources/jre build_resources/jre/zulu8.33.0.1-jdk8.0.192-macosx_x64.zip
-                mv build_resources/jre/zulu8.33.0.1-jdk8.0.192-macosx_x64 build_resources/jre/mac
+                JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
+                http --download https://cdn.azul.com/zulu/bin/${JAVA_TARGET}.zip
+                unzip ${JAVA_TARGET}.zip
+                mv ${JAVA_TARGET} build_resources/jre/mac
+                rm -rf ${JAVA_TARGET}.zip
             }
       - run:
           name: Install and build node dependencies
-          command: yarn install
+          command: |
+            JAVA_HOME=$(/usr/libexec/java_home)
+            yarn install
       - save_cache:
-          key: cache-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
           paths:
             - node_modules
             - build_resources/jre/mac
       - run:
           name: Build Mac executable and installer
-          command: yarn dist-mac
+          command: |
+            JAVA_HOME=$(/usr/libexec/java_home)
+            yarn dist-mac
       - run:
           name: Copy build artifacts to artifacts folder
           command: |
@@ -121,8 +145,11 @@ jobs:
           path: artifacts
 
 workflows:
+
   version: 2
+
   build_all:
+
     jobs:
       - build_win_and_linux:
           context: dxm
