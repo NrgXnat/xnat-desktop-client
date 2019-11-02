@@ -490,6 +490,7 @@ function fix_java_path() {
       java_jre_path = path.resolve(jvm_file, '..');
 
     } else if (process.platform === 'darwin') {
+
       create_jre_symlink('libjvm.dylib', jre_search_base);
       create_jre_symlink('libjli.dylib', jre_search_base);
 
@@ -521,9 +522,9 @@ function fix_java_path() {
     */
     //java_jre_path = path.resolve(_app_path, '..', 'jre', 'bin', 'client');
 
-    java_jre_path = '"' + path_separator + java_jre_path.replace(/\\/g, '\\\\') + '"';
-
     if (process.platform === 'win32') {
+      java_jre_path = '"' + path_separator + java_jre_path.replace(/\\/g, '\\\\') + '"';
+      
       fs.writeFileSync(java_config_path, java_jre_path, (err) => {
         if (err) throw err;
         console.log('The file has been saved!');
