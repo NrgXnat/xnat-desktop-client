@@ -490,18 +490,8 @@ function fix_java_path() {
       java_jre_path = path.resolve(jvm_file, '..');
 
     } else if (process.platform === 'darwin') {
-      jre_search_path = jre_search_base + '/**/libjvm.dylib';
-      jvm_file = glob.sync(jre_search_path)[0];
-      java_jre_path = path.resolve(jvm_file, '..');
-      
-      // to fix @rpath error on Mac
-      let local_lib_path = '/usr/local/lib';
-      let libjvm_symlink = local_lib_path + '/libjvm.dylib';
-      if (isSymlink.sync(libjvm_symlink)) {
-        fs.unlinkSync(libjvm_symlink);
-      }
-      fs.symlinkSync(java_jre_path + '/libjvm.dylib', libjvm_symlink);
-      
+      create_jre_symlink('libjvm.dylib', jre_search_base);
+      create_jre_symlink('libjli.dylib', jre_search_base);
 
     } else { // linux
       // temporary fix until we resolve symlink issue
@@ -543,8 +533,20 @@ function fix_java_path() {
   }
 }
 
+// filename = 'libjvm.dylib'
+function create_jre_symlink(filename, jre_search_base, local_lib_path = '/usr/local/lib') {
+  const isSymlink = require('is-symlink');
 
-
+  let jre_search_path = jre_search_base + '/**/' + filename;
+  let jvm_file = glob.sync(jre_search_path)[0];
+  
+  // to fix @rpath error on Mac
+  let libjvm_symlink = local_lib_path + '/' + filename;
+  if (isSymlink.sync(libjvm_symlink)) {
+    fs.unlinkSync(libjvm_symlink);
+  }
+  fs.symlinkSync(jvm_file, libjvm_symlink);
+}
 
 
 const showErrorBox = (title, msg) => {
