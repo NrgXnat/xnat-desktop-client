@@ -311,6 +311,10 @@ async function protocol_request(e, url) {
         url = url.length ? url[0] : '';
     }
 
+    if (url === null) {
+        url = '';
+    }
+
     for (let i = 0; i < app_protocols.length; i++) {
         let app_protocol = app_protocols[i];
         if (url.indexOf(app_protocol + '://') === 0) {
