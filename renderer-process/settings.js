@@ -1,6 +1,8 @@
 //require('promise.prototype.finally').shim();
 const path = require('path');
 const settings = require('electron-settings')
+const ElectronStore = require('electron-store');
+const app_config = new ElectronStore();
 const ipc = require('electron').ipcRenderer
 const swal = require('sweetalert');
 
@@ -34,6 +36,10 @@ $(document).on('page:load', '#settings-section', function(e){
             $tag.hide().fadeIn();
         }
     });
+
+    if (app_config.get('send_crash_reports', false) === true) {
+        $('#send-crash-reports').val('1')
+    }
 
 });
 
@@ -291,7 +297,7 @@ $(document).on('click', '#save_default_pet_tracers', function(e) {
 
 $(document).on('change', '#send-crash-reports', function(e) {
     let send_crash_reports = $('#send-crash-reports').val() === '1';
-    settings.set('send_crash_reports', send_crash_reports);
+    app_config.set('send_crash_reports', send_crash_reports);
     Helper.pnotify('Success!', `Crash Report status was updated! (${send_crash_reports ? 'ON' : 'OFF'})`);
 })
 

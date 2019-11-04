@@ -7,6 +7,9 @@ const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
 require('promise.prototype.finally').shim();
 const settings = require('electron-settings');
+const ElectronStore = require('electron-store');
+const app_config = new ElectronStore();
+
 const ipc = require('electron').ipcRenderer;
 
 const remote = require('electron').remote;
@@ -38,7 +41,7 @@ electron.crashReporter.start({
     productName: appMetaData.name,
     productVersion: appMetaData.version,
     submitURL: appMetaData.extraMetadata.submitUrl,
-    uploadToServer: settings.get('send_crash_reports') || false
+    uploadToServer: app_config.get('send_crash_reports', false)
 });
 
 function summary_log_update(transfer_id, prop, val) {
