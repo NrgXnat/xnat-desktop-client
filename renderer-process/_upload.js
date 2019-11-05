@@ -768,6 +768,10 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         
                     } catch (error) {
                         console_red('copy/anonymization ERROR', {source, target})
+                        console.log({error});
+                        console.log(error.message);
+                        electron_log.error(error)
+                        electron_log.error(error.message)
                         
     
                         resolve(source)
