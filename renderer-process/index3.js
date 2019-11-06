@@ -1,5 +1,7 @@
 const electron = require('electron');
 const settings = require('electron-settings')
+const ElectronStore = require('electron-store');
+const app_config = new ElectronStore();
 const ipc = electron.ipcRenderer
 const app = electron.remote.app
 const shell = electron.shell
@@ -14,7 +16,7 @@ electron.crashReporter.start({
     productName: appMetaData.name,
     productVersion: appMetaData.version,
     submitURL: appMetaData.extraMetadata.submitUrl,
-    uploadToServer: settings.get('send_crash_reports') || false
+    uploadToServer: app_config.get('send_crash_reports', false)
 });
 
 
@@ -309,6 +311,10 @@ async function protocol_request(e, url) {
 
     if (Array.isArray(url)) {
         url = url.length ? url[0] : '';
+    }
+
+    if (url === null) {
+        url = '';
     }
 
     for (let i = 0; i < app_protocols.length; i++) {

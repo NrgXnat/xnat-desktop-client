@@ -16,7 +16,8 @@ const electron_log = require('./services/electron_log')
 const { isDevEnv } = require('./services/app_utils');
 
 
-const settings = require('electron-settings');
+const ElectronStore = require('electron-store');
+const app_config = new ElectronStore();
 
 
 //electron_log.transports.file.clear();
@@ -31,7 +32,7 @@ electron.crashReporter.start({
     productName: appMetaData.name,
     productVersion: appMetaData.version,
     submitURL: appMetaData.extraMetadata.submitUrl,
-    uploadToServer: settings.get('send_crash_reports') || false
+    uploadToServer: app_config.get('send_crash_reports', false)
 });
 
 
@@ -182,6 +183,7 @@ function initialize () {
       downloadWindow.webContents.openDevTools()
       downloadWindow.maximize()
     }
+
 
     // handle crash events
     mainWindow.webContents.on('crashed', (e) => {
@@ -490,18 +492,9 @@ function fix_java_path() {
       java_jre_path = path.resolve(jvm_file, '..');
 
     } else if (process.platform === 'darwin') {
-      jre_search_path = jre_search_base + '/**/libjvm.dylib';
-      jvm_file = glob.sync(jre_search_path)[0];
-      java_jre_path = path.resolve(jvm_file, '..');
-      
-      // to fix @rpath error on Mac
-      let local_lib_path = '/usr/local/lib';
-      let libjvm_symlink = local_lib_path + '/libjvm.dylib';
-      if (isSymlink.sync(libjvm_symlink)) {
-        fs.unlinkSync(libjvm_symlink);
-      }
-      fs.symlinkSync(java_jre_path + '/libjvm.dylib', libjvm_symlink);
-      
+
+      create_jre_symlink('libjvm.dylib', jre_search_base);
+      create_jre_symlink('libjli.dylib', jre_search_base);
 
     } else { // linux
       // temporary fix until we resolve symlink issue
@@ -531,9 +524,9 @@ function fix_java_path() {
     */
     //java_jre_path = path.resolve(_app_path, '..', 'jre', 'bin', 'client');
 
-    java_jre_path = '"' + path_separator + java_jre_path.replace(/\\/g, '\\\\') + '"';
-
     if (process.platform === 'win32') {
+      java_jre_path = '"' + path_separator + java_jre_path.replace(/\\/g, '\\\\') + '"';
+      
       fs.writeFileSync(java_config_path, java_jre_path, (err) => {
         if (err) throw err;
         console.log('The file has been saved!');
@@ -543,8 +536,20 @@ function fix_java_path() {
   }
 }
 
+// filename = 'libjvm.dylib'
+function create_jre_symlink(filename, jre_search_base, local_lib_path = '/usr/local/lib') {
+  const isSymlink = require('is-symlink');
 
-
+  let jre_search_path = jre_search_base + '/**/' + filename;
+  let jvm_file = glob.sync(jre_search_path)[0];
+  
+  // to fix @rpath error on Mac
+  let libjvm_symlink = local_lib_path + '/' + filename;
+  if (isSymlink.sync(libjvm_symlink)) {
+    fs.unlinkSync(libjvm_symlink);
+  }
+  fs.symlinkSync(jvm_file, libjvm_symlink);
+}
 
 
 const showErrorBox = (title, msg) => {
