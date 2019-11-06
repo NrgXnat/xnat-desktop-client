@@ -184,10 +184,6 @@ function initialize () {
       downloadWindow.maximize()
     }
 
-    // JUST FOR MACOS TESTING
-    mainWindow.webContents.openDevTools()
-    uploadWindow.show()
-    uploadWindow.webContents.openDevTools()
 
     // handle crash events
     mainWindow.webContents.on('crashed', (e) => {
