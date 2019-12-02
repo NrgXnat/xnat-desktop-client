@@ -53,9 +53,9 @@ let Helper = {
             //console.log(error.response.data);
             //console.log(error.response.headers);
             
-            error.response = auth.anonymize_response(error.response, '***ANON***')
+            let error_response = auth.anonymize_response(error.response, '***ANON***')
             
-            switch (error.response.status) {
+            switch (error_response.status) {
                 case 401:
                     msg = 'Invalid username or password!';
                     break;
@@ -64,9 +64,9 @@ let Helper = {
                     break;
                 default:
                 try {
-                    msg =  `An error occured. Please try again. (${JSON.stringify(error.response, undefined, 2)})`;
+                    msg =  `An error occured. Please try again. (${JSON.stringify(error_response, undefined, 2)})`;
                 } catch (e) {
-                    msg =  `An error occured. Please try again. (${error.response.status})`;
+                    msg =  `An error occured. Please try again. (${error_response.status})`;
                 }
             }
 
@@ -185,7 +185,7 @@ let Helper = {
         return funcs.reduce(reducer, Promise.resolve([]))
     },
 
-    copy_obj: (obj) => JSON.parse(JSON.stringify(obj)),
+    copy_obj: (obj) => JSON.parse(JSON.stringify(obj)), // alternative => lodash.clonedeep
            
 
     // types => success (green), info (blue), notice (yellow), error (red)

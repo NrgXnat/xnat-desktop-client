@@ -9,6 +9,8 @@ const ipc = require('electron').ipcRenderer
 const {URL} = require('url');
 const remote = require('electron').remote;
 
+const lodashClonedeep = require("lodash.clonedeep");
+
 let auth = {
     login_promise: (xnat_server, user_auth) => {
         return axios.get(xnat_server + '/data/auth', {
@@ -254,8 +256,8 @@ let auth = {
         });
     },
 
-    anonymize_response: (data, anon = '***REMOVED***') => {
-        let conf;
+    anonymize_response: (response, anon = '***REMOVED***') => {
+        let conf, data = lodashClonedeep(response)
 
         if (data.config) {
             conf = data.config
@@ -273,7 +275,6 @@ let auth = {
             if (conf.headers && conf.headers.Authorization) {
                 conf.headers.Authorization = anon
             }
-            
         }
 
         return data
