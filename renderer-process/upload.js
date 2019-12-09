@@ -339,12 +339,40 @@ $(document).on('page:load', '#upload-section', async function(e){
 
             $('#upload-project').html('')
 
+            
             if (projects.length) {
+                let recent_projects_ids = ['T4P06', 'T4P03', 'T4P01']
+
+                // update THIS
+                let recent_projects = projects.filter((project) => recent_projects_ids.includes(project.id));
+                
+                let other_projects = projects.filter((project) => !recent_projects_ids.includes(project.id));
+
+                
+
+                projects = recent_projects.concat(other_projects)
+                console.log({recent_projects, other_projects, projects});
+                let rupc = user_settings.get('recent_upload_projects_count');
+                
+
                 for (let i = 0, len = projects.length; i < len; i++) {
                     console.log('---', projects[i].id)
+                    if (i == 0 && rupc != 0) {
+                        $('#upload-project').append(`
+                            <li class="divider">Recent:</li>
+                        `)
+                    }
+
+                    if (i == rupc && rupc != 0) {
+                        $('#upload-project').append(`
+                            <li class="divider">Other:</li>
+                        `)
+                    }
+                    
                     $('#upload-project').append(`
                         <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} <span class="project_id">ID: ${projects[i].id}</span></a></li>
                     `)
+                    
                 }
             } else {
                 no_upload_privileges_warning()
