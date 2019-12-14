@@ -240,7 +240,9 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
     settings.set('transfering_download', transfer_id);
 
     let temp_zip_path = path.resolve(tempDir, '_xdc_temp');
-    let real_path = path.resolve(transfer.destination, xnat_server.split('//')[1]);
+    let server_dir_path = xnat_server.split('//')[1];
+    server_dir_path = server_dir_path.replace(/:/gi, "_"); // if server path contains port number
+    let real_path = path.resolve(transfer.destination, server_dir_path);
 
     if (create_dir_structure) {
         fx.mkdirSync(temp_zip_path, function (err) {
