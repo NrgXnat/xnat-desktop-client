@@ -605,6 +605,19 @@ ipcMain.on('progress_cell', (e, item) =>{
   mainWindow.webContents.send('progress_cell', item);
 })
 
+ipcMain.on('xnat_cant_handle_stream_upload', (e, item) =>{
+  mainWindow.webContents.send('xnat_cant_handle_stream_upload', item);
+})
+
+ipcMain.on('global_pause_status', (e, item) => {
+  mainWindow.webContents.send('global_pause_status', item);
+
+  if (item === true) {
+    uploadWindow.webContents.send('start_upload', item);
+    uploadWindow.webContents.send('start_download', item);
+  }
+})
+
 // ?
 ipcMain.on('progress_alert', (e, item) =>{
   mainWindow.webContents.send('progress_alert', item);

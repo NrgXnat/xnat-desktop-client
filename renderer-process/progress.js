@@ -1205,18 +1205,27 @@ $(document).on('click', '.js_restart_all_transfers', function(){
 
 $(document).on('click', '.js_pause_all', function(){
     let new_pause_status = !settings.get('global_pause');
+    global_pause_status(new_pause_status)
+});
 
-    ipc.send('start_download');
+function global_pause_status(new_pause_status) {
+    if (settings.get('global_pause') === new_pause_status) {
+        return;
+    }
+
+    if (!new_pause_status) {
+        ipc.send('start_download');
+        ipc.send('start_upload');
+    }
     
     settings.set('global_pause', new_pause_status);
-    $(this).html(pause_btn_content(new_pause_status));
+    $('#progress-section .js_pause_all').html(pause_btn_content(new_pause_status));
 
     let title = new_pause_status ? 'Pause' : 'Resume';
     let body = new_pause_status ? 'Paused' : 'Resumed';
 
     Helper.pnotify(`${title} All Tranfsers`, `All Transfers Successfully ${body}.`, 'success', 3000);
-    
-});
+}
 
 $(document).on('click', '.js_clear_finished', function(){
 
@@ -1614,4 +1623,9 @@ ipc.on('upload_progress',function(e, item) {
     }
     
 });
+
+ipc.on('global_pause_status', function(e, item) {
+    global_pause_status(item)
+    // $('.js_pause_all').html(pause_btn_content(item));
+})
 

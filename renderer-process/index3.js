@@ -9,6 +9,12 @@ const axios = require('axios');
 const isOnline = require('is-online');
 const auth = require('../services/auth');
 const api = require('../services/api');
+const tempDir = require('temp-dir');
+const path = require('path')
+
+const { isReallyWritable } = require('../services/app_utils');
+
+const user_settings = require('../services/user_settings');
 
 const appMetaData = require('../package.json');
 electron.crashReporter.start({
@@ -215,6 +221,57 @@ $(document).on('click', '[data-href]', function() {
     loadPage(path)
 });
 
+$(document).on('change', '#alt_upload_method_modal [name="temp_location"]', function() {
+    var show_alternative = $('#alt_upload_method_modal [name="temp_location"]:checked').val() === 'custom';
+    console.log(show_alternative)
+    if (show_alternative) {
+        $('#temp_folder_alternative_holder').slideDown()
+    } else {
+        $('#temp_folder_alternative_holder').slideUp()
+    }
+    
+})
+
+$(document).on('show.bs.modal', '#alt_upload_method_modal', function(e) {
+    let dicom_temp_folder_path = path.resolve(tempDir, '_xdc_temp');
+    $('#default_temp_location').text(dicom_temp_folder_path)
+});
+
+$(document).on('change', '#file_temp_folder_alternative', function(e) {
+    console.log(this.files.length);
+
+    if (this.files.length) {
+        $('#temp_folder_alternative').val(this.files[0].path);
+    }
+})
+
+$(document).on('click', '#confirm_temp_folder', function() {
+    var use_alt_path = $('#alt_upload_method_modal [name="temp_location"]:checked').val() === 'custom';
+
+    let alt_path = $('#temp_folder_alternative').val()
+    if (use_alt_path) {
+        if (alt_path) {
+            if (isReallyWritable(alt_path)) {
+                console.log('WRITABLE', alt_path);
+                user_settings.set('zip_upload_mode', true);
+                user_settings.set('temp_folder_alternative', alt_path);
+
+                // unpause = restart upload
+                ipc.send('global_pause_status', false);
+
+                $('#alt_upload_method_modal').modal('hide');
+
+                // TODO add Helper.notify
+            } else {
+                console.log('NOT WRITABLE', alt_path);
+                swal('Path Error', 'Please select a different storage location.', 'error');
+            }
+        } else {
+            swal('Form Error', 'Please select a storage location.', 'error');
+        }
+    }
+
+})
 
 ipc.on('load:page',function(e, item){
     console_log('Loading page ... ' + item)
@@ -292,6 +349,18 @@ ipc.on('update-downloaded', (e, ...args) => {
     console_log('update-downloaded')
     console_log(args);
 })
+
+ipc.on('xnat_cant_handle_stream_upload', (e, ...args) => {
+    $('#alt_upload_method_modal').modal({
+        keyboard: true,
+        backdrop: 'static'
+    })
+})
+
+// setTimeout(function() {
+//     ipc.send('xnat_cant_handle_stream_upload')
+// }, 2000)
+
 
 $(document).on('click', '#download_and_install', function(e) {
     $(this).prop('disabled', true);

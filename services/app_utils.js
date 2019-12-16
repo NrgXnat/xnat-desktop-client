@@ -1,3 +1,6 @@
+const path = require('path');
+const fs = require('fs');
+
 exports.isDevEnv = () => {
     // return process.argv && process.argv.length >= 3 && /--debug/.test(process.argv[2]);
 
@@ -40,6 +43,21 @@ exports.objArrayToCSV = (objArray) => {
     csv = csv.join('\r\n');
 
     return csv;
+}
+
+exports.isReallyWritable = (_path) => {
+    let new_dir = '__TEST__'  + Date.now();
+    let write_test_path = path.join(_path, new_dir)
+
+    // using a workaround since fs.accessSync(_path, fs.constants.R_OK | fs.constants.W_OK) does not work
+    // check if it works for built version
+    try {
+        fs.mkdirSync(write_test_path);
+        fs.rmdirSync(write_test_path);
+        return true;
+    } catch(err) {
+        return false;
+    }
 }
 
 

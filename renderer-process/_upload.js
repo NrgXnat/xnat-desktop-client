@@ -257,7 +257,7 @@ function console_log(...log_this) {
     electron_log.info(...log_this);
     //console.log(...log_this);
     //console.trace('<<<<== UPLOAD TRACE ==>>>>');
-    //ipc.send('log', ...log_this);
+    ipc.send('log', ...log_this);
 }
 
 
@@ -677,28 +677,39 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         respawn_transfer(transfer.id, series_id, true)
     })
     .catch(err => {
-        let is_error = true;
-
-        remove_cancel_token(transfer.id, series_id)
+        let log_and_respawn = true;
+        let stream_upload_error = false;
 
         if (axios.isCancel(err)) {
             console_red('upload canceled error: cancelCurrentUpload', err);
 
             if (err.message === 'cancel_many') {
-                is_error = false;
+                log_and_respawn = false;
             }
         } else {
             console_red('upload error 2', {err});
+
+            // critical error message 
+            let err_msg_search = 'File posts must include the file directly as the body of the message';
+            if (err.response && err.response.status === 400 && err.response.data.indexOf(err_msg_search) > 0) {
+                log_and_respawn = false;
+                stream_upload_error = true;
+            }
         }
         
+        remove_cancel_token(transfer.id, series_id)
         _queue_.remove(transfer.id, series_id);
 
-        if (is_error) {
+        if (log_and_respawn) {
             update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
                 respawn_transfer(transfer.id, series_id, false)
             });
-        } else {
-            // respawn_transfer(transfer.id, series_id, false)
+        }
+
+        if (stream_upload_error) {
+            _queue_.remove_many(transfer.id);
+            ipc.send('global_pause_status', true);
+            ipc.send('xnat_cant_handle_stream_upload');
         }
         
     });
