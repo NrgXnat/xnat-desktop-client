@@ -29,9 +29,15 @@ const { console_red } = require('../services/logger');
 
 const electron_log = remote.require('./services/electron_log');
 
+const user_settings = require('../services/user_settings');
+
 const nedb_logger = remote.require('./services/db/nedb_logger')
 
+const { copy_anonymize_zip } = require('../services/upload/copy_anonymize_zip');
+
 let summary_log = {};
+
+let transfer_progress = [];
 
 let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
 
@@ -82,7 +88,6 @@ ipc.on('cancel_upload',function(e, transfer_id){
  */
 
 let cancel_tokens = [];
-
 
 const remove_cancel_token = (transfer_id, series_id = false) => {
     console_red('remove_cancel_token::BEFORE', {cancel_tokens})
@@ -257,7 +262,7 @@ function console_log(...log_this) {
     electron_log.info(...log_this);
     //console.log(...log_this);
     //console.trace('<<<<== UPLOAD TRACE ==>>>>');
-    //ipc.send('log', ...log_this);
+    ipc.send('log', ...log_this);
 }
 
 
@@ -371,7 +376,13 @@ async function doUpload(transfer, series_id) {
         variables = mizer.getVariables(transfer.anon_variables);
         console_log(variables);
 
-        copy_and_anonymize(transfer, series_id, _files, contexts, variables, csrfToken)
+        if (user_settings.get('zip_upload_mode') === true) {
+            copy_and_anonymize_zip(transfer, series_id, _files, contexts, variables, csrfToken)
+        } else {
+            copy_and_anonymize(transfer, series_id, _files, contexts, variables, csrfToken)
+        }
+
+        
     })
     .catch(function(error) {
         electron_log.error(error);
@@ -381,7 +392,10 @@ async function doUpload(transfer, series_id) {
 }
 
 
-
+function get_temp_upload_path() {
+    return user_settings.get('temp_folder_alternative') ?
+        user_settings.get('temp_folder_alternative') : path.join(tempDir, '_xdc_temp');
+}
 
 let upload_counter = 0;
 async function copy_and_anonymize(transfer, series_id, filePaths, contexts, variables, csrfToken) {
@@ -393,8 +407,8 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         user_auth = auth.get_user_auth(),
         table_row = transfer.table_rows.find(tbl_row => tbl_row.series_id == series_id);
 
-    let dicom_temp_folder_path = path.resolve(tempDir, '_xdc_temp');
-    let new_dirname = 'dir_' + new Date() / 1; // eg. dir_1522274921704
+    let dicom_temp_folder_path = get_temp_upload_path();
+    let new_dirname = 'dir_' + Date.now(); // eg. dir_1522274921704
     let new_dirpath = path.join(dicom_temp_folder_path, new_dirname);
 
     fx.mkdirSync(new_dirpath, function (err) {
@@ -677,28 +691,39 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         respawn_transfer(transfer.id, series_id, true)
     })
     .catch(err => {
-        let is_error = true;
-
-        remove_cancel_token(transfer.id, series_id)
+        let log_and_respawn = true;
+        let stream_upload_error = false;
 
         if (axios.isCancel(err)) {
             console_red('upload canceled error: cancelCurrentUpload', err);
 
             if (err.message === 'cancel_many') {
-                is_error = false;
+                log_and_respawn = false;
             }
         } else {
             console_red('upload error 2', {err});
+
+            // critical error message 
+            let err_msg_search = 'File posts must include the file directly as the body of the message';
+            if (err.response && err.response.status === 400 && err.response.data.indexOf(err_msg_search) > 0) {
+                log_and_respawn = false;
+                stream_upload_error = true;
+            }
         }
         
+        remove_cancel_token(transfer.id, series_id)
         _queue_.remove(transfer.id, series_id);
 
-        if (is_error) {
+        if (log_and_respawn) {
             update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
                 respawn_transfer(transfer.id, series_id, false)
             });
-        } else {
-            // respawn_transfer(transfer.id, series_id, false)
+        }
+
+        if (stream_upload_error) {
+            _queue_.remove_many(transfer.id);
+            ipc.send('global_pause_status', true);
+            ipc.send('xnat_cant_handle_stream_upload');
         }
         
     });
@@ -845,6 +870,310 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
 }
 
+async function copy_and_anonymize_zip(transfer, series_id, _files, contexts, variables, csrfToken) {
+    let dicom_temp_folder_path = get_temp_upload_path();
+    let new_dirname = 'dir_' + Date.now(); // eg. dir_1522274921704
+    let new_dirpath = path.join(dicom_temp_folder_path, new_dirname);
+
+    fx.mkdirSync(new_dirpath, function (err) {
+        if (err) throw err;
+    });
+
+    copy_anonymize_zip(_files, new_dirpath, contexts, variables)
+        .then(archive_path => {
+            upload_zip(archive_path, transfer, series_id, csrfToken)
+        })
+        .catch(err => {
+            console.log('FINAL', err)
+        })
+    
+}
+
+async function upload_zip(zip_path, transfer, series_id, csrfToken) {
+    /**************************************************** */
+    /**************************************************** */
+    let xnat_server = transfer.xnat_server, 
+        user_auth = auth.get_user_auth(),
+        table_row = transfer.table_rows.find(tbl_row => tbl_row.series_id == series_id);
+
+        
+    let cancelCurrentUpload;
+    let CancelToken = axios.CancelToken;
+
+
+    const { project_id, subject_id, expt_label } = transfer.url_data;
+    let jsession_cookie = await auth.get_jsession_cookie()
+
+    let request_settings = {
+        method: 'post',
+        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
+        auth: user_auth,
+        onUploadProgress: function (progressEvent) {
+            // Do whatever you want with the native progress event
+            console.log('=======', progressEvent, '===========');
+            console.log(progressEvent.loaded, progressEvent.total);
+
+            let new_progress = progressEvent.loaded / progressEvent.total * 100;
+
+            update_progress_details_zip(transfer, table_row, new_progress)
+            
+        },
+        headers: {
+            'User-Agent': userAgentString,
+            'Content-Type': 'application/zip',
+            'Cookie': jsession_cookie
+        },
+        cancelToken: new CancelToken(function executor(c) {
+            // An executor function receives a cancel function as a parameter
+            cancelCurrentUpload = c;
+
+            cancel_tokens.push({
+                transfer_id: transfer.id,
+                series_id: series_id,
+                cancel: c
+            })
+        })
+    };
+
+    let https_agent_options = { keepAlive: true };
+    if (auth.allow_insecure_ssl()) {
+        https_agent_options.rejectUnauthorized = false // insecure SSL at request level
+    }
+    request_settings.httpsAgent = new https.Agent(https_agent_options);
+
+    console_red('request_settings', {request_settings})
+
+    // plug in test to see if upload is not canceled in the meantime
+    var current_transfer = await db_uploads._getById(transfer.id);
+
+    if (current_transfer.canceled === true) {
+        _queue_.remove_many(transfer.id);
+        respawn_transfer(transfer.id, series_id, false)
+        return;
+    }
+
+
+    fs.readFile(zip_path, (err, zip_content) => {
+        if (err) throw err;
+
+        request_settings.data = zip_content;
+        axios(request_settings)
+        .then(async res => {
+            fs.unlink(zip_path, (err) => {
+                if (err) throw err;
+                //console_log(`-- ZIP file "${zip_path}" was deleted.`);
+            });
+
+            remove_cancel_token(transfer.id, series_id)
+    
+            let data = {
+                res: res
+            };
+            try {
+                data.transfer = await mark_uploaded(transfer.id, series_id);
+    
+                nedb_logger.success(transfer.id, 'upload', `Series uploaded ${series_id}.`);
+                
+                _queue_.remove(transfer.id, series_id);
+    
+                return data;
+    
+            } catch (err) {
+                throw err;
+            }
+        })
+        .then(async data => {
+            let {transfer, res} = data;
+    
+            let transfer_series_ids = transfer.series_ids;
+            let items_in_queue = _queue_.items;
+    
+            console_red('mark_uploaded.then()', {series_id, transfer_series_ids, items_in_queue})
+            
+            if (transfer.series_ids.length === 0) {
+                console_log(`**** COMMITING UPLOAD ${transfer.id} :: ${series_id}`);
+                console_log(`***** res.statusText  = '${res.statusText }' ******`);
+                console_log(`***** res.data = '${res.data}' ******`);
+                console_log('***** res.status = ' + res.status + ' ****** (' + (typeof res.status) + ')');
+    
+                let session_link;
+                let reference_str = '/data/prearchive/projects/';
+                
+                // have to make this call again if too much time has passed (large upload)
+                let csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
+    
+                let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
+            
+                console_log('-------- XCOMMIT_url ----------')
+                console_log(`++++ Session commited. URL: ${commit_url}`);
+    
+    
+                let jsession_cookie = await auth.get_jsession_cookie()
+                let commit_request_settings = {
+                    auth: user_auth,
+                    headers: {
+                        'User-Agent': userAgentString,
+                        'Cookie': jsession_cookie
+                    }
+                }
+    
+                let https_agent_options = { keepAlive: true };
+                if (auth.allow_insecure_ssl()) {
+                    https_agent_options.rejectUnauthorized = false // insecure SSL at request level
+                }
+                commit_request_settings.httpsAgent = new https.Agent(https_agent_options);
+    
+    
+                let commit_data = {};
+    
+                console.log({transfer_XXX: transfer});
+    
+                if (transfer.anon_variables.hasOwnProperty('tracer')) {
+                    let label = transfer.session_data.modality.indexOf('MR') >=0 ? 'xnat:petMrSessionData/tracer/name' : 'xnat:petSessionData/tracer/name';                
+    
+                    commit_data[label] = transfer.anon_variables.tracer;
+                }
+    
+                console.log({commit_data});
+                
+                axios.post(commit_url, commit_data, commit_request_settings)
+                .then(commit_res => {
+                    console_log('-------- XCOMMIT_SUCCESS ----------')
+                    console_log(commit_res);
+    
+                    if (commit_res.data.indexOf(reference_str) >= 0) {
+                        console_log(`+++ SESSION PREARCHIVED +++`);
+                        let str_start = commit_res.data.indexOf(reference_str) + reference_str.length;
+                        let session_str = commit_res.data.substr(str_start);
+    
+                        let res_arr = session_str.split('/');
+                        // let res_project_id = res_arr[0];
+                        // let res_timestamp = res_arr[1];
+                        // let res_session_label = res_arr[2];
+                        
+                        session_link = xnat_server + '/app/action/LoadImageData/project/' + res_arr[0] + '/timestamp/' + res_arr[1] + '/folder/' + res_arr[2];
+                        
+                        return db_uploads._updateProperty(transfer.id, 'session_link', session_link)
+                    } else {
+                        return false;
+                    }
+                    
+                })
+                .then(num_updated => {
+                    console_red('num_updated 1', {num_updated})
+                    if (num_updated) {
+                        Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
+                        nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
+                        
+                        ipc.send('progress_cell', {
+                            table: '#upload_monitor_table',
+                            id: transfer.id,
+                            field: 'status',
+                            value: 'finished'
+                        });
+                        
+                        ipc.send('upload_finished', transfer.id);
+                    }
+                })
+                .catch(err => {
+                    console_log('-------- XCOMMIT_ERR ----------')
+                    console_log(err.response.data);
+    
+                    if (err.response.status != 301) {
+                        electron_log.error('commit_error', commit_url, JSON.stringify(err.response))
+                        let error_message = `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`;
+                        
+                        nedb_logger.error(transfer.id, 'upload', error_message, err.response);
+    
+                        update_transfer_summary(transfer.id, 'commit_errors', error_message);
+                    } else {
+                        console_log(`+++ SESSION ARCHIVED +++`);
+                        
+                        session_link = `${xnat_server}/data/archive/projects/${project_id}/subjects/${subject_id}/experiments/${expt_label}?format=html`
+                        
+                        db_uploads._updateProperty(transfer.id, 'session_link', session_link)
+                            .then(num_updated => {
+                                console_red('num_updated 2', {num_updated})
+                                if (num_updated) {
+                                    Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
+                                    nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
+                                    
+                                    ipc.send('progress_cell', {
+                                        table: '#upload_monitor_table',
+                                        id: transfer.id,
+                                        field: 'status',
+                                        value: 'finished'
+                                    });
+    
+                                    ipc.send('upload_finished', transfer.id);
+                                }
+                            });
+                    }
+                })
+                .finally(() => {
+                    console_log(`+++ FINALLY +++`);
+                    // let _time_took = ((performance.now() - commit_timer) / 1000).toFixed(2);
+                    // update_transfer_summary(transfer.id, 'timer_commit', _time_took);
+    
+                    // TODO - remove this from here
+                    // Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
+                });
+            }
+    
+            return true;
+        })
+        .then(() => {
+            respawn_transfer(transfer.id, series_id, true)
+        })
+        .catch(err => {
+            let log_and_respawn = true;
+            let stream_upload_error = false;
+    
+            if (axios.isCancel(err)) {
+                console_red('upload canceled error: cancelCurrentUpload', err);
+    
+                if (err.message === 'cancel_many') {
+                    log_and_respawn = false;
+                }
+            } else {
+                console_red('upload error 2', {err});
+    
+                // critical error message 
+                let err_msg_search = 'File posts must include the file directly as the body of the message';
+                if (err.response && err.response.status === 400 && err.response.data.indexOf(err_msg_search) > 0) {
+                    log_and_respawn = false;
+                    stream_upload_error = true;
+                }
+            }
+            
+            remove_cancel_token(transfer.id, series_id)
+            _queue_.remove(transfer.id, series_id);
+    
+            if (log_and_respawn) {
+                update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
+                    respawn_transfer(transfer.id, series_id, false)
+                });
+            }
+    
+            if (stream_upload_error) {
+                _queue_.remove_many(transfer.id);
+                ipc.send('global_pause_status', true);
+                ipc.send('xnat_cant_handle_stream_upload');
+            }
+            
+        });
+    
+        function respawn_transfer(transfer_id, series_id, success) {
+            console_red('respawn_transfer', {transfer_id, series_id, success})
+    
+            do_transfer(series_id, success);
+        }
+    
+        /**************************************************** */
+        /**************************************************** */
+    });
+}
+
 
 function mark_uploaded(transfer_id, series_id) {
     console.count('mark_uploaded')
@@ -919,30 +1248,10 @@ async function update_transfer_summary(transfer_id, property, new_value, callbac
     }
 }
 
-async function update_transfer_summary__OLD(transfer_id, property, new_value, callback = false) {
-    summary_log_update(transfer_id, property, new_value)
-    //let db_transfer = await db_uploads._getById(transfer_id)
-    //let transfer = JSON.parse(JSON.stringify(db_transfer));
 
 
-    // transfer.summary = transfer.summary || {}
-    // transfer.summary[property] = transfer.summary[property] || []
-    // transfer.summary[property].push(new_value)
 
-    // await db_uploads._replaceDoc(transfer_id, transfer);
-
-    if (callback) {
-        callback()
-    }
-}
-
-let transfer_progress = [
-    
-];
-
-function init_update_progress(transfer) {
-    let my_transfer = transfer_progress.filter(tr => tr.transfer_id != transfer.id);
-    
+function transfer_tpl(transfer) {
     my_transfer = {
         transfer_id: transfer.id,
         rows: []
@@ -952,46 +1261,41 @@ function init_update_progress(transfer) {
         my_transfer.rows.push({
             id: tr.id,
             progress: tr.progress,
-            size: tr.size
+            size: tr.size,
+            db: 0,
+            count: 0
         })
     });
 
-    transfer_progress.push(my_transfer)
+    return my_transfer;
 }
 
-async function update_progress_details(transfer, table_row, filesize, reset = false) {
-    console.count('update_progress_details')
-
-
+function get_transfer_from_transfer_progress(transfer, transfer_progress) {
     let my_transfer = transfer_progress.find(tr => tr.transfer_id == transfer.id);
 
     // if no transfer progress stored create it
     if (my_transfer === undefined) {
-        my_transfer = {
-            transfer_id: transfer.id,
-            rows: []
-        };
-
-        transfer.table_rows.forEach(tr => {
-            my_transfer.rows.push({
-                id: tr.id,
-                progress: tr.progress,
-                size: tr.size,
-                db: 0,
-                count: 0
-            })
-        });
+        my_transfer = transfer_tpl(transfer)
 
         transfer_progress.push(my_transfer)
     }
 
+    return my_transfer;
+}
+
+
+async function update_progress_details(transfer, table_row, filesize, reset = false) {
+    console.count('update_progress_details')
+
+    let my_transfer = get_transfer_from_transfer_progress(transfer, transfer_progress)
+    
     let selected_row = my_transfer.rows.find(row => row.id == table_row.id)
 
     selected_row.progress += (filesize / selected_row.size * 100)
     selected_row.count++
 
     // workaround - disable duplicate upload progress error
-    if (selected_row.progress <= 100.5) {
+    if (selected_row.progress <= 101.5) {
         ipc.send('progress_cell', {
             table: '#upload-details-table',
             id: selected_row.id,
@@ -1019,61 +1323,36 @@ async function update_progress_details(transfer, table_row, filesize, reset = fa
         }
     }
 
-    // console_red('transfer_progress', transfer_progress)
-
-    /*
-    return;
-
-    
-
-    */
 }
 
-async function update_progress_details_OLD(transfer_id, table_row, filesize) {
+async function update_progress_details_zip(transfer, table_row, progress) {
     console.count('update_progress_details')
 
-    let db_transfer = await db_uploads._getById(transfer_id);
-    
-    let transfer = Helper.copy_obj(db_transfer);
-    let tbl_row = transfer.table_rows.find(t_row => t_row.id === table_row.id);
+    let my_transfer = get_transfer_from_transfer_progress(transfer, transfer_progress)
+    let selected_row = my_transfer.rows.find(row => row.id == table_row.id)
 
-    new_progress = filesize / tbl_row.size * 100
-
-    if (tbl_row) {
-        tbl_row.progress += new_progress;
-        //summary_log_update(transfer_id, 'tbl_row', new_progress)
-
-        await db_uploads._replaceDoc(transfer_id, transfer);
-
-        ipc.send('progress_cell', {
-            table: '#upload-details-table',
-            id: tbl_row.id,
-            field: "progress",
-            value: tbl_row.progress
-        });
-    }
-}
-
-async function update_upload_table(transfer_id, table_row_id, new_progress) {
-    console.count('update_upload_table')
+    selected_row.progress = progress
 
     ipc.send('progress_cell', {
         table: '#upload-details-table',
-        id: table_row_id,
+        id: selected_row.id,
         field: "progress",
-        value: new_progress
+        value: selected_row.progress
     });
 
-    let db_transfer = await db_uploads._getById(transfer_id);
-    let transfer = Helper.copy_obj(db_transfer);
-    let tbl_row = transfer.table_rows.find(t_row => t_row.id === table_row_id);
+    console_red('selected_row.progress: ', selected_row.id, selected_row.progress);
 
-    if (tbl_row) {
-        tbl_row.progress = new_progress;
-        //summary_log_update(transfer_id, 'tbl_row', new_progress)
+    if (progress == 100) {
+        let db_transfer = await db_uploads._getById(transfer.id);
+    
+        let transfer_copy = Helper.copy_obj(db_transfer);
+        let tbl_row = transfer_copy.table_rows.find(t_row => t_row.id === table_row.id);
 
-        await db_uploads._replaceDoc(transfer_id, transfer);
+        tbl_row.progress = 100;
+        await db_uploads._replaceDoc(transfer.id, transfer_copy);
+        selected_row.db = 1
     }
+
 }
 
 
