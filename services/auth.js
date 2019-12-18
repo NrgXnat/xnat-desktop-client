@@ -9,7 +9,7 @@ const ipc = require('electron').ipcRenderer
 const {URL} = require('url');
 const remote = require('electron').remote;
 
-const lodashClonedeep = require("lodash.clonedeep");
+const lodashClonedeep = require('lodash/cloneDeep');
 
 let auth = {
     login_promise: (xnat_server, user_auth) => {
