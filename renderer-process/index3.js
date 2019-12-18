@@ -238,8 +238,6 @@ $(document).on('show.bs.modal', '#alt_upload_method_modal', function(e) {
 });
 
 $(document).on('change', '#file_temp_folder_alternative', function(e) {
-    console.log(this.files.length);
-
     if (this.files.length) {
         $('#temp_folder_alternative').val(this.files[0].path);
     }
@@ -252,23 +250,24 @@ $(document).on('click', '#confirm_temp_folder', function() {
     if (use_alt_path) {
         if (alt_path) {
             if (isReallyWritable(alt_path)) {
-                console.log('WRITABLE', alt_path);
                 user_settings.set('zip_upload_mode', true);
                 user_settings.set('temp_folder_alternative', alt_path);
 
-                // unpause = restart upload
+                // unpause => restart upload
                 ipc.send('global_pause_status', false);
 
                 $('#alt_upload_method_modal').modal('hide');
-
-                // TODO add Helper.notify
             } else {
-                console.log('NOT WRITABLE', alt_path);
                 swal('Path Error', 'Please select a different storage location.', 'error');
             }
         } else {
             swal('Form Error', 'Please select a storage location.', 'error');
         }
+    } else {
+        user_settings.set('zip_upload_mode', true);
+        ipc.send('global_pause_status', false);
+
+        $('#alt_upload_method_modal').modal('hide');
     }
 
 })

@@ -15,6 +15,9 @@ const app = remote.app
 const auth = require('../services/auth');
 const user_settings = require('../services/user_settings');
 
+const { isReallyWritable } = require('../services/app_utils');
+const tempDir = require('temp-dir');
+
 //const blockUI = require('blockui-npm');
 let allow_insecure_ssl;
 
@@ -30,6 +33,7 @@ $(document).on('page:load', '#settings-section', function(e){
     show_default_email_address();
     show_default_local_storage();  
     show_default_pet_tracers();
+    show_default_temp_storage();
 
     $('input[data-role="tagsinput"]').tagsinput({
         onTagExists: function(item, $tag) {
@@ -39,6 +43,10 @@ $(document).on('page:load', '#settings-section', function(e){
 
     if (app_config.get('send_crash_reports', false) === true) {
         $('#send-crash-reports').val('1')
+    }
+
+    if (user_settings.get('zip_upload_mode') === true) {
+        $('#zip_upload_mode').val('1')
     }
 
 });
@@ -115,6 +123,13 @@ function show_default_email_address() {
 
 function show_default_pet_tracers() {
     $('#default_pet_tracers').val(settings.get('default_pet_tracers'));
+}
+
+function show_default_temp_storage() {
+    let dicom_temp_folder_path = user_settings.get('temp_folder_alternative') ? 
+        user_settings.get('temp_folder_alternative') : path.resolve(tempDir, '_xdc_temp');
+
+    $('#temp_folder_alt').val(dicom_temp_folder_path);
 }
 
 
@@ -431,3 +446,51 @@ $(document).on('click', '.js_remove_suppress_anon_warning', function(e){
 
     display_user_preferences()
 });
+
+
+
+$(document).on('change', '#file_temp_folder_alt', function(e) {
+    let alt_path = this.files[0].path;
+    if (alt_path) {
+        if (isReallyWritable(alt_path)) {
+            console.log('WRITABLE', alt_path);
+
+            $('#temp_folder_alt').val(alt_path);
+
+            user_settings.set('temp_folder_alternative', alt_path);
+            Helper.pnotify('Success!', `Default temporary storage path successfully updated! (${alt_path})`);
+
+            // TODO add Helper.notify
+        } else {
+            console.log('NOT WRITABLE', alt_path);
+            Helper.pnotify('Permissions Error!', `Selected directory (${alt_path}) is not writable! Please select a different directory.`);
+        }
+    }
+    
+
+});
+
+$(document).on('click', '#reset_temp_folder_alt', function() {
+    let default_temp_path = path.resolve(tempDir, '_xdc_temp');
+    swal({
+        title: `Are you sure?`,
+        text: `Reset temporary upload path to "${default_temp_path}"?`,
+        icon: "warning",
+        buttons: ['Cancel', 'Continue'],
+        dangerMode: true
+    })
+    .then((proceed) => {
+        if (proceed) {
+            user_settings.unset('temp_folder_alternative');
+            $('#temp_folder_alt').val(default_temp_path);
+            Helper.pnotify('Success!', `Temporary folder reset to system default!`, 'success', 2000);
+        }
+    });
+})
+
+
+$(document).on('change', '#zip_upload_mode', function(e) {
+    let use_zip_upload_mode = $('#zip_upload_mode').val() === '1';
+    user_settings.set('zip_upload_mode', use_zip_upload_mode);
+    Helper.pnotify('Success!', `Upload mode was updated! (${use_zip_upload_mode ? 'Zip' : 'Stream'})`);
+})

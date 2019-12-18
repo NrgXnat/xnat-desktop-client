@@ -120,6 +120,49 @@
 
                     <table class="table table-bordered filtered-table" id="suppress_anon_script_missing_warnings"></table>
 
+
+                    <div class="clearfix"></div>
+
+                    <form>
+                        <div class="form-group">
+                            <label>Set Temporary Upload Storage</label>
+                            <br/>
+                            <div class="input-group row">
+                                <div class="col-7">
+                                        <input type="text" id="temp_folder_alt" value="" class="form-control settings-input" readonly>
+                                </div>
+                                
+                                <div class="col-3">
+                                    <label class="input-group-btn">
+                                        <span class="btn btn-blue">
+                                            Browse
+                                            <input type="file" id="file_temp_folder_alt" style="display: none" webkitdirectory directory>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+                            <small>This is the location where files are temporarily stored during anonymization process. 
+                                <a href="#" id="reset_temp_folder_alt">Reset to system default</a></small>
+                        </div>
+                    </form>
+
+                    <form>
+                        <div class="form-group">
+                            <label for="zip_upload_mode">Upload mode</label>
+                            <br/>
+                            <div class="input-group row">
+                                <div class="col-7">
+                                    <select class="form-control" id="zip_upload_mode">
+                                        <option value="0">Stream (default)</option>
+                                        <option value="1">Zip</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <small>Notice: Use zip method only if it's required by your XNAT server!</small>
+                        </div>
+                    </form>
+
+                    
                 </div>
             </div>
         </div>
