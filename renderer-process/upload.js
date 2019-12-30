@@ -1,3 +1,4 @@
+const constants = require('../services/constants');
 const fs = require('fs');
 const path = require('path');
 const dicomParser = require('dicom-parser');
@@ -341,19 +342,34 @@ $(document).on('page:load', '#upload-section', async function(e){
 
             
             if (projects.length) {
-                let recent_projects_ids = ['T4P06', 'T4P03', 'T4P01']
-
-                // update THIS
-                let recent_projects = projects.filter((project) => recent_projects_ids.includes(project.id));
-                
-                let other_projects = projects.filter((project) => !recent_projects_ids.includes(project.id));
-
-                
-
-                projects = recent_projects.concat(other_projects)
-                console.log({recent_projects, other_projects, projects});
                 let rupc = user_settings.get('recent_upload_projects_count');
-                
+                if (rupc === undefined) {
+                    rupc = constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT
+                }
+
+                if (rupc > 0) {
+                    let recent_projects_ids = user_settings.get('recent_upload_projects') || [];
+                    if (recent_projects_ids.length > rupc) {
+                        recent_projects_ids = recent_projects_ids.slice(0, rupc);
+                    }
+                    
+                    let recent_projects = [];
+    
+                    // find recent projects and preserve order
+                    recent_projects_ids.forEach(recent_project_id => {
+                        let found_project = projects.find(project => project.id === recent_project_id)
+                        if (found_project) {
+                            recent_projects.push(found_project)
+                        }
+                    })
+                    
+                    let other_projects = projects.filter((project) => !recent_projects_ids.includes(project.id));
+    
+                    projects = recent_projects.concat(other_projects)
+
+                    console.log({recent_projects_ids, recent_projects, other_projects, projects});
+                }
+
 
                 for (let i = 0, len = projects.length; i < len; i++) {
                     console.log('---', projects[i].id)
@@ -1570,6 +1586,8 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
 
     db_uploads().insert(upload_digest, (err, newItem) => {
         console.log(newItem);
+
+        update_recent_projects(project_id)
     })
     
 
@@ -1628,6 +1646,20 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
     
 }
 
+function update_recent_projects(project_id) {
+    let recent_upload_projects = user_settings.get('recent_upload_projects') || []
+
+    // remove value if it exists
+    let filtered = recent_upload_projects.filter(project => project !== project_id)
+    // prepend it
+    filtered.unshift(project_id)
+
+    // limit recent upload list
+    filtered = filtered.slice(0, constants.MAX_RECENT_UPLOAD_PROJECTS_STORED)
+
+    // store it
+    user_settings.set('recent_upload_projects', filtered)
+}
 
 
 function getFilesizeInBytes(filename) {

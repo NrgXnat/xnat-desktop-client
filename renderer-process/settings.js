@@ -1,3 +1,4 @@
+const constants = require('../services/constants');
 //require('promise.prototype.finally').shim();
 const path = require('path');
 const settings = require('electron-settings')
@@ -30,7 +31,6 @@ $(document).on('page:load', '#settings-section', function(e){
     show_default_email_address();
     show_default_local_storage();  
     show_default_pet_tracers();
-    show_recent_upload_projects_count();
 
     $('input[data-role="tagsinput"]').tagsinput({
         onTagExists: function(item, $tag) {
@@ -46,6 +46,7 @@ $(document).on('page:load', '#settings-section', function(e){
 
 function display_user_preferences() {
     display_missing_anon_script_warnings_settings();
+    show_recent_upload_projects_count();
 }
 
 function display_missing_anon_script_warnings_settings() {
@@ -119,8 +120,8 @@ function show_default_pet_tracers() {
 }
 
 function show_recent_upload_projects_count() {
-    let recent_upload_projects_count = user_settings.get('recent_upload_projects_count') !== undefined ? user_settings.get('recent_upload_projects_count') : 3;
-    $('#recent_upload_projects_count').val(recent_upload_projects_count);
+    let recent_upload_projects_count = user_settings.get('recent_upload_projects_count') !== undefined ? user_settings.get('recent_upload_projects_count') : constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT;
+    $('#recent_upload_projects_count').attr('max', constants.MAX_RECENT_UPLOAD_PROJECTS_STORED).val(recent_upload_projects_count);
 }
 
 $(document).on('input', '#recent_upload_projects_count', function(e) {
@@ -133,7 +134,7 @@ $(document).on('click', '#save_recent_upload_projects_count', function(e) {
     if ($('#recent_upload_projects_count').is(':invalid')) {
         swal({
             title: "Error!",
-            text: "Please validate `recent upload projects count` field",
+            text: "Please validate `Number of Recent Projects` field",
             icon: "error",
             button: "Okay",
           });
