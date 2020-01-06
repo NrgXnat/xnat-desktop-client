@@ -519,6 +519,26 @@ const csv_export_buttons = [
 $(document).on('click', csv_export_buttons.join(','), function(e) {
     let id = $(this).closest('.modal-content').attr('data-id');
 
+    swal({
+        title: "Notice!",
+        text: "This log file may contain patient information extracted from your files. Please do not export without appropriate review.",
+        icon: "warning",
+        buttons: {
+            yes: "Save log as CSV",
+            cancel: "Cancel"
+        },
+
+        closeOnEsc: true,
+        dangerMode: true
+    })
+    .then((toDownload) => {
+        if (toDownload === "yes") {
+            downloadCsvLog(id);
+        }
+    });
+})
+
+function downloadCsvLog(id) {
     nedb_log_reader.fetch_log(id, (err, docs) => {
 
         let relevant_data = docs.map(obj => {
@@ -538,7 +558,8 @@ $(document).on('click', csv_export_buttons.join(','), function(e) {
         FileSaver.saveAs(file);
 
     })
-})
+}
+
 $(document).on('show.bs.modal', '#download-details', function(e) {
     var id = $(e.relatedTarget).data('id');
     var file = $(e.relatedTarget).data('file');

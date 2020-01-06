@@ -1,3 +1,4 @@
+const constants = require('../services/constants');
 //require('promise.prototype.finally').shim();
 const path = require('path');
 const settings = require('electron-settings')
@@ -33,7 +34,6 @@ $(document).on('page:load', '#settings-section', function(e){
     show_default_email_address();
     show_default_local_storage();  
     show_default_pet_tracers();
-    show_default_temp_storage();
 
     $('input[data-role="tagsinput"]').tagsinput({
         onTagExists: function(item, $tag) {
@@ -45,14 +45,13 @@ $(document).on('page:load', '#settings-section', function(e){
         $('#send-crash-reports').val('1')
     }
 
-    if (user_settings.get('zip_upload_mode') === true) {
-        $('#zip_upload_mode').val('1')
-    }
-
 });
 
 function display_user_preferences() {
     display_missing_anon_script_warnings_settings();
+    show_default_temp_storage();
+    show_default_upload_mode();
+    show_recent_upload_projects_count();
 }
 
 function display_missing_anon_script_warnings_settings() {
@@ -132,6 +131,42 @@ function show_default_temp_storage() {
     $('#temp_folder_alt').val(dicom_temp_folder_path);
 }
 
+function show_default_upload_mode() {
+    if (user_settings.get('zip_upload_mode') === true) {
+        $('#zip_upload_mode').val('1')
+    }
+}
+
+function show_recent_upload_projects_count() {
+    let recent_upload_projects_count = user_settings.get('recent_upload_projects_count') !== undefined ? user_settings.get('recent_upload_projects_count') : constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT;
+    $('#recent_upload_projects_count').attr('max', constants.MAX_RECENT_UPLOAD_PROJECTS_STORED).val(recent_upload_projects_count);
+}
+
+$(document).on('input', '#recent_upload_projects_count', function(e) {
+    $('#save_recent_upload_projects_count').prop('disabled', false);
+});
+
+$(document).on('click', '#save_recent_upload_projects_count', function(e) {
+    e.preventDefault();
+
+    if ($('#recent_upload_projects_count').is(':invalid')) {
+        swal({
+            title: "Error!",
+            text: "Please validate `Number of Recent Projects` field",
+            icon: "error",
+            button: "Okay",
+          });
+    } else {
+        let recent_upload_projects_count = $('#recent_upload_projects_count').val() ? parseInt($('#recent_upload_projects_count').val()) : 0;
+        
+        user_settings.set('recent_upload_projects_count', recent_upload_projects_count);
+
+        Helper.pnotify('Success!', `Recent upload projects count successfully updated! (New value: ${recent_upload_projects_count})`);
+        
+        $(this).prop('disabled', true);
+    }
+    
+});
 
 
 function render_users() {
