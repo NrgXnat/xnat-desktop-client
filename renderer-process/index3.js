@@ -550,8 +550,6 @@ ipc.on('xnat_cant_handle_stream_upload', (e, ...args) => {
 })
 
 ipc.on('force_reauthenticate', (e, login_data) => {
-    console.log(`EVO GA force_reauthenticate... ${Date.now()}`)
-
     clearLoginSession()
 
     setTimeout(function() {
@@ -568,18 +566,17 @@ ipc.on('force_reauthenticate', (e, login_data) => {
         $form.find('input[name="allow_insecure_ssl"]').prop('checked', allow_insecure_ssl);
 
         $('#remove_login').toggle(login_data.username !== null)
+
+        $('#session_fail').removeClass('hidden');
         
         setTimeout(function(){
             $('#password').focus();
         }, 500);
 
-        //handleLoginFail() //is login.js
-
     }, 200);
 })
 
 ipc.on('handle_protocol_request', protocol_request)
-
 
 
 window.onerror = function (errorMsg, url, lineNumber) {

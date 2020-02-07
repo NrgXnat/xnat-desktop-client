@@ -333,12 +333,12 @@ function initialize () {
     if (app.allow_insecure_ssl || auth.allow_insecure_ssl()) {
       event.preventDefault();
       callback(true);
-      //mainWindow.webContents.send('custom_error', 'Certificate OK', 'All OK');
+      //post_message('custom_error', 'Certificate OK', 'All OK');
     } else {
       let msg = `The specified server "${url}" supports HTTPS, but uses an unverified SSL certificate.
 
       You can allow this by checking the "Allow unverified certificates" option on the server definition. Note that this may expose sensitive information if the connection has been compromised. Please check with your system administrator if you're unsure how to proceed.`
-      mainWindow.webContents.send('custom_error', 'Certificate Error', msg);
+      post_message('custom_error', 'Certificate Error', msg);
 
       //callback(false);
     }
@@ -423,10 +423,10 @@ function handle_protocol_request(url, place) {
 
   if (place === 'createWindow') {
     mainWindow.webContents.on('did-finish-load', (e) => {
-      mainWindow.webContents.send('handle_protocol_request', url);
+      post_message('handle_protocol_request', url);
     });
   } else {
-    mainWindow.webContents.send('handle_protocol_request', url);
+    post_message('handle_protocol_request', url);
   }
   
 }
@@ -563,13 +563,13 @@ ipcMain.on('download_and_install', (e) => {
 
 // Catch Item Add
 ipcMain.on('redirect', (e, item) => {
-  mainWindow.webContents.send('load:page', item);
+  post_message('load:page', item);
 })
 
 
 ipcMain.on('launch_download_modal', (e, item) => {
-  mainWindow.webContents.send('load:page', 'home.html');
-  mainWindow.webContents.send('launch_download_modal', item);
+  post_message('load:page', 'home.html');
+  post_message('launch_download_modal', item);
 })
 
 ipcMain.on('log', (e, ...args) => {
@@ -578,39 +578,39 @@ ipcMain.on('log', (e, ...args) => {
 
 
 ipcMain.on('download_progress', (e, item) =>{
-  mainWindow.webContents.send('download_progress', item);
+  post_message('download_progress', item);
 })
 
 
 ipcMain.on('upload_progress', (e, item) => {
-  mainWindow.webContents.send('upload_progress', item);
+  post_message('upload_progress', item);
 })
 
 ipcMain.on('progress_cell', (e, item) => {
-  mainWindow.webContents.send('progress_cell', item);
+  post_message('progress_cell', item);
 })
 
 ipcMain.on('xnat_cant_handle_stream_upload', (e, item) => {
-  mainWindow.webContents.send('xnat_cant_handle_stream_upload', item);
+  post_message('xnat_cant_handle_stream_upload', item);
 })
 
-ipcMain.on('global_pause_status', (e, item) => {
-  mainWindow.webContents.send('global_pause_status', item);
+ipcMain.on('global_pause_status', (e, new_status) => {
+  post_message('global_pause_status', new_status);
 
-  if (item === true) {
-    uploadWindow.webContents.send('start_upload', item);
-    uploadWindow.webContents.send('start_download', item);
+  if (new_status === true) {
+    uploadWindow.webContents.send('start_upload', new_status);
+    uploadWindow.webContents.send('start_download', new_status);
   }
 })
 
 // ?
 ipcMain.on('progress_alert', (e, item) => {
-  mainWindow.webContents.send('progress_alert', item);
+  post_message('progress_alert', item);
 })
 
 // ?
 ipcMain.on('custom_error', (e, title, msg) => {
-  mainWindow.webContents.send('custom_error', title, msg);
+  post_message('custom_error', title, msg);
 })
 
 
@@ -636,7 +636,7 @@ ipcMain.on('cancel_download', (e, transfer_id) => {
 
 
 ipcMain.on('upload_finished', (e, transfer_id) => {
-  mainWindow.webContents.send('upload_finished', transfer_id);
+  post_message('upload_finished', transfer_id);
 })
 
 
@@ -659,7 +659,7 @@ ipcMain.on('update_global_variable', (e, varname, value) => {
 
 ipcMain.on('force_reauthenticate', (e, login_data) => {
   if (login_data.server !== null) {
-    mainWindow.webContents.send('force_reauthenticate', login_data);
+    post_message('force_reauthenticate', login_data);
   }
 })
 
