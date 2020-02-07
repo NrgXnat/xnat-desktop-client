@@ -22,6 +22,20 @@ let auth = {
         return axios.get(xnat_server + '/app/action/LogoutUser');
     },
 
+    current_login_data: () => {
+        let xnat_server = settings.get('xnat_server') ? settings.get('xnat_server') : null
+        let allow_insecure_ssl = xnat_server ? auth.is_insecure_ssl_allowed(xnat_server) : null
+        let user_auth = settings.get('user_auth')
+
+        let username = user_auth && user_auth.username ? user_auth.username : null
+        
+        return {
+            server: xnat_server,
+            username: username,
+            allow_insecure_ssl: allow_insecure_ssl
+        }
+    },
+
     save_login_data: (xnat_server, user_auth, allow_insecure_ssl = false, old_user_data = false) => {
         let logins = settings.get('logins');
 
@@ -101,15 +115,23 @@ let auth = {
     },
 
     set_user_auth: (user_auth) => {
-        remote.getGlobal('user_auth').username = user_auth.username;
-        remote.getGlobal('user_auth').password = user_auth.password;
-        ipc.send('print_global')
+        // update globals only in main.js process!
+        ipc.send('update_global_variable', 'user_auth', {
+            username: user_auth.username,
+            password: user_auth.password
+        })
+
+        ipc.send('log', 'set_user_auth', {user_auth__SET: remote.getGlobal('user_auth')})
     },
 
     remove_user_auth: () => {
-        remote.getGlobal('user_auth').username = null;
-        remote.getGlobal('user_auth').password = null;
-        ipc.send('print_global')
+        // update globals only in main.js process!
+        ipc.send('update_global_variable', 'user_auth', {
+            username: null,
+            password: null
+        })
+
+        ipc.send('log', 'remove_user_auth', {user_auth__REMOVE: remote.getGlobal('user_auth')})
     },
 
     set_allow_insecure_ssl: (new_status) => {

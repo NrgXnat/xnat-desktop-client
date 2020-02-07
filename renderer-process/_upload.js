@@ -269,9 +269,6 @@ function console_log(...log_this) {
 function do_transfer(source_series_id = 'initial', source_upload_success = true) {
     let xnat_server = settings.get('xnat_server');
 
-    let current_user_auth = auth.get_user_auth();
-    let user_auth = settings.get('user_auth');
-
     let current_username = auth.get_current_user();
 
     // db_uploads.listAll((err, my_transfers) => {
@@ -352,6 +349,14 @@ async function doUpload(transfer, series_id) {
         user_auth = auth.get_user_auth();
 
     csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
+
+    if (csrfToken === false) {
+        _queue_.remove_many(transfer.id);
+        execute_cancel_token(transfer.id);
+        
+        ipc.send('force_reauthenticate', auth.current_login_data());
+        return;
+    }
 
     let updated_summary = await set_transfer_totals_summary(transfer)
     
@@ -691,8 +696,10 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         respawn_transfer(transfer.id, series_id, true)
     })
     .catch(err => {
+        // TODO - REFACTOR (DUPLICATED CODE BELOW)
         let log_and_respawn = true;
         let stream_upload_error = false;
+        let authentication_error = false;
 
         if (axios.isCancel(err)) {
             console_red('upload canceled error: cancelCurrentUpload', err);
@@ -708,6 +715,9 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             if (err.response && err.response.status === 400 && err.response.data.indexOf(err_msg_search) > 0) {
                 log_and_respawn = false;
                 stream_upload_error = true;
+            } else if (err.response.status === 401) {
+                log_and_respawn = false;
+                authentication_error = true;
             }
         }
         
@@ -722,8 +732,15 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
         if (stream_upload_error) {
             _queue_.remove_many(transfer.id);
+            execute_cancel_token(transfer.id);
             ipc.send('global_pause_status', true);
             ipc.send('xnat_cant_handle_stream_upload');
+        }
+
+        if (authentication_error) {
+            _queue_.remove_many(transfer.id);
+            execute_cancel_token(transfer.id);
+            ipc.send('force_reauthenticate', auth.current_login_data());
         }
         
     });
@@ -1126,39 +1143,51 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
             respawn_transfer(transfer.id, series_id, true)
         })
         .catch(err => {
+            // TODO - REFACTOR
             let log_and_respawn = true;
             let stream_upload_error = false;
-    
+            let authentication_error = false;
+
             if (axios.isCancel(err)) {
                 console_red('upload canceled error: cancelCurrentUpload', err);
-    
+
                 if (err.message === 'cancel_many') {
                     log_and_respawn = false;
                 }
             } else {
                 console_red('upload error 2', {err});
-    
+
                 // critical error message 
                 let err_msg_search = 'File posts must include the file directly as the body of the message';
                 if (err.response && err.response.status === 400 && err.response.data.indexOf(err_msg_search) > 0) {
                     log_and_respawn = false;
                     stream_upload_error = true;
+                } else if (err.response.status === 401) {
+                    log_and_respawn = false;
+                    authentication_error = true;
                 }
             }
-            
+
             remove_cancel_token(transfer.id, series_id)
             _queue_.remove(transfer.id, series_id);
-    
+
             if (log_and_respawn) {
                 update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
                     respawn_transfer(transfer.id, series_id, false)
                 });
             }
-    
+
             if (stream_upload_error) {
                 _queue_.remove_many(transfer.id);
+                execute_cancel_token(transfer.id);
                 ipc.send('global_pause_status', true);
                 ipc.send('xnat_cant_handle_stream_upload');
+            }
+
+            if (authentication_error) {
+                _queue_.remove_many(transfer.id);
+                execute_cancel_token(transfer.id);
+                ipc.send('force_reauthenticate', auth.current_login_data());
             }
             
         });

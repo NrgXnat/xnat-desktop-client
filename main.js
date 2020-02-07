@@ -38,11 +38,8 @@ electron.crashReporter.start({
 
 const {autoUpdater} = require("electron-updater");
 
-
-let mainWindow = null
-
-let downloadWindow = null;
-let uploadWindow = null;
+// windows
+let mainWindow = null, downloadWindow = null, uploadWindow = null;
 
 let startupExternalUrl;
 
@@ -236,26 +233,26 @@ function initialize () {
     })
     autoUpdater.on('update-available', (info) => {
       devToolsLog('Update available.');
-      delayed_notification('update-available', info);
+      post_message('update-available', info);
     })
     autoUpdater.on('update-not-available', (info) => {
       devToolsLog('Update not available.');
-      delayed_notification('update-not-available', info);
+      post_message('update-not-available', info);
     })
     autoUpdater.on('error', (err) => {
-      delayed_notification('update-error', err);
+      post_message('update-error', err);
       devToolsLog('Error in auto-updater. ' + err);
       electron_log.error(`Auto-updater error.`, err);
     })
     autoUpdater.on('download-progress', (progressObj) => {
-      delayed_notification('download-progress', progressObj);
+      post_message('download-progress', progressObj);
       let log_message = "Download speed: " + progressObj.bytesPerSecond;
       log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
       log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
       devToolsLog(log_message);
     })
     autoUpdater.on('update-downloaded', (info) => {
-      //delayed_notification('update-downloaded', info);
+      // post_message('update-downloaded', info);
       devToolsLog('Update downloaded');
       autoUpdater.quitAndInstall();
     });
@@ -374,21 +371,24 @@ function requireMainProcessAdditional () {
 function devToolsLog(s) {
   electron_log.info(s);
   console.log(s)
-  if (mainWindow && mainWindow.webContents) {
-    mainWindow.webContents.send('log', s);
-  }
+  log(s)
 }
 
 
 function log(...args) {
+  post_message('log', ...args)
+}
+
+function post_message(type, ...args) {
   if (app.isReallyReady) {
-    mainWindow.webContents.send('log', ...args)
+    mainWindow.webContents.send(type, ...args)
   } else {
     ipcMain.once('appIsReady', () => {
-      mainWindow.webContents.send('log', ...args);
+      mainWindow.webContents.send(type, ...args);
     })
   }
 }
+
 
 // Make this app a single instance app.
 //
@@ -438,18 +438,6 @@ function updateUserAgentString(window) {
   window.webContents.setUserAgent(userAgentString)
 }
 
-
-
-function delayed_notification(type, ...args) {
-  if (app.isReallyReady) {
-    mainWindow.send(type, ...args)
-  } else {
-    ipcMain.once('appIsReady', () => {
-      mainWindow.send(type, ...args);
-    })
-  }
-}
-
 function is_usr_local_lib_writable() {
 	if (process.platform === 'darwin') {
 		try {
@@ -467,7 +455,6 @@ function is_usr_local_lib_writable() {
 	
 	return true;
 }
-
 
 function fix_java_path() {
   const fs = require('fs');
@@ -575,20 +562,18 @@ ipcMain.on('download_and_install', (e) => {
 })
 
 // Catch Item Add
-ipcMain.on('redirect', (e, item) =>{
+ipcMain.on('redirect', (e, item) => {
   mainWindow.webContents.send('load:page', item);
 })
 
 
-ipcMain.on('launch_download_modal', (e, item) =>{
+ipcMain.on('launch_download_modal', (e, item) => {
   mainWindow.webContents.send('load:page', 'home.html');
   mainWindow.webContents.send('launch_download_modal', item);
 })
 
-ipcMain.on('log', (e, ...args) =>{
-  if (mainWindow && mainWindow.webContents) {
-    mainWindow.webContents.send('log', ...args)
-  }
+ipcMain.on('log', (e, ...args) => {
+  log(...args)
 })
 
 
@@ -597,15 +582,15 @@ ipcMain.on('download_progress', (e, item) =>{
 })
 
 
-ipcMain.on('upload_progress', (e, item) =>{
+ipcMain.on('upload_progress', (e, item) => {
   mainWindow.webContents.send('upload_progress', item);
 })
 
-ipcMain.on('progress_cell', (e, item) =>{
+ipcMain.on('progress_cell', (e, item) => {
   mainWindow.webContents.send('progress_cell', item);
 })
 
-ipcMain.on('xnat_cant_handle_stream_upload', (e, item) =>{
+ipcMain.on('xnat_cant_handle_stream_upload', (e, item) => {
   mainWindow.webContents.send('xnat_cant_handle_stream_upload', item);
 })
 
@@ -619,84 +604,69 @@ ipcMain.on('global_pause_status', (e, item) => {
 })
 
 // ?
-ipcMain.on('progress_alert', (e, item) =>{
+ipcMain.on('progress_alert', (e, item) => {
   mainWindow.webContents.send('progress_alert', item);
 })
 
 // ?
-ipcMain.on('custom_error', (e, title, msg) =>{
+ipcMain.on('custom_error', (e, title, msg) => {
   mainWindow.webContents.send('custom_error', title, msg);
 })
 
 
-ipcMain.on('start_upload', (e, item) =>{
+ipcMain.on('start_upload', (e, item) => {
+  log('start_upload event (main.js)')
   uploadWindow.webContents.send('start_upload', item);
 })
 
 ipcMain.on('cancel_upload', (e, transfer_id) => {
-  mainWindow.webContents.send('log', 'cancel_upload event (main.js)');
+  log('cancel_upload event (main.js)');
   uploadWindow.webContents.send('cancel_upload', transfer_id);
 })
 
+ipcMain.on('start_download', (e, item) => {
+  log('start_download event (main.js)');
+  downloadWindow.webContents.send('start_download', item);
+})
 
-ipcMain.on('upload_finished', (e, transfer_id) =>{
+ipcMain.on('cancel_download', (e, transfer_id) => {
+  log('cancel_download event (main.js)');
+  downloadWindow.webContents.send('cancel_download', transfer_id);
+})
+
+
+ipcMain.on('upload_finished', (e, transfer_id) => {
   mainWindow.webContents.send('upload_finished', transfer_id);
 })
 
 
-ipcMain.on('reload_upload_window', (e, item) =>{
+ipcMain.on('reload_upload_window', (e, item) => {
   uploadWindow.reload(true);
 })
-ipcMain.on('reload_download_window', (e, item) =>{
+ipcMain.on('reload_download_window', (e, item) => {
   downloadWindow.reload(true);
 })
 
-ipcMain.on('start_download', (e, item) =>{
-  mainWindow.webContents.send('log', 'start_download event (main.js)');
-  downloadWindow.webContents.send('start_download', item);
-})
 
-ipcMain.on('cancel_download', (e, transfer_id) =>{
-  mainWindow.webContents.send('log', 'cancel_download event (main.js)');
-  downloadWindow.webContents.send('cancel_download', transfer_id);
-})
-
-ipcMain.on('print_global', () => {
-  log(global.user_auth);
-})
-
-ipcMain.on('relaunch_app', (e, data) =>{
+ipcMain.on('relaunch_app', (e, data) => {
   app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
   app.exit(0);
 })
 
+ipcMain.on('update_global_variable', (e, varname, value) => {
+  global[varname] = value;
+})
+
+ipcMain.on('force_reauthenticate', (e, login_data) => {
+  if (login_data.server !== null) {
+    mainWindow.webContents.send('force_reauthenticate', login_data);
+  }
+})
+
+
+
 exports.log = log
 
-/*
-exports.anonymize_single = (source, script, variables) => {
-  return mizer.anonymize_single(source, script, variables);
-};
-
-exports.getReferencedVariables = (contexts) => {
-  return mizer.getReferencedVariables(contexts);
-};
-
-exports.getScriptContexts = (scripts) => {
-  return mizer.getScriptContexts(scripts);
-};
-
-exports.getScriptContext = (script) => {
-  return mizer.getScriptContext(script);
-};
-
-exports.getVariables = (variables) => {
-  return mizer.getVariables(variables);
-};
-
-exports.anonymize = (source, contexts, variables) => {
-  return mizer.anonymize(source, contexts, variables);
-};
-*/
 
 
 global.user_auth = {
