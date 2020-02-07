@@ -268,7 +268,15 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
     // fix multliple session creation with token login
     let user_auth_fix = user_auth.username === auth.get_current_user() ? user_auth : undefined;    
 
-    let jsession_cookie = await auth.get_jsession_cookie(xnat_server)
+    let jsession_cookie;
+    try {
+        jsession_cookie = await auth.get_jsession_cookie(xnat_server)
+    } catch (e) {
+        console.log({e});
+        jsession_cookie = null;
+    }
+
+    console.log({jsession_cookie});
 
     
     let CancelToken = axios.CancelToken;
@@ -484,13 +492,18 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
 
         if (axios.isCancel(err)) {
             settings.set('transfering_download', false);
+
             console_red('Request canceled', {err});
             electron_log.error('Download error:', xnat_server + uri, JSON.stringify(err));
             nedb_logger.error(transfer_id, 'download', 'Request canceled!' + err.message, err);
         } else {
             electron_log.error('Download error:', xnat_server + uri, Helper.errorMessage(err));
     
-            if (err.response && err.response.status === 404) {
+            if (err.response && err.response.status === 401) {
+                settings.set('transfering_download', false);
+
+                ipc.send('force_reauthenticate', auth.current_login_data())
+            } else if (err.response && err.response.status === 404) {
                 // =============================================
                 // SOFT FAIL
                 // =============================================
