@@ -4,6 +4,26 @@ $nprogress_color: #12BB00;
     display: none;
 }
 
+#upload-section {
+    .tab-content>.active {
+        position: relative;
+        padding-bottom: 67px;
+    }
+
+    .action-button-row {
+        position: absolute;
+        width: 100%;
+        left: 15px;
+        background: #f4f4f4;
+        padding: 10px 0;
+        bottom: 0;
+        border-top: 1px solid #ccc;
+        .button-row {
+            margin-bottom: 0;
+        }
+    }
+}
+
 body #nprogress {
     .bar {
         z-index: 99999;

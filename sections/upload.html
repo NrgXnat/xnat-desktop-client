@@ -11,10 +11,10 @@
                     <nav>
                         <div class="nav nav-tabs" id="nav-tab" role="tablist">
                             <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Subject Selection</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false">Select Folder</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Verify Visit Date</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Review and Verify</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Summary</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false"><!--Select Folder-->Confirm Details</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false"><!--Verify Visit Date-->Visual PHI Check</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false"><!--Review and Verify-->Upload to XNAT</a>
+                            <!-- <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Summary</a> -->
                         </div>
                     </nav>
                     <div class="tab-content" id="nav-tabContent">
@@ -28,41 +28,108 @@
                                         <input type="text" id="upload-project-filter" onkeyup="" placeholder="Filter" class="form-control">
                                     </div>
                                 </div>
-                            </div>
-                            <ul id="upload-project" class="choose-list"></ul>
 
-                            <div class="project-subjects-holder">
+                                <div class="col-12">
+                                    <ul id="upload-project" class="choose-list"></ul>
+                                </div>
+                            </div>
+                            
+
+                            <div class="project-subjects-holder2">
                                 <div class="row">
                                     <div class="col-6">
-                                        <h2 class="section-title search-inline">Select Subject</h2>
+                                        <h2 class="section-title">Project Settings</h2>
+                                        <p>Select a project to view settings</p>
+
+
+
+                                        <table id="project_settings_tbl" class="table table-sm hidden" style="width: auto;">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">Project</th>
+                                                    <th scope="col" class="text-right">ALI US Scanner Project</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>Subjects</th>
+                                                    <td class="text-right">120</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Image Sessions</th>
+                                                    <td class="text-right">640</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Site-wide Anon Script</th>
+                                                    <td class="text-right">✔</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Site-wide Series Import Filter</th>
+                                                    <td class="text-right">N/A</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Project Anon Script</th>
+                                                    <td class="text-right">N/A</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Project Series Import Filter</th>
+                                                    <td class="text-right">✔</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Upload destination</th>
+                                                    <td class="text-right">PREARCHIVE</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Date Verification Required</th>
+                                                    <td class="text-right">✔</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
                                     <div class="col-6">
-                                        <div class="filter-control title-inline">
-                                            <input type="text" id="subject-session-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                        <h2 class="section-title">Select Data To Upload (Choose a Folder)</h2>
+                                        <p>Selected folder must contain one or more sets of uncompressed DICOM image files. 
+                                            Selected folder can contain files in a flat directory structure or in subfolders. 
+                                        </p>
+
+                                        <div class="form-group">
+                                            <div class="input-group">
+                                                <input type="text" id="upload_folder" value="" class="form-control col-6 settings-input" readonly>
+                                                <div class="col-3">
+                                                    <label class="input-group-btn">
+                                                        <span class="btn btn-blue">
+                                                            Browse
+                                                            <input type="file" id="file_upload_folder" style="display: none" webkitdirectory
+                                                                directory>
+                                                        </span>
+                                                    </label>
+                                                </div>
+            
+                                            </div>
                                         </div>
+            
+            
+                                        <!--<button class="btn btn-blue" id="test-upload" type="button">Test upload</button>-->
+            
+                                        <progress id="dicom_parse_progress" class="hidden" value="0" max="100"></progress>
                                     </div>
                                 </div>
-                                <ul id="subject-session" class="choose-list"></ul>
                             </div>
 
 
 
 
-                            <div class="row">
-                                <div class="col-6">
-                                    <div class="button-row  project-subjects-holder">
-                                        <button class="btn btn-gray" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
-                                    </div>
-                                </div>
-                                <div class="col-6">
+                            <div class="row action-button-row">
+                                <div class="col-12">
                                     <div class="text-right button-row">
+                                        <button class="btn btn-gray float-left hidden" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
+
                                         <button type="button" class="btn btn-gray" data-href="home.html" type="button">Cancel</button>
-                                        <button type="button" class="btn btn-blue js_next disabled">Next
-                                            <i class="fas fa-angle-right"></i>
-                                        </button>
+                                        <button type="button" class="btn btn-blue js_next disabled">Next <i class="fas fa-angle-right"></i></button>
                                     </div>
                                 </div>
                             </div>
+                            
                         </div>
                         <div class="tab-pane fade" id="nav-folder" role="tabpanel" aria-labelledby="nav-folder-tab">
                             <h2 class="section-title">Select Folder</h2>
@@ -200,21 +267,7 @@
                                 <br>
                                 <div class="col" id="summary_info"></div>
                             </div>
-                            <!--
-                <div class="row">
-                    <div class="col button-row">
-                        <button class="btn btn-blue" type="button" data-toggle="modal" data-target="#new-subject">Click here to finish archiving the data</button>
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col text-right button-row">
-                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                        <button type="button" class="btn btn-gray">Home</button>
-                        <button type="button" class="btn btn-blue">Finish</button>
-                    </div>
-                </div>
-                -->
+                           
                         </div>
                     </div>
 

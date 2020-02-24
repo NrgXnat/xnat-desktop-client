@@ -38,42 +38,56 @@ let global_date_required, date_required, selected_session_data;
 let pet_tracers = [];
 
 let anon_variables = {};
+let site_wide_settings = {};
+let project_settings = {};
+
+function fetch_site_wide_settings(xnat_server, user_auth) {
+    return Promise.all([
+        global_allow_create_subject(), 
+        global_require_date(),
+        mizer.get_global_anon_script(xnat_server, user_auth),
+        global_series_import_filter()
+    ]).then(res => {
+      let data = {
+        allow_create_subject: (typeof res[0].data === 'boolean') ? res[0].data : (res[0].data === '' || res[0].data.toLowerCase() === 'true'),
+        require_date: (typeof res[1].data === 'boolean') ? res[1].data : (res[1].data.toLowerCase() !== 'false' && res[1].data !== ''),
+        anon_script: res[2] !== false, // res[2] contains actual anon script (or false)
+        series_import_filter: res[3]
+      }
+      
+      return Promise.resolve(data);
+    }).catch(err => {
+        return Promise.reject(err)
+    });
+}
+function fetch_project_settings(project_id, xnat_server, user_auth) {
+    return Promise.all([
+        promise_subjects(project_id),
+        project_allow_create_subject(project_id),
+        project_require_date(project_id)
+    ]).then(res => {
+
+        let subjects = res[0].data.ResultSet.Result;
+        let sorted_subjects = subjects.sort(function SortByTitle(a, b){
+            var aLabel = a.label.toLowerCase();
+            var bLabel = b.label.toLowerCase(); 
+            return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
+        });
+
+
+      let data = {
+        subjects: sorted_subjects,
+        allow_create_subject: (typeof res[1].data === 'boolean') ? res[1].data : (res[1].data === '' || res[1].data.toLowerCase() === 'true'),
+        require_date: (typeof res[2].data === 'boolean') ? res[2].data : (res[2].data.toLowerCase() !== 'false' && res[2].data !== '')
+      }
+      
+      return Promise.resolve(data);
+    }).catch(err => {
+        return Promise.reject(err)
+    });
+}
 
 async function _init_variables() {
-    /*
-    console.log(user_settings.get())
-    console.log(user_settings.get('xxx'))
-
-    user_settings.set('ime', 'Darko');
-    user_settings.set('prezime', 'Ljubic');
-    user_settings.set('neki_niz', [1, 3, 5])
-    console.log(user_settings.get('ime'))
-    console.log(user_settings.get())
-
-    let neki_niz = user_settings.get('neki_niz')
-    if (Array.isArray(neki_niz)) {
-        neki_niz.push(10)
-    } else {
-        neki_niz = [10]
-    }
-    user_settings.set('neki_niz', neki_niz)
-    console.log(user_settings.get())
-
-    user_settings.unset('prezime');
-    console.log(user_settings.get())
-
-    user_settings.pop('neki_niz', 10)
-    user_settings.pop('neki_niz', 3)
-    user_settings.push('neki_niz', 4)
-    user_settings.pop('neki_niz', 4)
-    user_settings.push('neki_niz', 2)
-    user_settings.push('neki_niz', 1)
-    
-    user_settings.push('neki_niz', 4)
-    user_settings.push('neki_niz', 4)
-    user_settings.push('neki_niz', 4, false)
-    console.log(user_settings.get())
-    */
 
     console.log(':::::::::::::: >>> UPLOAD _init_variables');
     
@@ -86,6 +100,13 @@ async function _init_variables() {
     
 
     defined_project_exp_labels = [];
+    
+    try {
+        site_wide_settings = await fetch_site_wide_settings(xnat_server, user_auth)
+        console.log({site_wide_settings});
+    } catch (err) {
+        handle_error(err)
+    }
     
 
 
@@ -410,7 +431,7 @@ $(document).on('page:load', '#upload-section', async function(e){
         
 });
 
-$(document).on('click', '#upload-section a[data-project_id]', function(e){
+$(document).on('click', '#upload-section a[data-project_id]', async function(e){
     resetSubsequentTabs();
     
     $('.tab-pane.active .js_next').addClass('disabled');
@@ -426,8 +447,15 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
     // set Review data
     $('#var_project').val(get_form_value('project_id', 'project_id'));
     
-
     let project_id = $(this).data('project_id');
+
+    try {
+        project_settings = await fetch_project_settings(project_id, xnat_server, user_auth)
+        $('#project_settings_tbl').removeClass('hidden')
+        console.log({project_settings});
+    } catch (err) {
+        handle_error(err)
+    }
 
 
     mizer.get_mizer_scripts(xnat_server, user_auth, project_id).then(scripts => {
@@ -525,9 +553,12 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
         
     });
 
+    /*
     promise_subjects(project_id)
         .then(res => {
             let subjects = res.data.ResultSet.Result;
+
+            console.log({project_subjects: res.data.ResultSet});
 
             let sorted_subjects = subjects.sort(function SortByTitle(a, b){
                 var aLabel = a.label.toLowerCase();
@@ -541,9 +572,9 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
 
         })
         .catch(handle_error);
-
-    project_allow_create_subject(project_id).then(handle_create_subject_response).catch(handle_error);
-    project_require_date(project_id).then(handle_require_date).catch(handle_error);
+    */
+    //project_allow_create_subject(project_id).then(handle_create_subject_response).catch(handle_error);
+    //project_require_date(project_id).then(handle_require_date).catch(handle_error);
 
 
     promise_project_experiments(project_id)
@@ -1720,6 +1751,34 @@ function global_allow_create_subject() {
     });
 }
 
+function global_series_import_filter() {
+    return new Promise(function(resolve, reject) {
+        axios.get(xnat_server + '/data/config/seriesImportFilter?contents=true&accept-not-found=true', {
+            auth: user_auth
+        }).then(resp => {
+            let global_filter_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
+            let global_filter = resp.data.ResultSet.Result[0].contents;
+
+            if (global_filter_enabled) {
+                resolve(global_filter);
+            } else {
+                resolve(false);
+            }
+            
+        }).catch(err => {
+            if (err.response && err.response.status === 404) {
+                resolve(false);    
+            } else {
+                reject({
+                    type: 'axios',
+                    data: err
+                })
+            }
+        });
+    });
+}
+
+
 
 function project_allow_create_subject(project_id) {
     return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/allow-create-subject?contents=true&accept-not-found=true', {
@@ -1794,7 +1853,8 @@ const set_date_tab = (date_required) => {
     }
 }
 
-const handle_error = (err) => {
+function handle_error(err) {
+    console.error('_ERROR_')
     console.log(err, err.response);
 };
 

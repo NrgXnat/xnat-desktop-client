@@ -313,7 +313,7 @@ function get_global_anon_script(xnat_server, user_auth) {
     });
     
 }
-
+mizer.get_global_anon_script = get_global_anon_script
 
 function get_project_anon_script(xnat_server, user_auth, project_id) {
 
