@@ -352,7 +352,7 @@ function remove_commented_lines(script) {
 
     //console.log(script_lines);
     for (let i = 0; i < script_lines.length; i++) {
-        let line = $.trim(script_lines[i]);
+        let line = script_lines[i].trim();
         if (line.length && line.indexOf('//') !== 0) {
             weeded_script_lines.push(line);
         }
