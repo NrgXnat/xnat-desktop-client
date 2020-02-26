@@ -32,7 +32,6 @@ electron.crashReporter.start({
 
 try {
     let mizer = remote.require('./mizer');
-    console.log('ALL OKK');
 } catch(e) {
     if (process.platform === "win32" && e.message.includes('nodejavabridge_bindings.node')) {
         $('#win_install_cpp').modal({
