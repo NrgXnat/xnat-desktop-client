@@ -11,6 +11,7 @@ const auth = require('../services/auth');
 const api = require('../services/api');
 const tempDir = require('temp-dir');
 const path = require('path')
+const remote = require('electron').remote;
 
 const { isReallyWritable } = require('../services/app_utils');
 
@@ -30,7 +31,7 @@ electron.crashReporter.start({
 
 
 try {
-    let mizer = require('../mizer');
+    let mizer = remote.require('./mizer');
 } catch(e) {
     if (process.platform === "win32" && e.message.includes('nodejavabridge_bindings.node')) {
         $('#win_install_cpp').modal({

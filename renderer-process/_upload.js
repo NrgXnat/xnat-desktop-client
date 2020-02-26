@@ -16,7 +16,7 @@ const remote = require('electron').remote;
 
 const auth = require('../services/auth');
 
-const mizer = require('../mizer');
+const mizer = remote.require('./mizer');
 
 const archiver = require('archiver');
 

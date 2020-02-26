@@ -18,11 +18,11 @@ const prettyBytes = require('pretty-bytes');
 const user_settings = require('../services/user_settings');
 
 const remote = require('electron').remote;
-const mizer = require('../mizer');
+const mizer = remote.require('./mizer');
 
-const db_uploads = require('electron').remote.require('./services/db/uploads')
+const db_uploads = remote.require('./services/db/uploads')
 
-const electron_log = require('electron').remote.require('./services/electron_log');
+const electron_log = remote.require('./services/electron_log');
 
 const NProgress = require('nprogress');
 NProgress.configure({ 

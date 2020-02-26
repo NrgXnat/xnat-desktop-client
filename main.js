@@ -2,7 +2,6 @@ const path = require('path')
 
 // test_multiple_commands();
 
-// const mizer = require('./mizer');
 const glob = require('glob')
 const fs = require('fs');
 const electron = require('electron')
