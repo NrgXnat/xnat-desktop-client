@@ -53,9 +53,9 @@ let Helper = {
             //console.log(error.response.data);
             //console.log(error.response.headers);
             
-            error.response = auth.anonymize_response(error.response, '***ANON***')
+            let error_response = auth.anonymize_response(error.response, '***ANON***')
             
-            switch (error.response.status) {
+            switch (error_response.status) {
                 case 401:
                     msg = 'Invalid username or password!';
                     break;
@@ -63,12 +63,11 @@ let Helper = {
                     msg = 'Invalid XNAT server address!';
                     break;
                 default:
-                    try {
-                        msg =  `An error occured. Please try again. (${JSON.stringify(error.response, undefined, 2)})`;
-                    } catch (e) {
-                        console.log(error.response);
-                        msg =  `An error occured. Please try again. (${error.response.status})`;
-                    }
+                try {
+                    msg =  `An error occured. Please try again. (${JSON.stringify(error_response, undefined, 2)})`;
+                } catch (e) {
+                    msg =  `An error occured. Please try again. (${error_response.status})`;
+                }
             }
 
         } else if (error.request) {
@@ -186,7 +185,7 @@ let Helper = {
         return funcs.reduce(reducer, Promise.resolve([]))
     },
 
-    copy_obj: (obj) => JSON.parse(JSON.stringify(obj)),
+    copy_obj: (obj) => JSON.parse(JSON.stringify(obj)), // alternative => lodash.clonedeep
            
 
     // types => success (green), info (blue), notice (yellow), error (red)
@@ -221,6 +220,20 @@ let Helper = {
         options.delay = delay
 
         new PNotify(options);
+    },
+
+    string_download: (filename, text, mime = 'text/plain') => {
+        console.log(document)
+        let element = document.createElement('a');
+        element.setAttribute('href', 'data:'+mime+';charset=utf-8,' + encodeURIComponent(text));
+        element.setAttribute('download', filename);
+      
+        element.style.display = 'none';
+        document.body.appendChild(element);
+      
+        element.click();
+        console.log('done download')
+        document.body.removeChild(element);
     }
 }
 

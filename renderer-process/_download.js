@@ -1,3 +1,4 @@
+const electron = require('electron');
 const fs = require('fs');
 const fx = require('mkdir-recursive');
 const path = require('path');
@@ -7,14 +8,17 @@ const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
 
 const settings = require('electron-settings');
-const ipc = require('electron').ipcRenderer;
+const ElectronStore = require('electron-store');
+const app_config = new ElectronStore();
 
-const remote = require('electron').remote;
+const ipc = electron.ipcRenderer;
+
+const remote = electron.remote;
 const auth = require('../services/auth');
 
 const sha1 = require('sha1');
 const unzipper = require('unzipper');
-const shell = require('electron').shell;
+const shell = electron.shell;
 
 const filesize = require('filesize');
 
@@ -24,6 +28,8 @@ const isOnline = require('is-online');
 
 const electron_log = remote.require('./services/electron_log');
 
+const nedb_logger = remote.require('./services/db/nedb_logger')
+
 const prettyBytes = require('pretty-bytes');
 const humanizeDuration = require('humanize-duration');
 
@@ -31,7 +37,16 @@ const { console_red } = require('../services/logger');
 
 const db_downloads = remote.require('./services/db/downloads');
 
-let userAgentString = remote.getCurrentWindow().webContents.getUserAgent()
+let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
+
+const appMetaData = require('../package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: app_config.get('send_crash_reports', false)
+});
 
 
 if (!settings.has('global_pause')) {
@@ -108,6 +123,7 @@ do_transfer();
 
 setInterval(do_transfer, 10000);
 
+
 function do_transfer() {
     start_transfer();
 
@@ -170,6 +186,8 @@ function start_transfer() {
                 } catch(err) {
                     //console_log(err.message)
                     electron_log.error('Download Error', err);
+                    nedb_logger.error(transfer.id, 'download', err.message, err);
+
                     ipc.send('custom_error', 'Download Error', err.message);
                 }
             }
@@ -202,6 +220,10 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
             status: final_status
         });
 
+        console_log({transfer_info});
+
+        nedb_logger.success(transfer_id, 'download', `Updated status: ${final_status}. (URLs processed: ${transfer_info.success_count} success, ${transfer_info.error_count} errors) `);
+
 
         // let transfer_by_id = await db_downloads._getById(transfer_id)
 
@@ -218,7 +240,9 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
     settings.set('transfering_download', transfer_id);
 
     let temp_zip_path = path.resolve(tempDir, '_xdc_temp');
-    let real_path = path.resolve(transfer.destination, xnat_server.split('//')[1]);
+    let server_dir_path = xnat_server.split('//')[1];
+    server_dir_path = server_dir_path.replace(/:/gi, "_"); // if server path contains port number
+    let real_path = path.resolve(transfer.destination, server_dir_path);
 
     if (create_dir_structure) {
         fx.mkdirSync(temp_zip_path, function (err) {
@@ -244,7 +268,15 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
     // fix multliple session creation with token login
     let user_auth_fix = user_auth.username === auth.get_current_user() ? user_auth : undefined;    
 
-    let jsession_cookie = await auth.get_jsession_cookie(xnat_server)
+    let jsession_cookie;
+    try {
+        jsession_cookie = await auth.get_jsession_cookie(xnat_server)
+    } catch (e) {
+        console.log({e});
+        jsession_cookie = null;
+    }
+
+    console.log({jsession_cookie});
 
     
     let CancelToken = axios.CancelToken;
@@ -286,7 +318,7 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
     */
 
     //console.log('********* request_settings *********')
-    //console.log(request_settings);
+    console.log({request_settings});
 
     axios.get(xnat_server + uri, request_settings)
     .then(resp => {
@@ -460,12 +492,18 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
 
         if (axios.isCancel(err)) {
             settings.set('transfering_download', false);
+
             console_red('Request canceled', {err});
             electron_log.error('Download error:', xnat_server + uri, JSON.stringify(err));
+            nedb_logger.error(transfer_id, 'download', 'Request canceled!' + err.message, err);
         } else {
             electron_log.error('Download error:', xnat_server + uri, Helper.errorMessage(err));
     
-            if (err.response && err.response.status === 404) {
+            if (err.response && err.response.status === 401) {
+                settings.set('transfering_download', false);
+
+                ipc.send('force_reauthenticate', auth.current_login_data())
+            } else if (err.response && err.response.status === 404) {
                 // =============================================
                 // SOFT FAIL
                 // =============================================
@@ -489,6 +527,8 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
                     status: 'xnat_error',
                     error: Helper.errorMessage(err)
                 }).then(updated_tranfer => {
+                    nedb_logger.error(transfer_id, 'download', Helper.errorMessage(err), err);
+
                     console_red('after update_tranfer_data', {updated_tranfer});
     
                     ipc.send('progress_cell', {
@@ -513,12 +553,15 @@ function mark_downloaded(transfer_id, uri) {
         db_downloads._getById(transfer_id)
         .then(transfer => {
             if (transfer) {
+                let file;
                 transfer.sessions.forEach((session) => {
-                    let file = session.files.find(file => file.uri === uri)
+                    file = session.files.find(file => file.uri === uri)
                     if (file) {
                         file.status = 1
                     }
                 });
+
+                nedb_logger.success(transfer_id, 'download', `Downloaded ${uri}`, file);
                 
                 return db_downloads._replaceDoc(transfer_id, Helper.copy_obj(transfer))
 
@@ -622,6 +665,10 @@ function mark_error_file(transfer_id, uri, error_message = 'File Download Error'
                             error: error_message
                         });
                     }
+                });
+
+                nedb_logger.error(transfer_id, 'download', error_message, {
+                    uri: uri
                 });
     
                 return db_downloads._replaceDoc(transfer_id, Helper.copy_obj(transfer))

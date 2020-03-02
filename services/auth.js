@@ -9,6 +9,8 @@ const ipc = require('electron').ipcRenderer
 const {URL} = require('url');
 const remote = require('electron').remote;
 
+const lodashClonedeep = require('lodash/cloneDeep');
+
 let auth = {
     login_promise: (xnat_server, user_auth) => {
         return axios.get(xnat_server + '/data/auth', {
@@ -18,6 +20,20 @@ let auth = {
 
     logout_promise: (xnat_server) => {
         return axios.get(xnat_server + '/app/action/LogoutUser');
+    },
+
+    current_login_data: () => {
+        let xnat_server = settings.get('xnat_server') ? settings.get('xnat_server') : null
+        let allow_insecure_ssl = xnat_server ? auth.is_insecure_ssl_allowed(xnat_server) : null
+        let user_auth = settings.get('user_auth')
+
+        let username = user_auth && user_auth.username ? user_auth.username : null
+        
+        return {
+            server: xnat_server,
+            username: username,
+            allow_insecure_ssl: allow_insecure_ssl
+        }
     },
 
     save_login_data: (xnat_server, user_auth, allow_insecure_ssl = false, old_user_data = false) => {
@@ -99,15 +115,23 @@ let auth = {
     },
 
     set_user_auth: (user_auth) => {
-        remote.getGlobal('user_auth').username = user_auth.username;
-        remote.getGlobal('user_auth').password = user_auth.password;
-        ipc.send('print_global')
+        // update globals only in main.js process!
+        ipc.send('update_global_variable', 'user_auth', {
+            username: user_auth.username,
+            password: user_auth.password
+        })
+
+        ipc.send('log', 'set_user_auth', {user_auth__SET: remote.getGlobal('user_auth')})
     },
 
     remove_user_auth: () => {
-        remote.getGlobal('user_auth').username = null;
-        remote.getGlobal('user_auth').password = null;
-        ipc.send('print_global')
+        // update globals only in main.js process!
+        ipc.send('update_global_variable', 'user_auth', {
+            username: null,
+            password: null
+        })
+
+        ipc.send('log', 'remove_user_auth', {user_auth__REMOVE: remote.getGlobal('user_auth')})
     },
 
     set_allow_insecure_ssl: (new_status) => {
@@ -180,7 +204,7 @@ let auth = {
                 }).then(resp => {
                     let csrfTokenRequestData = resp.data
                     let m, csrfToken = false
-                    const regex = /var csrfToken = '(.+?)';/g
+                    const regex = /var csrfToken = ['"](.+?)['"];/g
     
                     while ((m = regex.exec(csrfTokenRequestData)) !== null) {
                         // This is necessary to avoid infinite loops with zero-width matches
@@ -254,8 +278,8 @@ let auth = {
         });
     },
 
-    anonymize_response: (data, anon = '***REMOVED***') => {
-        let conf;
+    anonymize_response: (response, anon = '***REMOVED***') => {
+        let conf, data = lodashClonedeep(response)
 
         if (data.config) {
             conf = data.config
@@ -273,7 +297,6 @@ let auth = {
             if (conf.headers && conf.headers.Authorization) {
                 conf.headers.Authorization = anon
             }
-            
         }
 
         return data

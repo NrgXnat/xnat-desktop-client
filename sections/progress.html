@@ -66,7 +66,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-blue">Save log as TXT</button>
+                        <button type="button" class="btn btn-blue" data-save-csv>Save log as CSV</button>
                         <!-- <button type="button" class="btn btn-blue">Save log as PDF</button> -->
                     </div>
                 </div>
@@ -90,31 +90,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-blue">Save log as TXT</button>
-                        <!-- <button type="button" class="btn btn-blue">Save log as PDF</button> -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Modal -->
-        <div class="modal fade" id="success-log" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="exampleModalLongTitle">Transfer log</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <i class="far fa-window-close"></i>
-                          </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="log-text">
-                            Log text...
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-blue" data-save-txt>Save log as TXT</button>
+                        <button type="button" class="btn btn-blue" data-save-csv>Save log as CSV</button>
                         <!-- <button type="button" class="btn btn-blue">Save log as PDF</button> -->
                     </div>
                 </div>
@@ -146,7 +122,7 @@
                             data-id=""
                             data-session_label=""
                             data-show_transfer_rate="false">View Log</button>
-                        <button type="button" class="btn btn-blue" data-save-txt>Save log as TXT</button>
+                        <button type="button" class="btn btn-blue" data-save-csv>Save log as CSV</button>
                         <!-- <button type="button" class="btn btn-blue">Save log as PDF</button> -->
                     </div>
                 </div>
@@ -178,6 +154,15 @@
                                     </div>
                                 </div>
                             </div>
+
+
+                            <button data-toggle="collapse" class="btn btn-blue" data-target="#download-nedb-log-container">Download Log</button>
+                            <button id="download_log_csv" class="btn btn-gray right">CSV Export</button>
+
+                            <div id="download-nedb-log-container" class="collapse">
+                                <table id="download-nedb-log" class="table"></table>
+                            </div>
+
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -218,6 +203,15 @@
                                     </div>
                                 </div>
                             </div>
+
+                            
+                            <button data-toggle="collapse" class="btn btn-blue" data-target="#upload-nedb-log-container">Upload Log</button>
+                            <button id="upload_log_csv" class="btn btn-gray right">CSV Export</button>
+
+                            <div id="upload-nedb-log-container" class="collapse">
+                                <table id="upload-nedb-log" class="table"></table>
+                            </div>
+
 
                         </div>
                     </div>

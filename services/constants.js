@@ -1,0 +1,4 @@
+module.exports = Object.freeze({
+    DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT: 3,
+    MAX_RECENT_UPLOAD_PROJECTS_STORED: 10,
+});

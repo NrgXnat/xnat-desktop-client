@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+xnat-desktop-client: libs/classes/logback.xml
+XNAT http://www.xnat.org
+Copyright (c) 2019, Washington University School of Medicine
+All Rights Reserved
+
+Released under the Simplified BSD.
+-->
+<configuration>
+  <appender name="dxm" class="ch.qos.logback.core.FileAppender">
+    <File>dxm.log</File>
+    <encoder>
+      <pattern>%d %m%n</pattern>
+    </encoder>
+  </appender>
+  <logger name="org.dcm4che2.io" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.dcm4che2.iod" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.nrg.dcm.io" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.dcm4che2.net" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.nrg.io" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.dcm4che2.data" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.nrg.framework" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.dcm4che2.util" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.nrg.dicomtools" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.nrg.dicom.mizer" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.nrg.dcm.edit" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.nrg.transaction" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.dcm4che2.media" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.nrg.dcm" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <logger name="org.nrg.dicom.dicomedit" additivity="false" level="INFO">
+    <appender-ref ref="dxm"/>
+  </logger>
+  <root level="ERROR">
+    <appender-ref ref="dxm"/>
+  </root>
+</configuration>

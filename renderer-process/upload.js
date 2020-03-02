@@ -1,3 +1,4 @@
+const constants = require('../services/constants');
 const fs = require('fs');
 const path = require('path');
 
@@ -13,6 +14,8 @@ const archiver = require('archiver');
 const mime = require('mime-types');
 
 const prettyBytes = require('pretty-bytes');
+
+const user_settings = require('../services/user_settings');
 
 const remote = require('electron').remote;
 const mizer = require('../mizer');
@@ -73,6 +76,41 @@ let allow_visual_phi_check;
 let resizing_tm;
 
 async function _init_variables() {
+    /*
+    console.log(user_settings.get())
+    console.log(user_settings.get('xxx'))
+
+    user_settings.set('ime', 'Darko');
+    user_settings.set('prezime', 'Ljubic');
+    user_settings.set('neki_niz', [1, 3, 5])
+    console.log(user_settings.get('ime'))
+    console.log(user_settings.get())
+
+    let neki_niz = user_settings.get('neki_niz')
+    if (Array.isArray(neki_niz)) {
+        neki_niz.push(10)
+    } else {
+        neki_niz = [10]
+    }
+    user_settings.set('neki_niz', neki_niz)
+    console.log(user_settings.get())
+
+    user_settings.unset('prezime');
+    console.log(user_settings.get())
+
+    user_settings.pop('neki_niz', 10)
+    user_settings.pop('neki_niz', 3)
+    user_settings.push('neki_niz', 4)
+    user_settings.pop('neki_niz', 4)
+    user_settings.push('neki_niz', 2)
+    user_settings.push('neki_niz', 1)
+    
+    user_settings.push('neki_niz', 4)
+    user_settings.push('neki_niz', 4)
+    user_settings.push('neki_niz', 4, false)
+    console.log(user_settings.get())
+    */
+
     console.log(':::::::::::::: >>> UPLOAD _init_variables');
     allow_visual_phi_check = true;
     
@@ -234,6 +272,25 @@ function _init_img_sessions_table(table_rows) {
         data: table_rows
     });
 
+    $('#image_session').on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table', function (e) {
+        let selected = $('#image_session').bootstrapTable('getSelections');
+
+        let has_pt_scan = selected.reduce((total, row) => row.modality === 'PT' ? true : total, false);
+
+        //$('#pet_tracer_container').toggle(has_pt_scan);
+        $('#pet_tracer').prop('required', has_pt_scan).prop('disabled', !has_pt_scan);
+
+        let custom_pt_required = has_pt_scan && $('#pet_tracer').val() === 'OTHER';
+        $('#custom_pet_tracer').prop('required', custom_pt_required).prop('disabled', !custom_pt_required)
+        
+        if (has_pt_scan) {
+            $('#pet_tracer').trigger('change');
+        } else {
+            $('#experiment_label').val(experiment_label());
+        }
+    })
+
+
     $img_session_tbl.bootstrapTable('resetView');
 }
 
@@ -275,7 +332,7 @@ function _init_session_selection_table(tbl_data) {
                 formatter: function(value, row, index, field) {
                     return `
                     <button data-session_id="${row.id}" type="button" 
-                        class="btn btn-primary btn-sm" 
+                        class="btn btn-blue btn-sm" 
                         style="margin: 2px 0;">Select</button>
                     
                     `;
@@ -746,7 +803,9 @@ $(document).on('page:load', '#upload-section', async function(e){
     global_require_date().then(handle_global_require_date).catch(handle_error);
     
 
-
+    $.blockUI({
+        message: '<h1>Processing...</h1>'
+    });
     promise_projects()
         .then(function(resp) {
             let totalRecords = resp.data.ResultSet.Result.length;
@@ -758,12 +817,55 @@ $(document).on('page:load', '#upload-section', async function(e){
 
             $('#upload-project').html('')
 
+            
             if (projects.length) {
+                let rupc = user_settings.get('recent_upload_projects_count');
+                if (rupc === undefined) {
+                    rupc = constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT
+                }
+
+                if (rupc > 0) {
+                    let recent_projects_ids = user_settings.get('recent_upload_projects') || [];
+                    if (recent_projects_ids.length > rupc) {
+                        recent_projects_ids = recent_projects_ids.slice(0, rupc);
+                    }
+                    
+                    let recent_projects = [];
+    
+                    // find recent projects and preserve order
+                    recent_projects_ids.forEach(recent_project_id => {
+                        let found_project = projects.find(project => project.id === recent_project_id)
+                        if (found_project) {
+                            recent_projects.push(found_project)
+                        }
+                    })
+                    
+                    let other_projects = projects.filter((project) => !recent_projects_ids.includes(project.id));
+    
+                    projects = recent_projects.concat(other_projects)
+
+                    console.log({recent_projects_ids, recent_projects, other_projects, projects});
+                }
+
+
                 for (let i = 0, len = projects.length; i < len; i++) {
                     console.log('---', projects[i].id)
+                    if (i == 0 && rupc != 0) {
+                        $('#upload-project').append(`
+                            <li class="divider">Recent:</li>
+                        `)
+                    }
+
+                    if (i == rupc && rupc != 0) {
+                        $('#upload-project').append(`
+                            <li class="divider">Other:</li>
+                        `)
+                    }
+                    
                     $('#upload-project').append(`
                         <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} <span class="project_id">ID: ${projects[i].id}</span></a></li>
                     `)
+                    
                 }
             } else {
                 no_upload_privileges_warning()
@@ -772,6 +874,9 @@ $(document).on('page:load', '#upload-section', async function(e){
         })
         .catch(function(err) {
             console.log(err.message);
+        })
+        .finally(function() {
+            $.unblockUI();
         })
     
 
@@ -801,18 +906,60 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
 
     let project_id = $(this).data('project_id');
 
+
     mizer.get_mizer_scripts(xnat_server, user_auth, project_id).then(scripts => {
-        if (scripts.length === 0) {
+        let suppress = user_settings.get('suppress_anon_script_missing_warning');
+
+        let warning_suppressed = Array.isArray(suppress) && 
+            (suppress.indexOf('*|*') !== -1 || 
+            suppress.indexOf(`${xnat_server}|*`) !== -1 || 
+            suppress.indexOf(`${xnat_server}|${project_id}`) !== -1);
+
+        if (scripts.length === 0 && !warning_suppressed) {
+            
+            let html = $(`<div class="outer">
+
+                <div class="container">
+                    <div class="row">
+                        <div class="col-sm-8">
+                            <div class="checkbox" style="font-size: 0.8rem; color: #777; text-align: right;">
+                                <label data-toggle="collapse" data-target="#collapseOptions" aria-expanded="false" aria-controls="collapseOptions">
+                                    <input type="checkbox" name="suppress_toggle" id="suppress_toggle"/> Don't show this message again
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-sm-2" style="padding: 0">
+                            <div id="collapseOptions" aria-expanded="false" class="collapse">
+                                <select class="form-control" name="suppress_anon_script_missing_warning" id="suppress_anon_script_missing_warning" 
+                                    style="font-size: 0.8rem; color: #777; height: auto; padding: 1px;">
+                                    <option value="${xnat_server}|${project_id}">For this project</option>
+                                    <option value="${xnat_server}|*">For This Server</option>
+                                    
+                                    <!-- <option value="*|*">For Any Server</option> -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            `);
+
             swal({
                 title: `Warning: No anonymization scripts found!`,
                 text: `Anonymization scripts are not set for this site or this project. Do you want to continue?`,
+                content: html.get(0),
                 icon: "warning",
                 buttons: ['Choose a different project', 'Continue'],
                 dangerMode: true
             })
-            .then((proceed) => {
-                console.log(proceed);
-                
+            .then(proceed => {
+
+                if ($('#suppress_toggle').is(':checked')) {
+                    let suppress_error = $('#suppress_anon_script_missing_warning').val()
+                    user_settings.push('suppress_anon_script_missing_warning', suppress_error)
+                }
+        
                 if (proceed) {
                     
                 } else {
@@ -821,7 +968,8 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
 
                     $('#upload-project a.selected').removeClass('selected');
                 }
-            });
+            })
+
         }
 
         let contexts = mizer.getScriptContexts(scripts);
@@ -894,6 +1042,7 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
         .then(res => {
             if (res.status === 200) {
                 pet_tracers = res.data.split(/\s+/);
+                pet_tracers.push('OTHER')
             } else {
                 promise_server_pet_tracers()
                     .then(res1 => {
@@ -902,6 +1051,7 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
                         } else {
                             pet_tracers = settings.get('default_pet_tracers').split(",");
                         }
+                        pet_tracers.push('OTHER')
                     })
             }
             
@@ -1080,7 +1230,7 @@ $(document).on('click', '.js_upload', function() {
         let expt_label_val = $('#experiment_label').val();
 
         let url_data = {
-            expt_label: expt_label_val ? expt_label_val : get_default_expt_label(),
+            expt_label: expt_label_val ? expt_label_val : experiment_label(),
             project_id: get_form_value('project_id', 'project_id'),
             subject_id: get_form_value('subject_id', 'subject_label')
         };
@@ -1094,11 +1244,20 @@ $(document).on('click', '.js_upload', function() {
             my_anon_variables['session'] = url_data.expt_label;
         }
 
-        $('#anon_variables').find(':input').each(function(){
+        $('#anon_variables').find(':input:visible').each(function(){
             let $field = $(this);
             my_anon_variables[$field.attr('name')] = $field.val();
         });
 
+        if (my_anon_variables.hasOwnProperty('pet_tracer')) {
+            if (my_anon_variables.pet_tracer === 'OTHER') {
+                my_anon_variables.tracer = my_anon_variables.custom_pet_tracer;
+            } else {
+                my_anon_variables.tracer = my_anon_variables.pet_tracer;
+            }
+        }
+
+        console.log({my_anon_variables});
         //doUpload(url_data, selected_session_id, selected_series);
         storeUpload(url_data, selected_session_id, selected_series, my_anon_variables);
 
@@ -1167,7 +1326,19 @@ $(document).on('input propertychange change', '#form_new_subject input[type=text
 });
 
 $(document).on('change', '#pet_tracer', function(e) {
-    $('#experiment_label').val(get_default_expt_label($(this).val()));
+    let custom_pt_required = $(this).val() === 'OTHER';
+    
+    $('#custom_pet_tracer').prop('required', custom_pt_required).prop('disabled', !custom_pt_required).toggleClass('hidden', !custom_pt_required);
+
+    if (custom_pt_required) {
+        $('#custom_pet_tracer').focus();
+    }
+
+    $('#experiment_label').val(experiment_label());
+})
+
+$(document).on('keyup', '#custom_pet_tracer', function(e) {
+    $('#experiment_label').val(experiment_label());
 })
 
 $(document).on('submit', '#form_new_subject', function(e) {
@@ -1329,7 +1500,7 @@ function select_session_id(new_session_id) {
     console.log(selected_session.modality);
     console.log(selected_session.studyInstanceUid);
 
-    let expt_label = get_default_expt_label();
+    let expt_label = experiment_label();
     
     $('#experiment_label').val(expt_label);
 
@@ -1360,16 +1531,13 @@ function select_session_id(new_session_id) {
     // search for PET scan
     $('#pet_tracer_container').remove();
     
-    let lc_modalities = all_modalities.map(function(el) {
-        return el.toLowerCase();
-    });
-    if (lc_modalities.indexOf('pt') !== -1) {
+    if (all_modalities.indexOf('PT') !== -1) {
         
         let pet_tracer_options = pet_tracers.map(function(el) {
             return `<option value="${el}">${el}</option>`;
         });
 
-        pet_tracer_options.unshift('<option value="">Select modality</option>')
+        pet_tracer_options.unshift('<option value="">...</option>')
 
         let $pet_tracer_container = $(`
             <div class="form-group row" id="pet_tracer_container">
@@ -1377,9 +1545,10 @@ function select_session_id(new_session_id) {
                     <b>Set tracer</b>:
                 </label>
                 <div class="input-group col-sm-10">
-                    <select class="form-control" id="pet_tracer" required>
+                    <select class="form-control" id="pet_tracer" name="pet_tracer" style="width: 20%" required>
                         ${pet_tracer_options.join("\n")}
                     </select>
+                    <input type="text" id="custom_pet_tracer" name="custom_pet_tracer" class="form-control hidden" style="width: 70%">
                 </div>
             </div>
         `);
@@ -1522,6 +1691,8 @@ function dicomParse(_files, root_path) {
                             const seriesDescription = dicom.string('x0008103e');
                             const seriesInstanceUid = dicom.string('x0020000e');
                             const seriesNumber = dicom.string('x00200011');
+
+                            const SOPInstanceUID = dicom.string('x00080018');
                             
                             // ++++
                             const modality = dicom.string('x00080060');
@@ -1537,25 +1708,33 @@ function dicomParse(_files, root_path) {
                                     studyId: studyId,
                                     studyInstanceUid: studyInstanceUid,
                                     studyDescription: studyDescription,
-                                    modality: modality,
+                                    modality: [],
                                     accession: accession,
                                     date: study_date,
                                     time: study_time,
                                     scans: new Map()
                                 });
-                                // TODO fix global modality
-                                //session_map.get(studyInstanceUid).modality = [];
-                                //session_map.get(studyInstanceUid).modality.push(modality);
+                            }
+
+                            let studyInstance = session_map.get(studyInstanceUid);
+
+                            // TODO fix global modality
+                            if (modality && studyInstance.modality.indexOf(modality) === -1) {
+                                studyInstance.modality.push(modality.toUpperCase());
                             }
                 
-                            if (!session_map.get(studyInstanceUid).scans.has(seriesInstanceUid)) {
-                                session_map.get(studyInstanceUid).scans.set(seriesInstanceUid, []);
+                            if (!studyInstance.scans.has(seriesInstanceUid)) {
+                                studyInstance.scans.set(seriesInstanceUid, []);
                             }
                             
                             let file_name = path.basename(file);
                             let file_size = getFilesizeInBytes(file);
-                            let my_scans = session_map.get(studyInstanceUid).scans.get(seriesInstanceUid);
-                            let filtered = my_scans.filter(el => el.filename === file_name && el.filesize === file_size);
+                            let my_scans = studyInstance.scans.get(seriesInstanceUid);
+                            let filtered = my_scans.filter(el => 
+                                el.filename === file_name && 
+                                el.filesize === file_size && 
+                                el.SOPInstanceUID === SOPInstanceUID
+                            );
             
                             // only add unique files
                             if (filtered.length === 0) {
@@ -1566,7 +1745,8 @@ function dicomParse(_files, root_path) {
                                     seriesDescription: seriesDescription,
                                     seriesInstanceUid: seriesInstanceUid,
                                     seriesNumber: seriesNumber,
-                                    modality: modality
+                                    modality: modality ? modality.toUpperCase() : '',
+                                    SOPInstanceUID: SOPInstanceUID
                                 }); 
                             }
                                        
@@ -1740,28 +1920,69 @@ function dicomParse(_files, root_path) {
 
 }
 
-function get_default_expt_label(tracer) {
-    let modality;
+function experiment_label() {
+    let modality = '';
     let subject_id = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
 
-    if (typeof tracer === "undefined") {
-        modality = session_map.get(selected_session_id).modality;
+    let selected = $('#image_session').bootstrapTable('getSelections');
+
+    let pet_tracer = $('#pet_tracer').length ? $('#pet_tracer').val() : '';
+    let custom_pet_tracer = ('' + $('#custom_pet_tracer').val()).trim().split(' ').join('_');
+
+    console.log({pet_tracer: pet_tracer});
+
+
+    var PRIMARY_MODALITIES = ['CR', 'CT', 'MR', 'PT', 'DX', 'ECG', 'EPS', 'ES', 'GM', 'HD', 'IO', 'MG', 'NM', 'OP', 'OPT', 'RF', 'SM', 'US', 'XA', 'XC', 'OT'];
+
+    var upload_modalities_index = selected.reduce((allModalities, row) => {
+        if (PRIMARY_MODALITIES.indexOf(row.modality) !== -1) {
+            if (allModalities.hasOwnProperty(row.modality)) {
+                allModalities[row.modality]++;
+            } else {
+                allModalities[row.modality] = 1;
+            }
+        }
+        
+        return allModalities;
+    }, {});
+
+    let upload_modalities = Object.keys(upload_modalities_index);
+
+
+    if (upload_modalities.indexOf('PT') >= 0) {
+        modality = pet_tracer === 'OTHER' ? custom_pet_tracer : pet_tracer;
+    } else if (upload_modalities.length == 1) {
+        modality = upload_modalities[0];
     } else {
-        modality = tracer;
+        //remove OT from upload_modalities_index
+        delete upload_modalities_index['OT'];
+
+        // chose most frequent modality (with most series)
+        let greatest_mod_value = 0;
+        for (let mod in upload_modalities_index) {
+            if (upload_modalities_index[mod] > greatest_mod_value) {
+                greatest_mod_value = upload_modalities_index[mod]
+                modality = mod
+            }
+        }
     }
-    
+
+
     let expt_label = subject_id.split(' ').join('_') + '_' + modality + '_';
-    for (let i = 1; i < 10000; i++) {
+    for (let i = 1; i < 100000; i++) {
         let my_expt_label = expt_label + i;
         if (defined_project_exp_labels.indexOf(my_expt_label) === -1) {
             expt_label = my_expt_label;
             break;
         }
     }
-    console.log('EXPT_LABEL', expt_label);
+
+    console.log('EXPT_LABEL_NEW', expt_label);
 
     return expt_label;
+
 }
+
 
 function storeUpload(url_data, session_id, series_ids, anon_variables) {
     console.log('==== anon_variables ====', anon_variables);
@@ -1862,6 +2083,8 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
 
     db_uploads().insert(upload_digest, (err, newItem) => {
         console.log(newItem);
+
+        update_recent_projects(project_id)
     })
     
 
@@ -1920,6 +2143,20 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
     
 }
 
+function update_recent_projects(project_id) {
+    let recent_upload_projects = user_settings.get('recent_upload_projects') || []
+
+    // remove value if it exists
+    let filtered = recent_upload_projects.filter(project => project !== project_id)
+    // prepend it
+    filtered.unshift(project_id)
+
+    // limit recent upload list
+    filtered = filtered.slice(0, constants.MAX_RECENT_UPLOAD_PROJECTS_STORED)
+
+    // store it
+    user_settings.set('recent_upload_projects', filtered)
+}
 
 
 function getFilesizeInBytes(filename) {

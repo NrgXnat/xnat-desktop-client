@@ -1,15 +1,53 @@
+const electron = require('electron');
 const settings = require('electron-settings')
-const ipc = require('electron').ipcRenderer
-const app = require('electron').remote.app
-const shell = require('electron').shell
+const ElectronStore = require('electron-store');
+const app_config = new ElectronStore();
+const ipc = electron.ipcRenderer
+const app = electron.remote.app
+const shell = electron.shell
 const axios = require('axios');
 const isOnline = require('is-online');
 const auth = require('../services/auth');
 const api = require('../services/api');
+const tempDir = require('temp-dir');
+const path = require('path')
+
+const { isReallyWritable } = require('../services/app_utils');
+
+const user_settings = require('../services/user_settings');
+
+const appMetaData = require('../package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: app_config.get('send_crash_reports', false)
+});
+
+
+
+
+
+try {
+    let mizer = require('../mizer');
+} catch(e) {
+    if (process.platform === "win32" && e.message.includes('nodejavabridge_bindings.node')) {
+        $('#win_install_cpp').modal({
+            keyboard: false,
+            backdrop: 'static'
+        })
+    } else {
+        throw e;
+    }
+}
+
+
+
 
 const swal = require('sweetalert');
 
-const electron_log = require('electron').remote.require('./services/electron_log');
+const electron_log = electron.remote.require('./services/electron_log');
 
 const {URL} = require('url');
 
@@ -25,7 +63,7 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     active_page = settings.has('active_page') ? settings.get('active_page') : 'login.html';
 }
 
-logins = settings.has('logins') ? settings.get('logins') : [];
+logins = settings.get('logins') || [];
 settings.set('logins', logins);
 
 
@@ -59,10 +97,7 @@ function loadPage(page) {
             let contentContainer = document.querySelector('.content');
     
             contentContainer.innerHTML = '';
-            // while (contentContainer.firstChild) {
-            //     contentContainer.removeChild(contentContainer.firstChild);
-            // }
-            //console_log(clone);
+
             contentContainer.appendChild(clone);
             document.body.scrollTop = 0;
 
@@ -70,7 +105,6 @@ function loadPage(page) {
 
             return;
         }
-        
 
     });
 
@@ -79,7 +113,6 @@ function loadPage(page) {
     }
 
 }
-
 
 function logout() {
     let xnat_server = settings.get('xnat_server');
@@ -128,145 +161,11 @@ function clearLoginSession() {
     loadPage('login.html');
 }
 
-
 function reset_user_data() {
     console_log('****************** reset_user_data **************');
     auth.remove_current_user();
     auth.set_allow_insecure_ssl(false);
 }
-
-
-// ===============
-$(document).on('click', 'a', function(e){
-    const href = $(this).attr('href');
-    if (href.indexOf('http') !== 0) {
-        if (href !== '#') {
-            e.preventDefault();
-            loadPage(href);
-        }
-    } else {
-        e.preventDefault();
-        shell.openExternal(href)
-    }
-})
-
-// ===============
-$(document).on('click', 'a.logo-header', function(e){
-    e.preventDefault();
-    let page = (!settings.has('user_auth') || !settings.has('xnat_server')) ? 'login.html' : 'home.html';
-    loadPage(page);
-})
-
-$(document).on('click', '#trigger_download', function(){
-    setTimeout(function(){
-        $('button[data-target="#download_modal"]').trigger('click');
-    }, 300);
-    ipc.send('redirect', 'home.html');
-})
-
-$(document).on('click', '#menu--logout', function(){
-    logout();
-})
-
-$(document).on('click', '[data-href]', function() {
-    let path, tab;
-    if ($(this).data('href').indexOf('#') >= 0) {
-        let items = $(this).data('href').split('#');
-        path = items[0];
-        tab = items[1];
-    } else {
-        path = $(this).data('href');
-    }
-
-    if (tab) {       
-        setTimeout(function(){
-            $('#' + tab).trigger('click');
-        }, 30);
-    }
-    
-    loadPage(path)
-});
-
-
-ipc.on('load:page',function(e, item){
-    console_log('Loading page ... ' + item)
-    loadPage(item)
-});
-
-
-ipc.on('remove_current_session',function(e, item){
-    reset_user_data()
-});
-
-ipc.on('custom_error',function(e, title, message){
-    console_log(title, message);
-    
-    swal(title, message, 'error');
-    // swal({
-    //     title: title,
-    //     text: message,
-    //     icon: "error",
-    //     buttons: ['Dismiss'],
-    //     dangerMode: true
-    // })
-});
-
-ipc.on('log', ipc_log);
-
-function ipc_log(e, ...args){
-    console_log('%c============= IPC LOG =============', 'font-weight: bold; color: red');
-    console_log(...args);
-};
-
-
-ipc.on('update-available', (e, ...args) => {
-    $('#auto_update_current').text('v' + app.getVersion())
-    $('#auto_update_available').text('v' + args[0].version)
-
-    $('#auto_update_modal').modal({
-        keyboard: false,
-        backdrop: 'static'
-    })
-    console_log('update-available')
-    console_log(args);
-})
-
-ipc.on('update-error', (e, ...args) => {
-    //let str = args.join(' | ')
-    //Helper.pnotify('Naslov', 'Poruka: ' + str);
-    console_log('update-error')
-    swal('Update error', 'An error occured during update download.', 'error');
-    electron_log.error('update-error', e)
-    console_log(args);
-})
-
-ipc.on('download-progress', (e, ...args) => {
-    //let str = args.join(' | ')
-    //Helper.pnotify('Naslov', 'Poruka: ' + str);
-    console_log('download-progress')
-    console_log(args);
-    console_log(args[0].percent)
-
-    $('#auto_update_progress').attr("value", Math.ceil(args[0].percent))
-})
-
-ipc.on('update-downloaded', (e, ...args) => {
-    //let str = args.join(' | ')
-    //Helper.pnotify('Naslov', 'Poruka: ' + str);
-    console_log('update-downloaded')
-    console_log(args);
-})
-
-$(document).on('click', '#download_and_install', function(e) {
-    $(this).prop('disabled', true);
-    $('#auto_update_progress').removeClass('hidden');
-
-    ipc.send('download_and_install');
-})
-
-
-
-ipc.on('handle_protocol_request', protocol_request)
 
 async function protocol_request(e, url) {
     console_log(' ************* handle_protocol_request ***********');
@@ -275,6 +174,10 @@ async function protocol_request(e, url) {
 
     if (Array.isArray(url)) {
         url = url.length ? url[0] : '';
+    }
+
+    if (url === null) {
+        url = '';
     }
 
     for (let i = 0; i < app_protocols.length; i++) {
@@ -452,6 +355,229 @@ function parse_error_message(err) {
 function console_log(...log_this) {
     console.log(...log_this);
 }
+
+function ipc_log(e, ...args){
+    console_log('%c============= IPC LOG =============', 'font-weight: bold; color: red');
+    console_log(...args);
+};
+
+
+// ===============
+$(document).on('click', 'a', function(e){
+    const href = $(this).attr('href');
+    if (href.indexOf('http') !== 0) {
+        if (href !== '#') {
+            e.preventDefault();
+            loadPage(href);
+        }
+    } else {
+        e.preventDefault();
+        shell.openExternal(href)
+    }
+})
+
+$(document).on('click', 'a.logo-header', function(e){
+    e.preventDefault();
+    let page = (!settings.has('user_auth') || !settings.has('xnat_server')) ? 'login.html' : 'home.html';
+    loadPage(page);
+})
+
+$(document).on('click', '#trigger_download', function(){
+    setTimeout(function(){
+        $('button[data-target="#download_modal"]').trigger('click');
+    }, 300);
+    ipc.send('redirect', 'home.html');
+})
+
+$(document).on('click', '#menu--logout', function(){
+    logout();
+})
+
+$(document).on('click', '[data-href]', function() {
+    let path, tab;
+    if ($(this).data('href').indexOf('#') >= 0) {
+        let items = $(this).data('href').split('#');
+        path = items[0];
+        tab = items[1];
+    } else {
+        path = $(this).data('href');
+    }
+
+    if (tab) {       
+        setTimeout(function(){
+            $('#' + tab).trigger('click');
+        }, 30);
+    }
+    
+    loadPage(path)
+});
+
+$(document).on('change', '#alt_upload_method_modal [name="temp_location"]', function() {
+    var show_alternative = $('#alt_upload_method_modal [name="temp_location"]:checked').val() === 'custom';
+    console.log(show_alternative)
+    if (show_alternative) {
+        $('#temp_folder_alternative_holder').slideDown()
+    } else {
+        $('#temp_folder_alternative_holder').slideUp()
+    }
+    
+})
+
+$(document).on('show.bs.modal', '#alt_upload_method_modal', function(e) {
+    let dicom_temp_folder_path = path.resolve(tempDir, '_xdc_temp');
+    $('#default_temp_location').text(dicom_temp_folder_path)
+});
+
+$(document).on('change', '#file_temp_folder_alternative', function(e) {
+    if (this.files.length) {
+        $('#temp_folder_alternative').val(this.files[0].path);
+    }
+})
+
+$(document).on('click', '#confirm_temp_folder', function() {
+    var use_alt_path = $('#alt_upload_method_modal [name="temp_location"]:checked').val() === 'custom';
+
+    let alt_path = $('#temp_folder_alternative').val()
+    if (use_alt_path) {
+        if (alt_path) {
+            if (isReallyWritable(alt_path)) {
+                user_settings.set('zip_upload_mode', true);
+                user_settings.set('temp_folder_alternative', alt_path);
+
+                // unpause => restart upload
+                ipc.send('global_pause_status', false);
+
+                $('#alt_upload_method_modal').modal('hide');
+            } else {
+                swal('Path Error', 'Please select a different storage location.', 'error');
+            }
+        } else {
+            swal('Form Error', 'Please select a storage location.', 'error');
+        }
+    } else {
+        user_settings.set('zip_upload_mode', true);
+        ipc.send('global_pause_status', false);
+
+        $('#alt_upload_method_modal').modal('hide');
+    }
+
+})
+
+$(document).on('click', '#download_and_install', function(e) {
+    $(this).prop('disabled', true);
+    $('#auto_update_progress').removeClass('hidden');
+
+    ipc.send('download_and_install');
+})
+
+// ===============
+
+ipc.on('load:page',function(e, item){
+    console_log('Loading page ... ' + item)
+    loadPage(item)
+});
+
+ipc.on('remove_current_session',function(e, item){
+    reset_user_data()
+});
+
+ipc.on('custom_error',function(e, title, message){
+    console_log(title, message);
+    
+    swal(title, message, 'error');
+    // swal({
+    //     title: title,
+    //     text: message,
+    //     icon: "error",
+    //     buttons: ['Dismiss'],
+    //     dangerMode: true
+    // })
+});
+
+ipc.on('log', ipc_log);
+
+ipc.on('update-available', (e, ...args) => {
+    $('#auto_update_current').text('v' + app.getVersion())
+    $('#auto_update_available').text('v' + args[0].version)
+
+    $('#auto_update_modal').modal({
+        keyboard: false,
+        backdrop: 'static'
+    })
+    console_log('update-available')
+    console_log(args);
+
+    store.set('version-info-update', 'Updated version available.')
+})
+
+ipc.on('update-not-available', (e, ...args) => {
+    store.set('version-info-update', 'You are running the latest version.')
+})
+
+ipc.on('update-error', (e, ...args) => {
+    //let str = args.join(' | ')
+    //Helper.pnotify('Naslov', 'Poruka: ' + str);
+    console_log('update-error')
+    swal('Update error', 'An error occurred during update download.', 'error');
+    electron_log.error('update-error', e)
+    console_log(args);
+
+    store.set('version-info-update', 'An error occurred during update download.')
+})
+
+ipc.on('download-progress', (e, ...args) => {
+    //let str = args.join(' | ')
+    //Helper.pnotify('Naslov', 'Poruka: ' + str);
+    console_log('download-progress')
+    console_log(args);
+    console_log(args[0].percent)
+
+    $('#auto_update_progress').attr("value", Math.ceil(args[0].percent))
+})
+
+ipc.on('update-downloaded', (e, ...args) => {
+    //let str = args.join(' | ')
+    //Helper.pnotify('Naslov', 'Poruka: ' + str);
+    console_log('update-downloaded')
+    console_log(args);
+})
+
+ipc.on('xnat_cant_handle_stream_upload', (e, ...args) => {
+    $('#alt_upload_method_modal').modal({
+        keyboard: true,
+        backdrop: 'static'
+    })
+})
+
+ipc.on('force_reauthenticate', (e, login_data) => {
+    clearLoginSession()
+
+    setTimeout(function() {
+        $('#login').modal('show');
+    }, 100)
+
+    setTimeout(function() {
+        let $form = $('#loginForm');
+
+        $form.find('input[name="username"]').val(login_data.username);
+        $form.find('input[name="server"]').val(login_data.server);
+
+        let allow_insecure_ssl = login_data.allow_insecure_ssl === true;
+        $form.find('input[name="allow_insecure_ssl"]').prop('checked', allow_insecure_ssl);
+
+        $('#remove_login').toggle(login_data.username !== null)
+
+        $('#session_fail').removeClass('hidden');
+        
+        setTimeout(function(){
+            $('#password').focus();
+        }, 500);
+
+    }, 200);
+})
+
+ipc.on('handle_protocol_request', protocol_request)
+
 
 window.onerror = function (errorMsg, url, lineNumber) {
     electron_log.error(`[Custom Uncaught Error]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)

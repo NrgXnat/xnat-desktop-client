@@ -5,6 +5,9 @@ const moment = require('moment');
 const archiver = require('archiver');
 const path = require('path')
 
+const nedb_log_reader = require('./db/nedb_log_reader');
+const { objArrayToCSV } = require('./app_utils');
+
 module.exports = function() {
     let date_string = moment().format('YYYY-MM-DD--HH-mm-ss')
     dialog.showSaveDialog({
@@ -62,10 +65,33 @@ function dialog_callback(filename) {
         archive.file(electron_log.transports.file.findLogPath(), { name: 'xnat-desktop-client.log' });
         archive.file(xlectric_log, { name: 'xlectric.log' });
 
-        archive.finalize();
+        
+        nedb_log_reader.fetch_user_log((err, docs) => {
 
-        //fs.writeFileSync(filename, fs.readFileSync(electron_log.transports.file.findLogPath()))
+            let relevant_data = docs.map(obj => {
+                return Object.assign({}, {
+                    timestamp: obj.timestamp,
+                    type: obj.type, 
+                    status: obj.level,
+                    transfer_id: obj.transfer_id,
+                    message: obj.message,
+                    details: JSON.parse(obj.details)
+                });
+            });
 
-        shell.showItemInFolder(filename)
+            let csv = relevant_data.length ? objArrayToCSV(relevant_data) : 'No data';
+
+            let user_transfer_log = path.join(app.getPath('temp'), `user-transfer-log-${new Date()/1}.csv`);
+            fs.writeFileSync(user_transfer_log, csv)
+
+            //fs.writeFileSync(filename, fs.readFileSync(electron_log.transports.file.findLogPath()))
+
+            archive.file(user_transfer_log, { name: 'user-transfer-log.csv' });
+
+            archive.finalize();
+            shell.showItemInFolder(filename)
+        })
+        
+        
     }
 }

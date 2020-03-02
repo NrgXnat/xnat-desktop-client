@@ -13,6 +13,7 @@ const xml2js = require('xml2js');
 const swal = require('sweetalert');
 
 const remote = require('electron').remote;
+const electron_log = remote.require('./services/electron_log');
 
 const FileSaver = require('file-saver');
 const zlib = require('zlib');
@@ -20,9 +21,12 @@ const zlib = require('zlib');
 const unzipper = require('unzipper');
 const sha1 = require('sha1');
 
-const app = require('electron').remote.app;
+const app = remote.app;
 
-const db_downloads = require('electron').remote.require('./services/db/downloads')
+const db_downloads = remote.require('./services/db/downloads')
+
+const nedb_logger = remote.require('./services/db/nedb_logger')
+const nedb_log_reader = remote.require('./services/db/nedb_log_reader')
 
 
 let xnat_server, user_auth, default_local_storage;
@@ -39,6 +43,35 @@ NProgress.configure({
     minimum: 0.03
 });
 
+$(document).on('click', '#nedb_log_insert', function() {
+    let transfer_id, type, message, details_object;
+
+    transfer_id = Math.random();
+    type = 'upload';
+    message = `Some message for ... ${transfer_id}`;
+    
+    nedb_logger.debug(transfer_id, type, message)
+    nedb_logger.info(transfer_id, type, message)
+    nedb_logger.error(transfer_id, type, message)
+    nedb_logger.success(transfer_id, type, message)
+
+    
+
+    transfer_id = 152;
+    type = 'upload';
+    message = `Some message for ... ${transfer_id}`;
+    
+    nedb_logger.debug(transfer_id, type, message)
+    nedb_logger.info(transfer_id, type, message)
+    nedb_logger.error(transfer_id, type, message)
+    nedb_logger.success(transfer_id, type, message)
+});
+
+$(document).on('click', '#nedb_log_read', function() {
+    nedb_log_reader.fetch_log(152, (err, docs) => {
+        console.log(docs);
+    })
+});
 
 $(document).on('page:load', '#home-section', function(e){
     console.log('HOME page:load triggered');
@@ -103,11 +136,12 @@ $(document).on('click', '.js_download_session_files', async function(){
     }
 
     if (error_message.length) {
-        $alert.show().find('.error_message').text(error_message);
+        $alert.show().find('.error_message').html(error_message);
     } else {
         $alert.hide();
     }
 });
+
 
 async function attempt_download(file_path, destination) {
     let data;
@@ -121,6 +155,21 @@ async function attempt_download(file_path, destination) {
             }
         ]
     });
+
+    let test_path = '__TEST__'  + (new Date() / 1);
+    let write_test_path = path.join(destination, test_path)
+    
+    
+    // using a workaround since fs.accessSync(destination, fs.constants.R_OK | fs.constants.W_OK) does not work
+    try {
+        fs.mkdirSync(write_test_path);
+        fs.rmdirSync(write_test_path);
+        
+    } catch(err) {
+        electron_log.error('Download Destination Permission Error', err);
+        throw new Error(`Destination "${destination}" is not writable. Please choose a different destination path.`);
+    }
+
     
 
     try {
@@ -146,11 +195,11 @@ async function attempt_download(file_path, destination) {
         throw new Error('File reading error. Please choose another XML manifest file.');
     }
 
-    let parsing_error_message = 'An error occurred while parsing manifest file! Please try again or use another manifest file.';
+    let parsing_error_message = 'An error occurred while parsing manifest file! Please try again, use another manifest file or check the documentation (<a href="https://wiki.xnat.org/xnat-tools/xnat-desktop-client-dxm/downloading-image-sessions">Downloading Image Sessions</a>).';
 
     parser.parseString(data, function (err2, result) {
         if (err2) {
-            throw new Error(`${parsing_error_message} (${err2.message})`);
+            throw new Error(`${parsing_error_message} <br><small>[Error: ${err2.message}]</small>`);
         }
         
         try {
@@ -225,7 +274,7 @@ async function attempt_download(file_path, destination) {
             ipc.send('redirect', 'progress.html');
 
         } catch(parse_error) {
-            throw new Error(`${parsing_error_message} (${parse_error.message})`);
+            throw new Error(`${parsing_error_message} <br><small>[Error: ${parse_error.message}]</small>`);
         }
 
     });

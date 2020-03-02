@@ -216,7 +216,12 @@ textarea
     border: 1px solid $list-border;
     margin-bottom: 30px;
     height: 162px;
-    overflow-y: scroll;
+	overflow-y: scroll;
+	
+	li.divider {
+		padding-left: 4px;
+		font-size: .7em;
+	}
     
     &.list-selectable {
     	li {

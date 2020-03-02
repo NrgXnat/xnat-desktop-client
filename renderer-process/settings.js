@@ -1,6 +1,9 @@
+const constants = require('../services/constants');
 //require('promise.prototype.finally').shim();
 const path = require('path');
 const settings = require('electron-settings')
+const ElectronStore = require('electron-store');
+const app_config = new ElectronStore();
 const ipc = require('electron').ipcRenderer
 const swal = require('sweetalert');
 
@@ -11,12 +14,21 @@ const electron_log = remote.require('./services/electron_log');
 const app = remote.app
 
 const auth = require('../services/auth');
+const user_settings = require('../services/user_settings');
+
+const { isReallyWritable } = require('../services/app_utils');
+const tempDir = require('temp-dir');
 
 //const blockUI = require('blockui-npm');
 let allow_insecure_ssl;
 
 $(document).on('page:load', '#settings-section', function(e){
     console.log('Ucitano................')
+
+    if (auth.get_current_user()) {
+        $('.nav-tabs a.hidden').removeClass('hidden');
+        display_user_preferences()
+    }
     
     render_users();
     show_default_email_address();
@@ -29,7 +41,75 @@ $(document).on('page:load', '#settings-section', function(e){
         }
     });
 
+    if (app_config.get('send_crash_reports', false) === true) {
+        $('#send-crash-reports').val('1')
+    }
+
 });
+
+function display_user_preferences() {
+    display_missing_anon_script_warnings_settings();
+    show_default_temp_storage();
+    show_default_upload_mode();
+    show_recent_upload_projects_count();
+}
+
+function display_missing_anon_script_warnings_settings() {
+    let suppress = user_settings.get('suppress_anon_script_missing_warning');
+    let warning_suppressed = suppress ? suppress : [];
+
+    let table_rows = [];
+
+    warning_suppressed.forEach(function(el, i){
+        let items = el.split('|');
+        table_rows.push({
+            server: items[0],
+            project_id: items[1],
+            action: ''
+        });
+    });
+
+    let bt_options = $('#suppress_anon_script_missing_warnings').bootstrapTable('getOptions');
+
+    if ($.isPlainObject(bt_options)) { // bootstrap table already initialized
+        $('#suppress_anon_script_missing_warnings').bootstrapTable('destroy')
+    }
+
+    $('#suppress_anon_script_missing_warnings').bootstrapTable({
+        filterControl: table_rows.length > 4 ? true : false,
+        height: table_rows.length > 4 ? 242 : 0,
+        columns: [
+            {
+                field: 'server',
+                title: 'Server',
+                sortable: true,
+                filterControl: 'input'
+            }, 
+            {
+                field: 'project_id',
+                title: 'Project ID',
+                sortable: true,
+                filterControl: 'input'
+            }, 
+            {
+                field: 'action',
+                title: 'Actions',
+                width: '100px',
+                class: 'action',
+                formatter: function(value, row, index, field) {
+                    return `
+                
+                    <a href="#" 
+                        class="trash js_remove_suppress_anon_warning"
+                        data-match="${row.server}|${row.project_id}"
+                        ><i class="fas fa-trash-alt"></i></a>
+                    `;
+                }
+            }
+        ],
+        data: table_rows
+    });
+}
 
 
 function show_default_local_storage() {
@@ -44,6 +124,49 @@ function show_default_pet_tracers() {
     $('#default_pet_tracers').val(settings.get('default_pet_tracers'));
 }
 
+function show_default_temp_storage() {
+    let dicom_temp_folder_path = user_settings.get('temp_folder_alternative') ? 
+        user_settings.get('temp_folder_alternative') : path.resolve(tempDir, '_xdc_temp');
+
+    $('#temp_folder_alt').val(dicom_temp_folder_path);
+}
+
+function show_default_upload_mode() {
+    if (user_settings.get('zip_upload_mode') === true) {
+        $('#zip_upload_mode').val('1')
+    }
+}
+
+function show_recent_upload_projects_count() {
+    let recent_upload_projects_count = user_settings.get('recent_upload_projects_count') !== undefined ? user_settings.get('recent_upload_projects_count') : constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT;
+    $('#recent_upload_projects_count').attr('max', constants.MAX_RECENT_UPLOAD_PROJECTS_STORED).val(recent_upload_projects_count);
+}
+
+$(document).on('input', '#recent_upload_projects_count', function(e) {
+    $('#save_recent_upload_projects_count').prop('disabled', false);
+});
+
+$(document).on('click', '#save_recent_upload_projects_count', function(e) {
+    e.preventDefault();
+
+    if ($('#recent_upload_projects_count').is(':invalid')) {
+        swal({
+            title: "Error!",
+            text: "Please validate `Number of Recent Projects` field",
+            icon: "error",
+            button: "Okay",
+          });
+    } else {
+        let recent_upload_projects_count = $('#recent_upload_projects_count').val() ? parseInt($('#recent_upload_projects_count').val()) : 0;
+        
+        user_settings.set('recent_upload_projects_count', recent_upload_projects_count);
+
+        Helper.pnotify('Success!', `Recent upload projects count successfully updated! (New value: ${recent_upload_projects_count})`);
+        
+        $(this).prop('disabled', true);
+    }
+    
+});
 
 
 function render_users() {
@@ -222,6 +345,11 @@ $(document).on('click', '#save_default_pet_tracers', function(e) {
     $(this).prop('disabled', true);
 })
 
+$(document).on('change', '#send-crash-reports', function(e) {
+    let send_crash_reports = $('#send-crash-reports').val() === '1';
+    app_config.set('send_crash_reports', send_crash_reports);
+    Helper.pnotify('Success!', `Crash Report status was updated! (${send_crash_reports ? 'ON' : 'OFF'})`);
+})
 
 
 $(document).on('click', '#save_default_email_address', function(e) {
@@ -344,3 +472,60 @@ $(document).on('click', '.js_remove_login', function(e){
         }
     });
 });
+
+
+$(document).on('click', '.js_remove_suppress_anon_warning', function(e){
+    let match = $(this).data('match');
+    
+    user_settings.pop('suppress_anon_script_missing_warning', match)
+
+    display_user_preferences()
+});
+
+
+
+$(document).on('change', '#file_temp_folder_alt', function(e) {
+    let alt_path = this.files[0].path;
+    if (alt_path) {
+        if (isReallyWritable(alt_path)) {
+            console.log('WRITABLE', alt_path);
+
+            $('#temp_folder_alt').val(alt_path);
+
+            user_settings.set('temp_folder_alternative', alt_path);
+            Helper.pnotify('Success!', `Default temporary storage path successfully updated! (${alt_path})`);
+
+            // TODO add Helper.notify
+        } else {
+            console.log('NOT WRITABLE', alt_path);
+            Helper.pnotify('Permissions Error!', `Selected directory (${alt_path}) is not writable! Please select a different directory.`);
+        }
+    }
+    
+
+});
+
+$(document).on('click', '#reset_temp_folder_alt', function() {
+    let default_temp_path = path.resolve(tempDir, '_xdc_temp');
+    swal({
+        title: `Are you sure?`,
+        text: `Reset temporary upload path to "${default_temp_path}"?`,
+        icon: "warning",
+        buttons: ['Cancel', 'Continue'],
+        dangerMode: true
+    })
+    .then((proceed) => {
+        if (proceed) {
+            user_settings.unset('temp_folder_alternative');
+            $('#temp_folder_alt').val(default_temp_path);
+            Helper.pnotify('Success!', `Temporary folder reset to system default!`, 'success', 2000);
+        }
+    });
+})
+
+
+$(document).on('change', '#zip_upload_mode', function(e) {
+    let use_zip_upload_mode = $('#zip_upload_mode').val() === '1';
+    user_settings.set('zip_upload_mode', use_zip_upload_mode);
+    Helper.pnotify('Success!', `Upload mode was updated! (${use_zip_upload_mode ? 'Zip' : 'Stream'})`);
+})

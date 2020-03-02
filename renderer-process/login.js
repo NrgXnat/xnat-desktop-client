@@ -66,7 +66,7 @@ $(document).on('show.bs.modal', '#login', function(e) {
 });
 
 $(document).on('hide.bs.modal', '#login', function(e) {
-    $('#login_feedback').addClass('hidden');
+    $('#login .modal-body > .alert').addClass('hidden');
     $(e.currentTarget).find('input[name="password"]').val('');
 });
 
@@ -74,7 +74,7 @@ $(document).on('submit', '#loginForm', function(e){
     Helper.blockModal('#login');
     e.preventDefault();
 
-    $('#login_feedback').addClass('hidden');
+    $('#login .modal-body > .alert').addClass('hidden');
 
     let my_xnat_server = $('#server').val().replace(/\/$/, '');
 
