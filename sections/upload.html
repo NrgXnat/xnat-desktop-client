@@ -11,10 +11,8 @@
                     <nav>
                         <div class="nav nav-tabs" id="nav-tab" role="tablist">
                             <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Subject Selection</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false"><!--Select Folder-->Confirm Details</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false"><!--Verify Visit Date-->Visual PHI Check</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false"><!--Review and Verify-->Upload to XNAT</a>
-                            <!-- <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Summary</a> -->
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Confirm Details</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Upload to XNAT</a>
                         </div>
                     </nav>
                     <div class="tab-content" id="nav-tabContent">
@@ -37,56 +35,91 @@
 
                             <div class="project-subjects-holder2">
                                 <div class="row">
-                                    <div class="col-6">
+                                    <div class="col-5">
                                         <h2 class="section-title">Project Settings</h2>
-                                        <p>Select a project to view settings</p>
 
+                                        <div id="project_settings_tbl_wrap"><p>Select a project to view settings</p></div>
 
+                                        <script type="text/html" id="project_settings_tbl_tpl">
+                                            <table id="project_settings_tbl" class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th scope="col">Project</th>
+                                                        <th scope="col" class="text-right"><%project_settings.project.name%></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td>Subjects</th>
+                                                        <td class="text-right"><%project_settings.subjects.length%></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Image Sessions</th>
+                                                        <td class="text-right"><%project_settings.sessions_count%></td>
+                                                    </tr>
 
-                                        <table id="project_settings_tbl" class="table table-sm hidden" style="width: auto;">
-                                            <thead>
-                                                <tr>
-                                                    <th scope="col">Project</th>
-                                                    <th scope="col" class="text-right">ALI US Scanner Project</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td>Subjects</th>
-                                                    <td class="text-right">120</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Image Sessions</th>
-                                                    <td class="text-right">640</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Site-wide Anon Script</th>
-                                                    <td class="text-right">✔</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Site-wide Series Import Filter</th>
-                                                    <td class="text-right">N/A</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Project Anon Script</th>
-                                                    <td class="text-right">N/A</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Project Series Import Filter</th>
-                                                    <td class="text-right">✔</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Upload destination</th>
-                                                    <td class="text-right">PREARCHIVE</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Date Verification Required</th>
-                                                    <td class="text-right">✔</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
+                                                    <tr>
+                                                        <td>Site-wide Anon Script</th>
+                                                        <td class="text-right">
+                                                            <%if(site_wide_settings.anon_script !== false) {%>
+                                                                <span title="<%site_wide_settings.anon_script.replace(/"/g, '&quot;')%>">✔</span>
+                                                            <%} else {%>
+                                                                N/A
+                                                            <%}%>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Project Anon Script</th>
+                                                        <td class="text-right">
+                                                            <%if(project_settings.anon_script !== false) {%>
+                                                                <span title="<%project_settings.anon_script.replace(/"/g, '&quot;')%>">✔</span>
+                                                            <%} else {%>
+                                                                N/A
+                                                            <%}%>
+                                                        </td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td>Site-wide Series Import Filter</th>
+                                                        <td class="text-right">
+                                                            <%if(site_wide_settings.series_import_filter !== false) {%>
+                                                                <span title="<%site_wide_settings.series_import_filter.replace(/"/g, '&quot;')%>">✔</span>
+                                                            <%} else {%>
+                                                                N/A
+                                                            <%}%>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Project Series Import Filter</th>
+                                                        <td class="text-right">
+                                                            <%if(project_settings.series_import_filter !== false) {%>
+                                                                <span title="<% (JSON.stringify(project_settings.series_import_filter)).replace(/"/g, '&quot;') %>">✔</span>
+                                                            <%} else {%>
+                                                                N/A
+                                                            <%}%>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Upload destination</th>
+                                                        <td class="text-right"><%project_settings.upload_destination%></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Date Verification Required</th>
+                                                        <td class="text-right">
+                                                            <%if(site_wide_settings.require_date || project_settings.require_date) {%>
+                                                                ✔
+                                                            <%} else {%>
+                                                                ✖
+                                                            <%}%>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </script>
+
+                                        
                                     </div>
-                                    <div class="col-6">
+                                    <div class="col-6 offset-1">
                                         <h2 class="section-title">Select Data To Upload (Choose a Folder)</h2>
                                         <p>Selected folder must contain one or more sets of uncompressed DICOM image files. 
                                             Selected folder can contain files in a flat directory structure or in subfolders. 
@@ -94,7 +127,7 @@
 
                                         <div class="form-group">
                                             <div class="input-group">
-                                                <input type="text" id="upload_folder" value="" class="form-control col-6 settings-input" readonly>
+                                                <input type="text" id="upload_folder" value="" class="form-control col-9 settings-input" readonly>
                                                 <div class="col-3">
                                                     <label class="input-group-btn">
                                                         <span class="btn btn-blue">
@@ -116,9 +149,6 @@
                                 </div>
                             </div>
 
-
-
-
                             <div class="row action-button-row">
                                 <div class="col-12">
                                     <div class="text-right button-row">
@@ -131,52 +161,13 @@
                             </div>
                             
                         </div>
-                        <div class="tab-pane fade" id="nav-folder" role="tabpanel" aria-labelledby="nav-folder-tab">
-                            <h2 class="section-title">Select Folder</h2>
-
-                            <div class="form-group">
-                                <div class="input-group">
-                                    <input type="text" id="upload_folder" value="" class="form-control col-6 settings-input" readonly>
-                                    <div class="col-3">
-                                        <label class="input-group-btn">
-                                            <span class="btn btn-blue">
-                                                Browse
-                                                <input type="file" id="file_upload_folder" style="display: none" webkitdirectory
-                                                    directory>
-                                            </span>
-                                        </label>
-                                    </div>
-
-                                </div>
-                                <small>Select a folder on your local hard drive or networked drive containing one or more uncompressed
-                                    DICOM image sessions</small>
-                            </div>
-
-
-                            <!--<button class="btn btn-blue" id="test-upload" type="button">Test upload</button>-->
-
-                            <progress id="dicom_parse_progress" class="hidden" value="0" max="100"></progress>
-
-                            <!--
-                        <input type="file" multiple webkitdirectory id="fileURL" />
-                        <ul id="fileOutput"></ul>
-                        -->
-                            <div class="col text-right button-row">
-                                <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                                <button type="button" class="btn btn-gray js_prev">
-                                    <i class="fas fa-angle-left"></i> Prev</button>
-                                <button type="button" class="btn btn-blue js_next disabled">Next
-                                    <i class="fas fa-angle-right"></i>
-                                </button>
-                            </div>
-                        </div>
+                        <!--
                         <div class="tab-pane fade" id="nav-date" role="tabpanel" aria-labelledby="nav-date-tab">
                             <h2 class="section-title">Enter the visit details of the session you plan to upload</h2>
                             <div class="form-group">
                                 <label>Verify session date</label>
                                 <div class="row">
                                     <div class="col-3 date-holder">
-                                        <!-- <input type="text" id="datepicker" class="form-control"> -->
                                         <input type="date" class="form-control" name="upload_session_date" id="upload_session_date">
 
                                     </div>
@@ -194,7 +185,7 @@
                                 </button>
                             </div>
                         </div>
-
+                        -->
 
                         <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
                             <div class="col" id="anon_variables">
@@ -379,8 +370,9 @@
                         </div>
 
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-blue js_cancel_session_selection" type="button" data-dismiss="modal">Cancel Selection</button>
-                            <!-- <button type="submit" class="btn btn-gray">Add New Subject</button> -->
+                            <button type="button" class="btn btn-gray js_cancel_session_selection" type="button" data-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-gray js_custom_upload" type="button" disabled>Custom Upload</button>
+                            <button type="button" class="btn btn-blue js_quick_upload" type="button">Quick Upload</button>
                         </div>
                     </div>
                 </div>

@@ -13,6 +13,8 @@ const swal = require('sweetalert');
 const archiver = require('archiver');
 const mime = require('mime-types');
 
+const templateEngine = require('../services/template_engine');
+
 const prettyBytes = require('pretty-bytes');
 
 const user_settings = require('../services/user_settings');
@@ -51,7 +53,7 @@ function fetch_site_wide_settings(xnat_server, user_auth) {
       let data = {
         allow_create_subject: (typeof res[0].data === 'boolean') ? res[0].data : (res[0].data === '' || res[0].data.toLowerCase() === 'true'),
         require_date: (typeof res[1].data === 'boolean') ? res[1].data : (res[1].data.toLowerCase() !== 'false' && res[1].data !== ''),
-        anon_script: res[2] !== false, // res[2] contains actual anon script (or false)
+        anon_script: res[2], // res[2] contains actual anon script (or false)
         series_import_filter: res[3]
       }
       
@@ -60,11 +62,17 @@ function fetch_site_wide_settings(xnat_server, user_auth) {
         return Promise.reject(err)
     });
 }
+
 function fetch_project_settings(project_id, xnat_server, user_auth) {
     return Promise.all([
         promise_subjects(project_id),
         project_allow_create_subject(project_id),
-        project_require_date(project_id)
+        project_require_date(project_id),
+        mizer.get_project_anon_script(xnat_server, user_auth, project_id),
+        project_sessions_count(xnat_server, user_auth, project_id),
+        project_series_import_filter(xnat_server, user_auth, project_id),
+        project_upload_destination(xnat_server, user_auth, project_id),
+        project_data(xnat_server, user_auth, project_id)
     ]).then(res => {
 
         let subjects = res[0].data.ResultSet.Result;
@@ -74,11 +82,15 @@ function fetch_project_settings(project_id, xnat_server, user_auth) {
             return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
         });
 
-
       let data = {
         subjects: sorted_subjects,
         allow_create_subject: (typeof res[1].data === 'boolean') ? res[1].data : (res[1].data === '' || res[1].data.toLowerCase() === 'true'),
-        require_date: (typeof res[2].data === 'boolean') ? res[2].data : (res[2].data.toLowerCase() !== 'false' && res[2].data !== '')
+        require_date: (typeof res[2].data === 'boolean') ? res[2].data : (res[2].data.toLowerCase() !== 'false' && res[2].data !== ''),
+        anon_script: res[3],
+        sessions_count: res[4],
+        series_import_filter: res[5],
+        upload_destination: res[6],
+        project: res[7]
       }
       
       return Promise.resolve(data);
@@ -121,12 +133,9 @@ async function _init_variables() {
     
         $('#subject-session').html('');
         $('.project-subjects-holder').hide();
-    });
 
-    // browse files
-    resseting_functions.set(1, function(){
-        console.log('resseting values in tab 1');
-        
+        $('#project_settings_tbl_wrap').html('')
+
         session_map.clear();
         selected_session_id = null;
         $('#upload_folder, #file_upload_folder').val('');
@@ -137,6 +146,13 @@ async function _init_variables() {
             value: 0,
             max: 100
         });
+    });
+
+    // browse files
+    resseting_functions.set(1, function(){
+        console.log('resseting values in tab 1');
+        
+        
 
     });
 
@@ -144,19 +160,19 @@ async function _init_variables() {
     resseting_functions.set(2, function(){
         console.log('resseting values in tab 2')
 
-        $('#upload_session_date').val('');
+        // $('#upload_session_date').val('');
 
-        if (date_required != undefined) {
-            $('#upload_session_date').prop('required', date_required);
+        // if (date_required != undefined) {
+        //     $('#upload_session_date').prop('required', date_required);
             
         
-            let next_button = $('#upload_session_date').closest('.tab-pane').find('.js_next');
-            if (date_required) {
-                next_button.addClass('disabled'); 
-            } else {
-                next_button.removeClass('disabled');     
-            }
-        }
+        //     let next_button = $('#upload_session_date').closest('.tab-pane').find('.js_next');
+        //     if (date_required) {
+        //         next_button.addClass('disabled'); 
+        //     } else {
+        //         next_button.removeClass('disabled');     
+        //     }
+        // }
 
     });
 
@@ -270,6 +286,83 @@ function _init_img_sessions_table(table_rows) {
 }
 
 function _init_session_selection_table(tbl_data) {
+    let $found_sessions_tbl = $('#found_sessions');
+
+    let date_required = site_wide_settings.require_date || project_settings.require_date;
+
+    destroyBootstrapTable($found_sessions_tbl);
+
+    $found_sessions_tbl.bootstrapTable({
+        height: tbl_data.length > 5 ? 250 : 0,
+        columns: [
+            {
+                field: 'id',
+                title: 'StudyInstanceUID',
+                visible: false
+            },
+            {
+                field: 'patient_name',
+                title: 'Patient Name',
+                sortable: true,
+                class: 'break-all'
+            },
+            {
+                field: 'patient_id',
+                title: 'Patient ID',
+                sortable: true,
+                class: 'break-all'
+            },
+            {
+                field: 'label',
+                title: 'Study Description',
+                sortable: true,
+                class: 'break-all'
+            },
+            {
+                field: 'modality',
+                title: 'Modality',
+                sortable: true,
+                class: 'break-all'
+            },
+            {
+                field: 'scan_count',
+                title: 'Scans',
+                sortable: true,
+                class: 'right-aligned'
+            },
+            {
+                field: 'study_date',
+                title: 'Study Date',
+                class: '',
+                formatter: function(value, row, index, field) {
+                    if (date_required && value !== false) {
+                        if (tbl_data.length == 1) {
+                            return `<input type="date" class="form-control" name="upload_session_date" id="upload_session_date">`
+                        } else {
+                            return value.substr(0, 7) + `<input data-valid="${value}" type="number" min="1" max="31">`;
+                        }
+                    } else {
+                        return value ? value : 'N/A';
+                    }
+                    
+                    return `
+                    <button data-session_id="${row.id}" type="button" 
+                        class="btn btn-blue btn-sm" 
+                        style="margin: 2px 0;">Select</button>
+                    
+                    `;
+                }
+            }
+            
+        ],
+        data: tbl_data
+    });
+
+    $found_sessions_tbl.bootstrapTable('resetView');
+}
+
+function _init_session_selection_table_old(tbl_data) {
+    console.log({tbl_data});
     let $found_sessions_tbl = $('#found_sessions');
 
     destroyBootstrapTable($found_sessions_tbl);
@@ -450,9 +543,18 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
     let project_id = $(this).data('project_id');
 
     try {
-        project_settings = await fetch_project_settings(project_id, xnat_server, user_auth)
-        $('#project_settings_tbl').removeClass('hidden')
+        project_settings = await fetch_project_settings(project_id, xnat_server, user_auth);
         console.log({project_settings});
+
+        let tpl = $('#project_settings_tbl_tpl').html();
+        let tbl = templateEngine(tpl, {
+            project_settings: project_settings,
+            site_wide_settings: site_wide_settings,
+            site_wide_anon_script: site_wide_settings.anon_script !== false
+        })
+
+        $('#project_settings_tbl_wrap').html(tbl)
+        
     } catch (err) {
         handle_error(err)
     }
@@ -585,7 +687,7 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
                 defined_project_exp_labels = res.data.ResultSet.Result.map(function(item){
                     return item.label;
                 });
-                console.log(defined_project_exp_labels);
+                console.log({defined_project_exp_labels});
             }
             console.log('-----------------------------------------------------------');
         })
@@ -934,7 +1036,7 @@ $(document).on('submit', '#form_new_subject', function(e) {
 $(document).on('click', '.js_cancel_session_selection', function(){
     resetSubsequentTabs();
     //resetTabsAfter($('#upload-section #nav-tab .nav-link.active').index() - 1)
-    resseting_functions.get(1)();
+    resseting_functions.get(0)();
 });
 
 $(document).on('hidden.bs.modal', '#session-selection', function(e) {
@@ -1235,6 +1337,11 @@ function dicomParse(_files, root_path) {
 
                             const accession = dicom.string('x00080050');
                             // ++++
+
+                            // ***********
+                            const PatientName = dicom.string('x00100010'); // PatientName
+                            const PatientID = dicom.string('x00100020'); // PatientID
+                            // ***********
                 
     
                             if (!session_map.has(studyInstanceUid)) {
@@ -1246,6 +1353,10 @@ function dicomParse(_files, root_path) {
                                     accession: accession,
                                     date: study_date,
                                     time: study_time,
+                                    patient: {
+                                        name: PatientName,
+                                        id: PatientID
+                                    },
                                     scans: new Map()
                                 });
                             }
@@ -1393,23 +1504,24 @@ function dicomParse(_files, root_path) {
                     dangerMode: true
                 })
 
-
                 break;
             
-            case 1:
-                let my_session_id;
-                session_map.forEach(function(cur_session, key) {
-                    my_session_id = key
-                });
+            // case 1:
+            //     let my_session_id;
+            //     session_map.forEach(function(cur_session, key) {
+            //         my_session_id = key
+            //     });
 
-                select_session_id(my_session_id);
-                $('.tab-pane.active .js_next').trigger('click');
+            //     select_session_id(my_session_id);
+            //     $('.tab-pane.active .js_next').trigger('click');
 
-                break;
+            //     break;
 
             default:
                 let tbl_data = [];
                 session_map.forEach(function(cur_session, key) {
+                    console.log({cur_session});
+
                     let paths = [];
                     cur_session.scans.forEach(function (files, scan_id) {                       
                         for (let i = 0; i < files.length; i++) {
@@ -1424,13 +1536,23 @@ function dicomParse(_files, root_path) {
                     console.log('===============================================');
                     
                     let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
+                    //let session_label = cur_session.studyDescription === undefined ? key : cur_session.studyDescription;
+                    // let session_label = JSON.stringify({
+                    //     stud_desc: cur_session.studyDescription,
+                    //     stud_id: cur_session.studyId
+                    // })
+
+                    let studyDate = getStudyDate(cur_session.date);
 
                     let session_data = {
                         id: key,
+                        patient_name: cur_session.patient.name,
+                        patient_id: cur_session.patient.id,
                         label: session_label,
+                        modality: cur_session.modality.join(", "),
                         root_path: root_path + find_common_path(paths),
                         scan_count: cur_session.scans.size,
-                        action: ''
+                        study_date: studyDate
                     }
 
                     tbl_data.push(session_data);
@@ -1452,6 +1574,20 @@ function dicomParse(_files, root_path) {
         
     }, this);
 
+}
+
+function getStudyDate(date_string) {
+    if (!date_string) {
+        return false;
+    } else {
+        let only_numbers = date_string.replace(/[^\d]/g, '');
+
+        return only_numbers.substr(0, 4) + '-' +
+            only_numbers.substr(4, 2) + '-' +
+            only_numbers.substr(6, 2);
+
+    }
+    
 }
 
 function experiment_label() {
@@ -1778,6 +1914,76 @@ function global_series_import_filter() {
     });
 }
 
+function project_series_import_filter(xnat_server, user_auth, project_id) {
+    return new Promise(function(resolve, reject) {
+        axios.get(xnat_server + `/data/projects/${project_id}/config/seriesImportFilter/config?format=json`, {
+            auth: user_auth
+        }).then(resp => {
+            let filter_data = resp.data.ResultSet.Result[0];
+            let filter_value = filter_data.status === 'disabled' ? false : JSON.parse(filter_data.contents)
+
+            resolve(filter_value);
+            
+        }).catch(err => {
+            if (err.response && err.response.status === 404) {
+                resolve(false);    
+            } else {
+                reject({
+                    type: 'axios',
+                    data: err
+                })
+            }
+        });
+    });
+}
+
+function project_upload_destination(xnat_server, user_auth, project_id) {
+    return new Promise(function(resolve, reject) {
+        axios.get(xnat_server + `/data/projects/${project_id}/prearchive_code`, {
+            auth: user_auth
+        }).then(resp => {
+            let upload_destination;
+            console.log({resp_data: resp.data});
+            switch (resp.data) {
+                case 0:
+                    upload_destination = "PREARCHIVE";
+                    break;
+                case 4:
+                    upload_destination = "ARCHIVE (Reject duplicates)";
+                    break;
+                case 5:
+                    upload_destination = "ARCHIVE (Overwrite duplicates)"
+                    break;
+            }
+
+            resolve(upload_destination);
+            
+        }).catch(err => {
+            reject({
+                type: 'axios',
+                data: err
+            })
+        });
+    });
+}
+
+function project_data(xnat_server, user_auth, project_id) {
+    return new Promise(function(resolve, reject) {
+        axios.get(xnat_server + `/data/projects/${project_id}?format=json`, {
+            auth: user_auth
+        }).then(resp => {
+            console.log({resp});
+
+            resolve(resp.data.items[0].data_fields);
+            
+        }).catch(err => {
+            reject({
+                type: 'axios',
+                data: err
+            })
+        });
+    });
+}
 
 
 function project_allow_create_subject(project_id) {
@@ -1889,8 +2095,23 @@ function promise_subjects(project_id) {
     return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects?columns=group,insert_date,insert_user,project,label', {
         auth: user_auth
     })
-    
 }
+
+function project_sessions_count(xnat_server, user_auth, project_id) {
+    return new Promise(function(resolve, reject) {
+        axios.get(xnat_server + '/data/projects/' + project_id + '/experiments?columns=IDformat=json', {
+            auth: user_auth
+        }).then(resp => {
+            resolve(parseInt(resp.data.ResultSet.totalRecords));
+        }).catch(err => {
+            reject({
+                type: 'axios',
+                data: err
+            })
+        });
+    });
+}
+
 
 function promise_project_subject(project_id, subject_label) {
     return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?format=json', {

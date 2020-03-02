@@ -344,7 +344,7 @@ function get_project_anon_script(xnat_server, user_auth, project_id) {
         });  
     });
 }
-
+mizer.get_project_anon_script = get_project_anon_script
 
 function remove_commented_lines(script) {
     let weeded_script_lines = [], 
