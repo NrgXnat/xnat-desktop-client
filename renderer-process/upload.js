@@ -2133,7 +2133,7 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
         canceled: false
     };
     console.log({upload_digest});
-
+    return;
     db_uploads().insert(upload_digest, (err, newItem) => {
         if (err) {
             console.log(err)
