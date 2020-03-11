@@ -345,6 +345,20 @@ function get_project_anon_script(xnat_server, user_auth, project_id) {
     });
 }
 
+function generateAlterPixelCode(rectangles) {
+    let lines = rectangles.map(rect => {
+      return `alterPixels["rectangle", "l=${Math.round(rect[0])}, t=${Math.round(rect[1])}, r=${Math.round(rect[2])}, b=${Math.round(rect[3])}", "solid", "v=100"]`;
+    })
+    
+    if (lines.length) {
+      //lines.unshift(`version "6.1"`)
+    }
+    
+    return lines.join("\n");
+}
+
+mizer.generateAlterPixelCode = generateAlterPixelCode
+
 
 function remove_commented_lines(script) {
     let weeded_script_lines = [], 

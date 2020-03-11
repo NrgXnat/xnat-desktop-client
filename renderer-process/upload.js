@@ -48,7 +48,7 @@ var WADOWebWorkerConfig = {
 cornerstoneWADOImageLoader.webWorkerManager.initialize(WADOWebWorkerConfig);
 
 const cornerstoneMath = require('cornerstone-math');
-const cornerstoneTools = require('cornerstone-tools');
+const cornerstoneTools = require('cstools-overlay');
 const Hammer = require('hammerjs');
 
 cornerstoneTools.external.cornerstone = cornerstone;
@@ -74,6 +74,9 @@ let anon_variables = {};
 let allow_visual_phi_check;
 
 let resizing_tm;
+
+let rectangle_state_registry = [];
+let event_timeout;
 
 async function _init_variables() {
     /*
@@ -446,11 +449,17 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]'
                         <div style="float: right;">F:${series.scans}</div>
                         <div style="position: absolute; top: -30px; right: 1px;" class="green_mark">
                             <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24" 
-                            class="ng-element" data-id="96fa9fda3ac34ae1a658b748b35654f0" 
                             style="opacity: 1; mix-blend-mode: normal; fill: rgb(23, 209, 6); width: 24px; height: 24px;
                             "><g><path xmlns:default="http://www.w3.org/2000/svg" 
                             d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
                             style="fill: rgb(23, 209, 6);"></path></g></svg>
+                        </div>
+                        <div style="position: absolute; top: -30px; right: 1px;" class="yellow_mark">
+                            <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24"
+                            style="opacity: 1; mix-blend-mode: normal; fill: rgb(247, 227, 46); width: 24px; height: 24px;
+                            "><g><path xmlns:default="http://www.w3.org/2000/svg" 
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
+                            style="fill: rgb(247, 227, 46);"></path></g></svg>
                         </div>
                     </div>`)
 
@@ -498,26 +507,18 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]'
         anno2.show();
     })
 
-    $('#save-scan-btn').off('click').on('click', function() {
-        var element = $('#dicom_image_container').get(0);
-        let toolState = get_tool_state(element, 'RectangleOverlay')
 
-        console.log({toolState})
-        let all_rects = [];
-        if (toolState !== undefined) {
-            for(let i = 0; i < toolState.data.length; i++) {
-                all_rects.push({
-                    start: toolState.data[0].handles.start,
-                    end: toolState.data[0].handles.end
-                })
-            }
-        }
-
+    $('#save-scan-btn').off('click').on('click', function(e) {
+        e.preventDefault()
         let series_id = get_current_series_id();
+        let rectangle_state = find_registry_state(series_id);
+        rectangle_state.saved = true;
 
+        $('#series_thumbs li.highlite-outline').find('.yellow_mark').hide();
         $('#series_thumbs li.highlite-outline').find('.green_mark').show();
-        
-        console.log({series_id, all_rects});
+        $('#stack-scroll-btn').trigger('click');
+
+        console.log({rectangle_state_registry});
     })
 
 });
@@ -573,13 +574,15 @@ function drop_dicom(ev) {
 $(document).on('click', '#dicom_image_tools a', function(e){
     e.preventDefault();
 
-    // disable current tool
-    let active_tool = $('#dicom_image_tools a.active').data('tool');
-    cornerstoneTools.setToolEnabled(active_tool);
+    // disable current tool(s)
+    $('#dicom_image_tools a').each(function() {
+        cornerstoneTools.setToolEnabled($(this).data('tool'));
+    })
 
     
     // enable selected tool
     let tool_name = $(this).data('tool');
+
     if (tool_name === 'StackScrollMouseWheel') {
         cornerstoneTools.setToolActive(tool_name, {});
     } else {
@@ -629,22 +632,24 @@ function load_dicom_image(series_id) {
     cornerstoneTools.addTool(RectangleOverlayTool);
     cornerstoneTools.setToolActive("RectangleOverlay", {mouseButtonMask: 1});
 
+    
+    const StackScrollMouseWheelTool = cornerstoneTools.StackScrollMouseWheelTool;
+    cornerstoneTools.addTool(StackScrollMouseWheelTool)
+    cornerstoneTools.setToolActive('StackScrollMouseWheel', {});
+
 
     
 
     element.addEventListener("cornerstonetoolsmeasurementadded", handle_measurement_update);
-    
     element.addEventListener("cornerstonetoolsmeasurementmodified", handle_measurement_update);
-    
     element.addEventListener("cornerstonetoolsmeasurementcompleted", handle_measurement_update);
-
     element.addEventListener("cornerstonetoolsmeasurementremoved", handle_measurement_update);
-
     element.addEventListener("cornerstonetoolskeypress", handle_measurement_update);
 
     element.addEventListener("cornerstonetoolsmousewheel", handle_stack_scroll);
-
     //element.addEventListener("cornerstonetoolsstackscroll", handle_stack_scroll);
+    
+
 
     //define the stack
     const stack = {
@@ -655,6 +660,7 @@ function load_dicom_image(series_id) {
     cornerstone.loadAndCacheImage(imageIds[0])
         .then((image) => {
             console.log({image})
+
             var viewport = cornerstone.getDefaultViewportForImage(element, image);
             cornerstone.displayImage(element, image, viewport);
 
@@ -662,10 +668,6 @@ function load_dicom_image(series_id) {
             cornerstoneTools.addToolState(element, 'stack', stack);
 
         });
-
-    const StackScrollMouseWheelTool = cornerstoneTools.StackScrollMouseWheelTool;
-    cornerstoneTools.addTool(StackScrollMouseWheelTool)
-    cornerstoneTools.setToolActive('StackScrollMouseWheel', {});
 }
 
 function handle_stack_scroll(e) {
@@ -676,25 +678,28 @@ function handle_stack_scroll(e) {
 
     let rectangle_state = find_registry_state(series_id);
 
+    console.log({rectangle_state});
+
     if (rectangle_state !== undefined) {
-        cornerstoneTools.clearToolState(element, 'RectangleOverlay');
-        
-        rectangle_state.data.forEach(state => {
-            // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
-
-            const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
-            toolStateManager.add(element, 'RectangleOverlay', state);
-        });
-
         setTimeout(() => {
-            window.dispatchEvent(new Event('resize'));
-        }, 200)
+            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+        
+            rectangle_state.data.forEach(state => {
+                // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
+
+                const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
+                toolStateManager.add(element, 'RectangleOverlay', state);
+
+            });
+
+            //window.dispatchEvent(new Event('resize'));
+            //cornerstone.draw(element)
+            cornerstone.updateImage(element)
+        }, 20)
         
     }
 }
 
-let rectangle_state_registry = [];
-let event_timeout;
 function handle_measurement_update(e) {
     clearTimeout(event_timeout);
     event_timeout = setTimeout(() => {
@@ -708,23 +713,30 @@ function handle_measurement_update(e) {
         
         let toolState = get_tool_state(element, 'RectangleOverlay');
 
-
         if (toolState !== undefined) {
             let state_data = {
                 series_id: series_id,
-                data: toolState.data
+                data: toolState.data,
+                rectangles: toolStateDataToRect(toolState.data),
+                saved: false
             };
 
             let rectangle_state = find_registry_state(series_id);
-
-            if (rectangle_state !== undefined) {
-                console.log({toolState_data: toolState.data});
-                rectangle_state.data = toolState.data
-            } else {
+            
+            if (rectangle_state !== undefined) { // if defined -> update
+                rectangle_state.data = state_data.data
+                rectangle_state.rectangles = state_data.rectangles
+                rectangle_state.saved = state_data.saved
+                // rectangle_state = {...rectangle_state, ...state_data} // merge
+            } else { // if not defined -> insert
                 rectangle_state_registry.push(state_data)
             }
 
-            console.log({data_0: rectangle_state_registry[0].data});
+            console.log({rectangles: state_data.rectangles});
+
+
+            $('#series_thumbs li.highlite-outline').find('.yellow_mark').show();
+            $('#series_thumbs li.highlite-outline').find('.green_mark').hide();
         }
         
         //const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
@@ -733,6 +745,16 @@ function handle_measurement_update(e) {
     }, 100);
 }
 
+function toolStateDataToRect(toolStateData) {
+    return toolStateData.map(data => {
+        let x_1 = Math.min(data.handles.start.x, data.handles.end.x)
+        let y_1 = Math.min(data.handles.start.y, data.handles.end.y)
+        let x_2 = Math.max(data.handles.start.x, data.handles.end.x)
+        let y_2 = Math.max(data.handles.start.y, data.handles.end.y)
+        return [x_1, y_1, x_2, y_2]
+    })
+
+}
 
 
 function find_registry_state(series_id) {
@@ -1215,12 +1237,34 @@ function validate_upload_form() {
 }
 
 
+function valid_pixel_anon() {
+    let is_valid = true
+    rectangle_state_registry.forEach(state => {
+        if (state.rectangles.length && !state.saved) {
+            is_valid = false
+            $(`#LI_${state.series_id}`).find('.yellow_mark').show()
+        }
+    })
 
+    return is_valid;
+}
 
 $(document).on('click', '.js_upload', function() {
     let upload_form_error = validate_upload_form();
 
     if (!upload_form_error) {
+        if (!valid_pixel_anon()) {
+
+            swal({
+                title: `Area Selection Error`,
+                text: `All selected areas must be confirmed using "Save Scan" button.`,
+                icon: "warning",
+                dangerMode: true
+            })
+
+            return;
+        }
+
         let selected = $('#image_session').bootstrapTable('getSelections');
 
         let selected_series = selected.map(function(item){
@@ -2052,6 +2096,14 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
         selected_session.time.substr(2, 2) + ':' +
         selected_session.time.substr(4, 2) : '';
 
+    let pixel_anon_data = []
+    rectangle_state_registry.forEach((state) => {
+        pixel_anon_data.push({
+            series_id: state.series_id,
+            rectangles: state.rectangles
+        })
+    })
+    
 
     let upload_digest = {
         id: Helper.uuidv4(),
@@ -2070,6 +2122,7 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
         series_ids: series_ids,
         series: series,
         //_files: _files,
+        pixel_anon: pixel_anon_data,
         total_size: total_size,
         //user_auth: user_auth,
         xnat_server: xnat_server,
@@ -2079,10 +2132,13 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
         status: 0,
         canceled: false
     };
-    console.log(upload_digest);
+    console.log({upload_digest});
 
     db_uploads().insert(upload_digest, (err, newItem) => {
-        console.log(newItem);
+        if (err) {
+            console.log(err)
+        }
+        console.log({newItem});
 
         update_recent_projects(project_id)
     })

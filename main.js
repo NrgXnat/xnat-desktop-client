@@ -176,9 +176,9 @@ function initialize () {
       uploadWindow.webContents.openDevTools()
       uploadWindow.maximize()
 
-      downloadWindow.show()
-      downloadWindow.webContents.openDevTools()
-      downloadWindow.maximize()
+      // downloadWindow.show()
+      // downloadWindow.webContents.openDevTools()
+      // downloadWindow.maximize()
     }
 
 

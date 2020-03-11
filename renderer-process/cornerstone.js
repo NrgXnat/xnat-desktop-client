@@ -37,7 +37,7 @@ var WADOWebWorkerConfig = {
 cornerstoneWADOImageLoader.webWorkerManager.initialize(WADOWebWorkerConfig);
 
 const cornerstoneMath = require('cornerstone-math');
-const cornerstoneTools = require('cornerstone-tools');
+const cornerstoneTools = require('cstools-overlay');
 const Hammer = require('hammerjs');
 
 cornerstoneTools.external.cornerstone = cornerstone;
