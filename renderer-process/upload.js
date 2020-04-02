@@ -566,15 +566,15 @@ function clear_all_states() {
     //cornerstoneTools.clearToolState(element, 'RectangleOverlay');
 
     image_thumbnails.forEach((series) => {
-        clear_main_tool_state(series.series_id)
+        clear_main_tool_state(series.thumb_path)
     });
+
 }
 
-function clear_main_tool_state(series_id) {
+function clear_main_tool_state(image_path) {
     const element = $('#dicom_image_container').get(0);
 
-    let _files = get_series_files(series_id);
-    const imageId = `wadouri:http://localhost:7714/?path=${_files[0]}`;
+    const imageId = `wadouri:http://localhost:7714/?path=${image_path}`;
 
     cornerstone.loadAndCacheImage(imageId)
     .then((image) => {
