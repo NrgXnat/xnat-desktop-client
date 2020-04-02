@@ -24,6 +24,8 @@ const db_uploads = remote.require('./services/db/uploads')
 
 const electron_log = remote.require('./services/electron_log');
 
+const lodashClonedeep = require('lodash/cloneDeep');
+
 
 // ===================
 const dicomParser = require('dicom-parser');
@@ -156,13 +158,28 @@ async function _init_variables() {
 
         rectangle_state_registry = []; // reset rectangle_state_registry
 
-        let element = $('#dicom_image_container').get(0);
+        const element = $('#dicom_image_container').get(0);
+
+        if (cornerstone_is_enabled(element)) {
+            clear_all_states()
+        }
+        
+        
+        
+        /*
         if (cornerstone_is_enabled(element)) {
             cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+            try {
+                cornerstone.updateImage(element)
+            } catch(e) {
+                console.log('Nije loadovan img');
+            }
+
             console.log('Cleared RectangleOverlay state data');
         } else {
             console.log('Not Enabled', element);
         }
+        */
         
 
         $('#nav-visual').find('.js_next').addClass('disabled');
@@ -174,28 +191,14 @@ async function _init_variables() {
         console.log('resseting values in tab 5')
     });
 
+    cornerston_initialize_main()
+
     initAnno();
 
     resetSubsequentTabs();
     _UI();
 }
 
-function cornerstone_is_enabled(element) {
-    try {
-        cornerstone.getEnabledElement(element);
-        return true;
-    } catch(e) {
-        console.log({e});
-        return false
-    }
-    
-}
-
-function cornerstone_disable_element(element) {
-    if (cornerstone_is_enabled(element)) {
-        cornerstone.disable(element)
-    }
-}
 
 function initAnno() {
     anno2 = new Anno([{
@@ -369,7 +372,6 @@ function _init_session_selection_table(tbl_data) {
 
 
 
-
 if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     ipc.send('redirect', 'login.html');
     return;
@@ -383,17 +385,55 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]'
     $('#nav-verify .js_upload').toggleClass('hidden', allow_visual_phi_check);
 });
 
+
+let image_thumbnails = [];
 // triggered when selected tab (#nav-visual) is displayed
 $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]', function(){
     $('.main-title').focus()
 
-    let selected_series = $('#image_session').bootstrapTable('getSelections');
-    let selected_series_ids = []
-    selected_series.forEach((series) => {
-        selected_series_ids.push(series.series_id)
-    })
+    window.dispatchEvent(new Event('resize'));// HACK TO recalculate canvas size for main cornerstone image
 
-    let image_thumbnails = [];
+    set_image_thumbnails()
+
+
+    // reset
+    $('#series_thumbs').html('');
+    image_thumbnails.map(el => {
+        $('#series_thumbs').append(`<li id="LI_${el.series_id}">`);
+    });
+
+    console.log({image_thumbnails});
+    
+    image_thumbnails.forEach((series, index) => {
+        display_series_thumb(series, index, cornerstone)
+    });
+
+    // Load first image
+    load_dicom_image(image_thumbnails[0].series_id);
+    
+    $('#series_thumbs li').eq(0).addClass('highlite-outline');
+
+    $("html, body").stop().animate({scrollTop:0}, 50);
+
+
+    if(!store.has('dicom_viewer_tour_shown')) {
+        store.set('dicom_viewer_tour_shown',  true);
+        anno2.show();
+    }
+
+
+});
+
+function get_selected_series_ids() {
+    let selected_series = $('#image_session').bootstrapTable('getSelections');
+    return selected_series.map(item => item.series_id)
+}
+
+
+function set_image_thumbnails() {
+    image_thumbnails = [];
+
+    let selected_series_ids = get_selected_series_ids()
 
     //console.log({selected_session_id, session_map})
     session_map.get(selected_session_id).scans.forEach(function(scan, key) {
@@ -409,141 +449,142 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]'
     })
 
     image_thumbnails.sort((a,b) => (a.series_number > b.series_number) ? 1 : ((b.series_number > a.series_number) ? -1 : 0));
+}
 
 
+function cornerston_initialize_main() {
     cornerstoneTools.init({
         touchEnabled: false
     });
 
+    const element = $('#dicom_image_container').get(0);
 
-    // reset
-    $('#series_thumbs').html('');
-    image_thumbnails.map(el => {
-        $('#series_thumbs').append(`<li id="LI_${el.series_id}">`);
-    });
+    cornerstone_enable_main_element(element); // before first load_dicom_image()
+}
 
-    console.log({image_thumbnails});
-    
-    $('#razno').html('');
-    image_thumbnails.forEach((series, index) => {
-        display_series_thumb(series, index, cornerstone)
-    });
+function cornerstone_enable_main_element(element) {
+    if (allow_visual_phi_check) {
+        cornerstone.enable(element);
 
-    let element = $('#dicom_image_container').get(0);
-    cornerstone_disable_element(element);
-    console.log('========================= cornerstone_disable_element ===========================');
+        cornerstoneTools.addToolForElement(element, cornerstoneTools.ZoomTool);
+        //cornerstoneTools.setToolActiveForElement(element, "Zoom", {mouseButtonMask: 1});
+        
+        cornerstoneTools.addToolForElement(element, cornerstoneTools.PanTool);
+        
+        cornerstoneTools.addToolForElement(element, cornerstoneTools.RectangleOverlayTool);
+        //cornerstoneTools.setToolActiveForElement(element, "RectangleOverlay", {mouseButtonMask: 1});
 
-    cornerstone_enable_element(element); // before first load_dicom_image()
-
-    // Load first image
-    load_dicom_image(image_thumbnails[0].series_id);
-    $('#series_thumbs li').eq(0).addClass('highlite-outline');
-
-    $("html, body").stop().animate({scrollTop:0}, 50);
+        cornerstoneTools.addToolForElement(element, cornerstoneTools.StackScrollMouseWheelTool)
+        cornerstoneTools.setToolActiveForElement(element, 'StackScrollMouseWheel', {});
 
 
-    if(!store.has('dicom_viewer_tour_shown')) {
-        store.set('dicom_viewer_tour_shown',  true);
-        anno2.show();
+        //element.addEventListener("cornerstonetoolsmeasurementadded", handle_measurement_update);
+        element.addEventListener("cornerstonetoolsmeasurementmodified", handle_measurement_update);
+        element.addEventListener("cornerstonetoolsmeasurementcompleted", handle_measurement_update);
+        element.addEventListener("cornerstonetoolsmeasurementremoved", handle_measurement_update);
+        element.addEventListener("cornerstonetoolskeypress", handle_measurement_update);
+
+        element.addEventListener("cornerstonetoolsmousewheel", handle_stack_scroll);
+        //element.addEventListener("cornerstonetoolsstackscroll", handle_stack_scroll);
     }
+}
 
+function cornerstone_is_enabled(element) {
+    try {
+        cornerstone.getEnabledElement(element);
+        return true;
+    } catch(e) {
+        console.log({e});
+        return false
+    }
+    
+}
 
-    $('#save-scan-btn').off('click').on('click', function(e) {
-        e.preventDefault()
-        let series_id = get_current_series_id();
-        let rectangle_state = find_registry_state(series_id);
+function cornerstone_disable_element(element) {
+    if (cornerstone_is_enabled(element)) {
+        cornerstone.disable(element)
+    }
+}
 
-        if (rectangle_state === undefined) {
-            return
-        }
+$(document).on('click', '#save-scan-btn', function(e) {
+    e.preventDefault()
+    let series_id = get_current_series_id();
+    let rectangle_state = find_registry_state(series_id);
 
+    if (rectangle_state !== undefined) {
         rectangle_state.saved = true;
+    }
+    
 
-        let index = $('li.highlite-outline').index();
-        display_series_thumb(image_thumbnails[index], index, cornerstone)
+    let index = $('li.highlite-outline').index();
+    display_series_thumb(image_thumbnails[index], index, cornerstone)
 
-        
-        $('#stack-scroll-btn').trigger('click');
+    
+    $('#stack-scroll-btn').trigger('click');
 
-        console.log({rectangle_state_registry});
-        
-    })
-
-});
-const lodashClonedeep = require('lodash/cloneDeep');
-$(document).on('click', '#reset-scan-btn', function() {
-    console.log('---- reset-scan-btn ----');
-    let element = $('#dicom_image_container').get(0);
-
-    let enabled_elements = cornerstone.getEnabledElements();
-    console.log('enabled_elements NOW', enabled_elements);
+    console.log({rectangle_state_registry});
+})
 
 
-    //let toolState = get_tool_state(element, 'RectangleOverlay');
+$(document).on('click', '#reset-scan-btn', function(e) {
+    e.preventDefault()
+    const element = $('#dicom_image_container').get(0);
+
     let toolState = cornerstoneTools.getToolState(element, 'RectangleOverlay')
-    console.log({toolState: lodashClonedeep(toolState)});
 
     cornerstoneTools.clearToolState(element, 'RectangleOverlay')
-    console.log({toolState_NEW: lodashClonedeep(cornerstoneTools.getToolState(element, 'RectangleOverlay'))});
 
     //cornerstone.updateImage(element)
-
-
-    console.log({rectangle_state_registry_1: lodashClonedeep(rectangle_state_registry)});
     registry_remove_series_state(get_current_series_id());
-    console.log({rectangle_state_registry_2: lodashClonedeep(rectangle_state_registry)});
     
     handle_stack_scroll({
         srcElement: element
     })
 
-    // setTimeout(() => {
-    //     cornerstoneTools.clearToolState(element, 'RectangleOverlay');
-    
-    //     rectangle_state.data.forEach(state => {
-    //         // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
-    //         add_tool_state(element, 'RectangleOverlay', state)
-    //     });
-
-    //     //window.dispatchEvent(new Event('resize'));
-    //     //cornerstone.draw(element)
-    //     cornerstone.updateImage(element)
-    // }, 20)
-
-    /*
-    cornerstone.disable(element);
-
-    try {
-        const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
-
-        let toolState_POST_DISABLE = toolStateManager.get(element, 'RectangleOverlay')
-        console.log({toolState_POST_DISABLE});
-    } catch(e) {
-        console.log('Oooops', e.message, e);
-    }
-    */
-
+    let index = $('li.highlite-outline').index();
+    display_series_thumb(image_thumbnails[index], index, cornerstone)
 
 })
 
 
-function display_series_thumb(series, index, cornerstone) {
-    if ($('#razno').length == 0) {
-        $('<div id="razno">').appendTo('body');
-    }
-
-
+function cornerstone_enable_thumb_element() {
     let element = document.createElement('div');
-    
+
     element.style.cssText = "width: 150px; height: 150px;";
-    //document.body.appendChild(element);
-    document.getElementById('razno').appendChild(element);
+    document.body.appendChild(element);
 
     cornerstone.enable(element);
 
-    const RectangleOverlayTool = cornerstoneTools.RectangleOverlayTool;
-    cornerstoneTools.addTool(RectangleOverlayTool);
-    cornerstoneTools.setToolActive("RectangleOverlay", {mouseButtonMask: 1});
+    cornerstoneTools.addToolForElement(element, cornerstoneTools.RectangleOverlayTool);
+    cornerstoneTools.setToolActiveForElement(element, "RectangleOverlay", {mouseButtonMask: 1});
+
+    return element;
+}
+
+// go through all series, display them, and clearToolState for that imageId
+function clear_all_states() {
+    //cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+
+    image_thumbnails.forEach((series) => {
+        clear_main_tool_state(series.series_id)
+    });
+}
+
+function clear_main_tool_state(series_id) {
+    const element = $('#dicom_image_container').get(0);
+
+    let _files = get_series_files(series_id);
+    const imageId = `wadouri:http://localhost:7714/?path=${_files[0]}`;
+
+    cornerstone.loadAndCacheImage(imageId)
+    .then((image) => {
+        cornerstone.displayImage(element, image);
+        cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+    });
+}
+
+function display_series_thumb(series, index, cornerstone) {
+    let element = cornerstone_enable_thumb_element();
 
     let imageId = `wadouri:http://localhost:7714/?path=${series.thumb_path}`;
 
@@ -551,7 +592,7 @@ function display_series_thumb(series, index, cornerstone) {
     // load image
     cornerstone.loadAndCacheImage(imageId)
     .then((image) => {
-        //console.log({image})
+
         let viewport = cornerstone.getDefaultViewportForImage(element, image);
         cornerstone.displayImage(element, image, viewport);
 
@@ -573,7 +614,6 @@ function display_series_thumb(series, index, cornerstone) {
             let $div = $('<div>');
             $div.append($img);
 
-            console.log({series});
             
             //$div.append(`<p style="text-align: center">S:${series.series_number}  (F:${series.scans})</p>`)
             $div.append(`<div style="text-align: center; font-size: 12px; color: #9ccef9; margin: 3px 0 35px; position: relative;">
@@ -598,17 +638,16 @@ function display_series_thumb(series, index, cornerstone) {
             $('#series_thumbs li').eq(index).html($div);
 
             let rectangle_state = find_registry_state(series.series_id);
-            console.log({rectangle_state_1: rectangle_state});
+            
             if (rectangle_state && rectangle_state.rectangles.length) {
-                console.log($div.find('.green_mark'));
                 $div.find('.green_mark').toggle(rectangle_state.saved) 
                 $div.find('.yellow_mark').toggle(!rectangle_state.saved) 
             }
 
             cornerstone.disable(element);
 
-            //document.body.removeChild(element);
-            //element = null
+            document.body.removeChild(element);
+            element = null
         }, 100);
         
     });
@@ -674,9 +713,11 @@ function drop_dicom(ev) {
 $(document).on('click', '#dicom_image_tools a', function(e){
     e.preventDefault();
 
+    const element = $('#dicom_image_container').get(0);
+
     // disable current tool(s)
     $('#dicom_image_tools a.active').each(function() {
-        cornerstoneTools.setToolEnabled($(this).data('tool'));
+        cornerstoneTools.setToolEnabledForElement(element, $(this).data('tool'));
     })
 
     
@@ -684,15 +725,17 @@ $(document).on('click', '#dicom_image_tools a', function(e){
     let tool_name = $(this).data('tool');
 
     if (tool_name === 'StackScrollMouseWheel') {
-        cornerstoneTools.setToolActive(tool_name, {});
+        cornerstoneTools.setToolActiveForElement(element, tool_name, {});
     } else {
-        cornerstoneTools.setToolActive(tool_name, {mouseButtonMask: 1});
+        cornerstoneTools.setToolActiveForElement(element, tool_name, {mouseButtonMask: 1});
     }
 
     // update UI
     $('#dicom_image_tools a').removeClass('active');
     $(this).addClass('active');
 })
+
+
 
 function get_series_files(series_id) {
     let files = [];
@@ -710,41 +753,8 @@ function get_series_files(series_id) {
     return files;
 }
 
-function cornerstone_enable_element(element) {
-    cornerstone.enable(element);
-    //let imageId = `wadouri:http://localhost:7714/?path=${path}`;
-
-
-    const ZoomTool = cornerstoneTools.ZoomTool;
-    cornerstoneTools.addTool(ZoomTool);
-    //cornerstoneTools.setToolActive("Zoom", {mouseButtonMask: 1});
-    
-    const PanTool = cornerstoneTools.PanTool;
-    cornerstoneTools.addTool(PanTool);
-    
-    const RectangleOverlayTool = cornerstoneTools.RectangleOverlayTool;
-    cornerstoneTools.addTool(RectangleOverlayTool);
-    //cornerstoneTools.setToolActive("RectangleOverlay", {mouseButtonMask: 1});
-
-    
-    const StackScrollMouseWheelTool = cornerstoneTools.StackScrollMouseWheelTool;
-    cornerstoneTools.addTool(StackScrollMouseWheelTool)
-    cornerstoneTools.setToolActive('StackScrollMouseWheel', {});
-
-    //element.addEventListener("cornerstonetoolsmeasurementadded", handle_measurement_update);
-    element.addEventListener("cornerstonetoolsmeasurementmodified", handle_measurement_update);
-    element.addEventListener("cornerstonetoolsmeasurementcompleted", handle_measurement_update);
-    element.addEventListener("cornerstonetoolsmeasurementremoved", handle_measurement_update);
-    element.addEventListener("cornerstonetoolskeypress", handle_measurement_update);
-
-    element.addEventListener("cornerstonetoolsmousewheel", handle_stack_scroll);
-    //element.addEventListener("cornerstonetoolsstackscroll", handle_stack_scroll);
-
-}
-
-
 function load_dicom_image(series_id) {
-    let element = $('#dicom_image_container').get(0);
+    const element = $('#dicom_image_container').get(0);
 
     let _files = get_series_files(series_id);
     const imageIds = _files.map(file => `wadouri:http://localhost:7714/?path=${file}`);
@@ -767,10 +777,9 @@ function load_dicom_image(series_id) {
 
         
         // HACK: force display of existing rectangles
-        cornerstoneTools.setToolActive("RectangleOverlay", {mouseButtonMask: 1});
+        cornerstoneTools.setToolActiveForElement(element, "RectangleOverlay", {mouseButtonMask: 1});
         cornerstone.updateImage(element)
-        cornerstoneTools.setToolEnabled("RectangleOverlay");
-        
+        cornerstoneTools.setToolEnabledForElement(element, "RectangleOverlay");
     });
 }
 
@@ -780,6 +789,7 @@ function handle_stack_scroll(e) {
     let series_id = get_current_series_id();
     let element = e.srcElement;
 
+    /*
     let rectangle_state = find_registry_state(series_id);
 
     console.log({rectangle_state});
@@ -804,6 +814,22 @@ function handle_stack_scroll(e) {
             cornerstone.updateImage(element)
         }, 20)
     }
+    */
+
+    setTimeout((series_id, element) => {
+        let rectangle_state = find_registry_state(series_id);
+
+        cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+    
+        if (rectangle_state !== undefined) {
+            rectangle_state.data.forEach(state => {
+                // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
+                add_tool_state(element, 'RectangleOverlay', state)
+            });
+        }
+
+        cornerstone.updateImage(element)
+    }, 20, series_id, element)
 }
 
 function handle_measurement_update(e) {
@@ -1379,11 +1405,7 @@ $(document).on('click', '.js_upload', function() {
             return;
         }
 
-        let selected = $('#image_session').bootstrapTable('getSelections');
-
-        let selected_series = selected.map(function(item){
-            return item.series_id;
-        });
+        let selected_series_ids = get_selected_series_ids()
         
         let expt_label_val = $('#experiment_label').val();
 
@@ -1416,8 +1438,8 @@ $(document).on('click', '.js_upload', function() {
         }
 
         console.log({my_anon_variables});
-        //doUpload(url_data, selected_session_id, selected_series);
-        storeUpload(url_data, selected_session_id, selected_series, my_anon_variables);
+        //doUpload(url_data, selected_session_id, selected_series_ids);
+        storeUpload(url_data, selected_session_id, selected_series_ids, my_anon_variables);
 
     } else {
         swal({
