@@ -351,7 +351,7 @@ function generateAlterPixelCode(rectangles) {
     })
     
     if (lines.length) {
-      //lines.unshift(`version "6.1"`)
+      lines.unshift(`version "6.1"`)
     }
     
     return lines.join("\n");

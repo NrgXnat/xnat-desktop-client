@@ -20,9 +20,9 @@ const user_settings = require('../services/user_settings');
 const remote = require('electron').remote;
 const mizer = require('../mizer');
 
-const db_uploads = require('electron').remote.require('./services/db/uploads')
+const db_uploads = remote.require('./services/db/uploads')
 
-const electron_log = require('electron').remote.require('./services/electron_log');
+const electron_log = remote.require('./services/electron_log');
 
 
 // ===================
@@ -37,7 +37,7 @@ let WADOImageLoaderCodecsPath = path.join(WADOImageLoaderPath, 'cornerstoneWADOI
 cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
 cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
 
-var WADOWebWorkerConfig = {
+let WADOWebWorkerConfig = {
     webWorkerPath : WADOImageLoaderWebWorkerPath,
     taskConfiguration: {
         'decodeTask' : {
@@ -78,61 +78,24 @@ let resizing_tm;
 let rectangle_state_registry = [];
 let event_timeout;
 
+let anno2;
+
 async function _init_variables() {
-    /*
-    console.log(user_settings.get())
-    console.log(user_settings.get('xxx'))
-
-    user_settings.set('ime', 'Darko');
-    user_settings.set('prezime', 'Ljubic');
-    user_settings.set('neki_niz', [1, 3, 5])
-    console.log(user_settings.get('ime'))
-    console.log(user_settings.get())
-
-    let neki_niz = user_settings.get('neki_niz')
-    if (Array.isArray(neki_niz)) {
-        neki_niz.push(10)
-    } else {
-        neki_niz = [10]
-    }
-    user_settings.set('neki_niz', neki_niz)
-    console.log(user_settings.get())
-
-    user_settings.unset('prezime');
-    console.log(user_settings.get())
-
-    user_settings.pop('neki_niz', 10)
-    user_settings.pop('neki_niz', 3)
-    user_settings.push('neki_niz', 4)
-    user_settings.pop('neki_niz', 4)
-    user_settings.push('neki_niz', 2)
-    user_settings.push('neki_niz', 1)
-    
-    user_settings.push('neki_niz', 4)
-    user_settings.push('neki_niz', 4)
-    user_settings.push('neki_niz', 4, false)
-    console.log(user_settings.get())
-    */
-
     console.log(':::::::::::::: >>> UPLOAD _init_variables');
     allow_visual_phi_check = true;
     
     xnat_server = settings.get('xnat_server');
-
     user_auth = auth.get_user_auth();
 
     session_map = new Map();
     selected_session_id = null;
-    
 
     defined_project_exp_labels = [];
-    
-
 
     // RESETTING TABS
     resseting_functions = new Map();
 
-    // browse files
+    // project selection
     resseting_functions.set(0, function(){
         $('.tab-pane.active .js_next').addClass('disabled');
 
@@ -167,7 +130,6 @@ async function _init_variables() {
 
         if (date_required != undefined) {
             $('#upload_session_date').prop('required', date_required);
-            
         
             let next_button = $('#upload_session_date').closest('.tab-pane').find('.js_next');
             if (date_required) {
@@ -192,6 +154,16 @@ async function _init_variables() {
     resseting_functions.set(4, function(){
         console.log('resseting values in tab 4');
 
+        rectangle_state_registry = []; // reset rectangle_state_registry
+
+        let element = $('#dicom_image_container').get(0);
+        if (cornerstone_is_enabled(element)) {
+            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+            console.log('Cleared RectangleOverlay state data');
+        } else {
+            console.log('Not Enabled', element);
+        }
+        
 
         $('#nav-visual').find('.js_next').addClass('disabled');
     });
@@ -202,8 +174,53 @@ async function _init_variables() {
         console.log('resseting values in tab 5')
     });
 
+    initAnno();
+
     resetSubsequentTabs();
     _UI();
+}
+
+function cornerstone_is_enabled(element) {
+    try {
+        cornerstone.getEnabledElement(element);
+        return true;
+    } catch(e) {
+        console.log({e});
+        return false
+    }
+    
+}
+
+function cornerstone_disable_element(element) {
+    if (cornerstone_is_enabled(element)) {
+        cornerstone.disable(element)
+    }
+}
+
+function initAnno() {
+    anno2 = new Anno([{
+        target  : '#series_thumbs', // second block of code
+        position: 'top',
+        content : 'This pane shows scan thumbnails. Drag a thumbnail into the viewer pane to view it. ',
+        className: 'pera-klasa'
+      }, {
+        target  : '#dicom_image_container',
+        position: 'center-top',
+        content : 'This pane is the viewer. Scroll on this pane or click and drag up and down using the "Scroll Stack" tool to move through the image stack. ',
+      }, {
+        target  : '#dicom_image_tools',
+        position: 'top',
+        content : 'This is the toolbar. Toggle between tools to change how you use the viewer. Use "Select Area" to select an area to black out PHI.'
+      }, {
+        target  : '#scans_save_toolbar',
+        position: 'center-top',
+        content : 'When you have completed your review, use these controls to save or remove your changes to each scan, or mark it okay as is.'
+      }]);
+
+    $('#show_div_tour').on('click', function(e) {
+        e.preventDefault();
+        anno2.show();
+    })
 }
 
 function _UI() {
@@ -364,27 +381,31 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]'
     validate_upload_form();
     $('#nav-verify .js_next').toggleClass('hidden', !allow_visual_phi_check);
     $('#nav-verify .js_upload').toggleClass('hidden', allow_visual_phi_check);
-
-    
 });
 
-let image_thumbnails = [];
-// triggered when selected tab (#nav-verify) is displayed
+// triggered when selected tab (#nav-visual) is displayed
 $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]', function(){
     $('.main-title').focus()
 
-    image_thumbnails = [];
+    let selected_series = $('#image_session').bootstrapTable('getSelections');
+    let selected_series_ids = []
+    selected_series.forEach((series) => {
+        selected_series_ids.push(series.series_id)
+    })
+
+    let image_thumbnails = [];
 
     //console.log({selected_session_id, session_map})
-    console.log({xxx_scans: session_map.get(selected_session_id).scans.get('1.2.840.113654.2.45.2.109191')});
     session_map.get(selected_session_id).scans.forEach(function(scan, key) {
-        image_thumbnails.push({
-            series_id: key,
-            series_description: scan[0].seriesDescription,
-            series_number: parseInt(scan[0].seriesNumber),
-            thumb_path: scan[0].filepath,
-            scans: scan.length
-        })
+        if (selected_series_ids.includes(key)) {
+            image_thumbnails.push({
+                series_id: key,
+                series_description: scan[0].seriesDescription,
+                series_number: parseInt(scan[0].seriesNumber),
+                thumb_path: scan[0].filepath,
+                scans: scan.length
+            })
+        }
     })
 
     image_thumbnails.sort((a,b) => (a.series_number > b.series_number) ? 1 : ((b.series_number > a.series_number) ? -1 : 0));
@@ -403,73 +424,16 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]'
 
     console.log({image_thumbnails});
     
-    image_thumbnails.forEach(function(series, index) {
-        var element = document.createElement('div');
-        
-        element.style.cssText = "width: 150px; height: 150px;";
-        document.body.appendChild(element);
-
-        cornerstone.enable(element);
-
-        let imageId = `wadouri:http://localhost:7714/?path=${series.thumb_path}`;
-
-
-        // load image
-        cornerstone.loadAndCacheImage(imageId)
-            .then((image) => {
-                
-                //console.log({image})
-                var viewport = cornerstone.getDefaultViewportForImage(element, image);
-                cornerstone.displayImage(element, image, viewport);
-
-                setTimeout(function() {
-                    var $img = $('<img>');
-                    let img_data_src = $(element).find("canvas").get(0).toDataURL();
-                    $img.attr('src', img_data_src);
-                    $img.attr('id', 'ID_' + series.series_id.replace(/\./g, '_'));
-                    $img.attr('data-series_id', series.series_id);
-                    $img.attr('data-order', index);
-                    $img.attr('data-path', series.thumb_path);
-
-                    $img.attr('draggable', true);
-                    //$img.attr('ondragstart', "dragstart_dicom(event)")
-
-                    $img.on('dragstart', function (event) {
-                        dragstart_dicom(event.originalEvent)
-                    });
-
-                    var $div = $('<div>');
-                    $div.append($img);
-
-                    console.log({series});
-                    
-                    //$div.append(`<p style="text-align: center">S:${series.series_number}  (F:${series.scans})</p>`)
-                    $div.append(`<div style="text-align: center; font-size: 12px; color: #9ccef9; margin: 3px 0 35px; position: relative;">
-                        <div style="float: left;">S:${series.series_number} </div>
-                        <div style="float: right;">F:${series.scans}</div>
-                        <div style="position: absolute; top: -30px; right: 1px;" class="green_mark">
-                            <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24" 
-                            style="opacity: 1; mix-blend-mode: normal; fill: rgb(23, 209, 6); width: 24px; height: 24px;
-                            "><g><path xmlns:default="http://www.w3.org/2000/svg" 
-                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
-                            style="fill: rgb(23, 209, 6);"></path></g></svg>
-                        </div>
-                        <div style="position: absolute; top: -30px; right: 1px;" class="yellow_mark">
-                            <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24"
-                            style="opacity: 1; mix-blend-mode: normal; fill: rgb(247, 227, 46); width: 24px; height: 24px;
-                            "><g><path xmlns:default="http://www.w3.org/2000/svg" 
-                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
-                            style="fill: rgb(247, 227, 46);"></path></g></svg>
-                        </div>
-                    </div>`)
-
-                    $('#series_thumbs li').eq(index).append($div);
-
-                    document.body.removeChild(element);
-                }, 100);
-                
-            });
+    $('#razno').html('');
+    image_thumbnails.forEach((series, index) => {
+        display_series_thumb(series, index, cornerstone)
     });
+
+    let element = $('#dicom_image_container').get(0);
+    cornerstone_disable_element(element);
+    console.log('========================= cornerstone_disable_element ===========================');
+
+    cornerstone_enable_element(element); // before first load_dicom_image()
 
     // Load first image
     load_dicom_image(image_thumbnails[0].series_id);
@@ -478,55 +442,191 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]'
     $("html, body").stop().animate({scrollTop:0}, 50);
 
 
-    var anno2 = new Anno([{
-        target  : '#series_thumbs', // second block of code
-        position: 'top',
-        content : 'This pane shows scan thumbnails. Drag a thumbnail into the viewer pane to view it. ',
-        className: 'pera-klasa'
-      }, {
-        target  : '#dicom_image_container',
-        position: 'center-top',
-        content : 'This pane is the viewer. Scroll on this pane or click and drag up and down using the "Scroll Stack" tool to move through the image stack. ',
-      }, {
-        target  : '#dicom_image_tools',
-        position: 'top',
-        content : 'This is the toolbar. Toggle between tools to change how you use the viewer. Use "Select Area" to select an area to black out PHI.'
-      }, {
-        target  : '#scans_save_toolbar',
-        position: 'center-top',
-        content : 'When you have completed your review, use these controls to save or remove your changes to each scan, or mark it okay as is.'
-      }]);
-
     if(!store.has('dicom_viewer_tour_shown')) {
         store.set('dicom_viewer_tour_shown',  true);
         anno2.show();
     }
-
-    $('#show_div_tour').on('click', function(e) {
-        e.preventDefault();
-        anno2.show();
-    })
 
 
     $('#save-scan-btn').off('click').on('click', function(e) {
         e.preventDefault()
         let series_id = get_current_series_id();
         let rectangle_state = find_registry_state(series_id);
+
+        if (rectangle_state === undefined) {
+            return
+        }
+
         rectangle_state.saved = true;
 
-        $('#series_thumbs li.highlite-outline').find('.yellow_mark').hide();
-        $('#series_thumbs li.highlite-outline').find('.green_mark').show();
+        let index = $('li.highlite-outline').index();
+        display_series_thumb(image_thumbnails[index], index, cornerstone)
+
+        
         $('#stack-scroll-btn').trigger('click');
 
         console.log({rectangle_state_registry});
+        
     })
 
 });
+const lodashClonedeep = require('lodash/cloneDeep');
+$(document).on('click', '#reset-scan-btn', function() {
+    console.log('---- reset-scan-btn ----');
+    let element = $('#dicom_image_container').get(0);
+
+    let enabled_elements = cornerstone.getEnabledElements();
+    console.log('enabled_elements NOW', enabled_elements);
+
+
+    //let toolState = get_tool_state(element, 'RectangleOverlay');
+    let toolState = cornerstoneTools.getToolState(element, 'RectangleOverlay')
+    console.log({toolState: lodashClonedeep(toolState)});
+
+    cornerstoneTools.clearToolState(element, 'RectangleOverlay')
+    console.log({toolState_NEW: lodashClonedeep(cornerstoneTools.getToolState(element, 'RectangleOverlay'))});
+
+    //cornerstone.updateImage(element)
+
+
+    console.log({rectangle_state_registry_1: lodashClonedeep(rectangle_state_registry)});
+    registry_remove_series_state(get_current_series_id());
+    console.log({rectangle_state_registry_2: lodashClonedeep(rectangle_state_registry)});
+    
+    handle_stack_scroll({
+        srcElement: element
+    })
+
+    // setTimeout(() => {
+    //     cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+    
+    //     rectangle_state.data.forEach(state => {
+    //         // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
+    //         add_tool_state(element, 'RectangleOverlay', state)
+    //     });
+
+    //     //window.dispatchEvent(new Event('resize'));
+    //     //cornerstone.draw(element)
+    //     cornerstone.updateImage(element)
+    // }, 20)
+
+    /*
+    cornerstone.disable(element);
+
+    try {
+        const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
+
+        let toolState_POST_DISABLE = toolStateManager.get(element, 'RectangleOverlay')
+        console.log({toolState_POST_DISABLE});
+    } catch(e) {
+        console.log('Oooops', e.message, e);
+    }
+    */
+
+
+})
+
+
+function display_series_thumb(series, index, cornerstone) {
+    if ($('#razno').length == 0) {
+        $('<div id="razno">').appendTo('body');
+    }
+
+
+    let element = document.createElement('div');
+    
+    element.style.cssText = "width: 150px; height: 150px;";
+    //document.body.appendChild(element);
+    document.getElementById('razno').appendChild(element);
+
+    cornerstone.enable(element);
+
+    const RectangleOverlayTool = cornerstoneTools.RectangleOverlayTool;
+    cornerstoneTools.addTool(RectangleOverlayTool);
+    cornerstoneTools.setToolActive("RectangleOverlay", {mouseButtonMask: 1});
+
+    let imageId = `wadouri:http://localhost:7714/?path=${series.thumb_path}`;
+
+
+    // load image
+    cornerstone.loadAndCacheImage(imageId)
+    .then((image) => {
+        //console.log({image})
+        let viewport = cornerstone.getDefaultViewportForImage(element, image);
+        cornerstone.displayImage(element, image, viewport);
+
+        setTimeout(function() {
+            let $img = $('<img>');
+            let img_data_src = $(element).find("canvas").get(0).toDataURL();
+            $img.attr('src', img_data_src);
+            $img.attr('id', 'ID_' + series.series_id.replace(/\./g, '_'));
+            $img.attr('data-series_id', series.series_id);
+            $img.attr('data-order', index);
+            $img.attr('data-path', series.thumb_path);
+
+            $img.attr('draggable', true);
+
+            $img.on('dragstart', function (event) {
+                dragstart_dicom(event.originalEvent)
+            });
+
+            let $div = $('<div>');
+            $div.append($img);
+
+            console.log({series});
+            
+            //$div.append(`<p style="text-align: center">S:${series.series_number}  (F:${series.scans})</p>`)
+            $div.append(`<div style="text-align: center; font-size: 12px; color: #9ccef9; margin: 3px 0 35px; position: relative;">
+                <div style="float: left;">S:${series.series_number} </div>
+                <div style="float: right;">F:${series.scans}</div>
+                <div style="position: absolute; top: -30px; right: 1px; display: none;" class="green_mark">
+                    <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24" 
+                    style="opacity: 1; mix-blend-mode: normal; fill: rgb(23, 209, 6); width: 24px; height: 24px;
+                    "><g><path xmlns:default="http://www.w3.org/2000/svg" 
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
+                    style="fill: rgb(23, 209, 6);"></path></g></svg>
+                </div>
+                <div style="position: absolute; top: -30px; right: 1px; display: none;" class="yellow_mark">
+                    <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24"
+                    style="opacity: 1; mix-blend-mode: normal; fill: rgb(247, 227, 46); width: 24px; height: 24px;
+                    "><g><path xmlns:default="http://www.w3.org/2000/svg" 
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
+                    style="fill: rgb(247, 227, 46);"></path></g></svg>
+                </div>
+            </div>`);
+
+            $('#series_thumbs li').eq(index).html($div);
+
+            let rectangle_state = find_registry_state(series.series_id);
+            console.log({rectangle_state_1: rectangle_state});
+            if (rectangle_state && rectangle_state.rectangles.length) {
+                console.log($div.find('.green_mark'));
+                $div.find('.green_mark').toggle(rectangle_state.saved) 
+                $div.find('.yellow_mark').toggle(!rectangle_state.saved) 
+            }
+
+            cornerstone.disable(element);
+
+            //document.body.removeChild(element);
+            //element = null
+        }, 100);
+        
+    });
+}
 
 function get_tool_state(element, tool) {
-    var tool_state = cornerstoneTools.getElementToolStateManager(element);
-    return tool_state.get(element, tool);
+    const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
+    return toolStateManager.get(element, tool);
 }
+
+function add_tool_state(element, tool, state) {
+    const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
+    toolStateManager.add(element, tool, state);
+
+    // OR JUST
+    // cornerstoneTools.addToolState(element, tool, state)
+}
+
 
 
 
@@ -565,7 +665,7 @@ function drop_dicom(ev) {
     console.log(ev.dataTransfer.getData("dicomimg/path"))
     console.log(ev.dataTransfer.getData("dicomimg/series_id"))
     
-    var id = "#" + ev.dataTransfer.getData("dicomimg/id");
+    let id = "#" + ev.dataTransfer.getData("dicomimg/id");
     $(id).closest('li').addClass('highlite-outline').siblings().removeClass('highlite-outline');
 
 	load_dicom_image(ev.dataTransfer.getData("dicomimg/series_id"))
@@ -575,7 +675,7 @@ $(document).on('click', '#dicom_image_tools a', function(e){
     e.preventDefault();
 
     // disable current tool(s)
-    $('#dicom_image_tools a').each(function() {
+    $('#dicom_image_tools a.active').each(function() {
         cornerstoneTools.setToolEnabled($(this).data('tool'));
     })
 
@@ -610,13 +710,7 @@ function get_series_files(series_id) {
     return files;
 }
 
-
-
-function load_dicom_image(series_id) {
-    let _files = get_series_files(series_id);
-    const imageIds = _files.map(file => `wadouri:http://localhost:7714/?path=${file}`);
-
-    let element = $('#dicom_image_container').get(0);
+function cornerstone_enable_element(element) {
     cornerstone.enable(element);
     //let imageId = `wadouri:http://localhost:7714/?path=${path}`;
 
@@ -630,17 +724,14 @@ function load_dicom_image(series_id) {
     
     const RectangleOverlayTool = cornerstoneTools.RectangleOverlayTool;
     cornerstoneTools.addTool(RectangleOverlayTool);
-    cornerstoneTools.setToolActive("RectangleOverlay", {mouseButtonMask: 1});
+    //cornerstoneTools.setToolActive("RectangleOverlay", {mouseButtonMask: 1});
 
     
     const StackScrollMouseWheelTool = cornerstoneTools.StackScrollMouseWheelTool;
     cornerstoneTools.addTool(StackScrollMouseWheelTool)
     cornerstoneTools.setToolActive('StackScrollMouseWheel', {});
 
-
-    
-
-    element.addEventListener("cornerstonetoolsmeasurementadded", handle_measurement_update);
+    //element.addEventListener("cornerstonetoolsmeasurementadded", handle_measurement_update);
     element.addEventListener("cornerstonetoolsmeasurementmodified", handle_measurement_update);
     element.addEventListener("cornerstonetoolsmeasurementcompleted", handle_measurement_update);
     element.addEventListener("cornerstonetoolsmeasurementremoved", handle_measurement_update);
@@ -648,8 +739,15 @@ function load_dicom_image(series_id) {
 
     element.addEventListener("cornerstonetoolsmousewheel", handle_stack_scroll);
     //element.addEventListener("cornerstonetoolsstackscroll", handle_stack_scroll);
-    
 
+}
+
+
+function load_dicom_image(series_id) {
+    let element = $('#dicom_image_container').get(0);
+
+    let _files = get_series_files(series_id);
+    const imageIds = _files.map(file => `wadouri:http://localhost:7714/?path=${file}`);
 
     //define the stack
     const stack = {
@@ -658,16 +756,22 @@ function load_dicom_image(series_id) {
     };
 
     cornerstone.loadAndCacheImage(imageIds[0])
-        .then((image) => {
-            console.log({image})
+    .then((image) => {
+        console.log({image})
 
-            var viewport = cornerstone.getDefaultViewportForImage(element, image);
-            cornerstone.displayImage(element, image, viewport);
+        let viewport = cornerstone.getDefaultViewportForImage(element, image);
+        cornerstone.displayImage(element, image, viewport);
 
-            cornerstoneTools.addStackStateManager(element, ['stack'])
-            cornerstoneTools.addToolState(element, 'stack', stack);
+        cornerstoneTools.addStackStateManager(element, ['stack'])
+        cornerstoneTools.addToolState(element, 'stack', stack);
 
-        });
+        
+        // HACK: force display of existing rectangles
+        cornerstoneTools.setToolActive("RectangleOverlay", {mouseButtonMask: 1});
+        cornerstone.updateImage(element)
+        cornerstoneTools.setToolEnabled("RectangleOverlay");
+        
+    });
 }
 
 function handle_stack_scroll(e) {
@@ -686,10 +790,7 @@ function handle_stack_scroll(e) {
         
             rectangle_state.data.forEach(state => {
                 // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
-
-                const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
-                toolStateManager.add(element, 'RectangleOverlay', state);
-
+                add_tool_state(element, 'RectangleOverlay', state)
             });
 
             //window.dispatchEvent(new Event('resize'));
@@ -697,6 +798,11 @@ function handle_stack_scroll(e) {
             cornerstone.updateImage(element)
         }, 20)
         
+    } else {
+        setTimeout(() => {
+            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+            cornerstone.updateImage(element)
+        }, 20)
     }
 }
 
@@ -732,11 +838,11 @@ function handle_measurement_update(e) {
                 rectangle_state_registry.push(state_data)
             }
 
-            console.log({rectangles: state_data.rectangles});
+            console.log({rectangles: state_data});
 
-
-            $('#series_thumbs li.highlite-outline').find('.yellow_mark').show();
-            $('#series_thumbs li.highlite-outline').find('.green_mark').hide();
+            
+            $('#series_thumbs li.highlite-outline').find('.green_mark').toggle(state_data.saved && state_data.rectangles > 0);
+            $('#series_thumbs li.highlite-outline').find('.yellow_mark').toggle(!state_data.saved);
         }
         
         //const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
@@ -761,6 +867,14 @@ function find_registry_state(series_id) {
     return rectangle_state_registry.find((el) => el.series_id === series_id)
 }
 
+function registry_remove_series_state(series_id) {
+    let series_index = rectangle_state_registry.findIndex((el) => el.series_id === series_id)
+
+    if (series_index >= 0) {
+        rectangle_state_registry.splice(series_index, 1);
+    }
+}
+
 function get_current_series_id() {
     return $('#series_thumbs li.highlite-outline').find('img[data-series_id]').data('series_id');
 }
@@ -776,14 +890,14 @@ $(document).on('page:load', '#upload-section', async function(e){
     });
     $('#fullscreenModal').on('show.bs.modal', function (e) {
         $('body').addClass('dicomImageViewerFS');
-        var contentCut = $("#fullscreenContent").detach()
+        let contentCut = $("#fullscreenContent").detach()
         contentCut.appendTo("#fullscreenModal .modal-body");
         $('#series_thumbs').css('max-height', `${($(window).height() - 41 - 70 - 20)}px`);
         $('#dicom_image_container').css('height', `${($(window).height() - 41 - 70)}px`);
     })
 
     $('#fullscreenModal').on('hide.bs.modal', function (e) {
-        var contentCutAgain = $(".modal-body #fullscreenContent").detach()
+        let contentCutAgain = $(".modal-body #fullscreenContent").detach()
         contentCutAgain.appendTo("#fullscreenMode .container .row")
         $('body').removeClass('dicomImageViewerFS');
 
@@ -1029,8 +1143,8 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
             let subjects = res.data.ResultSet.Result;
 
             let sorted_subjects = subjects.sort(function SortByTitle(a, b){
-                var aLabel = a.label.toLowerCase();
-                var bLabel = b.label.toLowerCase(); 
+                let aLabel = a.label.toLowerCase();
+                let bLabel = b.label.toLowerCase(); 
                 return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
             });
 
@@ -1288,7 +1402,7 @@ $(document).on('click', '.js_upload', function() {
             my_anon_variables['session'] = url_data.expt_label;
         }
 
-        $('#anon_variables').find(':input:visible').each(function(){
+        $('#anon_variables').find(':input[required]').each(function(){
             let $field = $(this);
             my_anon_variables[$field.attr('name')] = $field.val();
         });
@@ -1617,7 +1731,7 @@ $.queuer = {
     _timer: null,
     _queue: [],
     add: function(fn, context, time) {
-        var setTimer = function(time) {
+        let setTimer = function(time) {
             $.queuer._timer = setTimeout(function() {
                 time = $.queuer.add();
                 if ($.queuer._queue.length) {
@@ -1634,7 +1748,7 @@ $.queuer = {
             return;
         }
 
-        var next = $.queuer._queue.shift();
+        let next = $.queuer._queue.shift();
         if (!next) {
             return 0;
         }
@@ -1839,7 +1953,7 @@ function dicomParse(_files, root_path) {
             
             let sep = "\n------ ";
             cur_session.scans.forEach(function(scan, key) {
-                var total_size = scan.reduce(function(prevVal, elem) {
+                let total_size = scan.reduce(function(prevVal, elem) {
                     return prevVal + elem.filesize;
                 }, 0);
 
@@ -1976,9 +2090,9 @@ function experiment_label() {
     console.log({pet_tracer: pet_tracer});
 
 
-    var PRIMARY_MODALITIES = ['CR', 'CT', 'MR', 'PT', 'DX', 'ECG', 'EPS', 'ES', 'GM', 'HD', 'IO', 'MG', 'NM', 'OP', 'OPT', 'RF', 'SM', 'US', 'XA', 'XC', 'OT'];
+    let PRIMARY_MODALITIES = ['CR', 'CT', 'MR', 'PT', 'DX', 'ECG', 'EPS', 'ES', 'GM', 'HD', 'IO', 'MG', 'NM', 'OP', 'OPT', 'RF', 'SM', 'US', 'XA', 'XC', 'OT'];
 
-    var upload_modalities_index = selected.reduce((allModalities, row) => {
+    let upload_modalities_index = selected.reduce((allModalities, row) => {
         if (PRIMARY_MODALITIES.indexOf(row.modality) !== -1) {
             if (allModalities.hasOwnProperty(row.modality)) {
                 allModalities[row.modality]++;
@@ -2133,7 +2247,7 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
         canceled: false
     };
     console.log({upload_digest});
-    return;
+    
     db_uploads().insert(upload_digest, (err, newItem) => {
         if (err) {
             console.log(err)
