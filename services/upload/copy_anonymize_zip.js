@@ -2,7 +2,8 @@ const fs = require('fs')
 const path = require('path');
 const archiver = require('archiver');
 
-const mizer = require('../../mizer');
+const remote = require('electron').remote;
+const mizer = remote.require('./mizer');
 
 const filePromiseChain = (funcs) => {
     const reducer = (promise, func) => {
