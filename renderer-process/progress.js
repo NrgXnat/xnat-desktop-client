@@ -1546,7 +1546,7 @@ ipc.on('progress_cell',function(e, item){
 
         let reinit = typeof item.value != 'number' || $progress_bar.length == 0;
         
-        $item_table.bootstrapTable("updateCellById", {
+        $item_table.bootstrapTable("updateCellByUniqueId", {
             id: item.id,
             field: item.field,
             value: item.value,

@@ -65,35 +65,28 @@ function fetch_site_wide_settings(xnat_server, user_auth) {
 
 function fetch_project_settings(project_id, xnat_server, user_auth) {
     return Promise.all([
-        promise_subjects(project_id),
+        project_subjects(xnat_server, user_auth, project_id),
         project_allow_create_subject(project_id),
         project_require_date(project_id),
         mizer.get_project_anon_script(xnat_server, user_auth, project_id),
-        project_sessions_count(xnat_server, user_auth, project_id),
+        project_sessions(xnat_server, user_auth, project_id),
         project_series_import_filter(xnat_server, user_auth, project_id),
         project_upload_destination(xnat_server, user_auth, project_id),
         project_data(xnat_server, user_auth, project_id)
     ]).then(res => {
 
-        let subjects = res[0].data.ResultSet.Result;
-        let sorted_subjects = subjects.sort(function SortByTitle(a, b){
-            var aLabel = a.label.toLowerCase();
-            var bLabel = b.label.toLowerCase(); 
-            return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
-        });
-
-      let data = {
-        subjects: sorted_subjects,
-        allow_create_subject: (typeof res[1].data === 'boolean') ? res[1].data : (res[1].data === '' || res[1].data.toLowerCase() === 'true'),
-        require_date: (typeof res[2].data === 'boolean') ? res[2].data : (res[2].data.toLowerCase() !== 'false' && res[2].data !== ''),
-        anon_script: res[3],
-        sessions_count: res[4],
-        series_import_filter: res[5],
-        upload_destination: res[6],
-        project: res[7]
-      }
+        let data = {
+            subjects: res[0],
+            allow_create_subject: (typeof res[1].data === 'boolean') ? res[1].data : (res[1].data === '' || res[1].data.toLowerCase() === 'true'),
+            require_date: (typeof res[2].data === 'boolean') ? res[2].data : (res[2].data.toLowerCase() !== 'false' && res[2].data !== ''),
+            anon_script: res[3],
+            sessions: res[4],
+            series_import_filter: res[5],
+            upload_destination: res[6],
+            project: res[7]
+        }
       
-      return Promise.resolve(data);
+        return Promise.resolve(data)
     }).catch(err => {
         return Promise.reject(err)
     });
@@ -263,8 +256,8 @@ function _init_img_sessions_table(table_rows) {
         data: table_rows
     });
 
-    $('#image_session').on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table', function (e) {
-        let selected = $('#image_session').bootstrapTable('getSelections');
+    $img_session_tbl.on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table', function (e) {
+        let selected = $img_session_tbl.bootstrapTable('getSelections');
 
         let has_pt_scan = selected.reduce((total, row) => row.modality === 'PT' ? true : total, false);
 
@@ -292,9 +285,56 @@ function _init_session_selection_table(tbl_data) {
 
     destroyBootstrapTable($found_sessions_tbl);
 
+    window.foundSessionsEvents = {
+        'input .day-validation': function (e, value, row, index) {
+            row.entered_day = $(e.target).val()
+            toggle_upload_buttons()
+        }
+    }
+
+    window.foundSessionsCheckbox = {
+        'change input[type="checkbox"]': function (e, value, row, index) {
+            // console.log({value, e_target: e.target});
+            // console.log($(e.target).is(":checked"))
+            toggle_upload_buttons()
+        }
+    }
+
+    $('.js_custom_upload, .js_quick_upload').prop('disabled', true);
+
+    function toggle_upload_buttons() {
+        let selected = $found_sessions_tbl.bootstrapTable('getSelections');
+
+        let invalid_days = false;
+
+        if (date_required) {
+            selected.forEach(sess => {
+                if (sess.study_date && sess.study_date.substr(8,2) !== sess.entered_day) {
+                    invalid_days = true;
+                }
+            })
+        }
+
+        //$('.js_custom_upload, .js_quick_upload').prop('disabled', invalid_days || selected.length == 0);
+        $('.js_custom_upload').prop('disabled', invalid_days || selected.length == 0);
+    }
+
     $found_sessions_tbl.bootstrapTable({
-        height: tbl_data.length > 5 ? 250 : 0,
+        height: tbl_data.length > 8 ? 400 : 0,
+        sortName: 'patient_name',
+        classes: 'table-sm',
+        theadClasses: 'thead-light',
+        maintainMetaData: true,
+        singleSelect: true,
+        uniqueId: 'id',
         columns: [
+            {
+                field: 'state',
+                checkbox: true,
+                align: 'center',
+                events: 'foundSessionsCheckbox',
+                valign: 'middle'
+            },
             {
                 field: 'id',
                 title: 'StudyInstanceUID',
@@ -333,77 +373,37 @@ function _init_session_selection_table(tbl_data) {
             {
                 field: 'study_date',
                 title: 'Study Date',
-                class: '',
-                formatter: function(value, row, index, field) {
-                    if (date_required && value !== false) {
-                        if (tbl_data.length == 1) {
-                            return `<input type="date" class="form-control" name="upload_session_date" id="upload_session_date">`
-                        } else {
-                            return value.substr(0, 7) + `<input data-valid="${value}" type="number" min="1" max="31">`;
-                        }
-                    } else {
-                        return value ? value : 'N/A';
-                    }
-                    
-                    return `
-                    <button data-session_id="${row.id}" type="button" 
-                        class="btn btn-blue btn-sm" 
-                        style="margin: 2px 0;">Select</button>
-                    
-                    `;
-                }
-            }
-            
-        ],
-        data: tbl_data
-    });
-
-    $found_sessions_tbl.bootstrapTable('resetView');
-}
-
-function _init_session_selection_table_old(tbl_data) {
-    console.log({tbl_data});
-    let $found_sessions_tbl = $('#found_sessions');
-
-    destroyBootstrapTable($found_sessions_tbl);
-
-    $found_sessions_tbl.bootstrapTable({
-        height: tbl_data.length > 5 ? 250 : 0,
-        columns: [
-            {
-                field: 'id',
-                title: 'StudyInstanceUID',
+                class: 'right-aligned',
+                sortable: false,
                 visible: false
             },
             {
-                field: 'label',
-                title: 'StudyID/UID',
-                sortable: true,
-                class: 'break-all'
-            },
-            {
-                field: 'root_path',
-                title: 'Root Path',
-                sortable: true,
-                class: 'break-all'
-            },
-            {
-                field: 'scan_count',
-                title: 'Scans',
-                sortable: true,
-                class: 'right-aligned'
-            },
-            {
-                field: 'action',
-                title: 'Actions',
-                class: 'action',
+                field: 'entered_day',
+                title: 'Study Date',
+                events: 'foundSessionsEvents',
+                width: 152,
+                sortable: false,
+                class: '',
                 formatter: function(value, row, index, field) {
-                    return `
-                    <button data-session_id="${row.id}" type="button" 
-                        class="btn btn-blue btn-sm" 
-                        style="margin: 2px 0;">Select</button>
+                    //let parsed_value = value ? value : (row.study_date ? row.study_date.substr(8,2) : false)
                     
-                    `;
+                    if (date_required && row.study_date !== false) {
+                        return `${row.study_date.substr(0, 7)}-<input 
+                                type="text"
+                                placeholder="##"
+                                size="1"
+                                maxlength="2"
+                                class="day-validation"
+                                value="${value}"
+                                data-valid="${row.study_date.substr(8,2)}" 
+                                pattern="${row.study_date.substr(8,2)}">
+                            <span class="day-valid">&#10003;</span>
+                            <span class="day-invalid">&#9888;</span>
+                                `;
+                    } else {
+                        return row.study_date ? row.study_date : 'N/A';
+                    }
+                    
                 }
             }
             
@@ -413,7 +413,6 @@ function _init_session_selection_table_old(tbl_data) {
 
     $found_sessions_tbl.bootstrapTable('resetView');
 }
-
 
 
 
@@ -714,18 +713,7 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
         });
 });
 
-$(document).on('click', 'a[data-subject_id]', function(e){
-    resetSubsequentTabs();
 
-    $(this).closest('ul').find('a').removeClass('selected');
-    $(this).addClass('selected')
-
-    // set Review data
-    $('#var_subject').val(get_form_value('subject_id', 'subject_label'));
-    
-    $('.tab-pane.active .js_next').removeClass('disabled');
-    
-});
 
 $(document).on('click', '.js_next:not(.disabled)', function() {
     let active_tab_index = $('.nav-item').index($('.nav-item.active'));
@@ -855,12 +843,13 @@ $(document).on('click', '.js_upload', function() {
     }
 
     $required_inputs.each(function(){
+        $(this).removeClass('is-invalid');
+
         if ($(this).val().trim() === '') {
             $(this).addClass('is-invalid');
             required_input_error = true;
         }
     })
-    
     
     if (selected.length && !required_input_error) {
         let selected_series = selected.map(function(item){
@@ -872,7 +861,7 @@ $(document).on('click', '.js_upload', function() {
         let url_data = {
             expt_label: expt_label_val ? expt_label_val : experiment_label(),
             project_id: get_form_value('project_id', 'project_id'),
-            subject_id: get_form_value('subject_id', 'subject_label')
+            subject_id: $('#var_subject').val()
         };
 
         let my_anon_variables = {};
@@ -884,7 +873,7 @@ $(document).on('click', '.js_upload', function() {
             my_anon_variables['session'] = url_data.expt_label;
         }
 
-        $('#anon_variables').find(':input:visible').each(function(){
+        $('#anon_variables').find(':input[required]').each(function(){
             let $field = $(this);
             my_anon_variables[$field.attr('name')] = $field.val();
         });
@@ -897,8 +886,9 @@ $(document).on('click', '.js_upload', function() {
             }
         }
 
-        console.log({my_anon_variables});
-        //doUpload(url_data, selected_session_id, selected_series);
+
+        console.log({url_data, selected_session_id, selected_series, my_anon_variables});
+
         storeUpload(url_data, selected_session_id, selected_series, my_anon_variables);
 
     } else {
@@ -921,8 +911,6 @@ $(document).on('input', '#anon_variables :input[required]', function(e){
 
 
 $(document).on('show.bs.modal', '#new-subject', function(e) {
-    console.log(e)
-
     let project_id = $('#upload-project a.selected').data('project_id');
 
     if (!project_id) {
@@ -1007,27 +995,23 @@ $(document).on('submit', '#form_new_subject', function(e) {
         //group = group.replace(/\s+/g, '_');
 
         promise_create_project_subject(project_id, subject_label, group)
-            .then(res => {
-                console.log(res);
-    
-                append_subject_row({
-                    ID: res.data,
-                    URI: '/data/subjects/' + res.data,
-                    insert_date: '',
-                    label: subject_label,
-                    group: group
-                });
-    
-                $('#subject-session li:last-child a').trigger('click');
-    
-                $('#new-subject').modal('hide');
-    
-            })
-            .catch(handle_error)
-            .finally(() => {
-                Helper.unblockModal(modal_id);
-                $form.data('processing', false);
-            });
+        .then(async res => {
+            console.log({promise_create_project_subject: res});
+            
+            project_settings.subjects = await project_subjects(xnat_server, user_auth, project_id)
+
+            generate_subject_dropdown(res.data)
+
+            //$('#experiment_label').val(experiment_label());$('#experiment_label').val(experiment_label());
+
+            $('#new-subject').modal('hide');
+
+        })
+        .catch(handle_error)
+        .finally(() => {
+            Helper.unblockModal(modal_id);
+            $form.data('processing', false);
+        });
     }
     
     
@@ -1036,7 +1020,36 @@ $(document).on('submit', '#form_new_subject', function(e) {
 $(document).on('click', '.js_cancel_session_selection', function(){
     resetSubsequentTabs();
     //resetTabsAfter($('#upload-section #nav-tab .nav-link.active').index() - 1)
-    resseting_functions.get(0)();
+    //resseting_functions.get(0)();
+});
+
+$(document).on('click', '.js_custom_upload', function(){
+    let selected = $('#found_sessions').bootstrapTable('getSelections');
+
+    console.log({selected});
+
+    select_session_id(selected[0])
+    $('#session-selection').modal('hide');
+})
+
+$(document).on('click', '.js_quick_upload', function(){
+
+    let selected = $('#found_sessions').bootstrapTable('getSelections');
+
+    selected.forEach(item => {
+        if (item.study_date) {
+            item.study_date.substr(8,2) === ''
+        }
+    })
+
+
+    console.log({selected});
+
+    let ids = $.map(selected, function (row) {
+        return row.id
+    })
+
+    console.log({ids});
 });
 
 $(document).on('hidden.bs.modal', '#session-selection', function(e) {
@@ -1046,29 +1059,45 @@ $(document).on('hidden.bs.modal', '#session-selection', function(e) {
     }
 });
 
-function select_session_id(new_session_id) {
-    selected_session_id = new_session_id;
+$(document).on('shown.bs.modal', '#session-selection', function(e) {
+    // NEEDED to reset view (https://examples.bootstrap-table.com/#welcomes/modal-table.html)
+    $('#found_sessions').bootstrapTable('resetView');
+});
+
+function generate_subject_dropdown(selected_id = false) {
+    let subject_options = project_settings.subjects.map(function(subject) {
+        return `<option value="${subject.ID}" 
+            ${(subject.ID === selected_id ? 'selected' : '')}>
+            ${subject.label}${(subject.group ? ` (Group: ${subject.group})`: '')}
+            </option>`;
+    });
+    subject_options.unshift('<option value="">Select subject</option>')
+
+    $('#var_subject')
+        .html(subject_options.join("\n"))
+        .trigger('change')
+}
+
+$(document).on('change', '#var_subject', function() {
+    $('#experiment_label').val(experiment_label());
+})
+
+function select_session_id(_session) {
+    selected_session_id = _session.id;
     
     console.log('******************************************');
-    console.log('anon_variables', anon_variables);
+    console.log({anon_variables});
     console.log('******************************************');
+
+
 
     $('#additional-upload-fields').html('');
     Object.keys(anon_variables).forEach(key => {
         let key_cap = Helper.capitalizeFirstLetter(key);
-        let field_type = (key == 'subject' || key == 'project') ? 'hidden' : 'text';
-
-        let field_text, field_value;
-        if (key == 'subject') {
-            field_text = get_form_value('subject_id', 'subject_label');
-            field_value = field_text;
-        } else if (key == 'project') {
-            field_text = get_form_value('project_id', 'project_id');
-            field_value = field_text;
-        } else {
-            field_text = '';
-            field_value = anon_variables[key];
-        }
+        
+        let field_type = 'text';
+        let field_text = '';
+        let field_value = anon_variables[key];
 
         if (key != 'project' && key != 'subject' && key != 'session') {
             $('#additional-upload-fields').append(`
@@ -1082,8 +1111,6 @@ function select_session_id(new_session_id) {
             `);
             console.log('$$$$ ' + key + ' => ' + anon_variables[key]);
         }
-
-        
     });
 
     let session_id = selected_session_id,
@@ -1132,6 +1159,8 @@ function select_session_id(new_session_id) {
 
     _init_img_sessions_table(table_rows);
 
+    generate_subject_dropdown();
+
     console.log(selected_session.studyDescription);
     console.log(selected_session.modality);
     console.log(selected_session.studyInstanceUid);
@@ -1140,18 +1169,7 @@ function select_session_id(new_session_id) {
     
     $('#experiment_label').val(expt_label);
 
-    let studyDate = selected_session.date ? 
-        selected_session.date.substr(0, 4) + '-' +
-        selected_session.date.substr(4, 2) + '-' +
-        selected_session.date.substr(6, 2) + ' ' + 
-        
-        (selected_session.time ?
-            selected_session.time.substr(0, 2) + ':' +
-            selected_session.time.substr(2, 2) + ':' +
-            selected_session.time.substr(4, 2) :
-            ''
-        ) : 
-        'N/A';
+    let studyDate = getStudyDate(selected_session.date, selected_session.time) || 'N/A'
     
     let modality_str = (all_modalities.length > 1 ? "Modalities: " : "Modality: ") + all_modalities.join(', ');
 
@@ -1201,7 +1219,8 @@ $(document).on('click', 'button[data-session_id]', function(e){
 });
 
 function get_form_value(field, data) {
-    return $(`a[data-${field}].selected`).data(data);
+    let $field = $(`a[data-${field}].selected`);
+    return $field.length ? $field.data(data) : '';
 }
 
 
@@ -1546,13 +1565,15 @@ function dicomParse(_files, root_path) {
 
                     let session_data = {
                         id: key,
+                        state: false,
                         patient_name: cur_session.patient.name,
                         patient_id: cur_session.patient.id,
                         label: session_label,
                         modality: cur_session.modality.join(", "),
                         root_path: root_path + find_common_path(paths),
                         scan_count: cur_session.scans.size,
-                        study_date: studyDate
+                        study_date: studyDate,
+                        entered_day: ''
                     }
 
                     tbl_data.push(session_data);
@@ -1576,30 +1597,44 @@ function dicomParse(_files, root_path) {
 
 }
 
-function getStudyDate(date_string) {
+function getStudyDate(date_string, time_string = false) {
     if (!date_string) {
         return false;
     } else {
         let only_numbers = date_string.replace(/[^\d]/g, '');
 
-        return only_numbers.substr(0, 4) + '-' +
-            only_numbers.substr(4, 2) + '-' +
-            only_numbers.substr(6, 2);
+        let _date = `${only_numbers.substr(0, 4)}-${only_numbers.substr(4, 2)}-${only_numbers.substr(6, 2)}`
 
+        if (time_string) {
+            _date += ' ' + getStudyTime(time_string);
+        }
+
+        return _date;
     }
-    
+}
+
+function getStudyTime(time_string) {
+    if (!time_string) {
+        return false;
+    } else {
+        time_string = time_string.replace(/[^\d]/g, '');
+
+        return `${time_string.substr(0, 2)}:${time_string.substr(2, 2)}:${time_string.substr(4, 2)}`;
+    }
 }
 
 function experiment_label() {
+
     let modality = '';
-    let subject_id = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
+    //let subject_id = _session.patient_id ? _session.patient_id : ''; // always cast as string
+    let subject_id = $('#var_subject').val()
 
     let selected = $('#image_session').bootstrapTable('getSelections');
 
     let pet_tracer = $('#pet_tracer').length ? $('#pet_tracer').val() : '';
     let custom_pet_tracer = ('' + $('#custom_pet_tracer').val()).trim().split(' ').join('_');
 
-    console.log({pet_tracer: pet_tracer});
+    console.log({pet_tracer, custom_pet_tracer});
 
 
     var PRIMARY_MODALITIES = ['CR', 'CT', 'MR', 'PT', 'DX', 'ECG', 'EPS', 'ES', 'GM', 'HD', 'IO', 'MG', 'NM', 'OP', 'OPT', 'RF', 'SM', 'US', 'XA', 'XC', 'OT'];
@@ -1637,6 +1672,7 @@ function experiment_label() {
         }
     }
 
+    console.log({defined_project_exp_labels});
 
     let expt_label = subject_id.split(' ').join('_') + '_' + modality + '_';
     for (let i = 1; i < 100000; i++) {
@@ -1712,15 +1748,8 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
         
     });
 
-    let studyDate = selected_session.date ? 
-        selected_session.date.substr(0, 4) + '-' +
-        selected_session.date.substr(4, 2) + '-' +
-        selected_session.date.substr(6, 2) : '';
-    
-    let studyTime = selected_session.time ? 
-        selected_session.time.substr(0, 2) + ':' +
-        selected_session.time.substr(2, 2) + ':' +
-        selected_session.time.substr(4, 2) : '';
+    let studyDate = getStudyDate(selected_session.date) || '';
+    let studyTime = getStudyTime(selected_session.time) || '';
 
 
     let upload_digest = {
@@ -1972,7 +2001,7 @@ function project_data(xnat_server, user_auth, project_id) {
         axios.get(xnat_server + `/data/projects/${project_id}?format=json`, {
             auth: user_auth
         }).then(resp => {
-            console.log({resp});
+            console.log({project_data: resp.data});
 
             resolve(resp.data.items[0].data_fields);
             
@@ -2097,12 +2126,44 @@ function promise_subjects(project_id) {
     })
 }
 
-function project_sessions_count(xnat_server, user_auth, project_id) {
+function sortAlpha(attr = false) {
+    return function (a, b) {
+        var aValue = attr === false ? a : a[attr].toLowerCase();
+        var bValue = attr === false ? b : b[attr].toLowerCase(); 
+        return ((aValue < bValue) ? -1 : ((aValue > bValue) ? 1 : 0));
+    }
+}
+
+
+function project_subjects(xnat_server, user_auth, project_id) {
+    return new Promise(function(resolve, reject) {
+        axios.get(xnat_server + '/data/projects/' + project_id + '/subjects?columns=group,insert_date,insert_user,project,label', {
+            auth: user_auth
+        }).then(resp => {
+            /*
+            let subjects = resp.data.ResultSet.Result;
+            let sorted_subjects = subjects.sort(sortAlpha('label'));
+            resolve(sorted_subjects);
+            */
+            
+            resolve(resp.data.ResultSet.Result.sort(sortAlpha('label')));
+            
+        }).catch(err => {
+            reject({
+                type: 'axios',
+                data: err
+            })
+        });
+    });
+}
+
+function project_sessions(xnat_server, user_auth, project_id) {
     return new Promise(function(resolve, reject) {
         axios.get(xnat_server + '/data/projects/' + project_id + '/experiments?columns=IDformat=json', {
             auth: user_auth
         }).then(resp => {
-            resolve(parseInt(resp.data.ResultSet.totalRecords));
+            console.log({sessions: resp.data.ResultSet.Result});
+            resolve(resp.data.ResultSet.Result);
         }).catch(err => {
             reject({
                 type: 'axios',
