@@ -456,9 +456,10 @@ boom@5.x.x:
   dependencies:
     hoek "4.x.x"
 
-bootstrap-table@^1.12.1:
-  version "1.12.1"
-  resolved "https://registry.yarnpkg.com/bootstrap-table/-/bootstrap-table-1.12.1.tgz#c9c3973067842a937c05d8639ecccb02abd6ba65"
+bootstrap-table@^1.16.0:
+  version "1.16.0"
+  resolved "https://registry.yarnpkg.com/bootstrap-table/-/bootstrap-table-1.16.0.tgz#d05bd262e7f70a76ee872c658918983beb3befce"
+  integrity sha512-bLbVetbyiXYmhU1LSsaiOHH4uvmlyBa/fNUo3y0owCfQSyQms/sfXOBvbcJWlDmjGtTY7kPW5z7KQvQJDPzN5w==
 
 bootstrap4-tagsinput-douglasanpa@^4.1.2:
   version "4.1.2"
