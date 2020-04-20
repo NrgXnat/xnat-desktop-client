@@ -8,3 +8,4 @@ artifacts/
 /xlectric.log
 build_resources/jre/*
 !build_resources/jre/.gitignore
+package-lock.json

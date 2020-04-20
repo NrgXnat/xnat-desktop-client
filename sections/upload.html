@@ -12,7 +12,7 @@
                         <div class="nav nav-tabs" id="nav-tab" role="tablist">
                             <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Subject Selection</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false">Select Folder</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Verify Visit Date</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Verify Date</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Review and Verify</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Summary</a>
                         </div>
@@ -45,15 +45,40 @@
                                 <ul id="subject-session" class="choose-list"></ul>
                             </div>
 
-
-
-
                             <div class="row">
                                 <div class="col-6">
                                     <div class="button-row  project-subjects-holder">
                                         <button class="btn btn-gray" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div class="project-subject-visits-holder">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <h2 class="section-title search-inline">Select Visit</h2>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="filter-control title-inline">
+                                            <input type="text" id="visit-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                        </div>
+                                    </div>
+                                </div>
+                                <ul id="visit" class="choose-list"></ul>
+
+                                <div class="row">
+                                    <div class="col-6">
+                                        <h2 class="section-title search-inline">Set subtype</h2>
+                                    </div>
+                                </div>
+                                <div class="row button-row">
+                                    <div class="col-6">
+                                        <input type="text" id="subtype" class="form-control">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
                                 <div class="col-6">
                                     <div class="text-right button-row">
                                         <button type="button" class="btn btn-gray" data-href="home.html" type="button">Cancel</button>
@@ -64,6 +89,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="tab-pane fade" id="nav-folder" role="tabpanel" aria-labelledby="nav-folder-tab">
                             <h2 class="section-title">Select Folder</h2>
 
@@ -148,7 +174,23 @@
                                         <input class="form-control" type="text" name="subject" id="var_subject" value="yyy" required readonly>
                                     </div>
                                 </div>
-
+                                <div class="form-group row">
+                                    <label class="col-sm-2 col-form-label">
+                                        <b>Visit</b>:
+                                    </label>
+                                    <div class="input-group col-sm-10">
+                                        <input class="form-control" type="text" name="visit" id="var_visit" value="zzz" readonly>
+                                        <input type="hidden" name="visit_id" id="var_visit_id" value="">
+                                    </div>
+                                </div>
+                                <div class="form-group row">
+                                    <label class="col-sm-2 col-form-label">
+                                        <b>Subtype</b>:
+                                    </label>
+                                    <div class="input-group col-sm-10">
+                                        <input class="form-control" type="text" name="visit" id="var_subtype" value="" readonly>
+                                    </div>
+                                </div>
                                 
 
                                 <div class="form-group row" id="experiment_label_container">
@@ -177,6 +219,7 @@
                                 <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
                                 <p>Note: Unchecked scans will not be uploaded</p>
                                 <table class="table table-bordered" id="image_session"></table>
+                                <span class="hidden" id="image_session_date"></span>
                             </div>
 
                             <div class="col">

@@ -240,7 +240,7 @@ function _init_img_sessions_table(table_rows) {
         if (has_pt_scan) {
             $('#pet_tracer').trigger('change');
         } else {
-            $('#experiment_label').val(experiment_label());
+            experiment_label();
         }
     })
 
@@ -584,14 +584,53 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
 $(document).on('click', 'a[data-subject_id]', function(e){
     resetSubsequentTabs();
 
+    $('#visit').html('');
+    if ($('#subject-session a.selected').length === 0) {
+        $('.project-subject-visits-holder').show();
+    }
+
     $(this).closest('ul').find('a').removeClass('selected');
     $(this).addClass('selected')
 
     // set Review data
     $('#var_subject').val(get_form_value('subject_id', 'subject_label'));
     
-    $('.tab-pane.active .js_next').removeClass('disabled');
+    let project_id = $('#var_project').val();
+    let subject_id = $(this).data('subject_id');
+
+    promise_visits(project_id, subject_id)
+        .then(res => {
+            let visits = res.data;
+
+            let sorted_visits = visits.sort(function SortByTitle(a, b){
+                var aLabel = a.name.toLowerCase();
+                var bLabel = b.name.toLowerCase();
+                return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
+            });
+
+            console.log(sorted_visits)
+
+            sorted_visits.forEach(append_visit_row);
+
+        })
+        .catch(handle_error);
+});
+
+$(document).on('click', 'a[data-visit_id]', function(e){
+    resetSubsequentTabs();
     
+    $(this).closest('ul').find('a').removeClass('selected');
+    $(this).addClass('selected')
+
+    // set Review data
+    $('#var_visit').val(get_form_value('visit_id', 'visit_label'));
+    $('#var_visit_id').val(get_form_value('visit_id', 'visit_id'));
+
+    $('.tab-pane.active .js_next').removeClass('disabled');
+});
+
+$(document).on('change', '#subtype', function(e){
+    $('#var_subtype').val($(this).val());
 });
 
 $(document).on('click', '.js_next:not(.disabled)', function() {
@@ -733,11 +772,9 @@ $(document).on('click', '.js_upload', function() {
         let selected_series = selected.map(function(item){
             return item.series_id;
         });
-        
-        let expt_label_val = $('#experiment_label').val();
 
         let url_data = {
-            expt_label: expt_label_val ? expt_label_val : experiment_label(),
+            expt_label: $('#experiment_label').val(),
             project_id: get_form_value('project_id', 'project_id'),
             subject_id: get_form_value('subject_id', 'subject_label')
         };
@@ -837,11 +874,11 @@ $(document).on('change', '#pet_tracer', function(e) {
         $('#custom_pet_tracer').focus();
     }
 
-    $('#experiment_label').val(experiment_label());
+    experiment_label();
 })
 
 $(document).on('keyup', '#custom_pet_tracer', function(e) {
-    $('#experiment_label').val(experiment_label());
+    experiment_label();
 })
 
 $(document).on('submit', '#form_new_subject', function(e) {
@@ -932,12 +969,15 @@ function select_session_id(new_session_id) {
         } else if (key == 'project') {
             field_text = get_form_value('project_id', 'project_id');
             field_value = field_text;
+        } else if (key == 'visit') {
+            field_text = get_form_value('visit_id', 'visit_label');
+            field_value = field_text;
         } else {
             field_text = '';
             field_value = anon_variables[key];
         }
 
-        if (key != 'project' && key != 'subject' && key != 'session') {
+        if (key != 'project' && key != 'subject' && key != 'session' && key != 'visit') {
             $('#additional-upload-fields').append(`
             <div class="form-group row">
                 <label for="var_${key}" class="col-sm-2 col-form-label"><b>${key_cap}</b>:</label>
@@ -1003,9 +1043,11 @@ function select_session_id(new_session_id) {
     console.log(selected_session.modality);
     console.log(selected_session.studyInstanceUid);
 
-    let expt_label = experiment_label();
-    
-    $('#experiment_label').val(expt_label);
+    if (selected_session.date) {
+        $('#image_session_date').html(selected_session.date);
+    }
+
+    experiment_label();
 
     let studyDate = selected_session.date ? 
         selected_session.date.substr(0, 4) + '-' +
@@ -1425,7 +1467,7 @@ function dicomParse(_files, root_path) {
 
 function experiment_label() {
     let modality = '';
-    let subject_id = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
+    let subject_label = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
 
     let selected = $('#image_session').bootstrapTable('getSelections');
 
@@ -1470,20 +1512,45 @@ function experiment_label() {
         }
     }
 
+    let project_id = $('#var_project').val();
+    let subject_id = get_form_value('subject_id', 'subject_id');
+    let visit_id = $('#var_visit_id').val();
+    let subtype = $('#var_subtype').val();
+    let session_date = $('#image_session_date').text();
 
-    let expt_label = subject_id.split(' ').join('_') + '_' + modality + '_';
-    for (let i = 1; i < 100000; i++) {
-        let my_expt_label = expt_label + i;
-        if (defined_project_exp_labels.indexOf(my_expt_label) === -1) {
-            expt_label = my_expt_label;
-            break;
-        }
+    function update_experiment_label(expt_label) {
+        console.log('EXPT_LABEL_NEW', expt_label);
+        $('#experiment_label').val(expt_label);
     }
 
-    console.log('EXPT_LABEL_NEW', expt_label);
+    function default_set_experiment_label() {
+        let expt_label = subject_label.split(' ').join('_') + '_' + modality + '_';
+        for (let i = 1; i < 100000; i++) {
+            let my_expt_label = expt_label + i;
+            if (defined_project_exp_labels.indexOf(my_expt_label) === -1) {
+                expt_label = my_expt_label;
+                break;
+            }
+        }
+        update_experiment_label(expt_label);
+    }
 
-    return expt_label;
-
+    promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, modality)
+        .then(res => {
+            let expt_label = res.data;
+            if (!expt_label) {
+                default_set_experiment_label();
+            } else {
+                update_experiment_label(expt_label);
+            }
+        })
+        .catch(function(error) {
+            if (error.response.status === 400) {
+                handleError('Unable to set session label per protocol template' + error.response.message);
+            } else {
+                default_set_experiment_label();
+            }
+        });
 }
 
 
@@ -1699,6 +1766,20 @@ function append_subject_row(subject){
     `)
 }
 
+function append_visit_row(visit){
+    $('#visit').append(`
+        <li>
+            <a href="javascript:void(0)"
+                data-visit_id="${visit.id}"
+                data-visit_name="${visit.name}"
+                data-visit_type="${visit.type}"
+                data-visit_label="${visit.name} (${visit.type})">
+                ${visit.name} ${visit.type}<span class="meta_key">ID: ${visit.id}</span>
+            </a>
+        </li>
+    `)
+}
+
 const no_upload_privileges_warning = () => {
     swal({
         title: `Warning: No projects to display`,
@@ -1829,7 +1910,26 @@ function promise_subjects(project_id) {
     return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects?columns=group,insert_date,insert_user,project,label', {
         auth: user_auth
     })
+}
     
+function promise_visits(project_id, subject_id) {
+    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_id + '/visits?open=true', {
+        auth: user_auth
+    })
+}
+
+function promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, modality) {
+    let params = new URLSearchParams();
+    params.append('visitid', visit_id);
+    params.append('project', project_id);
+    params.append('subject', subject_id);
+    params.append('modality', modality);
+    params.append('subtype', subtype);
+    params.append('date', session_date);
+    params.append('dateFormat', 'yyyyMMdd');
+    return axios.post(xnat_server + '/xapi/protocols/generate_label', params, {
+        auth: user_auth
+    })
 }
 
 function promise_project_subject(project_id, subject_label) {
