@@ -186,6 +186,7 @@ function _init_upload_progress_table() {
                     session_datetime += transfer.session_data.studyTime ? ' ' + transfer.session_data.studyTime : '00:00:00'
                 }
 
+                let status = transfer.status === "finished" && transfer.summary.commit_errors ? "xnat_error" : transfer.status;
                 let item = {
                     id: transfer.id,
                     date: session_datetime,
@@ -193,7 +194,7 @@ function _init_upload_progress_table() {
                     experiment_label: transfer.anon_variables.experiment_label,
                     //transfer_type: 'Upload',
                     transfer_date: transfer.transfer_start,
-                    status: transfer.status,
+                    status: status,
                     actions: '',
                     server: transfer.xnat_server.split('://')[1],
                     user: transfer.user,
@@ -646,6 +647,40 @@ $(document).on('show.bs.modal', '#error-log--download', function(e) {
 $(document).on('show.bs.modal', '#error-log--upload', function(e) {
     var transfer_id = $(e.relatedTarget).data('id');
     $('#error-log--upload .modal-content').attr('data-id', transfer_id);
+    var log = $(this).find('.log-text');
+    nedb_log_reader.fetch_log(transfer_id, (err, docs) => {
+        console.log(docs);
+        table = '<table class="table table-bordered">';
+        table += `
+            <tr>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Date/Time</th>
+                <th>Details</th>
+            </tr>
+        `;
+        
+        docs.forEach(doc => {
+            let datetime = moment(doc.timestamp).format('YYYY-MM-DD HH:mm:ss')
+            let details;
+            try {
+                details = JSON.parse(doc.details).data;
+            } catch (e) {
+                details = doc.details;
+            }
+            table += `
+                <tr>
+                    <td>${doc.level}</td>
+                    <td>${doc.message}</td>
+                    <td>${datetime}</td>
+                    <td>${details}</td>
+                </tr>
+            `;
+        })
+        table += '</table>';
+        log.html('');
+        log.append(table);
+    });
 });
 
 $(document).on('show.bs.modal', '#upload-details', function(e) {

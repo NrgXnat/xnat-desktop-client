@@ -663,6 +663,15 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                     nedb_logger.error(transfer.id, 'upload', error_message, err.response);
 
                     update_transfer_summary(transfer.id, 'commit_errors', error_message);
+
+                    ipc.send('progress_cell', {
+                        table: '#upload_monitor_table',
+                        id: transfer.id,
+                        field: 'status',
+                        value: 'xnat_error'
+                    });
+                    
+                    ipc.send('upload_finished', transfer.id);
                 } else {
                     console_log(`+++ SESSION ARCHIVED +++`);
                     
@@ -1004,7 +1013,7 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
             try {
                 data.transfer = await mark_uploaded(transfer.id, series_id);
     
-                nedb_logger.success(transfer.id, 'upload', `Series uploaded ${series_id}.`);
+                nedb_logger.success(transfer.id, 'upload', `Series uploaded to prearchive ${series_id}.`);
                 
                 _queue_.remove(transfer.id, series_id);
     
@@ -1113,7 +1122,7 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
     
                     if (err.response.status != 301) {
                         electron_log.error('commit_error', commit_url, JSON.stringify(err.response))
-                        let error_message = `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`;
+                        let error_message = `Session archival failed (with status code: ${err.response.status} - "${err.response.statusText}").`;
                         
                         nedb_logger.error(transfer.id, 'upload', error_message, err.response);
     
