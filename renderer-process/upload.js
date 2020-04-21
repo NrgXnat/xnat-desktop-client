@@ -584,11 +584,6 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
 $(document).on('click', 'a[data-subject_id]', function(e){
     resetSubsequentTabs();
 
-    $('#visit').html('');
-    if ($('#subject-session a.selected').length === 0) {
-        $('.project-subject-visits-holder').show();
-    }
-
     $(this).closest('ul').find('a').removeClass('selected');
     $(this).addClass('selected')
 
@@ -600,6 +595,10 @@ $(document).on('click', 'a[data-subject_id]', function(e){
 
     promise_visits(project_id, subject_id)
         .then(res => {
+            $('#visit').html('');
+            $('#var_visit').val('');
+            $('#var_visit_label').val('');
+
             let visits = res.data;
 
             let sorted_visits = visits.sort(function SortByTitle(a, b){
@@ -611,7 +610,7 @@ $(document).on('click', 'a[data-subject_id]', function(e){
             console.log(sorted_visits)
 
             sorted_visits.forEach(append_visit_row);
-
+            $('.project-subject-visits-holder').show();
         })
         .catch(handle_error);
 });
@@ -623,8 +622,8 @@ $(document).on('click', 'a[data-visit_id]', function(e){
     $(this).addClass('selected')
 
     // set Review data
-    $('#var_visit').val(get_form_value('visit_id', 'visit_label'));
-    $('#var_visit_id').val(get_form_value('visit_id', 'visit_id'));
+    $('#var_visit_label').val(get_form_value('visit_id', 'visit_label'));
+    $('#var_visit').val(get_form_value('visit_id', 'visit_id'));
 
     $('.tab-pane.active .js_next').removeClass('disabled');
 });
@@ -778,6 +777,14 @@ $(document).on('click', '.js_upload', function() {
             project_id: get_form_value('project_id', 'project_id'),
             subject_id: get_form_value('subject_id', 'subject_label')
         };
+        let visit_id = $('#var_visit').val();
+        if (visit_id) {
+            url_data['visit_id'] = visit_id;
+        }        
+        let subtype = $('#var_subtype').val();
+        if (subtype) {
+            url_data['subtype'] = subtype;
+        }
 
         let my_anon_variables = {};
 
@@ -1466,7 +1473,7 @@ function dicomParse(_files, root_path) {
 }
 
 function experiment_label() {
-    let modality = '';
+    let modality = full_modality = '';
     let subject_label = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
 
     let selected = $('#image_session').bootstrapTable('getSelections');
@@ -1485,6 +1492,7 @@ function experiment_label() {
                 allModalities[row.modality]++;
             } else {
                 allModalities[row.modality] = 1;
+                full_modality += row.modality;
             }
         }
         
@@ -1514,7 +1522,7 @@ function experiment_label() {
 
     let project_id = $('#var_project').val();
     let subject_id = get_form_value('subject_id', 'subject_id');
-    let visit_id = $('#var_visit_id').val();
+    let visit_id = $('#var_visit').val();
     let subtype = $('#var_subtype').val();
     let session_date = $('#image_session_date').text();
 
@@ -1535,7 +1543,7 @@ function experiment_label() {
         update_experiment_label(expt_label);
     }
 
-    promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, modality)
+    promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, full_modality)
         .then(res => {
             let expt_label = res.data;
             if (!expt_label) {

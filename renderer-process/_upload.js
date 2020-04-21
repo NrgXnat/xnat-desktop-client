@@ -459,7 +459,14 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     /**************************************************** */
     /**************************************************** */
 
-    const {project_id, subject_id, expt_label} = transfer.url_data;
+    const { project_id, subject_id, expt_label, visit_id, subtype } = transfer.url_data;
+    let qs = '';
+    if (visit_id) {
+        qs += '&VISIT=' + visit_id;
+    }
+    if (subtype) {
+        qs += '&SUBTYPE=' + subtype;
+    }
 
     let upload_timer = performance.now();
 
@@ -468,7 +475,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     let CancelToken = axios.CancelToken;
     let request_settings = {
         method: 'post',
-        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
+        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}${qs}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
         //url: 'http://localhost:3007',
         adapter: httpAdapter,
         auth: user_auth,
@@ -918,12 +925,20 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
     let CancelToken = axios.CancelToken;
 
 
-    const { project_id, subject_id, expt_label } = transfer.url_data;
+    const { project_id, subject_id, expt_label, visit_id, subtype } = transfer.url_data;
+    let qs = '';
+    if (visit_id) {
+        qs += '&VISIT=' + visit_id;
+    }
+    if (subtype) {
+        qs += '&SUBTYPE=' + subtype;
+    }
+
     let jsession_cookie = await auth.get_jsession_cookie()
 
     let request_settings = {
         method: 'post',
-        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
+        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}${qs}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
         auth: user_auth,
         onUploadProgress: function (progressEvent) {
             // Do whatever you want with the native progress event
