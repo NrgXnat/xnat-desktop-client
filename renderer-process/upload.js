@@ -600,6 +600,11 @@ $(document).on('click', 'a[data-subject_id]', function(e){
             $('#var_visit_label').val('');
 
             let visits = res.data;
+            if (!visits || visits.length === 0) {
+                $('.project-subject-visits-holder').hide();
+                $('.tab-pane.active .js_next').removeClass('disabled');
+                return;
+            }
 
             let sorted_visits = visits.sort(function SortByTitle(a, b){
                 var aLabel = a.name.toLowerCase();
@@ -610,6 +615,7 @@ $(document).on('click', 'a[data-subject_id]', function(e){
             console.log(sorted_visits)
 
             sorted_visits.forEach(append_visit_row);
+
             $('.project-subject-visits-holder').show();
         })
         .catch(handle_error);
@@ -1554,7 +1560,15 @@ function experiment_label() {
         })
         .catch(function(error) {
             if (error.response.status === 400) {
-                handleError('Unable to set session label per protocol template' + error.response.message);
+                swal({
+                    title: `Warning: unable to set session label per project protocol labeling template`,
+                    text: 'Unable to set session label per protocol template: ' + error.response.data + '. Reverting to default labeling.',
+                    icon: "warning",
+                    button: 'OK',
+                    dangerMode: true
+                }).then((proceed) => {
+                    default_set_experiment_label();
+                });
             } else {
                 default_set_experiment_label();
             }
