@@ -39,6 +39,13 @@ let pet_tracers = [];
 
 let anon_variables = {};
 
+const PROJECT_PARAM = 'project';
+const SUBJECT_PARAM = 'subject';
+const VISIT_PARAM = 'visit';
+const SUBTYPE_PARAM = 'protocol';
+
+let load_params = false;
+
 async function _init_variables() {
     /*
     console.log(user_settings.get())
@@ -390,6 +397,8 @@ $(document).on('page:load', '#upload-section', async function(e){
                     `)
                     
                 }
+
+                select_link_for_item('upload-project', ['project_id'], 'project_prm');
             } else {
                 no_upload_privileges_warning()
             }
@@ -538,7 +547,7 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
             console.log(sorted_subjects)
 
             sorted_subjects.forEach(append_subject_row);
-
+            select_link_for_item('subject-session', ['subject_label', 'subject_id'], 'subject_prm');
         })
         .catch(handle_error);
 
@@ -617,6 +626,7 @@ $(document).on('click', 'a[data-subject_id]', function(e){
             sorted_visits.forEach(append_visit_row);
 
             $('.project-subject-visits-holder').show();
+            select_link_for_item('visit', ['visit_id'], 'visit_prm');
         })
         .catch(handle_error);
 });
@@ -636,6 +646,7 @@ $(document).on('click', 'a[data-visit_id]', function(e){
 
 $(document).on('change', '#subtype', function(e){
     $('#var_subtype').val($(this).val());
+    $('.tab-pane.active .js_next').removeClass('disabled');
 });
 
 $(document).on('click', '.js_next:not(.disabled)', function() {
@@ -2008,4 +2019,44 @@ const summary_add = (text, label = '') => {
     let label_html = label ? `<b>${label}: </b>` : '';
 
     $('#summary_info').append(`<p>${label_html} ${text}</p>`);
+}
+
+ipc.on('launch_upload', function(e, data){
+    const params = data.PARAMS;
+    if (!params.hasOwnProperty(PROJECT_PARAM)) {
+        return;
+    }
+    $('#project_prm').val(params[PROJECT_PARAM]);
+    if (!params.hasOwnProperty(SUBJECT_PARAM)) {
+        return;
+    }
+    $('#subject_prm').val(params[SUBJECT_PARAM]);
+    if (!params.hasOwnProperty(VISIT_PARAM)) {
+        return;
+    }
+    $('#visit_prm').val(params[VISIT_PARAM]);
+    if (!params.hasOwnProperty(SUBTYPE_PARAM)) {
+        return;
+    }
+    $('#subtype').val(params[SUBTYPE_PARAM]).change();
+});
+
+function select_link_for_item(ulid, attrs, targetid) {
+    const $target = $('#' + targetid);
+    if ($target.length === 0) {
+        return;
+    }
+    const val = $target.val();
+    if (!val) {
+        return;
+    }
+    $target.val('');
+    for (let i = 0; i < attrs.length; i++) {
+        let attr = attrs[i];
+        let $link = $('#' + ulid + ' a[data-' + attr + '=' + val + ']');
+        if ($link.length > 0) {
+            $link.get(0).scrollIntoView();
+            $link.click();
+        }
+    }
 }

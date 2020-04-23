@@ -571,6 +571,11 @@ ipcMain.on('launch_download_modal', (e, item) => {
   post_message('launch_download_modal', item);
 })
 
+ipcMain.on('launch_upload', (e, item) => {
+  post_message('load:page', 'upload.html');
+  post_message('launch_upload', item);
+})
+
 ipcMain.on('log', (e, ...args) => {
   log(...args)
 })
