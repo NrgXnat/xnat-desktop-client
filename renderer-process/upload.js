@@ -325,7 +325,7 @@ function _init_session_selection_table(tbl_data) {
         classes: 'table-sm',
         theadClasses: 'thead-light',
         maintainMetaData: true,
-        singleSelect: true,
+        //singleSelect: true,
         uniqueId: 'id',
         columns: [
             {
