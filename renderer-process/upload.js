@@ -4,6 +4,7 @@ const path = require('path');
 const dicomParser = require('dicom-parser');
 const getSize = require('get-folder-size');
 const axios = require('axios');
+const https = require('https');
 require('promise.prototype.finally').shim();
 const auth = require('../services/auth');
 const api = require('../services/api');
@@ -36,6 +37,8 @@ let csrfToken = '';
 let xnat_server, user_auth, session_map, selected_session_id, defined_project_exp_labels, resseting_functions;
 let global_date_required, date_required, selected_session_data;
 let pet_tracers = [];
+
+let requestSettings = {};
 
 let anon_variables = {};
 
@@ -87,6 +90,13 @@ async function _init_variables() {
     xnat_server = settings.get('xnat_server');
 
     user_auth = auth.get_user_auth();
+    requestSettings.auth = user_auth;
+
+    let httpsOptions = { keepAlive: true };
+    if (auth.allow_insecure_ssl()) {
+        httpsOptions.rejectUnauthorized = false
+    }
+    requestSettings.httpsAgent = new https.Agent(httpsOptions);
 
     session_map = new Map();
     selected_session_id = null;
@@ -1829,16 +1839,12 @@ const no_upload_privileges_warning = () => {
 
 // allow_create_subject
 function global_allow_create_subject() {
-    return axios.get(xnat_server + '/data/config/applet/allow-create-subject?contents=true&accept-not-found=true', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/config/applet/allow-create-subject?contents=true&accept-not-found=true', requestSettings);
 }
 
 
 function project_allow_create_subject(project_id) {
-    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/allow-create-subject?contents=true&accept-not-found=true', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/allow-create-subject?contents=true&accept-not-found=true', requestSettings);
 }
 
 const handle_create_subject_response = (res) => {
@@ -1851,15 +1857,11 @@ const handle_create_subject_response = (res) => {
 
 // require_date
 function global_require_date() {
-    return axios.get(xnat_server + '/data/config/applet/require-date?contents=true&accept-not-found=true', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/config/applet/require-date?contents=true&accept-not-found=true', requestSettings);
 }
 
 function project_require_date(project_id) {
-    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/require-date?contents=true&accept-not-found=true', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/require-date?contents=true&accept-not-found=true', requestSettings);
 }
 
 const handle_global_require_date = (res) => {
@@ -1915,40 +1917,27 @@ const handle_error = (err) => {
 //================================
 
 function promise_projects() {
-    return axios.get(xnat_server + '/data/projects?permissions=edit&dataType=xnat:subjectData', {
-    //return axios.get(xnat_server + '/data/projects?accessible=true', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/projects?permissions=edit&dataType=xnat:subjectData', requestSettings);
 }
 
 function promise_project_experiments(project_id) {
-    return axios.get(xnat_server + '/data/projects/'+project_id+'/experiments?columns=ID,label,xnat:experimentData/meta/status', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/projects/'+project_id+'/experiments?columns=ID,label,xnat:experimentData/meta/status', requestSettings);
 }
 
 function promise_project_pet_tracers(project_id) {
-    return axios.get(xnat_server + `/data/projects/${project_id}/config/tracers/tracers?contents=true&accept-not-found=true`, {
-        auth: user_auth
-    })
+    return axios.get(xnat_server + `/data/projects/${project_id}/config/tracers/tracers?contents=true&accept-not-found=true`, requestSettings)
 }
 
 function promise_server_pet_tracers() {
-    return axios.get(xnat_server + `/data/config/tracers/tracers?contents=true&accept-not-found=true`, {
-        auth: user_auth
-    })
+    return axios.get(xnat_server + `/data/config/tracers/tracers?contents=true&accept-not-found=true`, requestSettings)
 }
 
 function promise_subjects(project_id) {
-    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects?columns=group,insert_date,insert_user,project,label', {
-        auth: user_auth
-    })
+    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects?columns=group,insert_date,insert_user,project,label', requestSettings)
 }
     
 function promise_visits(project_id, subject_id) {
-    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_id + '/visits?open=true', {
-        auth: user_auth
-    })
+    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_id + '/visits?open=true', requestSettings)
 }
 
 function promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, modality) {
@@ -1960,21 +1949,15 @@ function promise_experiment_label(project_id, subject_id, visit_id, subtype, ses
     params.append('subtype', subtype);
     params.append('date', session_date);
     params.append('dateFormat', 'yyyyMMdd');
-    return axios.post(xnat_server + '/xapi/protocols/generate_label', params, {
-        auth: user_auth
-    })
+    return axios.post(xnat_server + '/xapi/protocols/generate_label', params, requestSettings)
 }
 
 function promise_project_subject(project_id, subject_label) {
-    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?format=json', {
-        auth: user_auth
-    })
+    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?format=json', requestSettings)
 }
 
 function promise_create_project_subject(project_id, subject_label, group) {
-    return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group=' + group + '&event_reason=XNAT+Application' + '&XNAT_CSRF=' + csrfToken, {
-        auth: user_auth
-    })
+    return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group=' + group + '&event_reason=XNAT+Application' + '&XNAT_CSRF=' + csrfToken, requestSettings)
 }
 
 
