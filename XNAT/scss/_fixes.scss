@@ -208,6 +208,14 @@ body>.ui-pnotify {
     overflow: auto;
 }
 
+.notice {
+    color: #ef6544;
+    font-style: italic;
+    span {
+        font-style: normal;
+    }
+}
+
 // SWEETALERT style FIX
 .swal-modal {
     border-radius: 0;
@@ -245,4 +253,14 @@ body>.ui-pnotify {
 // Pnotify
 .stack-bar-bottom {
     margin-bottom: 10px;
+}
+
+
+/* MAGIC-CHECK */
+
+.magic-checkbox + label {
+    &:before {
+      border-radius: 0px;
+      background-color: white;
+    }
 }

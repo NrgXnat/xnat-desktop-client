@@ -187,68 +187,108 @@
                         </div>
                         -->
 
-                        <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
-                            <div class="col" id="anon_variables">
+                        <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-verify">
+                            <div id="custom_upload">
+                                <div class="col" id="anon_variables">
 
-                                <div class="form-group row">
-                                    <label class="col-sm-2 col-form-label">
-                                        <b>Project</b>:
-                                    </label>
-                                    <div class="input-group col-sm-6">
-                                        <input class="form-control" type="text" name="project" id="var_project" value="xxx" required readonly>
+                                    <div class="form-group row">
+                                        <label class="col-sm-2 col-form-label">
+                                            <b>Project</b>:
+                                        </label>
+                                        <div class="input-group col-sm-6">
+                                            <input class="form-control" type="text" name="project" id="var_project"
+                                                value="xxx" required readonly>
+                                        </div>
+                                    </div>
+                                    <div class="form-group row">
+                                        <label class="col-sm-2 col-form-label">
+                                            <b>Subject</b>:
+                                        </label>
+                                        <div class="input-group col-sm-6">
+                                            <select class="form-control" id="var_subject" name="subject"
+                                                style="width: 40%" required></select>
+                                            <button class="btn btn-gray" type="button" data-toggle="modal"
+                                                data-target="#new-subject">Create new subject</button>
+                                        </div>
+                                    </div>
+
+
+
+                                    <div class="form-group row" id="experiment_label_container">
+                                        <label for="experiment_label" class="col-sm-2 col-form-label">
+                                            <b>Experiment Label
+                                                <br>(Session)</b>:</label>
+                                        <div class="input-group col-sm-10">
+                                            <input class="form-control" type="text" name="experiment_label"
+                                                id="experiment_label" value="" required>
+                                            <div class="invalid-feedback">
+                                                Allowed characters: alphanumeric, dash(-) and underscore(_)
+                                            </div>
+                                            <small>This field has been auto-populated. If you specify a session label
+                                                that matches a
+                                                session already in this project, XNAT will attempt to merge selected
+                                                scans into
+                                                the existing session</small>
+
+                                        </div>
+                                    </div>
+                                    <div id="additional-upload-fields"></div>
+
+                                    <br>
+                                    <br>
+
+                                </div>
+
+                                <div class="col">
+                                    <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
+                                    <p>Note: Unchecked scans will not be uploaded</p>
+                                    <table class="table table-bordered" id="image_session"></table>
+                                </div>
+
+                                <div class="col">
+                                    <h2 class="section-title">Session Summary:</h2>
+                                    <p id="session_info"></p>
+                                </div>
+
+                                <div class="row action-button-row">
+                                    <div class="col-12">
+                                        <div class="text-right button-row">
+                                            <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                            <button type="button" class="btn btn-gray js_prev" type="button">
+                                            <i class="fas fa-angle-left"></i> Prev</button>
+                                            <button type="button" class="btn btn-blue js_upload">Upload</button>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="form-group row">
-                                    <label class="col-sm-2 col-form-label">
-                                        <b>Subject</b>:
-                                    </label>
-                                    <div class="input-group col-sm-6">
-                                        <select class="form-control" id="var_subject" name="subject" style="width: 40%" required></select>
-                                        <button class="btn btn-gray" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
-                                    </div>
-                                </div>
+                            </div><!-- #custom_upload -->
 
+                            <div id="quick_upload">
+                                <div class="col">
+                                    <h2>Quick Upload</h2>
+                                    <p>A "quick upload" process assumes that you do not need to make any modifications 
+                                        to your session or scan data, including visual PHI inspection or pixel 
+                                        anonymization, before uploading to your XNAT. You can switch to the 
+                                        Custom Upload Process if you wish.  </p>
+                                </div>
                                 
 
-                                <div class="form-group row" id="experiment_label_container">
-                                    <label for="experiment_label" class="col-sm-2 col-form-label">
-                                        <b>Experiment Label
-                                            <br>(Session)</b>:</label>
-                                    <div class="input-group col-sm-10">
-                                        <input class="form-control" type="text" name="experiment_label" id="experiment_label" value="" required>
-                                        <div class="invalid-feedback">
-                                            Allowed characters: alphanumeric, dash(-) and underscore(_)
+                                <div class="col">
+                                    <table class="table table-bordered" id="selected_session_tbl"></table>
+                                </div>
+
+                                <div class="row action-button-row">
+                                    <div class="col-12">
+                                        <div class="text-right button-row">
+                                            <button type="button" data-href="home.html"
+                                                class="btn btn-gray">Cancel</button>
+                                            <button type="button" class="btn btn-gray js_prev" type="button">
+                                                <i class="fas fa-angle-left"></i> Prev</button>
+                                            <button type="button" class="btn btn-blue js_upload">Upload</button>
                                         </div>
-                                        <small>This field has been auto-populated. If you specify a session label that matches a
-                                            session already in this project, XNAT will attempt to merge selected scans into
-                                            the existing session</small>
-                                            
                                     </div>
                                 </div>
-                                <div id="additional-upload-fields"></div>
 
-                                <br>
-                                <br>
-
-                            </div>
-
-                            <div class="col">
-                                <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
-                                <p>Note: Unchecked scans will not be uploaded</p>
-                                <table class="table table-bordered" id="image_session"></table>
-                            </div>
-
-                            <div class="col">
-                                <h2 class="section-title">Session Summary:</h2>
-                                <p id="session_info"></p>
-                            </div>
-
-                            <div class="col text-right button-row">
-                                <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                                <button type="button" class="btn btn-gray js_prev" type="button">
-                                    <i class="fas fa-angle-left"></i> Prev</button>
-                                <button type="button" class="btn btn-blue js_upload">Upload</button>
-                            </div>
+                            </div><!-- #quick_upload -->
 
                         </div>
                         <div class="tab-pane fade" id="nav-summary" role="tabpanel" aria-labelledby="nav-profile-tab">
@@ -356,12 +396,16 @@
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="exampleModalLongTitle">Please select one session</h5>
-                            <p style="width: 100%; text-align: right;">Notice: For this test only one selected session is allowed!</p>
+                            
                             <!-- <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                                 <i class="far fa-window-close"></i>
                             </button> -->
                         </div>
                         <div class="modal-body">
+                            <p>Select one or more sessions to upload</p>
+
+                            <p class="notice" data-display="require_date"><span>&#x26A0;</span> Project requires Date Verification before upload can continue</p>
+                            
                             <form>
                                 <div class="row">
                                     <div class="col">
@@ -372,6 +416,10 @@
                         </div>
 
                         <div class="modal-footer">
+                            <div class="mr-auto" data-display="require_date">
+                                <input type="checkbox" class="magic-checkbox" name="skip_session_date_validation" id="skip_session_date_validation">
+                                <label for="skip_session_date_validation">I don't know the dates of these sessions</label>
+                            </div>
                             <button type="button" class="btn btn-gray js_cancel_session_selection" type="button" data-dismiss="modal">Cancel</button>
                             <button type="button" class="btn btn-gray js_custom_upload" type="button" disabled>Custom Upload</button>
                             <button type="button" class="btn btn-blue js_quick_upload" type="button" disabled>Quick Upload</button>

@@ -26,6 +26,8 @@ const db_uploads = remote.require('./services/db/uploads')
 
 const electron_log = remote.require('./services/electron_log');
 
+const { selected_sessions_table } = require('../services/tables/upload-prepare');
+
 const NProgress = require('nprogress');
 NProgress.configure({ 
     trickle: false,
@@ -278,6 +280,36 @@ function _init_img_sessions_table(table_rows) {
     $img_session_tbl.bootstrapTable('resetView');
 }
 
+
+function toggle_upload_buttons() {
+    let selected = $('#found_sessions').bootstrapTable('getSelections');
+
+    let date_required = site_wide_settings.require_date || project_settings.require_date;
+
+    let skip_session_date_validation = $('#skip_session_date_validation').is(':checked');
+
+    console.log({skip_session_date_validation});
+
+    let invalid_days = false;
+
+    if (date_required && !skip_session_date_validation) {
+        selected.forEach(sess => {
+            if (sess.study_date && sess.study_date.substr(8,2) !== sess.entered_day) {
+                invalid_days = true;
+            }
+        })
+    }
+
+    
+
+    $('.js_custom_upload, .js_quick_upload').prop('disabled', invalid_days || selected.length == 0);
+    //$('.js_custom_upload').prop('disabled', invalid_days || selected.length == 0);
+
+    $('.js_custom_upload').prop('disabled', selected.length != 1)
+}
+
+$(document).on('change', '#skip_session_date_validation', toggle_upload_buttons)
+
 function _init_session_selection_table(tbl_data) {
     let $found_sessions_tbl = $('#found_sessions');
 
@@ -294,30 +326,12 @@ function _init_session_selection_table(tbl_data) {
 
     window.foundSessionsCheckbox = {
         'change input[type="checkbox"]': function (e, value, row, index) {
-            // console.log({value, e_target: e.target});
-            // console.log($(e.target).is(":checked"))
             toggle_upload_buttons()
         }
     }
 
     $('.js_custom_upload, .js_quick_upload').prop('disabled', true);
 
-    function toggle_upload_buttons() {
-        let selected = $found_sessions_tbl.bootstrapTable('getSelections');
-
-        let invalid_days = false;
-
-        if (date_required) {
-            selected.forEach(sess => {
-                if (sess.study_date && sess.study_date.substr(8,2) !== sess.entered_day) {
-                    invalid_days = true;
-                }
-            })
-        }
-
-        //$('.js_custom_upload, .js_quick_upload').prop('disabled', invalid_days || selected.length == 0);
-        $('.js_custom_upload').prop('disabled', invalid_days || selected.length == 0);
-    }
 
     $found_sessions_tbl.bootstrapTable({
         height: tbl_data.length > 8 ? 400 : 0,
@@ -383,7 +397,7 @@ function _init_session_selection_table(tbl_data) {
                 events: 'foundSessionsEvents',
                 width: 152,
                 sortable: false,
-                class: '',
+                class: project_settings.require_date ? 'emphasize' : '',
                 formatter: function(value, row, index, field) {
                     //let parsed_value = value ? value : (row.study_date ? row.study_date.substr(8,2) : false)
                     
@@ -1049,14 +1063,33 @@ $(document).on('click', '.js_quick_upload', function(){
         return row.id
     })
 
+    quick_upload_selection(selected)
+
     console.log({ids});
+
+    $('#session-selection').modal('hide');
 });
 
 $(document).on('hidden.bs.modal', '#session-selection', function(e) {
     console.log(`**** selected_session_id: ${selected_session_id} *****`);
+
     if (selected_session_id) {
         $('.tab-pane.active .js_next').trigger('click');
+        
+        $('#nav-verify').data('upload_method', 'custom_upload');
     }
+});
+
+$(document).on('show.bs.modal', '#session-selection', function(e) {
+    let date_required = site_wide_settings.require_date || project_settings.require_date;
+    $('[data-display="require_date"]').toggle(date_required);
+
+    let tbl_data = $(this).data('tbl_data')
+    let title = tbl_data.length == 1 ? `Found 1 session` : `Found ${tbl_data.length} sessions`;
+
+
+    $('.modal-header .modal-title', $(this)).html(title);
+
 });
 
 $(document).on('shown.bs.modal', '#session-selection', function(e) {
@@ -1081,6 +1114,44 @@ function generate_subject_dropdown(selected_id = false) {
 $(document).on('change', '#var_subject', function() {
     $('#experiment_label').val(experiment_label());
 })
+
+function quick_upload_selection(_sessions) {
+    let session_ids = _sessions.map(sess => sess.id)
+
+    let tbl_data = [];
+
+    session_map.forEach(function(cur_session, key) {
+        console.log({cur_session});
+
+        if (!session_ids.includes(key)) {
+            console.log('SKIPPING: ' + key);
+            return
+        }
+
+        
+        let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
+
+        let studyDate = getStudyDate(cur_session.date);
+
+        let session_data = {
+            id: key,
+            patient_name: cur_session.patient.name,
+            patient_id: cur_session.patient.id,
+            label: session_label,
+            modality: cur_session.modality.join(", "),
+            scan_count: cur_session.scans.size,
+            study_date: studyDate
+        }
+
+        tbl_data.push(session_data);
+    });
+
+    console.log({session_ids, tbl_data});
+
+    selected_sessions_table($('#selected_session_tbl'), tbl_data)
+
+    $('.tab-pane.active .js_next').removeClass('disabled');
+}
 
 function select_session_id(_session) {
     selected_session_id = _session.id;
@@ -1580,7 +1651,8 @@ function dicomParse(_files, root_path) {
                 });
 
                 _init_session_selection_table(tbl_data);
-                $('#session-selection').modal('show');
+
+                $('#session-selection').data('tbl_data', tbl_data).modal('show');
         }
 
         $.unblockUI();

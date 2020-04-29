@@ -2529,6 +2529,11 @@ lru-cache@^4.0.1:
     pseudomap "^1.0.2"
     yallist "^2.1.2"
 
+magic-check@^1.0.3:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/magic-check/-/magic-check-1.0.3.tgz#3236fb720f33ec8b821663247547556da665be42"
+  integrity sha1-Mjb7cg8z7IuCFmMkdUdVbaZlvkI=
+
 make-dir@^1.0.0:
   version "1.3.0"
   resolved "https://registry.yarnpkg.com/make-dir/-/make-dir-1.3.0.tgz#79c1033b80515bd6d24ec9933e860ca75ee27f0c"
