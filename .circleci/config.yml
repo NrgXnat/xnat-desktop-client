@@ -23,7 +23,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-win-linux-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
           name: Create link to Windows 64-bit JRE
           command: ln -s /opt/java/win-x64/jre build_resources/jre/win-x64
@@ -34,7 +34,7 @@ jobs:
           name: Install and build node dependencies
           command: yarn install
       - save_cache:
-          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-win-linux-{{ .Branch }}-{{ checksum "package.json" }}
           paths:
             - node_modules
       - run:
@@ -113,7 +113,7 @@ jobs:
             JAVA_HOME=$(/usr/libexec/java_home)
             yarn install
       - save_cache:
-          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
           paths:
             - node_modules
             - build_resources/jre/mac
