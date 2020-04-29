@@ -609,7 +609,7 @@ $(document).on('click', 'a[data-subject_id]', function(e){
             $('#var_visit_label').val('');
 
             let visits = res.data;
-            if (!visits || visits.length === 0) {
+            if (!visits || !Array.isArray(visits) || visits.length === 0) {
                 $('.project-subject-visits-holder').hide();
                 $('.tab-pane.active .js_next').removeClass('disabled');
                 return;
