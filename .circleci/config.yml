@@ -4,6 +4,7 @@ build_config: &build_config
   CACHE_VERSION: v1
   NODE_VERSION: "v10.20.1"
   NVM_VERSION: "0.35.3"
+  JAVA_TOKEN: "8.46.0.19-CA"
   JAVA_VERSION: "zulu8.46.0.19-ca-jdk8.0.252"
 
 version: 2
@@ -100,12 +101,23 @@ jobs:
       - run:
           name: Download and expand JRE for Mac
           command: |
+            [[ -d build_resources/jre/mac ]] && {
+                [[ $(find build_resources/jre/mac -mindepth 1 -maxdepth 1 -type d -name bin | wc -l | tr -d ' ') == 0 ||
+                   ! -f build_resources/jre/mac/bin/java ||
+                   $(build_resources/jre/mac/bin/java -version 2>&1 | grep ${JAVA_TOKEN} | wc -l | tr -d ' ') == 0 ]] && {
+                    rm -rf build_resources/jre/mac;
+                 }
+            }
             [[ ! -d build_resources/jre/mac ]] && {
                 JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
+                echo "No JRE found, downloading ${JAVA_VERSION}"
                 http --download https://cdn.azul.com/zulu/bin/${JAVA_TARGET}.zip
                 unzip ${JAVA_TARGET}.zip
                 mv ${JAVA_TARGET}/zulu-8.jdk/Contents/Home/jre build_resources/jre/mac
                 rm -rf ${JAVA_TARGET} ${JAVA_TARGET}.zip
+                echo "JRE installed, using version: $(build_resources/jre/mac/bin/java -version 2>&1 | grep Server)"
+            } || {
+                echo "Existing JRE found, using version: $(build_resources/jre/mac/bin/java -version 2>&1 | grep Server)"
             }
       - run:
           name: Install and build node dependencies
