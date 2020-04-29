@@ -104,8 +104,8 @@ jobs:
                 JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
                 http --download https://cdn.azul.com/zulu/bin/${JAVA_TARGET}.zip
                 unzip ${JAVA_TARGET}.zip
-                mv ${JAVA_TARGET} build_resources/jre/mac
-                rm -rf ${JAVA_TARGET}.zip
+                mv ${JAVA_TARGET}/zulu-8.jdk/Contents/Home/jre build_resources/jre/mac
+                rm -rf ${JAVA_TARGET} ${JAVA_TARGET}.zip
             }
       - run:
           name: Install and build node dependencies
