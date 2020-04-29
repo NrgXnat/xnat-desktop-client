@@ -310,6 +310,16 @@ function toggle_upload_buttons() {
 
 $(document).on('change', '#skip_session_date_validation', toggle_upload_buttons)
 
+$(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]', function(){
+    let upload_method = $('#nav-verify').data('upload_method')
+
+    if (upload_method === 'quick_upload') {
+        $('#quick_upload').show().siblings().hide()
+    } else {
+        $('#custom_upload').show().siblings().hide()
+    }
+})
+
 function _init_session_selection_table(tbl_data) {
     let $found_sessions_tbl = $('#found_sessions');
 
@@ -1075,8 +1085,6 @@ $(document).on('hidden.bs.modal', '#session-selection', function(e) {
 
     if (selected_session_id) {
         $('.tab-pane.active .js_next').trigger('click');
-        
-        $('#nav-verify').data('upload_method', 'custom_upload');
     }
 });
 
@@ -1120,6 +1128,8 @@ function quick_upload_selection(_sessions) {
 
     let tbl_data = [];
 
+    let xnat_subject_ids = []
+
     session_map.forEach(function(cur_session, key) {
         console.log({cur_session});
 
@@ -1127,6 +1137,8 @@ function quick_upload_selection(_sessions) {
             console.log('SKIPPING: ' + key);
             return
         }
+
+        let generated_subject = xnat_subject_ids.find((item) => item.patient_id === cur_session.patient.id)
 
         
         let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
@@ -1137,6 +1149,7 @@ function quick_upload_selection(_sessions) {
             id: key,
             patient_name: cur_session.patient.name,
             patient_id: cur_session.patient.id,
+            xnat_subject_id: generate_random_string(10),
             label: session_label,
             modality: cur_session.modality.join(", "),
             scan_count: cur_session.scans.size,
@@ -1150,7 +1163,23 @@ function quick_upload_selection(_sessions) {
 
     selected_sessions_table($('#selected_session_tbl'), tbl_data)
 
+    selected_session_id = session_ids;
+
     $('.tab-pane.active .js_next').removeClass('disabled');
+
+    $('#nav-verify').data('upload_method', 'quick_upload');
+}
+
+function generate_random_string(length) {
+    let str = ['A', 'S', 'D', 'F', 'G', 'H','J','K','L','P','M','N', '0', '1', '2', '3', '4','5','6','7','8','9'];
+
+    let new_str = '';
+    for(let i=0; i < length; i++) {
+        new_str += str[Math.floor(Math.random() * str.length)];
+    }
+
+    return new_str
+
 }
 
 function select_session_id(_session) {
@@ -1282,6 +1311,8 @@ function select_session_id(_session) {
     }
 
     $('.tab-pane.active .js_next').removeClass('disabled');
+
+    $('#nav-verify').data('upload_method', 'custom_upload');
 }
 
 $(document).on('click', 'button[data-session_id]', function(e){

@@ -12,7 +12,7 @@ function selected_sessions_table($tbl, tbl_data) {
             {
                 field: 'id',
                 title: 'StudyInstanceUID',
-                visible: false
+                visible: true
             },
             {
                 field: 'patient_name',
@@ -25,6 +25,12 @@ function selected_sessions_table($tbl, tbl_data) {
                 title: 'Patient ID',
                 sortable: true,
                 class: 'break-all'
+            },
+            {
+                field: 'xnat_subject_id',
+                title: 'XNAT SUBJECT ID',
+                sortable: true,
+                class: 'break-all highlight'
             },
             {
                 field: 'label',
@@ -48,7 +54,6 @@ function selected_sessions_table($tbl, tbl_data) {
                 field: 'study_date',
                 title: 'Study Date',
                 class: 'right-aligned',
-                sortable: false,
                 visible: true,
                 formatter: function(value, row, index, field) {
                     return value ? value : 'N/A';
