@@ -2,6 +2,8 @@ const mizer = exports;
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
+const https = require('https');
+const auth = require('./services/auth');
 
 //console.log(__dirname);
 
@@ -14,6 +16,13 @@ fs.writeFileSync('mizer.js.txt', "MizerLibs: [" + _app_path +  "]" + path.resolv
     console.log('Error writing mizer.js.txt');
 });
 */
+
+
+let httpsOptions = { keepAlive: true };
+if (auth.allow_insecure_ssl()) {
+    httpsOptions.rejectUnauthorized = false
+}
+let httpsAgent = new https.Agent(httpsOptions)
 
 let java;
 let jarDir;
@@ -287,6 +296,7 @@ mizer.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
 function get_global_anon_script(xnat_server, user_auth) {
     return new Promise(function(resolve, reject) {
         axios.get(xnat_server + '/data/config/anon/script?format=json', {
+            httpsAgent: httpsAgent,
             auth: user_auth
         }).then(resp => {
             //console.log('get_global_anon_script', resp.data.ResultSet.Result);
@@ -319,6 +329,7 @@ function get_project_anon_script(xnat_server, user_auth, project_id) {
 
     return new Promise(function(resolve, reject) {
         axios.get(xnat_server + '/data/projects/' + project_id + '/config/anon/projects/' + project_id + '?format=json', {
+            httpsAgent: httpsAgent,
             auth: user_auth
         }).then(resp => {
             console.log('get_project_anon_script', resp.data.ResultSet.Result);

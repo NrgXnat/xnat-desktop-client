@@ -1,6 +1,6 @@
 {
   "name": "xnat-desktop-client",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "extraMetadata": {
@@ -31,8 +31,9 @@
     "package-win": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=win32 --arch=ia32 --icon=assets/icons/win/XDC.ico --prune=true --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"Electron XNAT App\"",
     "package-linux": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=linux --arch=x64 --icon=assets/icons/png/XDC.png --prune=true --out=release-builds",
     "postinstall": "electron-builder install-app-deps",
-    "prepublish": "find build_resources -name \"._*\" -exec rm '{}' \\;",
-    "modify-file": "node modify.js"
+    "prepublish": "find build_resources -name \"._*\" -exec rm '{}' \\;; ./fix-java-libdir.sh;",
+    "modify-file": "node modify.js",
+    "fix-java-libdir": "./fix-java-libdir.sh"
   },
   "author": "Washington University in St. Louis",
   "license": "ISC",
