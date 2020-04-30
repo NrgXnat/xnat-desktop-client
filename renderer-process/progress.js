@@ -104,13 +104,8 @@ function _init_upload_progress_table() {
 
                     if (typeof value !== 'string') {
                         let my_value = parseFloat(value);
-                        return `
-                        <div class="progress-container">
-                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${my_value}" aria-valuemin="0" aria-valuemax="100" style="width:${my_value}%; height:25px;">
-                                <span class="sr-only">In progress</span>
-                            </div>
-                        </div>
-                        `;
+                        let my_text = my_value === 100 ? 'Upload complete, archiving' : '';
+                        return progress_bar_html(my_value, my_text);
                     } else {
                         //return value
                         return value === 'finished' ? 'Completed' : value;
@@ -186,7 +181,6 @@ function _init_upload_progress_table() {
                     session_datetime += transfer.session_data.studyTime ? ' ' + transfer.session_data.studyTime : '00:00:00'
                 }
 
-                let status = transfer.status === "finished" && transfer.summary.commit_errors ? "xnat_error" : transfer.status;
                 let item = {
                     id: transfer.id,
                     date: session_datetime,
@@ -194,7 +188,7 @@ function _init_upload_progress_table() {
                     experiment_label: transfer.anon_variables.experiment_label,
                     //transfer_type: 'Upload',
                     transfer_date: transfer.transfer_start,
-                    status: status,
+                    status: transfer.status,
                     actions: '',
                     server: transfer.xnat_server.split('://')[1],
                     user: transfer.user,
@@ -1009,14 +1003,7 @@ function _init_upload_details_table(transfer_id) {
                     title: 'Upload Progress',
                     sortable: false,
                     formatter: function(value, row, index, field) {
-                        let percent = value;
-                        return `
-                        <div class="progress-container">
-                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="100" style="width:${percent}%; height:25px;">
-                                <span class="sr-only">In progress</span>
-                            </div>
-                        </div>
-                        `;
+                        return progress_bar_html(value);
                     }
                 },
                 {
@@ -1559,6 +1546,17 @@ function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status)
     });
 }
 
+function progress_bar_html(my_value, my_text) {
+    return `
+    <div class="progress-container">
+        <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${my_value}" aria-valuemin="0" aria-valuemax="100" style="width:${my_value}%; height:25px;">
+            ${my_text || ''}
+            <span class="sr-only">In progress</span>
+        </div>
+    </div>
+    `;
+}
+
 ipc.on('upload_finished',function(e, transfer_id){
     let $modal_content = $(`#upload-details [data-id=${transfer_id}]`);
 
@@ -1591,6 +1589,9 @@ ipc.on('progress_cell',function(e, item){
         if (!reinit) {
             let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
             $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
+            if (percent === 100) {
+                $progress_bar.append('Upload complete, archiving');
+            }
         }
 
 
@@ -1684,4 +1685,3 @@ ipc.on('global_pause_status', function(e, item) {
     global_pause_status(item)
     // $('.js_pause_all').html(pause_btn_content(item));
 })
-

@@ -641,15 +641,16 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                 if (num_updated) {
                     Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
                     nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
-                    
-                    ipc.send('progress_cell', {
-                        table: '#upload_monitor_table',
-                        id: transfer.id,
-                        field: 'status',
-                        value: 'finished'
+                    // have to split this out bc a 301 indicates archival and goes into the catch block, whereas 200 means prearchived so we are in fact finished
+                    db_uploads.updateProperty(transfer.id, 'status', 'finished', function() {
+                        ipc.send('progress_cell', {
+                            table: '#upload_monitor_table',
+                            id: transfer.id,
+                            field: 'status',
+                            value: 'finished'
+                        });
+                        ipc.send('upload_finished', transfer.id);
                     });
-                    
-                    ipc.send('upload_finished', transfer.id);
                 }
             })
             .catch(err => {
@@ -661,39 +662,40 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                     let error_message = `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`;
                     
                     nedb_logger.error(transfer.id, 'upload', error_message, err.response);
-
-                    update_transfer_summary(transfer.id, 'commit_errors', error_message);
-
-                    ipc.send('progress_cell', {
-                        table: '#upload_monitor_table',
-                        id: transfer.id,
-                        field: 'status',
-                        value: 'xnat_error'
-                    });
                     
-                    ipc.send('upload_finished', transfer.id);
+                    db_uploads.updateProperty(transfer.id, 'status', 'xnat_error', function() {
+                        update_transfer_summary(transfer.id, 'commit_errors', error_message);
+                    
+                        ipc.send('progress_cell', {
+                            table: '#upload_monitor_table',
+                            id: transfer.id,
+                            field: 'status',
+                            value: 'xnat_error'
+                        });
+                        
+                        ipc.send('upload_finished', transfer.id);
+                    });
                 } else {
                     console_log(`+++ SESSION ARCHIVED +++`);
                     
                     session_link = `${xnat_server}/data/archive/projects/${project_id}/subjects/${subject_id}/experiments/${expt_label}?format=html`
                     
-                    db_uploads._updateProperty(transfer.id, 'session_link', session_link)
-                        .then(num_updated => {
-                            console_red('num_updated 2', {num_updated})
-                            if (num_updated) {
-                                Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
-                                nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
-                                
-                                ipc.send('progress_cell', {
-                                    table: '#upload_monitor_table',
-                                    id: transfer.id,
-                                    field: 'status',
-                                    value: 'finished'
-                                });
-
-                                ipc.send('upload_finished', transfer.id);
+                    db_uploads().update({ id: transfer.id }, {$set: {
+                                status: 'finished', 
+                                session_link: session_link
                             }
-                        });
+                        }, function() {
+                            Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
+                            nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
+                            ipc.send('progress_cell', {
+                                table: '#upload_monitor_table',
+                                id: transfer.id,
+                                field: 'status',
+                                value: 'finished'
+                            });
+                            ipc.send('upload_finished', transfer.id);
+                        }
+                    );
                 }
             })
             .finally(() => {
@@ -1013,7 +1015,7 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
             try {
                 data.transfer = await mark_uploaded(transfer.id, series_id);
     
-                nedb_logger.success(transfer.id, 'upload', `Series uploaded to prearchive ${series_id}.`);
+                nedb_logger.success(transfer.id, 'upload', `Series uploaded ${series_id}.`);
                 
                 _queue_.remove(transfer.id, series_id);
     
@@ -1250,19 +1252,18 @@ function mark_uploaded(transfer_id, series_id) {
     
             let finished = transfer.table_rows.length - transfer.series_ids.length;
             let total = transfer.table_rows.length;
-            let new_status = finished == total ? 'finished' : finished / total * 100
+            let percent_complete = finished / total * 100
     
-            transfer.status = new_status;
+            transfer.status = percent_complete;
     
             ipc.send('progress_cell', {
                 table: '#upload_monitor_table',
                 id: transfer_id,
                 field: "status",
-                value: (finished / total * 100)
+                value: percent_complete
             });
-            
             db_uploads().update({ id: transfer_id }, {$set: {
-                    status: new_status, 
+                    status: percent_complete, 
                     series_ids: transfer.series_ids,
                     done_series_ids: transfer.done_series_ids
                 }
