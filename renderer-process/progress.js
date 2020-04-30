@@ -104,7 +104,7 @@ function _init_upload_progress_table() {
 
                     if (typeof value !== 'string') {
                         let my_value = parseFloat(value);
-                        let my_text = my_value === 100 ? 'Upload complete, archiving' : '';
+                        let my_text = my_value === 100 ? 'Archiving...' : '';
                         return progress_bar_html(my_value, my_text);
                     } else {
                         //return value
@@ -1590,7 +1590,7 @@ ipc.on('progress_cell',function(e, item){
             let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
             $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
             if (percent === 100) {
-                $progress_bar.append('Upload complete, archiving');
+                $progress_bar.append('Archiving...');
             }
         }
 
