@@ -2,9 +2,9 @@ build_config: &build_config
   BUILD_IMAGE_NAME: xnat/node-java-build
   BUILD_IMAGE_TAG: latest
   CACHE_VERSION: v1
-  NODE_VERSION: "8.16.1"
-  NVM_VERSION: "0.35.0"
-  JAVA_VERSION: "zulu8.40.0.25-ca-jre8.0.222"
+  NODE_VERSION: "v10.20.1"
+  NVM_VERSION: "0.35.3"
+  JAVA_VERSION: "zulu8.46.0.19-ca-jdk8.0.252"
 
 version: 2
 
@@ -23,7 +23,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-win-linux-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
           name: Create link to Windows 64-bit JRE
           command: ln -s /opt/java/win-x64/jre build_resources/jre/win-x64
@@ -34,7 +34,7 @@ jobs:
           name: Install and build node dependencies
           command: yarn install
       - save_cache:
-          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-win-linux-{{ .Branch }}-{{ checksum "package.json" }}
           paths:
             - node_modules
       - run:
@@ -75,14 +75,14 @@ jobs:
       <<: *build_config
 
     macos:
-      xcode: "11.1.0"
+      xcode: "11.4.1"
 
     working_directory: ~/build
 
     steps:
       - run:
-          name: Install and upgrade httpie
-          command: pip install --upgrade httpie
+          name: Install httpie
+          command: HOMEBREW_NO_AUTO_UPDATE=1 brew install httpie
       - run:
           name: Install NVM and node
           command: |
@@ -90,7 +90,7 @@ jobs:
             http --body https://raw.githubusercontent.com/creationix/nvm/v${NVM_VERSION}/install.sh | bash
             echo "export NVM_DIR=\""'${HOME}'"/.nvm\"" >> ~/.bash_profile
             echo "[ -s \""'${NVM_DIR}'"/nvm.sh\" ] && source \""'${NVM_DIR}'"/nvm.sh\"" >> ~/.bash_profile
-            source ~/.bash_profile
+            source ${HOME}/.nvm/nvm.sh
             nvm install ${NODE_VERSION}
             nvm alias default ${NODE_VERSION}
             nvm use default
@@ -113,7 +113,7 @@ jobs:
             JAVA_HOME=$(/usr/libexec/java_home)
             yarn install
       - save_cache:
-          key: cache-${CACHE_VERSION}-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
           paths:
             - node_modules
             - build_resources/jre/mac
