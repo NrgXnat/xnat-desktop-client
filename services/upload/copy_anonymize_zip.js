@@ -5,6 +5,8 @@ const archiver = require('archiver');
 const remote = require('electron').remote;
 const mizer = remote.require('./mizer');
 
+const { uuidv4 } = require('./../app_utils');
+
 const filePromiseChain = (funcs) => {
     const reducer = (promise, func) => {
         return promise.then(result => {
@@ -35,7 +37,7 @@ const filePromiseChain = (funcs) => {
     }))
 }
 
-const get_unique_copy_path = (file, target_dir) => {
+const get_unique_copy_path_old = (file, target_dir) => {
     // Returns:
     // { root: '/',
     //   dir: '/home/user/dir',
@@ -50,6 +52,23 @@ const get_unique_copy_path = (file, target_dir) => {
         let alt_name = file_path.name + '-' + counter + file_path.ext;
         target = path.join(target_dir, alt_name);
         counter++;
+    }
+
+    return target;
+}
+
+const get_unique_copy_path = (file, target_dir) => {
+    // Returns:
+    // { root: '/',
+    //   dir: '/home/user/dir',
+    //   base: 'file.txt',
+    //   ext: '.txt',
+    //   name: 'file' }
+    let file_path = path.parse(file);
+
+    let target = path.join(target_dir, (uuidv4() + file_path.ext));
+    while (fs.existsSync(target)) {
+        target = path.join(target_dir, (uuidv4() + file_path.ext));
     }
 
     return target;

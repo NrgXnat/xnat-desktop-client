@@ -662,6 +662,46 @@ ipcMain.on('force_reauthenticate', (e, login_data) => {
   }
 })
 
+// shell.showItemInFolder only brings opened window to front if called from main process
+ipcMain.on('shell.showItemInFolder', (e, full_path) => {
+  shell.showItemInFolder(full_path)
+})
+
+ipcMain.on('print_pdf', (e, html) => {
+  const pseudo_url = `data:text/html;charset=utf-8,<body>${html}</body>`
+
+  const window_to_PDF = new BrowserWindow({show : false});//to just open the browser in background
+  window_to_PDF.loadURL(pseudo_url); //give the file link you want to display
+  
+  function pdfSettings() {
+      var paperSizeArray = ["A4", "A5"];
+      return {
+          landscape: true,
+          marginsType: 0,
+          printBackground: false,
+          printSelectionOnly: false,
+          pageSize: paperSizeArray[0],
+      };
+  }
+  setTimeout(function() {
+    window_to_PDF.webContents.printToPDF(pdfSettings(), function(err, data) {
+      if (err) {
+          //do whatever you want
+          devToolsLog(err)
+          return;
+      }
+      try {
+          fs.writeFileSync(`./generated_pdf-${Date.now()}.pdf`, data);
+      } catch(err){
+          devToolsLog(err)
+          //unable to save pdf..
+      }
+    
+    })
+
+  }, 2000)
+})
+
 
 
 exports.log = log

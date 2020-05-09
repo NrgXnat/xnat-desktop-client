@@ -12,7 +12,7 @@ function selected_sessions_table($tbl, tbl_data) {
             {
                 field: 'id',
                 title: 'StudyInstanceUID',
-                visible: true
+                visible: false
             },
             {
                 field: 'patient_name',
@@ -23,8 +23,7 @@ function selected_sessions_table($tbl, tbl_data) {
             {
                 field: 'patient_id',
                 title: 'Patient ID',
-                sortable: true,
-                class: 'break-all'
+                visible: false
             },
             {
                 field: 'xnat_subject_id',
@@ -34,9 +33,25 @@ function selected_sessions_table($tbl, tbl_data) {
             },
             {
                 field: 'label',
-                title: 'Study Description',
+                title: 'Study Id',
                 sortable: true,
+                width: 200,
                 class: 'break-all'
+            },
+            {
+                field: 'experiment_label',
+                title: 'XNAT Session Label',
+                sortable: true,
+                class: 'break-all highlight'
+            },
+            {
+                field: 'study_date',
+                title: 'Study Date',
+                class: 'right-aligned',
+                visible: true,
+                formatter: function(value, row, index, field) {
+                    return value ? value : 'N/A';
+                }
             },
             {
                 field: 'modality',
@@ -49,15 +64,6 @@ function selected_sessions_table($tbl, tbl_data) {
                 title: 'Scans',
                 sortable: true,
                 class: 'right-aligned'
-            },
-            {
-                field: 'study_date',
-                title: 'Study Date',
-                class: 'right-aligned',
-                visible: true,
-                formatter: function(value, row, index, field) {
-                    return value ? value : 'N/A';
-                }
             }
             
         ],

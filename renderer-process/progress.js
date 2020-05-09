@@ -1,21 +1,28 @@
+const {remote, ipcRenderer, shell} = require('electron')
+
 require('promise.prototype.finally').shim();
 const settings = require('electron-settings');
-const ipc = require('electron').ipcRenderer;
 const swal = require('sweetalert');
 const prettyBytes = require('pretty-bytes');
 const FileSaver = require('file-saver');
+const electron_log = remote.require('./services/electron_log');
 
-const db_uploads = require('electron').remote.require('./services/db/uploads')
-const db_uploads_archive = require('electron').remote.require('./services/db/uploads_archive')
-const db_downloads = require('electron').remote.require('./services/db/downloads')
-const db_downloads_archive = require('electron').remote.require('./services/db/downloads_archive')
 
-const nedb_log_reader = require('electron').remote.require('./services/db/nedb_log_reader')
+const db_uploads = remote.require('./services/db/uploads')
+const db_uploads_archive = remote.require('./services/db/uploads_archive')
+const db_downloads = remote.require('./services/db/downloads')
+const db_downloads_archive = remote.require('./services/db/downloads_archive')
+
+const nedb_log_reader = remote.require('./services/db/nedb_log_reader')
 const moment = require('moment');
+
+
 
 const { objArrayToCSV } = require('../services/app_utils');
 
 const { console_red } = require('../services/logger');
+
+const templateEngine = require('../services/template_engine');
 
 const NProgress = require('nprogress');
 NProgress.configure({ 
@@ -28,6 +35,24 @@ NProgress.configure({
 
 let xnat_server, user_auth;
 
+function upload_checksum_errors() {
+    db_uploads.listAll((err, uploads) => {
+        let my_errors = {};
+        uploads.forEach((transfer) => {
+            if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
+                my_errors[transfer.id] = [];
+                transfer.series.forEach(series => {
+                    series.forEach(sFile => {
+                        if (!sFile.hasOwnProperty('anon_checksum') || typeof sFile.anon_checksum !== 'string' || sFile.anon_checksum.length != 32) {
+                            my_errors[transfer.id].push(sFile)
+                        }
+                    })
+                })
+            }
+        });
+        console.log({my_errors});
+    })
+}
 
 function _init_upload_progress_table() {
     $('#upload_monitor_table').bootstrapTable({
@@ -173,7 +198,7 @@ function _init_upload_progress_table() {
     });
 
     db_uploads.listAll((err, uploads) => {
-        console.log(uploads);
+        console.log({uploads});
 
         let my_data = [];
 
@@ -496,7 +521,7 @@ function _init_variables() {
 
 
 if (!settings.has('user_auth') || !settings.has('xnat_server')) {
-    ipc.send('redirect', 'login.html');
+    ipcRenderer.send('redirect', 'login.html');
     return;
 }
 
@@ -648,6 +673,88 @@ $(document).on('show.bs.modal', '#error-log--upload', function(e) {
     $('#error-log--upload .modal-content').attr('data-id', transfer_id);
 });
 
+$(document).on('show.bs.modal', '#view-receipt', async function(e) {
+    var id = $(e.relatedTarget).data('id');
+    
+    let transfer = await db_uploads._getById(id)
+
+    let tpl = $('#view-receipt-tpl').html();
+    
+    //window.moment = moment;
+
+    transfer.computed = {
+        start_upload: moment(transfer.transfer_start * 1000).format('YYYY-MM-DD HH:mm:ss')
+    }
+
+    let parsed_tpl = templateEngine(tpl, transfer)
+
+    $('#receipt-content').html(parsed_tpl)
+
+})
+
+$(document).on('click', '#receipt-to-pdf', function() {
+    $('#upload-receipt-destination').modal('show')
+});
+
+$(document).on('show.bs.modal', '#upload-receipt-destination', function(e) {
+    $('#view-receipt').css('z-index', 1040)
+})
+
+$(document).on('hide.bs.modal', '#upload-receipt-destination', function(e) {
+    $('#view-receipt').css('z-index', '')
+})
+
+$(document).on('click', '#save-pdf-destination', function(e) {
+    const destination = $('#pdf_destination').val();
+
+    if (destination) {
+        $(this).closest('.modal').modal('hide');
+
+        let partial = $('#view-receipt .modal-body').html();
+
+        let html = partial.replace(/\n/g, " ");
+        html = html.replace(/\s+/g, " ");
+
+        html = `<html><body>${html}</body></html>`
+
+        
+        // METHOD 1:
+        const pdf = require('html-pdf');
+        const options = { format: 'Letter' };
+        
+        const destination_file = `${destination}/upload-receipt--${Date.now()}.pdf`;
+        pdf.create(html, options).toFile(destination_file, function(err, res) {
+            if (err) electron_log.error(err);
+
+            console.log({res}); // { filename: '/file/path.pdf' }
+
+            //shell.openItem(res.filename)
+            //shell.showItemInFolder(destination_file)
+            ipcRenderer.send('shell.showItemInFolder', res.filename)
+        });
+        
+
+
+        // METHOD 2:
+        // var blob = new Blob([html], {type: "text/html;charset=utf-8"});
+        // FileSaver.saveAs(blob, "hello-world.html");
+
+
+        // METHOD 3:
+        //ipc.send('print_pdf', inline);
+    }
+    
+})
+
+$(document).on('change', '#pdf_destination_folder', function(e) {
+    if (this.files.length) {
+        let pth = this.files[0].path;
+
+        $('#pdf_destination').val(pth);
+    }
+});
+
+
 $(document).on('show.bs.modal', '#upload-details', function(e) {
     var id = $(e.relatedTarget).data('id');
 
@@ -737,6 +844,10 @@ $(document).on('show.bs.modal', '#upload-success-log', function(e) {
         $('#upload-details-link').data({
             id: my_transfer.id,
             session_label: my_transfer.url_data.expt_label
+        });
+
+        $('#view-receipt-link').data({
+            id: my_transfer.id
         });
 
         for (key in my_transfer.session_data) {
@@ -1064,9 +1175,9 @@ $(document).on('click', '.js_cancel_download', function(e){
                                     num
                                 })
 
-                                ipc.send('cancel_download', transfer_id);
+                                ipcRenderer.send('cancel_download', transfer_id);
                             } else {
-                                ipc.send('start_download');
+                                ipcRenderer.send('start_download');
                             }
                             
                             $('#download-details').find('.modal-content').toggleClass('transfer-canceled', new_cancel_status);
@@ -1123,9 +1234,9 @@ $(document).on('click', '.js_cancel_upload', function(e){
                                         num
                                     })
                     
-                                    ipc.send('cancel_upload', transfer_id);
+                                    ipcRenderer.send('cancel_upload', transfer_id);
                                 } else {
-                                    ipc.send('start_upload');
+                                    ipcRenderer.send('start_upload');
                                 }
                                 
                                 $('#upload-details').find('.modal-content').toggleClass('transfer-canceled', new_cancel_status);
@@ -1180,8 +1291,8 @@ $(document).on('click', '.js_cancel_all_transfers', function(){
         update_uploads_cancel_status(true), 
         update_downloads_cancel_status(true)
     ]).then(([modified_uploads, modified_downloads]) => {
-        ipc.send('reload_upload_window');
-        ipc.send('reload_download_window');
+        ipcRenderer.send('reload_upload_window');
+        ipcRenderer.send('reload_download_window');
 
         settings.set('global_pause', global_pause);
 
@@ -1206,8 +1317,8 @@ $(document).on('click', '.js_restart_all_transfers', function(){
         update_uploads_cancel_status(false), 
         update_downloads_cancel_status(false)
     ]).then(([modified_uploads, modified_downloads]) => {
-        ipc.send('reload_upload_window');
-        ipc.send('reload_download_window');
+        ipcRenderer.send('reload_upload_window');
+        ipcRenderer.send('reload_download_window');
 
         settings.set('global_pause', global_pause);
 
@@ -1235,8 +1346,8 @@ function global_pause_status(new_pause_status) {
     }
 
     if (!new_pause_status) {
-        ipc.send('start_download');
-        ipc.send('start_upload');
+        ipcRenderer.send('start_download');
+        ipcRenderer.send('start_upload');
     }
     
     settings.set('global_pause', new_pause_status);
@@ -1524,7 +1635,7 @@ function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status)
     });
 }
 
-ipc.on('upload_finished',function(e, transfer_id){
+ipcRenderer.on('upload_finished',function(e, transfer_id){
     let $modal_content = $(`#upload-details [data-id=${transfer_id}]`);
 
     console_red('ipc.on upload_finished', $modal_content.length, $modal_content.is(':visible'))
@@ -1536,7 +1647,7 @@ ipc.on('upload_finished',function(e, transfer_id){
 })
 
 
-ipc.on('progress_cell',function(e, item){
+ipcRenderer.on('progress_cell',function(e, item){
     console_red('progress_cell', item);
     let $item_table = $(item.table);
     let $tbl_row = $(`${item.table} [data-uniqueid="${item.id}"]`);
@@ -1610,7 +1721,7 @@ ipc.on('progress_cell',function(e, item){
 
 });
 
-ipc.on('download_progress',function(e, item){
+ipcRenderer.on('download_progress',function(e, item){
     //console.log(item);
 
     if (item.table !== undefined) {
@@ -1628,7 +1739,7 @@ ipc.on('download_progress',function(e, item){
     
 });
 
-ipc.on('upload_progress',function(e, item) {
+ipcRenderer.on('upload_progress',function(e, item) {
     //console.log(item);
 
     if (item.table !== undefined) {
@@ -1645,7 +1756,7 @@ ipc.on('upload_progress',function(e, item) {
     
 });
 
-ipc.on('global_pause_status', function(e, item) {
+ipcRenderer.on('global_pause_status', function(e, item) {
     global_pause_status(item)
     // $('.js_pause_all').html(pause_btn_content(item));
 })

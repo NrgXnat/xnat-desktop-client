@@ -4,6 +4,18 @@ $nprogress_color: #12BB00;
     display: none;
 }
 
+.break-all {
+    word-break: break-all;
+}
+
+th.highlight {
+    background: #C7D9EE;
+}
+
+td.highlight {
+    background: #E4EFFF;
+}
+
 #upload-section {
     .tab-content>.active {
         position: relative;
@@ -262,5 +274,22 @@ body>.ui-pnotify {
     &:before {
       border-radius: 0px;
       background-color: white;
+    }
+}
+
+
+/*************************/
+#view-receipt.show {
+    &.modal{
+        display: block !important; /* I added this to see the modal, you don't need this */
+    }
+    
+    /* Important part */
+    .modal-dialog{
+        overflow-y: initial !important
+    }
+    .modal-body{
+        max-height: 70vh;
+        overflow-y: auto;
     }
 }

@@ -28,6 +28,8 @@ const electron_log = remote.require('./services/electron_log');
 
 const { selected_sessions_table } = require('../services/tables/upload-prepare');
 
+const { random_string } = require('../services/app_utils');
+
 const NProgress = require('nprogress');
 NProgress.configure({ 
     trickle: false,
@@ -37,11 +39,9 @@ NProgress.configure({
 });
 
 let csrfToken = '';
-let xnat_server, user_auth, session_map, selected_session_id, defined_project_exp_labels, resseting_functions;
+let xnat_server, user_auth, session_map, selected_session_id, resseting_functions;
 let global_date_required, date_required, selected_session_data;
-let pet_tracers = [];
 
-let anon_variables = {};
 let site_wide_settings = {};
 let project_settings = {};
 
@@ -50,13 +50,15 @@ function fetch_site_wide_settings(xnat_server, user_auth) {
         global_allow_create_subject(), 
         global_require_date(),
         mizer.get_global_anon_script(xnat_server, user_auth),
-        global_series_import_filter()
+        global_series_import_filter(),
+        global_pet_tracers(xnat_server, user_auth)
     ]).then(res => {
       let data = {
         allow_create_subject: (typeof res[0].data === 'boolean') ? res[0].data : (res[0].data === '' || res[0].data.toLowerCase() === 'true'),
         require_date: (typeof res[1].data === 'boolean') ? res[1].data : (res[1].data.toLowerCase() !== 'false' && res[1].data !== ''),
         anon_script: res[2], // res[2] contains actual anon script (or false)
-        series_import_filter: res[3]
+        series_import_filter: res[3],
+        pet_tracers: res[4]
       }
       
       return Promise.resolve(data);
@@ -74,7 +76,8 @@ function fetch_project_settings(project_id, xnat_server, user_auth) {
         project_sessions(xnat_server, user_auth, project_id),
         project_series_import_filter(xnat_server, user_auth, project_id),
         project_upload_destination(xnat_server, user_auth, project_id),
-        project_data(xnat_server, user_auth, project_id)
+        project_data(xnat_server, user_auth, project_id),
+        project_pet_tracers(xnat_server, user_auth, project_id)
     ]).then(res => {
 
         let data = {
@@ -85,7 +88,8 @@ function fetch_project_settings(project_id, xnat_server, user_auth) {
             sessions: res[4],
             series_import_filter: res[5],
             upload_destination: res[6],
-            project: res[7]
+            project: res[7],
+            pet_tracers: res[8]
         }
       
         return Promise.resolve(data)
@@ -106,8 +110,6 @@ async function _init_variables() {
     selected_session_id = null;
     
 
-    defined_project_exp_labels = [];
-    
     try {
         site_wide_settings = await fetch_site_wide_settings(xnat_server, user_auth)
         console.log({site_wide_settings});
@@ -126,9 +128,6 @@ async function _init_variables() {
 
         $('#upload-project a.selected').removeClass('selected');
     
-        $('#subject-session').html('');
-        $('.project-subjects-holder').hide();
-
         $('#project_settings_tbl_wrap').html('')
 
         session_map.clear();
@@ -281,6 +280,18 @@ function _init_img_sessions_table(table_rows) {
 }
 
 
+
+$(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]', function(){
+    let upload_method = $('#nav-verify').data('upload_method')
+
+    if (upload_method === 'quick_upload') {
+        $('#quick_upload').show().siblings().hide()
+    } else {
+        $('#custom_upload').show().siblings().hide()
+    }
+})
+
+
 function toggle_upload_buttons() {
     let selected = $('#found_sessions').bootstrapTable('getSelections');
 
@@ -300,25 +311,12 @@ function toggle_upload_buttons() {
         })
     }
 
-    
-
-    $('.js_custom_upload, .js_quick_upload').prop('disabled', invalid_days || selected.length == 0);
-    //$('.js_custom_upload').prop('disabled', invalid_days || selected.length == 0);
-
-    $('.js_custom_upload').prop('disabled', selected.length != 1)
+    $('.js_quick_upload').prop('disabled', invalid_days || selected.length < 2); // TODO < 2
+    $('.js_custom_upload').prop('disabled', invalid_days || selected.length != 1)
 }
 
 $(document).on('change', '#skip_session_date_validation', toggle_upload_buttons)
 
-$(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]', function(){
-    let upload_method = $('#nav-verify').data('upload_method')
-
-    if (upload_method === 'quick_upload') {
-        $('#quick_upload').show().siblings().hide()
-    } else {
-        $('#custom_upload').show().siblings().hide()
-    }
-})
 
 function _init_session_selection_table(tbl_data) {
     let $found_sessions_tbl = $('#found_sessions');
@@ -327,15 +325,12 @@ function _init_session_selection_table(tbl_data) {
 
     destroyBootstrapTable($found_sessions_tbl);
 
+    const event_list = 'check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table';
+    $found_sessions_tbl.off(event_list).on(event_list, toggle_upload_buttons)
+
     window.foundSessionsEvents = {
         'input .day-validation': function (e, value, row, index) {
             row.entered_day = $(e.target).val()
-            toggle_upload_buttons()
-        }
-    }
-
-    window.foundSessionsCheckbox = {
-        'change input[type="checkbox"]': function (e, value, row, index) {
             toggle_upload_buttons()
         }
     }
@@ -356,7 +351,6 @@ function _init_session_selection_table(tbl_data) {
                 field: 'state',
                 checkbox: true,
                 align: 'center',
-                events: 'foundSessionsCheckbox',
                 valign: 'middle'
             },
             {
@@ -509,7 +503,6 @@ $(document).on('page:load', '#upload-section', async function(e){
 
 
                 for (let i = 0, len = projects.length; i < len; i++) {
-                    console.log('---', projects[i].id)
                     if (i == 0 && rupc != 0) {
                         $('#upload-project').append(`
                             <li class="divider">Recent:</li>
@@ -552,10 +545,6 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
     
     $('.tab-pane.active .js_next').addClass('disabled');
     
-    $('#subject-session').html('');
-    if ($('#upload-project a.selected').length === 0) {
-        $('.project-subjects-holder').show();
-    }
 
     $(this).closest('ul').find('a').removeClass('selected');
     $(this).addClass('selected');
@@ -567,8 +556,21 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
 
     try {
         project_settings = await fetch_project_settings(project_id, xnat_server, user_auth);
-        console.log({project_settings});
 
+        const scripts = mizer.aggregate_script(site_wide_settings.anon_script, project_settings.anon_script)
+
+        project_settings.computed = {
+            scripts: scripts,
+            anon_variables: mizer.get_scripts_anon_vars(scripts),
+            experiment_labels: project_settings.sessions.map(item => item.label),
+            pet_tracers: get_pet_tracers(project_settings.pet_tracers, site_wide_settings.pet_tracers, user_defined_pet_tracers(settings))
+        }
+
+
+        console.log({PROJECT_SETTINGS: project_settings});
+
+        // -----------------------------------------------------
+        // render project settings overview table
         let tpl = $('#project_settings_tbl_tpl').html();
         let tbl = templateEngine(tpl, {
             project_settings: project_settings,
@@ -577,165 +579,83 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
         })
 
         $('#project_settings_tbl_wrap').html(tbl)
+
+        // -----------------------------------------------------
+        // if needed - generate warning modal (about no anon script) and suppress warning logic
+        suppress_anon_script_warning(scripts, xnat_server, project_id, user_settings)
         
     } catch (err) {
         handle_error(err)
     }
 
+});
 
-    mizer.get_mizer_scripts(xnat_server, user_auth, project_id).then(scripts => {
-        let suppress = user_settings.get('suppress_anon_script_missing_warning');
 
-        let warning_suppressed = Array.isArray(suppress) && 
-            (suppress.indexOf('*|*') !== -1 || 
-            suppress.indexOf(`${xnat_server}|*`) !== -1 || 
-            suppress.indexOf(`${xnat_server}|${project_id}`) !== -1);
+function suppress_anon_script_warning(scripts, xnat_server, project_id, user_settings) {
+    let suppress = user_settings.get('suppress_anon_script_missing_warning');
 
-        if (scripts.length === 0 && !warning_suppressed) {
-            
-            let html = $(`<div class="outer">
+    let warning_suppressed = Array.isArray(suppress) && 
+        (suppress.indexOf('*|*') !== -1 || 
+        suppress.indexOf(`${xnat_server}|*`) !== -1 || 
+        suppress.indexOf(`${xnat_server}|${project_id}`) !== -1);
 
-                <div class="container">
-                    <div class="row">
-                        <div class="col-sm-8">
-                            <div class="checkbox" style="font-size: 0.8rem; color: #777; text-align: right;">
-                                <label data-toggle="collapse" data-target="#collapseOptions" aria-expanded="false" aria-controls="collapseOptions">
-                                    <input type="checkbox" name="suppress_toggle" id="suppress_toggle"/> Don't show this message again
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-sm-2" style="padding: 0">
-                            <div id="collapseOptions" aria-expanded="false" class="collapse">
-                                <select class="form-control" name="suppress_anon_script_missing_warning" id="suppress_anon_script_missing_warning" 
-                                    style="font-size: 0.8rem; color: #777; height: auto; padding: 1px;">
-                                    <option value="${xnat_server}|${project_id}">For this project</option>
-                                    <option value="${xnat_server}|*">For This Server</option>
-                                    
-                                    <!-- <option value="*|*">For Any Server</option> -->
-                                </select>
-                            </div>
-                        </div>
+    if (scripts.length === 0 && !warning_suppressed) {
+        generate_anon_script_warning(xnat_server, project_id, user_settings)
+    }
+}
+
+
+function generate_anon_script_warning(xnat_server, project_id, user_settings) {
+    let html = $(`<div class="outer">
+
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-8">
+                    <div class="checkbox" style="font-size: 0.8rem; color: #777; text-align: right;">
+                        <label data-toggle="collapse" data-target="#collapseOptions" aria-expanded="false" aria-controls="collapseOptions">
+                            <input type="checkbox" name="suppress_toggle" id="suppress_toggle"/> Don't show this message again
+                        </label>
                     </div>
                 </div>
-                
+                <div class="col-sm-2" style="padding: 0">
+                    <div id="collapseOptions" aria-expanded="false" class="collapse">
+                        <select class="form-control" name="suppress_anon_script_missing_warning" id="suppress_anon_script_missing_warning" 
+                            style="font-size: 0.8rem; color: #777; height: auto; padding: 1px;">
+                            <option value="${xnat_server}|${project_id}">For this project</option>
+                            <option value="${xnat_server}|*">For This Server</option>
+                            
+                            <!-- <option value="*|*">For Any Server</option> -->
+                        </select>
+                    </div>
+                </div>
             </div>
-            `);
-
-            swal({
-                title: `Warning: No anonymization scripts found!`,
-                text: `Anonymization scripts are not set for this site or this project. Do you want to continue?`,
-                content: html.get(0),
-                icon: "warning",
-                buttons: ['Choose a different project', 'Continue'],
-                dangerMode: true
-            })
-            .then(proceed => {
-
-                if ($('#suppress_toggle').is(':checked')) {
-                    let suppress_error = $('#suppress_anon_script_missing_warning').val()
-                    user_settings.push('suppress_anon_script_missing_warning', suppress_error)
-                }
+        </div>
         
-                if (proceed) {
-                    
-                } else {
-                    $('#subject-session').html('');
-                    $('.project-subjects-holder').hide();
+    </div>
+    `);
 
-                    $('#upload-project a.selected').removeClass('selected');
-                }
-            })
+    swal({
+        title: `Warning: No anonymization scripts found!`,
+        text: `Anonymization scripts are not set for this site or this project. Do you want to continue?`,
+        content: html.get(0),
+        icon: "warning",
+        buttons: ['Choose a different project', 'Continue'],
+        dangerMode: true
+    })
+    .then(proceed => {
 
+        if ($('#suppress_toggle').is(':checked')) {
+            let suppress_error = $('#suppress_anon_script_missing_warning').val()
+            user_settings.push('suppress_anon_script_missing_warning', suppress_error)
         }
 
-        let contexts = mizer.getScriptContexts(scripts);
-        anon_variables = mizer.getReferencedVariables(contexts);
-        
-    }).catch(error => {
-        let title, message;
-        if (error.type == 'axios') {
-            title = "XNAT Connection Error";
-            message = `${Helper.errorMessage(error.data)} \n\n${error.data.request.responseURL}`;
-
-            electron_log.error(title, message)
-        } else {
-            title = "Anonymization script error - Please contact XNAT Admin";
-            message = error.message;
-
-            electron_log.error(title, error)
-        }
-
-        swal({
-            title: title,
-            text: message,
-            icon: "error",
-            button: "Okay",
-        })
-            .then(() => {
-                resseting_functions.get(0)();
-            });
-
-        
-    });
-
-    /*
-    promise_subjects(project_id)
-        .then(res => {
-            let subjects = res.data.ResultSet.Result;
-
-            console.log({project_subjects: res.data.ResultSet});
-
-            let sorted_subjects = subjects.sort(function SortByTitle(a, b){
-                var aLabel = a.label.toLowerCase();
-                var bLabel = b.label.toLowerCase(); 
-                return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
-            });
-
-            console.log(sorted_subjects)
-
-            sorted_subjects.forEach(append_subject_row);
-
-        })
-        .catch(handle_error);
-    */
-    //project_allow_create_subject(project_id).then(handle_create_subject_response).catch(handle_error);
-    //project_require_date(project_id).then(handle_require_date).catch(handle_error);
-
-
-    promise_project_experiments(project_id)
-        .then(res => {
-            console.log('----------------promise_project_experiments------------------------');
-            console.log(res.data.ResultSet.totalRecords, res.data.ResultSet.Result)
-            if (res.data.ResultSet.totalRecords) {
-                defined_project_exp_labels = res.data.ResultSet.Result.map(function(item){
-                    return item.label;
-                });
-                console.log({defined_project_exp_labels});
-            }
-            console.log('-----------------------------------------------------------');
-        })
-        .catch(handle_error);
-
-    // set pet tracers
-    promise_project_pet_tracers(project_id)
-        .then(res => {
-            if (res.status === 200) {
-                pet_tracers = res.data.split(/\s+/);
-                pet_tracers.push('OTHER')
-            } else {
-                promise_server_pet_tracers()
-                    .then(res1 => {
-                        if (res1.status === 200 && $.trim(res1.data).length > 0) {
-                            pet_tracers = res1.data.split(/\s+/);
-                        } else {
-                            pet_tracers = settings.get('default_pet_tracers').split(",");
-                        }
-                        pet_tracers.push('OTHER')
-                    })
-            }
+        if (proceed) {
             
-        });
-});
+        } else {
+            $('#upload-project a.selected').removeClass('selected');
+        }
+    })
+}
 
 
 
@@ -855,7 +775,126 @@ $(document).on('input', '#upload_session_date', function(e) {
     }
 });
 
-$(document).on('click', '.js_upload', function() {
+$(document).on('click', '.js_upload', async function() {
+    let upload_method = $('#nav-verify').data('upload_method')
+
+    if (upload_method === 'quick_upload') {
+        if (validate_required_inputs($('#quick_upload'))) {
+            const _sessions = $('#selected_session_tbl').bootstrapTable('getData');
+            const overwrite = $('#upload_overwrite_method').val()
+            await handle_quick_upload(_sessions, project_settings, overwrite)
+        } else {
+            swal({
+                title: `Form Error`,
+                text: `Please select at least one scan series and enter all variable value(s)`,
+                icon: "warning",
+                dangerMode: true
+            })
+        }
+        
+    } else {
+        await handle_custom_upload()
+    }
+
+});
+
+function validate_required_inputs($container) {
+    let $required_inputs = $container.find(':input[required]');
+    let all_valid = true;
+
+    $required_inputs.each(function(){
+        $(this).removeClass('is-invalid');
+
+        if ($(this).val().trim() === '') {
+            $(this).addClass('is-invalid');
+            all_valid = false;
+        }
+    })
+
+    return all_valid;
+}
+
+async function handle_quick_upload(_sessions, project_settings, overwrite) {
+
+    const selected_session_id = _sessions.map(sess => sess.id);
+    
+    const ___session_single = {
+        experiment_label: "L1OG4ZRA_MR_1",
+        id: "1.3.46.670589.11.0.1.1996082307380006",
+        label: "191",
+        modality: "MR",
+        patient_id: "7",
+        patient_name: "MR/BRAIN/GRASE/1024",
+        scan_count: 1,
+        study_date: "1995-03-30",
+        xnat_subject_id: "L1OG4ZRA"
+    }
+
+
+    _sessions.forEach(async session => {
+        const url_data = {
+            expt_label: session.experiment_label,
+            project_id: project_settings.project.ID,
+            subject_id: session.xnat_subject_id,
+            overwrite: overwrite
+        };
+
+        let my_anon_variables = {
+            experiment_label: session.experiment_label
+        };
+
+        // -----------------------------------------------------
+        Object.keys(project_settings.computed.anon_variables).forEach(key => {
+            switch (key) {
+                case 'session':
+                    my_anon_variables[key] = url_data.expt_label;
+                    break;
+                case 'subject':
+                    my_anon_variables[key] = url_data.subject_id;
+                    break;
+                case 'project':
+                    my_anon_variables[key] = url_data.project_id;
+                    break;
+                default:
+                    my_anon_variables[key] = project_settings.computed.anon_variables[key] === '' ? 
+                        '_ANONIMIZED_' : 
+                        project_settings.computed.anon_variables[key];
+            }
+        })
+
+        if (my_anon_variables.hasOwnProperty('pet_tracer')) {
+            if (my_anon_variables.pet_tracer === 'OTHER') {
+                my_anon_variables['tracer'] = my_anon_variables.custom_pet_tracer; // potential problem with quick upload
+            } else {
+                my_anon_variables['tracer'] = my_anon_variables.pet_tracer;
+            }
+        }
+        // -----------------------------------------------------
+        const all_series = get_session_series(session_map.get(session.id))
+        const selected_series = all_series.map(ser => ser.series_id);
+        // -----------------------------------------------------
+
+        console.log({storeUpload: {url_data, selected_session_id: session.id, selected_series, my_anon_variables}});
+        
+        await storeUpload(url_data, session.id, selected_series, my_anon_variables);
+        
+    })
+
+    start_upload_and_redirect()
+
+
+    const ___selected_single = {
+        count: 1,
+        description: undefined,
+        modality: "XA",
+        select: true,
+        series_id: "1.3.12.2.1107.5.4.3.123456789012345.19950922.121803.8", // seriesInstanceUid
+        series_number: "1",
+        size: 1702398
+    }
+}
+
+async function handle_custom_upload() {
     let selected = $('#image_session').bootstrapTable('getSelections');
 
     let $required_inputs = $('#anon_variables').find(':input[required]');
@@ -876,9 +915,7 @@ $(document).on('click', '.js_upload', function() {
     })
     
     if (selected.length && !required_input_error) {
-        let selected_series = selected.map(function(item){
-            return item.series_id;
-        });
+        let selected_series = selected.map(item => item.series_id);
         
         let expt_label_val = $('#experiment_label').val();
 
@@ -890,10 +927,9 @@ $(document).on('click', '.js_upload', function() {
 
         let my_anon_variables = {};
 
-        console.log('++++++++++++++', anon_variables);
         
 
-        if (anon_variables.hasOwnProperty('session')) {
+        if (project_settings.computed.anon_variables.hasOwnProperty('session')) {
             my_anon_variables['session'] = url_data.expt_label;
         }
 
@@ -913,7 +949,9 @@ $(document).on('click', '.js_upload', function() {
 
         console.log({url_data, selected_session_id, selected_series, my_anon_variables});
 
-        storeUpload(url_data, selected_session_id, selected_series, my_anon_variables);
+        await storeUpload(url_data, selected_session_id, selected_series, my_anon_variables);
+
+        start_upload_and_redirect()
 
     } else {
         swal({
@@ -923,9 +961,8 @@ $(document).on('click', '.js_upload', function() {
             dangerMode: true
         })
     }
-    
+}
 
-});
 $(document).on('input', '#anon_variables :input[required]', function(e){
     let $input = $(this);
     $input.on('input', function(){
@@ -1057,25 +1094,9 @@ $(document).on('click', '.js_custom_upload', function(){
 })
 
 $(document).on('click', '.js_quick_upload', function(){
-
     let selected = $('#found_sessions').bootstrapTable('getSelections');
 
-    selected.forEach(item => {
-        if (item.study_date) {
-            item.study_date.substr(8,2) === ''
-        }
-    })
-
-
-    console.log({selected});
-
-    let ids = $.map(selected, function (row) {
-        return row.id
-    })
-
     quick_upload_selection(selected)
-
-    console.log({ids});
 
     $('#session-selection').modal('hide');
 });
@@ -1107,7 +1128,7 @@ $(document).on('shown.bs.modal', '#session-selection', function(e) {
 
 function generate_subject_dropdown(selected_id = false) {
     let subject_options = project_settings.subjects.map(function(subject) {
-        return `<option value="${subject.ID}" 
+        return `<option value="${subject.label}" data-subject_ID="${subject.ID}" 
             ${(subject.ID === selected_id ? 'selected' : '')}>
             ${subject.label}${(subject.group ? ` (Group: ${subject.group})`: '')}
             </option>`;
@@ -1123,12 +1144,49 @@ $(document).on('change', '#var_subject', function() {
     $('#experiment_label').val(experiment_label());
 })
 
+function generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject_ids) {
+    let subject_id;
+    let all_subjects = [...existing_project_subjects, ...xnat_subject_ids]
+    do {
+        subject_id = random_string(8)
+    } while(all_subjects.includes(subject_id))
+
+    return subject_id;
+}
+
+function get_session_series(session) {
+    let series_data = [];
+
+    // Map() traverse
+    session.scans.forEach((scan, key) => {
+        const scan_size = scan.reduce((prevVal, elem) => {
+            return prevVal + elem.filesize;
+        }, 0);
+
+        // use scan description from the first one (or any other from the batch)
+        
+        series_data.push({
+            select: true,
+            series_number: scan[0].seriesNumber,
+            series_id: key,
+            description: scan[0].seriesDescription,
+            modality: scan[0].modality,
+            count: scan.length,
+            size: scan_size
+        });
+    });
+
+    return series_data;
+}
+
 function quick_upload_selection(_sessions) {
     let session_ids = _sessions.map(sess => sess.id)
 
     let tbl_data = [];
 
     let xnat_subject_ids = []
+
+    let existing_project_subjects = project_settings.subjects.map(item => item.label)
 
     session_map.forEach(function(cur_session, key) {
         console.log({cur_session});
@@ -1138,7 +1196,13 @@ function quick_upload_selection(_sessions) {
             return
         }
 
-        let generated_subject = xnat_subject_ids.find((item) => item.patient_id === cur_session.patient.id)
+        let new_xnat_subject_id = generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject_ids);
+        xnat_subject_ids.push(new_xnat_subject_id)
+
+        
+        /************************** */
+        let series_data = get_session_series(cur_session);
+        /************************** */
 
         
         let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
@@ -1149,8 +1213,9 @@ function quick_upload_selection(_sessions) {
             id: key,
             patient_name: cur_session.patient.name,
             patient_id: cur_session.patient.id,
-            xnat_subject_id: generate_random_string(10),
+            xnat_subject_id: new_xnat_subject_id,
             label: session_label,
+            experiment_label: generate_experiment_label(new_xnat_subject_id, series_data, 'XXX', 'YYY'),
             modality: cur_session.modality.join(", "),
             scan_count: cur_session.scans.size,
             study_date: studyDate
@@ -1170,34 +1235,24 @@ function quick_upload_selection(_sessions) {
     $('#nav-verify').data('upload_method', 'quick_upload');
 }
 
-function generate_random_string(length) {
-    let str = ['A', 'S', 'D', 'F', 'G', 'H','J','K','L','P','M','N', '0', '1', '2', '3', '4','5','6','7','8','9'];
 
-    let new_str = '';
-    for(let i=0; i < length; i++) {
-        new_str += str[Math.floor(Math.random() * str.length)];
-    }
-
-    return new_str
-
-}
 
 function select_session_id(_session) {
     selected_session_id = _session.id;
     
     console.log('******************************************');
-    console.log({anon_variables});
+    console.log({anon_variables: project_settings.computed.anon_variables});
     console.log('******************************************');
 
 
 
     $('#additional-upload-fields').html('');
-    Object.keys(anon_variables).forEach(key => {
+    Object.keys(project_settings.computed.anon_variables).forEach(key => {
         let key_cap = Helper.capitalizeFirstLetter(key);
         
         let field_type = 'text';
         let field_text = '';
-        let field_value = anon_variables[key];
+        let field_value = project_settings.computed.anon_variables[key];
 
         if (key != 'project' && key != 'subject' && key != 'session') {
             $('#additional-upload-fields').append(`
@@ -1209,7 +1264,7 @@ function select_session_id(_session) {
                 </div>
             </div>
             `);
-            console.log('$$$$ ' + key + ' => ' + anon_variables[key]);
+            console.log('$$$$ ' + key + ' => ' + project_settings.computed.anon_variables[key]);
         }
     });
 
@@ -1287,7 +1342,7 @@ function select_session_id(_session) {
     
     if (all_modalities.indexOf('PT') !== -1) {
         
-        let pet_tracer_options = pet_tracers.map(function(el) {
+        let pet_tracer_options = project_settings.computed.pet_tracers.map(function(el) {
             return `<option value="${el}">${el}</option>`;
         });
 
@@ -1726,24 +1781,9 @@ function getStudyTime(time_string) {
     }
 }
 
-function experiment_label() {
-
-    let modality = '';
-    //let subject_id = _session.patient_id ? _session.patient_id : ''; // always cast as string
-    let subject_id = $('#var_subject').val()
-
-    let selected = $('#image_session').bootstrapTable('getSelections');
-
-    let pet_tracer = $('#pet_tracer').length ? $('#pet_tracer').val() : '';
-    let custom_pet_tracer = ('' + $('#custom_pet_tracer').val()).trim().split(' ').join('_');
-
-    console.log({pet_tracer, custom_pet_tracer});
-
-
-    var PRIMARY_MODALITIES = ['CR', 'CT', 'MR', 'PT', 'DX', 'ECG', 'EPS', 'ES', 'GM', 'HD', 'IO', 'MG', 'NM', 'OP', 'OPT', 'RF', 'SM', 'US', 'XA', 'XC', 'OT'];
-
-    var upload_modalities_index = selected.reduce((allModalities, row) => {
-        if (PRIMARY_MODALITIES.indexOf(row.modality) !== -1) {
+function generate_experiment_label(_subject_id, _selected_series, _pet_tracer, _custom_pet_tracer) {
+    let upload_modalities_index = _selected_series.reduce((allModalities, row) => {
+        if (constants.PRIMARY_MODALITIES.indexOf(row.modality) !== -1) {
             if (allModalities.hasOwnProperty(row.modality)) {
                 allModalities[row.modality]++;
             } else {
@@ -1754,11 +1794,13 @@ function experiment_label() {
         return allModalities;
     }, {});
 
+
     let upload_modalities = Object.keys(upload_modalities_index);
 
+    let modality = '';
 
     if (upload_modalities.indexOf('PT') >= 0) {
-        modality = pet_tracer === 'OTHER' ? custom_pet_tracer : pet_tracer;
+        modality = _pet_tracer === 'OTHER' ? _custom_pet_tracer : _pet_tracer;
     } else if (upload_modalities.length == 1) {
         modality = upload_modalities[0];
     } else {
@@ -1775,12 +1817,13 @@ function experiment_label() {
         }
     }
 
-    console.log({defined_project_exp_labels});
 
-    let expt_label = subject_id.split(' ').join('_') + '_' + modality + '_';
+    /* ***************** */
+    let expt_label = _subject_id.split(' ').join('_') + '_' + modality + '_';
     for (let i = 1; i < 100000; i++) {
         let my_expt_label = expt_label + i;
-        if (defined_project_exp_labels.indexOf(my_expt_label) === -1) {
+        if (project_settings.computed.experiment_labels.indexOf(my_expt_label) === -1) {
+            project_settings.computed.experiment_labels.push(expt_label)
             expt_label = my_expt_label;
             break;
         }
@@ -1792,20 +1835,30 @@ function experiment_label() {
 
 }
 
+function experiment_label() {
+    const _subject_id = $('#var_subject').val();
+    const _selected_series = $('#image_session').bootstrapTable('getSelections');
+    const _pet_tracer = $('#pet_tracer').length ? $('#pet_tracer').val() : '';
+    const _custom_pet_tracer = ('' + $('#custom_pet_tracer').val()).trim().split(' ').join('_'); // ???
 
-function storeUpload(url_data, session_id, series_ids, anon_variables) {
+    return generate_experiment_label(_subject_id, _selected_series, _pet_tracer, _custom_pet_tracer)
+}
+
+
+async function storeUpload(url_data, session_id, series_ids, anon_variables) {
     console.log('==== anon_variables ====', anon_variables);
     
     let project_id = url_data.project_id;
-    let subject_id = url_data.subject_id;
-    let expt_label = url_data.expt_label;
 
+    const selected_session = session_map.get(session_id);
+
+    // -----------------------------------------------------
     let _files = [];
     let series = [];
-
     let total_size = 0;
+
     for (let i = 0; i < series_ids.length; i++) {
-        let scan_series = session_map.get(session_id).scans.get(series_ids[i]);
+        let scan_series = selected_session.scans.get(series_ids[i]);
         series.push(scan_series)
         
         total_size = scan_series.reduce(function(prevVal, item) {
@@ -1819,7 +1872,6 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
     }
     // -----------------------------------------------------
 
-    selected_session = session_map.get(session_id);
     let table_rows = [];
     selected_session.scans.forEach(function(scan, key) {
         console.log(key);
@@ -1881,71 +1933,31 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
         status: 0,
         canceled: false
     };
-    console.log(upload_digest);
+    console.log({upload_digest});
 
-    db_uploads().insert(upload_digest, (err, newItem) => {
+    try {
+        const newItem = await db_uploads._insertDoc(upload_digest)
+
+        await update_recent_projects(project_id)
         console.log(newItem);
 
-        update_recent_projects(project_id)
-    })
-    
+    } catch (err) {
+        console.log(err)
+        electron_log.error(err.message)
+    }
 
+}
+
+function start_upload_and_redirect() {
     ipc.send('start_upload');
-    
     ipc.send('redirect', 'progress.html');
 
     setTimeout(function(){
         $('#nav-upload-tab').trigger('click');
     }, 40);
-    
-    return;
-
-    // -----------------------------------------------------
-
-
-
-    summary_add(project_id, 'PROJECT_ID');
-    summary_add(subject_id, 'SUBJECT_ID');
-    summary_add(expt_label, 'EXPT_LABEL');
-    summary_add(session_id, 'STUDY_ID');
-    summary_add(series_ids.length, 'SCANS');
-    summary_add(_files.length, 'FILES');
-    summary_add(`${(total_size / 1024 / 1024).toFixed(2)}MB`, 'FILESIZE');
-
-    console.log(_files);
-    
-
-    //swal(project_id + "\n" + subject_id + "\nFiles: " + _files.length);
-
-    
-
-    copy_and_anonymize(_files)
-        .then((res) => {
-            summary_add(res.directory, 'Anonymization dir');
-            summary_add(res.copy_success.length, 'Anonymized files');
-            summary_add(res.copy_error.length, 'Anonymization errors');
-
-            // todo add additional logic for errors
-            if (res.copy_error.length == 0) {
-                zip_and_upload(res.directory, res.copy_success, url_data);
-            } else {
-                let error_file_list = '';
-                for(let i = 0; i < res.copy_error.length; i++) {
-                    error_file_list += res.copy_error[i].file + "\n * " + res.copy_error[i].error + "\n\n";
-                }
-
-                swal({
-                    title: `Anonymization Error`,
-                    text: `An error occured during anonymization of the folowing files: \n${error_file_list}`,
-                    icon: "error",
-                    dangerMode: true
-                })
-            }
-        })
-    
 }
 
-function update_recent_projects(project_id) {
+async function update_recent_projects(project_id) {
     let recent_upload_projects = user_settings.get('recent_upload_projects') || []
 
     // remove value if it exists
@@ -1982,21 +1994,6 @@ const walkSync = (dir, fileList = []) => {
     return fileList;
 }
 
-function append_subject_row(subject){
-    let group_tag = subject.group ? `${subject.group}` : `/`
-    $('#subject-session').append(`
-        <li>
-            <a href="javascript:void(0)" 
-                data-subject_uri="${subject.URI}"
-                data-subject_insert_date="${subject.insert_date}"
-                data-subject_label="${subject.label}"
-                data-subject_id="${subject.ID}">
-                ${subject.label} <span class="meta_key">ID: ${subject.ID}</span>
-                <span class="meta_value">Group: ${group_tag}</span>
-            </a>
-        </li>
-    `)
-}
 
 const no_upload_privileges_warning = () => {
     swal({
@@ -2016,6 +2013,84 @@ const no_upload_privileges_warning = () => {
 function global_allow_create_subject() {
     return axios.get(xnat_server + '/data/config/applet/allow-create-subject?contents=true&accept-not-found=true', {
         auth: user_auth
+    });
+}
+
+function user_defined_pet_tracers(settings) {
+    return settings.has('default_pet_tracers') ? settings.get('default_pet_tracers').split(",") : []
+}
+
+
+function get_pet_tracers(project_pts, server_pts, user_defined_pts) {
+    let pet_tracers;
+    if (project_pts !== false) {
+        pet_tracers = project_pts
+    } else if (server_pts.length) {
+        pet_tracers = server_pts
+    } else {
+        pet_tracers = user_defined_pts;
+    }
+
+    if (!pet_tracers.includes('OTHER')) {
+        pet_tracers.push('OTHER')
+    }
+
+    return pet_tracers;
+}
+
+
+function global_pet_tracers(xnat_server, user_auth) {
+    return new Promise(function(resolve, reject) {
+        axios.get(xnat_server + '/data/config/tracers/tracers?contents=true&accept-not-found=true', {
+            auth: user_auth
+        }).then(resp => {
+            let pet_tracers, 
+                pet_tracers_str = resp.data.trim();
+
+            if (pet_tracers_str.length) {
+                pet_tracers = pet_tracers_str.split(/\s+/);
+            } else {
+                pet_tracers = [];
+            }
+
+            resolve(pet_tracers);
+            
+        }).catch(err => {
+            reject({
+                type: 'axios',
+                data: err
+            })
+        });
+    });
+}
+
+function project_pet_tracers(xnat_server, user_auth, project_id) {
+    return new Promise(function(resolve, reject) {
+        axios.get(xnat_server + `/data/projects/${project_id}/config/tracers/tracers?contents=true&accept-not-found=true`, {
+            auth: user_auth
+        }).then(resp => {
+            let pet_tracers
+
+            if (resp.status === 200) {
+                let pet_tracers_str = resp.data.trim()
+
+                if (pet_tracers_str.length) {
+                    pet_tracers = pet_tracers_str.split(/\s+/)
+                } else {
+                    pet_tracers = []
+                }
+            } else {
+                pet_tracers = false
+            }
+
+            resolve(pet_tracers)
+            
+        }).catch(err => {
+            reject({
+                type: 'axios',
+                data: err
+            })
+        });
     });
 }
 
@@ -2154,28 +2229,6 @@ const handle_global_require_date = (res) => {
     set_date_tab(global_date_required)
 }
 
-const handle_require_date = (res) => {
-    console.log( '===========', typeof res.data, '===========');
-    if (res.data === '') {
-        date_required = global_date_required;
-    } else {
-        date_required = (typeof res.data === 'boolean') ? res.data : (res.data.toLowerCase() !== 'false');
-    }
-    
-    console.log('date_required:', date_required, `(${res.data})`);
-    $('#upload_session_date').prop('required', date_required);
-    
-
-    let next_button = $('#upload_session_date').closest('.tab-pane').find('.js_next');
-    if (date_required) {
-        next_button.addClass('disabled'); 
-    } else {
-        next_button.removeClass('disabled');     
-    }
-
-    set_date_tab(date_required)
-    
-};
 
 const set_date_tab = (date_required) => {
     if (date_required) {
@@ -2262,7 +2315,7 @@ function project_subjects(xnat_server, user_auth, project_id) {
 
 function project_sessions(xnat_server, user_auth, project_id) {
     return new Promise(function(resolve, reject) {
-        axios.get(xnat_server + '/data/projects/' + project_id + '/experiments?columns=IDformat=json', {
+        axios.get(xnat_server + '/data/projects/' + project_id + '/experiments?columns=ID,label&format=json', {
             auth: user_auth
         }).then(resp => {
             console.log({sessions: resp.data.ResultSet.Result});

@@ -254,6 +254,23 @@ mizer.get_mizer_scripts_old = (xnat_server, user_auth, project_id) => {
     });
 }
 
+function aggregate_script(server_script, project_script) {
+    let scripts = [];
+
+    [server_script, project_script].forEach((script) => {
+        if (script) { // false if not enabled
+            let parsed_script = remove_commented_lines(script);
+            if (parsed_script) {
+                scripts.push(parsed_script)
+            }
+        }
+    });
+
+    return scripts;
+}
+
+mizer.aggregate_script = aggregate_script
+
 
 mizer.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
     return new Promise((resolve, reject) => {
@@ -261,19 +278,7 @@ mizer.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
             get_global_anon_script(xnat_server, user_auth), 
             get_project_anon_script(xnat_server, user_auth, project_id)
         ]).then(anon_scripts => {
-            let scripts = [];
-            //console.log('== BEFORE ==', anon_scripts);
-            
-            anon_scripts.forEach((script) => {
-                if (script) { // false if not enabled
-                    let parsed_script = remove_commented_lines(script);
-                    if (parsed_script) {
-                        scripts.push(parsed_script)
-                    }
-                }
-            });
-
-            //console.log('== AFTER ==', scripts);
+            let scripts = aggregate_script(anon_scripts[0], anon_scripts[1]);
             
             resolve(scripts);
         }).catch(err => {
@@ -345,6 +350,11 @@ function get_project_anon_script(xnat_server, user_auth, project_id) {
     });
 }
 mizer.get_project_anon_script = get_project_anon_script
+
+mizer.get_scripts_anon_vars = (scripts) => {
+    const contexts = mizer.getScriptContexts(scripts);
+    return mizer.getReferencedVariables(contexts);
+}
 
 function remove_commented_lines(script) {
     let weeded_script_lines = [], 
