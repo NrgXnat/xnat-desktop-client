@@ -18,6 +18,9 @@ const templateEngine = require('../services/template_engine');
 const prettyBytes = require('pretty-bytes');
 
 const user_settings = require('../services/user_settings');
+const ResetManager = require('../services/reset-manager');
+
+const FlowReset = new ResetManager();
 
 const remote = require('electron').remote;
 const mizer = remote.require('./mizer');
@@ -39,11 +42,13 @@ NProgress.configure({
 });
 
 let csrfToken = '';
-let xnat_server, user_auth, session_map, selected_session_id, resseting_functions;
+let xnat_server, user_auth, session_map, selected_session_id;
 let global_date_required, date_required, selected_session_data;
 
 let site_wide_settings = {};
 let project_settings = {};
+
+
 
 function fetch_site_wide_settings(xnat_server, user_auth) {
     return Promise.all([
@@ -103,7 +108,6 @@ async function _init_variables() {
     console.log(':::::::::::::: >>> UPLOAD _init_variables');
     
     xnat_server = settings.get('xnat_server');
-
     user_auth = auth.get_user_auth();
 
     session_map = new Map();
@@ -116,75 +120,53 @@ async function _init_variables() {
     } catch (err) {
         handle_error(err)
     }
+
+    FlowReset.clear()
     
-
-
-    // RESETTING TABS
-    resseting_functions = new Map();
-
-    // browse files
-    resseting_functions.set(0, function(){
-        $('.tab-pane.active .js_next').addClass('disabled');
-
+    FlowReset.add('project_selection', () => {
         $('#upload-project a.selected').removeClass('selected');
-    
+    })
+
+    FlowReset.add('project_settings_table', () => {
         $('#project_settings_tbl_wrap').html('')
+    })
 
-        session_map.clear();
-        selected_session_id = null;
+    FlowReset.add('disable_session_upload', () => {
+        $('#file_upload_folder').prop('disabled', true).closest('.btn').addClass('disabled')
+    })
+
+    FlowReset.add('session_selection', () => {
         $('#upload_folder, #file_upload_folder').val('');
-
-        $('#upload_folder').closest('.tab-pane').find('.js_next').addClass('disabled');
 
         $('#dicom_parse_progress').hide().attr({
             value: 0,
             max: 100
         });
-    });
+    })
 
-    // browse files
-    resseting_functions.set(1, function(){
-        console.log('resseting values in tab 1');
-        
-        
+    FlowReset.add('session_map_reset', () => {
+        session_map.clear();
+        selected_session_id = null;
+    })
 
-    });
+    FlowReset.add('next_tab_disable_1', () => {
+        let current_key = $('#upload-section #nav-tab .nav-link.active').index()
+        $(`#upload-section #nav-tab .nav-link:gt(${current_key})`).addClass('disabled');
 
-    // date selection
-    resseting_functions.set(2, function(){
-        console.log('resseting values in tab 2')
+        $('.tab-pane.active .js_next').addClass('disabled');
 
-        // $('#upload_session_date').val('');
+        $('#nav-verify').removeData('upload_method')
+    })
 
-        // if (date_required != undefined) {
-        //     $('#upload_session_date').prop('required', date_required);
-            
-        
-        //     let next_button = $('#upload_session_date').closest('.tab-pane').find('.js_next');
-        //     if (date_required) {
-        //         next_button.addClass('disabled'); 
-        //     } else {
-        //         next_button.removeClass('disabled');     
-        //     }
-        // }
-
-    });
-
-    // Review and Verify
-    resseting_functions.set(3, function(){
-        console.log('resseting values in tab 3');
+    FlowReset.add('reset_overwrite_selection', () => {
+        $('#upload_overwrite_method').prop('selectedIndex', 0);
+    })
 
 
-        $('#nav-verify').find('.js_next').addClass('disabled');
-    });
 
-    // Summary
-    resseting_functions.set(4, function(){
-        summary_clear();
-        console.log('resseting values in tab 4')
-    });
+    // RESETTING FLOW
+    FlowReset.execAll()
 
-    resetSubsequentTabs();
     _UI();
 }
 
@@ -526,7 +508,7 @@ $(document).on('page:load', '#upload-section', async function(e){
 
         })
         .catch(function(err) {
-            console.log(err.message);
+            handle_error(err);
         })
         .finally(function() {
             $.unblockUI();
@@ -541,8 +523,6 @@ $(document).on('page:load', '#upload-section', async function(e){
 });
 
 $(document).on('click', '#upload-section a[data-project_id]', async function(e){
-    resetSubsequentTabs();
-    
     $('.tab-pane.active .js_next').addClass('disabled');
     
 
@@ -578,7 +558,12 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
             site_wide_anon_script: site_wide_settings.anon_script !== false
         })
 
+
         $('#project_settings_tbl_wrap').html(tbl)
+
+        $('#file_upload_folder').prop('disabled', false).closest('.btn').removeClass('disabled')
+
+        FlowReset.execAfter('disable_session_upload')
 
         // -----------------------------------------------------
         // if needed - generate warning modal (about no anon script) and suppress warning logic
@@ -688,7 +673,6 @@ $(document).on('click', '.js_prev', function() {
 
 $(document).on('change', '#file_upload_folder', function(e) {
     let _files = [];
-    resetSubsequentTabs();
     
     console.log(this.files.length);
 
@@ -746,34 +730,6 @@ $(document).on('change', '#file_upload_folder', function(e) {
     }
 });
 
-$(document).on('input', '#upload_session_date', function(e) {
-    resetSubsequentTabs();
-
-    if (this.validity.valid) {
-        console.log('Valid')
-        console.log(session_map, selected_session_id, session_map.get(selected_session_id), session_map.get(selected_session_id).date);
-        if (date_required) {
-            if ($('#upload_session_date').val().split("-").join('') === session_map.get(selected_session_id).date) {
-                $('.tab-pane.active .js_next').removeClass('disabled');
-            } else {
-                swal({
-                    title: `Error`,
-                    text: 'Entered session date doesn\'t match with date from session!',
-                    icon: "error",
-                    dangerMode: true
-                })
-                $('.tab-pane.active .js_next').addClass('disabled');
-            }
-        } else {
-            $('.tab-pane.active .js_next').removeClass('disabled');
-        }
-        
-        
-    } else {
-        console.log('INVALID')
-        $('.tab-pane.active .js_next').addClass('disabled');
-    }
-});
 
 $(document).on('click', '.js_upload', async function() {
     let upload_method = $('#nav-verify').data('upload_method')
@@ -1079,9 +1035,7 @@ $(document).on('submit', '#form_new_subject', function(e) {
 });
 
 $(document).on('click', '.js_cancel_session_selection', function(){
-    resetSubsequentTabs();
-    //resetTabsAfter($('#upload-section #nav-tab .nav-link.active').index() - 1)
-    //resseting_functions.get(0)();
+    FlowReset.execAfter('disable_session_upload')
 });
 
 $(document).on('click', '.js_custom_upload', function(){
@@ -1215,7 +1169,7 @@ function quick_upload_selection(_sessions) {
             patient_id: cur_session.patient.id,
             xnat_subject_id: new_xnat_subject_id,
             label: session_label,
-            experiment_label: generate_experiment_label(new_xnat_subject_id, series_data, 'XXX', 'YYY'),
+            experiment_label: generate_experiment_label(new_xnat_subject_id, series_data, 'PT', 'YYY'), // TODO replace PT and YYY values with dicom data
             modality: cur_session.modality.join(", "),
             scan_count: cur_session.scans.size,
             study_date: studyDate
@@ -1670,8 +1624,7 @@ function dicomParse(_files, root_path) {
         
         switch (session_map.size) {
             case 0:
-                resetSubsequentTabs();
-                resseting_functions.get(1)();
+                FlowReset.execFrom('session_selection')
                 
                 swal({
                     title: 'No DICOM files',
@@ -2247,6 +2200,18 @@ const set_date_tab = (date_required) => {
 function handle_error(err) {
     console.error('_ERROR_')
     console.log(err, err.response);
+
+    const message = err.type == 'axios' ? err.data.message + "\n" + err.data.config.url : err.message
+
+    swal({
+        title: `Error`,
+        text: `Message:\n\n${message}`,
+        icon: "error",
+        dangerMode: true
+    })
+
+    FlowReset.execAll()
+
 };
 
 //================================
@@ -2361,20 +2326,6 @@ const handleError = (message, error = '') => {
     }
 };
 
-function resetSubsequentTabs() {
-    console.log('resseting tabs after: ' + $('#upload-section #nav-tab .nav-link.active').index());
-    resetTabsAfter($('#upload-section #nav-tab .nav-link.active').index());
-}
-
-
-function resetTabsAfter(tabIndex) {
-    resseting_functions.forEach(function(reset, key) {
-        if (key > tabIndex) {
-            $('#upload-section #nav-tab .nav-link').eq(key).addClass('disabled');
-            reset();
-        }
-    })
-}
 
 const summary_clear = () => {
     $('#summary_info').html('');

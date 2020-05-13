@@ -14,12 +14,13 @@ const ipc = require('electron').ipcRenderer;
 
 const remote = require('electron').remote;
 
+const { file_checksum } = remote.require('./services/app_utils');
+
 const auth = require('../services/auth');
 
 const mizer = remote.require('./mizer');
 
 const archiver = require('archiver');
-const checksum = require('checksum');
 
 const tempDir = require('temp-dir');
 
@@ -222,7 +223,7 @@ let _queue_ = {
     items: [],
     max_items: 4,
     add: function(transfer_id, series_id) {
-        if (this.items.length < this.max_items) {
+        if (this.items.length < _queue_.get_max_items()) {
             let transfer_label = transfer_id + '::' + series_id;
             if (this.items.indexOf(transfer_label) == -1) {
                 console_log('Added to queue ' + transfer_label);
@@ -252,6 +253,9 @@ let _queue_ = {
     remove_many: function(transfer_id) {
         console_red('_queue_.remove_many()', this.items);
         this.items = this.items.filter(single => single.indexOf(`${transfer_id}::`) !== 0)
+    },
+    get_max_items: function() {
+        return user_settings.get('zip_upload_mode') === true ? 1 : this.max_items
     }
 }
 
@@ -407,18 +411,6 @@ async function doUpload(transfer, series_id) {
         nedb_logger.error(transfer.id, 'upload', error.message, error);
         console_log(error); // Test with throwing random errors (and rejecting promises)
     });
-}
-
-async function file_checksum(file_path) {
-    return new Promise((resolve, reject) => {
-        checksum.file(file_path, {algorithm: 'md5'}, function(checksum_err, sum) {
-            if (checksum_err) {
-                reject(checksum_err)
-            } else {
-                resolve(sum)
-            }
-        })
-    })
 }
 
 function get_temp_upload_path() {
@@ -948,8 +940,20 @@ async function copy_and_anonymize_zip(transfer, series_id, _files, contexts, var
     });
 
     copy_anonymize_zip(_files, new_dirpath, contexts, variables)
-        .then(archive_path => {
-            upload_zip(archive_path, transfer, series_id, csrfToken)
+        .then(async result => {
+            console.log({anon_checksums: result.checksums});
+
+            let selected_series = transfer.series.find(ss => series_id == ss[0].seriesInstanceUid);
+
+            result.checksums.forEach(sfile => {
+                let selected_item = selected_series.find(item => item.filepath == sfile.source)
+                selected_item['anon_checksum'] = sfile.anon_checksum;
+            })
+
+            const _transfer_copy_ = await replace_transfer_doc(transfer)
+            console.log({_transfer_copy_});
+
+            upload_zip(result.path, transfer, series_id, csrfToken)
         })
         .catch(err => {
             console.log('FINAL', err)
@@ -969,12 +973,15 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
     let CancelToken = axios.CancelToken;
 
 
-    const { project_id, subject_id, expt_label } = transfer.url_data;
+    let {project_id, subject_id, expt_label, overwrite} = transfer.url_data;
+    // if overwrite is undefined
+    overwrite = overwrite || 'none'
+
     let jsession_cookie = await auth.get_jsession_cookie()
 
     let request_settings = {
         method: 'post',
-        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
+        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&overwrite=${overwrite}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
         auth: user_auth,
         onUploadProgress: function (progressEvent) {
             // Do whatever you want with the native progress event

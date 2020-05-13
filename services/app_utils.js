@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const checksum = require('checksum');
 
 exports.isDevEnv = () => {
     // return process.argv && process.argv.length >= 3 && /--debug/.test(process.argv[2]);
@@ -75,17 +76,30 @@ exports.uuidv4_crypto = () => {
 
 
 exports.random_string = (length, include_lowercase = false) => {
-    let rand_str = '';
-    let chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let rand_str = "";
+    let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     if (include_lowercase) {
-        chars += 'abcdefghijklmnopqrstuvwxyz';
+        chars += "abcdefghijklmnopqrstuvwxyz";
     }
 
     for (let i = 0; i < length; i++) {
-       rand_str += chars.charAt(Math.floor(Math.random() * chars.length));
+        rand_str += chars.charAt(Math.floor(Math.random() * chars.length));
     }
 
     return rand_str;
- }
+};
+
+exports.file_checksum = async (file_path) => {
+    return new Promise((resolve, reject) => {
+        checksum.file(file_path, {algorithm: 'md5'}, function(checksum_err, checksum) {
+            if (checksum_err) {
+                reject(checksum_err)
+            } else {
+                resolve(checksum)
+            }
+        })
+    })
+}
+
 
 

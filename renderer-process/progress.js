@@ -55,6 +55,8 @@ function upload_checksum_errors() {
 }
 
 function _init_upload_progress_table() {
+    // upload_checksum_errors()
+
     $('#upload_monitor_table').bootstrapTable({
         filterControl: true,
         hideUnusedSelectOptions: true,
