@@ -19,6 +19,7 @@ const { file_checksum } = remote.require('./services/app_utils');
 const auth = require('../services/auth');
 
 const mizer = remote.require('./mizer');
+const XNATAPI = require('../services/xnat-api')
 
 const archiver = require('archiver');
 
@@ -388,7 +389,10 @@ async function doUpload(transfer, series_id) {
     let _files = selected_series.map(item => item.filepath);
 
     let contexts, variables;
-    mizer.get_mizer_scripts(xnat_server, user_auth, project_id)
+    
+    //mizer.get_mizer_scripts(xnat_server, user_auth, project_id)
+    const xnat_api = new XNATAPI(xnat_server, user_auth);
+    xnat_api.anon_scripts(project_id)
     .then(scripts => {
         console_log(scripts);
 
