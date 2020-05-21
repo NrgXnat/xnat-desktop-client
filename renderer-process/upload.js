@@ -54,49 +54,50 @@ let project_settings = {};
 
 
 
-function fetch_site_wide_settings(xnat_server, user_auth) {
+async function fetch_site_wide_settings(xnat_server, user_auth) {
     const xnat_api = new XNATAPI(xnat_server, user_auth)
-    
-    return Promise.all([
-        xnat_api.sitewide_allow_create_subject(), 
-        xnat_api.sitewide_require_date(),
-        xnat_api.sitewide_anon_script(),
-        xnat_api.sitewide_series_import_filter(),
-        xnat_api.sitewide_pet_tracers()
-    ]).then(res => {
-      let data = {
-        allow_create_subject: res[0],
-        require_date: res[1],
-        anon_script: res[2], // res[2] contains actual anon script (or false)
-        series_import_filter: res[3],
-        pet_tracers: res[4]
-      }
-      
-      return Promise.resolve(data);
-    }).catch(err => {
-        return Promise.reject(err)
-    });
+
+    try {
+        const res = await Promise.all([
+            xnat_api.sitewide_allow_create_subject(),
+            xnat_api.sitewide_require_date(),
+            xnat_api.sitewide_anon_script(),
+            xnat_api.sitewide_series_import_filter(),
+            xnat_api.sitewide_pet_tracers()
+        ])
+
+        return {
+            allow_create_subject: res[0],
+            require_date: res[1],
+            anon_script: res[2],
+            series_import_filter: res[3],
+            pet_tracers: res[4]
+        }
+    } catch (err) {
+        throw err
+    }
 }
 
-function fetch_project_settings(project_id, xnat_server, user_auth) {
+async function fetch_project_settings(project_id, xnat_server, user_auth) {
     const xnat_api = new XNATAPI(xnat_server, user_auth)
 
-    return Promise.all([
-        xnat_api.project_subjects(project_id),
-        project_allow_create_subject(project_id),
-        project_require_date(project_id),
-        xnat_api.project_anon_script(project_id),
-        project_sessions(xnat_server, user_auth, project_id),
-        project_series_import_filter(xnat_server, user_auth, project_id),
-        project_upload_destination(xnat_server, user_auth, project_id),
-        project_data(xnat_server, user_auth, project_id),
-        project_pet_tracers(xnat_server, user_auth, project_id)
-    ]).then(res => {
+    try {
+        const res = await Promise.all([
+            xnat_api.project_subjects(project_id),
+            xnat_api.project_allow_create_subject(project_id),
+            xnat_api.project_require_date(project_id),
+            xnat_api.project_anon_script(project_id),
+            xnat_api.project_sessions(project_id),
+            xnat_api.project_series_import_filter(project_id),
+            xnat_api.project_upload_destination(project_id),
+            xnat_api.project_data(project_id),
+            xnat_api.project_pet_tracers(project_id)
+        ])
 
-        let data = {
+        return {
             subjects: res[0],
-            allow_create_subject: (typeof res[1].data === 'boolean') ? res[1].data : (res[1].data === '' || res[1].data.toLowerCase() === 'true'),
-            require_date: (typeof res[2].data === 'boolean') ? res[2].data : (res[2].data.toLowerCase() !== 'false' && res[2].data !== ''),
+            allow_create_subject: res[1],
+            require_date: res[2],
             anon_script: res[3],
             sessions: res[4],
             series_import_filter: res[5],
@@ -104,11 +105,9 @@ function fetch_project_settings(project_id, xnat_server, user_auth) {
             project: res[7],
             pet_tracers: res[8]
         }
-      
-        return Promise.resolve(data)
-    }).catch(err => {
-        return Promise.reject(err)
-    });
+    } catch (err) {
+        throw err
+    }
 }
 
 async function _init_variables() {
@@ -448,84 +447,77 @@ $(document).on('page:load', '#upload-section', async function(e){
     $.blockUI({
         message: '<h1>Processing...</h1>'
     });
+
     promise_projects()
-        .then(function(resp) {
-            let totalRecords = resp.data.ResultSet.Result.length;
+    .then(function(resp) {
+        let totalRecords = resp.data.ResultSet.Result.length;
 
-            let projects = (totalRecords === 1) ? [resp.data.ResultSet.Result[0]] : resp.data.ResultSet.Result;
-            //let projects = resp.data.ResultSet.Result;
+        let projects = (totalRecords === 1) ? [resp.data.ResultSet.Result[0]] : resp.data.ResultSet.Result;
+        //let projects = resp.data.ResultSet.Result;
 
-            console.log(projects)
+        console.log(projects)
 
-            $('#upload-project').html('')
-
-            
-            if (projects.length) {
-                let rupc = user_settings.get('recent_upload_projects_count');
-                if (rupc === undefined) {
-                    rupc = constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT
-                }
-
-                if (rupc > 0) {
-                    let recent_projects_ids = user_settings.get('recent_upload_projects') || [];
-                    if (recent_projects_ids.length > rupc) {
-                        recent_projects_ids = recent_projects_ids.slice(0, rupc);
-                    }
-                    
-                    let recent_projects = [];
-    
-                    // find recent projects and preserve order
-                    recent_projects_ids.forEach(recent_project_id => {
-                        let found_project = projects.find(project => project.id === recent_project_id)
-                        if (found_project) {
-                            recent_projects.push(found_project)
-                        }
-                    })
-                    
-                    let other_projects = projects.filter((project) => !recent_projects_ids.includes(project.id));
-    
-                    projects = recent_projects.concat(other_projects)
-
-                    console.log({recent_projects_ids, recent_projects, other_projects, projects});
-                }
-
-
-                for (let i = 0, len = projects.length; i < len; i++) {
-                    if (i == 0 && rupc != 0) {
-                        $('#upload-project').append(`
-                            <li class="divider">Recent:</li>
-                        `)
-                    }
-
-                    if (i == rupc && rupc != 0) {
-                        $('#upload-project').append(`
-                            <li class="divider">Other:</li>
-                        `)
-                    }
-                    
-                    $('#upload-project').append(`
-                        <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} <span class="project_id">ID: ${projects[i].id}</span></a></li>
-                    `)
-                    
-                }
-            } else {
-                no_upload_privileges_warning()
-            }
-
-        })
-        .catch(function(err) {
-            handle_error(err);
-        })
-        .finally(function() {
-            $.unblockUI();
-        })
-    
-
-    $('#upload_session_date')
-        .attr('min', '1990-01-01')
-        .attr('max', new Date().toISOString().split('T')[0])
+        $('#upload-project').html('')
 
         
+        if (projects.length) {
+            let rupc = user_settings.get('recent_upload_projects_count');
+            if (rupc === undefined) {
+                rupc = constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT
+            }
+
+            if (rupc > 0) {
+                let recent_projects_ids = user_settings.get('recent_upload_projects') || [];
+                if (recent_projects_ids.length > rupc) {
+                    recent_projects_ids = recent_projects_ids.slice(0, rupc);
+                }
+                
+                let recent_projects = [];
+
+                // find recent projects and preserve order
+                recent_projects_ids.forEach(recent_project_id => {
+                    let found_project = projects.find(project => project.id === recent_project_id)
+                    if (found_project) {
+                        recent_projects.push(found_project)
+                    }
+                })
+                
+                let other_projects = projects.filter((project) => !recent_projects_ids.includes(project.id));
+
+                projects = recent_projects.concat(other_projects)
+
+                console.log({recent_projects_ids, recent_projects, other_projects, projects});
+            }
+
+
+            for (let i = 0, len = projects.length; i < len; i++) {
+                if (i == 0 && rupc != 0) {
+                    $('#upload-project').append(`
+                        <li class="divider">Recent:</li>
+                    `)
+                }
+
+                if (i == rupc && rupc != 0) {
+                    $('#upload-project').append(`
+                        <li class="divider">Other:</li>
+                    `)
+                }
+                
+                $('#upload-project').append(`
+                    <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} <span class="project_id">ID: ${projects[i].id}</span></a></li>
+                `)
+                
+            }
+        } else {
+            no_upload_privileges_warning()
+        }
+
+    })
+    .catch(handle_error)
+    .finally(function() {
+        $.unblockUI();
+    })
+    
 });
 
 $(document).on('click', '#upload-section a[data-project_id]', async function(e){
@@ -2004,114 +1996,6 @@ function get_pet_tracers(project_pts, server_pts, user_defined_pts) {
 
 
 
-function project_pet_tracers(xnat_server, user_auth, project_id) {
-    return new Promise(function(resolve, reject) {
-        axios.get(xnat_server + `/data/projects/${project_id}/config/tracers/tracers?contents=true&accept-not-found=true`, {
-            auth: user_auth
-        }).then(resp => {
-            let pet_tracers
-
-            if (resp.status === 200) {
-                let pet_tracers_str = resp.data.trim()
-
-                if (pet_tracers_str.length) {
-                    pet_tracers = pet_tracers_str.split(/\s+/)
-                } else {
-                    pet_tracers = []
-                }
-            } else {
-                pet_tracers = false
-            }
-
-            resolve(pet_tracers)
-            
-        }).catch(err => {
-            reject({
-                type: 'axios',
-                data: err
-            })
-        });
-    });
-}
-
-
-function project_series_import_filter(xnat_server, user_auth, project_id) {
-    return new Promise(function(resolve, reject) {
-        axios.get(xnat_server + `/data/projects/${project_id}/config/seriesImportFilter/config?format=json`, {
-            auth: user_auth
-        }).then(resp => {
-            let filter_data = resp.data.ResultSet.Result[0];
-            let filter_value = filter_data.status === 'disabled' ? false : JSON.parse(filter_data.contents)
-
-            resolve(filter_value);
-            
-        }).catch(err => {
-            if (err.response && err.response.status === 404) {
-                resolve(false);    
-            } else {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            }
-        });
-    });
-}
-
-function project_upload_destination(xnat_server, user_auth, project_id) {
-    return new Promise(function(resolve, reject) {
-        axios.get(xnat_server + `/data/projects/${project_id}/prearchive_code`, {
-            auth: user_auth
-        }).then(resp => {
-            let upload_destination;
-            console.log({resp_data: resp.data});
-            switch (resp.data) {
-                case 0:
-                    upload_destination = "PREARCHIVE";
-                    break;
-                case 4:
-                    upload_destination = "ARCHIVE (Reject duplicates)";
-                    break;
-                case 5:
-                    upload_destination = "ARCHIVE (Overwrite duplicates)"
-                    break;
-            }
-
-            resolve(upload_destination);
-            
-        }).catch(err => {
-            reject({
-                type: 'axios',
-                data: err
-            })
-        });
-    });
-}
-
-function project_data(xnat_server, user_auth, project_id) {
-    return new Promise(function(resolve, reject) {
-        axios.get(xnat_server + `/data/projects/${project_id}?format=json`, {
-            auth: user_auth
-        }).then(resp => {
-            console.log({project_data: resp.data});
-
-            resolve(resp.data.items[0].data_fields);
-            
-        }).catch(err => {
-            reject({
-                type: 'axios',
-                data: err
-            })
-        });
-    });
-}
-
-
-function project_allow_create_subject(project_id) {
-    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/allow-create-subject?contents=true&accept-not-found=true', {
-        auth: user_auth
-    });
-}
 
 const handle_create_subject_response = (res) => {
     console.log( '===========', typeof res.data, '===========');
@@ -2124,30 +2008,26 @@ const handle_create_subject_response = (res) => {
 
 
 
-function project_require_date(project_id) {
-    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/require-date?contents=true&accept-not-found=true', {
-        auth: user_auth
-    });
-}
-
-
-
 function handle_error(err) {
-    console.error('_ERROR_')
-    console.log(err, err.response);
+    console.error({err})
 
-    const message = err.type == 'axios' ? err.data.message + "\n" + err.data.config.url : err.message
+    let message = err.message;
+
+    // AXIOS?
+    if (err.config && err.config.url) {
+        message += "\n" + err.config.url 
+    }
+    message += "\n\n STACK:\n" + err.stack
 
     swal({
-        title: `Error`,
-        text: `Message:\n\n${message}`,
+        title: err.name,
+        text: `MESSAGE:\n\n${message}`,
         icon: "error",
         dangerMode: true
     })
 
     FlowReset.execAll()
-
-};
+}
 
 //================================
 
@@ -2158,54 +2038,7 @@ function promise_projects() {
     });
 }
 
-function promise_project_experiments(project_id) {
-    return axios.get(xnat_server + '/data/projects/'+project_id+'/experiments?columns=ID,label,xnat:experimentData/meta/status', {
-        auth: user_auth
-    });
-}
 
-function promise_project_pet_tracers(project_id) {
-    return axios.get(xnat_server + `/data/projects/${project_id}/config/tracers/tracers?contents=true&accept-not-found=true`, {
-        auth: user_auth
-    })
-}
-
-function promise_server_pet_tracers() {
-    return axios.get(xnat_server + `/data/config/tracers/tracers?contents=true&accept-not-found=true`, {
-        auth: user_auth
-    })
-}
-
-function promise_subjects(project_id) {
-    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects?columns=group,insert_date,insert_user,project,label', {
-        auth: user_auth
-    })
-}
-
-
-
-function project_sessions(xnat_server, user_auth, project_id) {
-    return new Promise(function(resolve, reject) {
-        axios.get(xnat_server + '/data/projects/' + project_id + '/experiments?columns=ID,label&format=json', {
-            auth: user_auth
-        }).then(resp => {
-            console.log({sessions: resp.data.ResultSet.Result});
-            resolve(resp.data.ResultSet.Result);
-        }).catch(err => {
-            reject({
-                type: 'axios',
-                data: err
-            })
-        });
-    });
-}
-
-
-function promise_project_subject(project_id, subject_label) {
-    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?format=json', {
-        auth: user_auth
-    })
-}
 
 function promise_create_project_subject(project_id, subject_label, group) {
     return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group=' + group + '&event_reason=XNAT+Application' + '&XNAT_CSRF=' + csrfToken, {
