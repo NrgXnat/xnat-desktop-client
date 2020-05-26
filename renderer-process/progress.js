@@ -16,7 +16,7 @@ const db_downloads_archive = remote.require('./services/db/downloads_archive')
 const nedb_log_reader = remote.require('./services/db/nedb_log_reader')
 const moment = require('moment');
 
-
+const path = require('path')
 
 const { objArrayToCSV } = require('../services/app_utils');
 
@@ -722,11 +722,42 @@ $(document).on('click', '#save-pdf-destination', function(e) {
         
         // METHOD 1:
         const pdf = require('html-pdf');
-        const options = { format: 'Letter' };
+        const fs = require('fs')
+        const app_path = remote.app.getAppPath()
+
+        console.log({app_path});
+
+        const phantomjs_path = path.join(app_path, '..', '..', 'resources', 'app.asar.unpacked', 'node_modules', 'phantomjs-prebuilt', 'lib', 'phantom', 'bin', 'phantomjs.exe')
+
+        console.log({phantomjs_path});
+
+        if (fs.existsSync(phantomjs_path)) {
+            console.log('phantomjs_path POSTOJI');
+        } else {
+            console.error('phantomjs_path NE POSTOJI');
+        }
+
+        const script_path = path.join(app_path, '..', '..', 'resources', 'app.asar.unpacked', 'node_modules', 'html-pdf', 'lib', 'scripts', 'pdf_a4_portrait.js')
+
+        console.log({script_path});
+
+        const options = { 
+            format: 'Letter',
+            phantomPath: phantomjs_path,
+            script: script_path
+        };
         
-        const destination_file = `${destination}/upload-receipt--${Date.now()}.pdf`;
+        const destination_file = path.join(destination, `upload-receipt--${Date.now()}.pdf`);
+
+        console.log({destination_file});
+
         pdf.create(html, options).toFile(destination_file, function(err, res) {
-            if (err) electron_log.error(err);
+            if (err) {
+                console.log({pdf_create_error: err});
+
+                electron_log.error(err)
+                throw err
+            }
 
             console.log({res}); // { filename: '/file/path.pdf' }
 
