@@ -252,23 +252,25 @@
                                     <table class="table table-bordered" id="selected_session_tbl"></table>
                                 </div>
 
-                                <div class="row action-button-row" style="justify-content: space-between; padding: 10px;">
-                                    <div class="button-row">
-                                        <label for="upload_overwrite_method" style="font-weight: bold; margin: 0 10px 0 0;">How should XNAT handle overwriting existing data?</label>
-                                        <select required id="upload_overwrite_method" style="display: inline-block; width: auto;" class="form-control form-control-sm">
-                                            <option value="">Select</option>
-                                            <option value="append">Append to Existing Data</option>
-                                            <option value="delete">Overwrite Existing Data</option>
-                                            <option value="none">Ignore Duplicate Data (Default)</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="button-row">
-                                        <button type="button" data-href="home.html"
-                                            class="btn btn-gray">Cancel</button>
-                                        <button type="button" class="btn btn-gray js_prev" type="button">
-                                            <i class="fas fa-angle-left"></i> Prev</button>
-                                        <button type="button" class="btn btn-blue js_upload">Upload</button>
+                                <div class="row action-button-row">
+                                    <div class="col-12 row_items">
+                                        <div class="button-row">
+                                            <label for="upload_overwrite_method" style="font-weight: bold; margin: 0 10px 0 0;">How should XNAT handle overwriting existing data?</label>
+                                            <select required id="upload_overwrite_method" style="display: inline-block; width: auto;" class="form-control form-control-sm">
+                                                <option value="">Select</option>
+                                                <option value="append">Append to Existing Data</option>
+                                                <option value="delete">Overwrite Existing Data</option>
+                                                <option value="none">Ignore Duplicate Data (Default)</option>
+                                            </select>
+                                        </div>
+    
+                                        <div class="button-row">
+                                            <button type="button" data-href="home.html"
+                                                class="btn btn-gray">Cancel</button>
+                                            <button type="button" class="btn btn-gray js_prev" type="button">
+                                                <i class="fas fa-angle-left"></i> Prev</button>
+                                            <button type="button" class="btn btn-blue js_upload">Upload</button>
+                                        </div>
                                     </div>
                                 </div>
 

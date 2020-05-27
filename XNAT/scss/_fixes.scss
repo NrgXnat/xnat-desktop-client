@@ -22,16 +22,37 @@ td.highlight {
         padding-bottom: 67px;
     }
 
+    .tab-content {
+        min-height: calc(100vh - 191px);
+    }
+    .container-fluid {
+        margin-bottom: 0;
+    }
+
     .action-button-row {
-        position: absolute;
+        position: fixed;
         width: 100%;
-        left: 15px;
-        background: #f4f4f4;
-        padding: 10px 0;
         bottom: 0;
-        border-top: 1px solid #ccc;
+        left: 15px;
+        justify-content: center;
+        
         .button-row {
             margin-bottom: 0;
+        }
+
+        > div {
+            &.row_items {
+                display: flex;
+                justify-content: space-between;
+            }
+            background: #f4f4f4;
+            padding: 10px;
+            max-width: 1110px;
+            width: 100%;
+            
+            border-top: 1px solid #ccc;
+            border-right: 1px solid #ccc;
+            border-left: 1px solid #ccc;
         }
     }
 }
