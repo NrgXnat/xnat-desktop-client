@@ -218,7 +218,7 @@ async function protocol_request(e, url) {
                 let url_params = {};
                 for (let i = 0; i < search_items.length; i++) {
                     search_segments = search_items[i].split('=');
-                    url_params[search_segments[0]] = search_segments[1]
+                    url_params[search_segments[0]] = decodeURIComponent(search_segments[1])
                 }
 
                 if (!url_params.hasOwnProperty('a') || !url_params.hasOwnProperty('s')) {

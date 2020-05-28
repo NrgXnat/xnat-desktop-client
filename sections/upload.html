@@ -66,15 +66,32 @@
                                 </div>
                                 <ul id="visit" class="choose-list"></ul>
 
-                                <div class="row">
-                                    <div class="col-6">
-                                        <h2 class="section-title search-inline">Set subtype</h2>
+                                <div class="datatypes-holder">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <h2 class="section-title search-inline">Select datatype</h2>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="filter-control title-inline">
+                                                <input type="text" id="datatype-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                            </div>
+                                        </div>
                                     </div>
+                                    <ul id="datatype" class="choose-list"></ul>
                                 </div>
-                                <div class="row button-row">
-                                    <div class="col-6">
-                                        <input type="text" id="subtype" class="form-control">
+
+                                <div class="subtypes-holder">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <h2 class="section-title search-inline">Select subtype</h2>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="filter-control title-inline">
+                                                <input type="text" id="subtype-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                            </div>
+                                        </div>
                                     </div>
+                                    <ul id="subtype" class="choose-list"></ul>
                                 </div>
                             </div>
 
@@ -180,11 +197,11 @@
                                             <b>Visit</b>:
                                         </label>
                                         <div class="input-group col-sm-10">
-                                            <input class="form-control" type="text" id="var_visit_label" value="" readonly>
-                                            <input type="hidden" name="visit" id="var_visit" value="">
+                                            <input class="form-control" type="text" name="visit" id="var_visit_label" value="" readonly>
+                                            <input type="hidden" id="var_visit" value="">
                                         </div>
                                     </div>
-                                    <div class="form-group row">
+                                    <div class="form-group row subtypes-holder">
                                         <label class="col-sm-2 col-form-label">
                                             <b>Subtype</b>:
                                         </label>
@@ -192,6 +209,8 @@
                                             <input class="form-control" type="text" name="subtype" id="var_subtype" value="" readonly>
                                         </div>
                                     </div>
+
+                                    <input type="hidden" id="var_datatype" value="">
                                 </div>
                                 
 
@@ -391,6 +410,8 @@
             <input type="hidden" id="project_prm" value="">
             <input type="hidden" id="subject_prm" value="">
             <input type="hidden" id="visit_prm" value="">
+            <input type="hidden" id="datatype_prm" value="">
+            <input type="hidden" id="subtype_prm" value="">
         </div>
     </section>
 </template>

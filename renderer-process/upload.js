@@ -45,6 +45,7 @@ let anon_variables = {};
 const PROJECT_PARAM = 'project';
 const SUBJECT_PARAM = 'subject';
 const VISIT_PARAM = 'visit';
+const DATATYPE_PARAM = 'datatype';
 const SUBTYPE_PARAM = 'protocol';
 
 let load_params = false;
@@ -161,7 +162,7 @@ async function _init_variables() {
         console.log('resseting values in tab 3');
 
 
-        $('#nav-verify').find('.js_next').addClass('disabled');
+        $('#nav-verify').find('.js_upload').addClass('disabled').prop('disabled', true);
     });
 
     // Summary
@@ -625,6 +626,8 @@ $(document).on('click', 'a[data-subject_id]', function(e){
                 return;
             }
 
+
+            $('.tab-pane.active .js_next').addClass('disabled');
             let sorted_visits = visits.sort(function SortByTitle(a, b){
                 var aLabel = a.name.toLowerCase();
                 var bLabel = b.name.toLowerCase();
@@ -645,17 +648,90 @@ $(document).on('click', 'a[data-visit_id]', function(e){
     resetSubsequentTabs();
     
     $(this).closest('ul').find('a').removeClass('selected');
-    $(this).addClass('selected')
+    $(this).addClass('selected');
+
+    let project_id = $('#var_project').val();
+    let visit_id = $(this).data('visit_id');
 
     // set Review data
     $('#var_visit_label').val(get_form_value('visit_id', 'visit_label'));
-    $('#var_visit').val(get_form_value('visit_id', 'visit_id'));
+    $('#var_visit').val(visit_id);
 
-    $('.tab-pane.active .js_next').removeClass('disabled');
+    promise_visit_datatypes(project_id, visit_id)
+        .then(res => {
+            $('#datatype').html('');
+            $('#var_datatype').val('');
+
+            let types = res.data;
+            if (!types || !Array.isArray(types) || types.length === 0) {
+                $('.datatypes-holder').hide();
+                $('.tab-pane.active .js_next').addClass('disabled');
+                swal({
+                    title: `Error`,
+                    text: `No datatypes for this visit`,
+                    icon: "error",
+                    dangerMode: true
+                })
+                return;
+            }
+
+            let sorted_types = types.sort(function SortByTitle(a, b){
+                var aLabel = a.name.toLowerCase();
+                var bLabel = b.name.toLowerCase();
+                return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
+            });
+
+            console.log(sorted_types)
+            sorted_types.forEach(append_datatype_row);
+            $('.datatypes-holder').show();
+
+            select_link_for_item('datatype', ['datatype'], 'datatype_prm');
+        })
+        .catch(handle_error);
 });
 
-$(document).on('change', '#subtype', function(e){
-    $('#var_subtype').val($(this).val());
+$(document).on('click', 'a[data-datatype]', function(e){
+    resetSubsequentTabs();
+    
+    $(this).closest('ul').find('a').removeClass('selected');
+    $(this).addClass('selected')
+
+    let project_id = $('#var_project').val();
+    let visit_id   = $('#var_visit').val();
+    let datatype   = $(this).data('datatype');
+
+    $('#var_datatype').val(datatype);
+
+    promise_visit_subtypes(project_id, visit_id, datatype)
+        .then(res => {
+            $('#subtype').html('');
+            $('#var_subtype').val('');
+
+            let subtypes = res.data;
+            if (!subtypes || !Array.isArray(subtypes) || subtypes.length === 0) {
+                $('.subtypes-holder').hide();
+                $('.tab-pane.active .js_next').removeClass('disabled');
+                return;
+            }
+
+            $('.tab-pane.active .js_next').addClass('disabled');
+            console.log(subtypes)
+            subtypes.forEach(append_subtype_row);
+            $('.subtypes-holder').show();
+            select_link_for_item('subtype', ['subtype'], 'subtype_prm');
+        })
+        .catch(handle_error);
+});
+
+$(document).on('click', 'a[data-subtype]', function(e){
+    resetSubsequentTabs();
+    
+    $(this).closest('ul').find('a').removeClass('selected');
+    $(this).addClass('selected')
+
+    // set Review data
+    $('#var_subtype').val(get_form_value('subtype', 'subtype'));
+
     $('.tab-pane.active .js_next').removeClass('disabled');
 });
 
@@ -993,38 +1069,23 @@ function select_session_id(new_session_id) {
 
     $('#additional-upload-fields').html('');
     Object.keys(anon_variables).forEach(key => {
+        if (key == 'project' || key == 'subject' || key == 'session' || key == 'visit' || key == 'subtype') {
+            return;
+        }
         let key_cap = Helper.capitalizeFirstLetter(key);
-        let field_type = (key == 'subject' || key == 'project') ? 'hidden' : 'text';
+        let field_text = '';
+        let field_value = anon_variables[key];
 
-        let field_text, field_value;
-        if (key == 'subject') {
-            field_text = get_form_value('subject_id', 'subject_label');
-            field_value = field_text;
-        } else if (key == 'project') {
-            field_text = get_form_value('project_id', 'project_id');
-            field_value = field_text;
-        } else if (key == 'visit') {
-            field_text = get_form_value('visit_id', 'visit_label');
-            field_value = field_text;
-        } else {
-            field_text = '';
-            field_value = anon_variables[key];
-        }
-
-        if (key != 'project' && key != 'subject' && key != 'session' && key != 'visit') {
-            $('#additional-upload-fields').append(`
-            <div class="form-group row">
-                <label for="var_${key}" class="col-sm-2 col-form-label"><b>${key_cap}</b>:</label>
-                <div class="input-group col-sm-10">
-                    <input class="form-control" type="${field_type}" name="${key}" id="var_${key}" value="${field_value}" required>
-                    ${field_text}
-                </div>
+        $('#additional-upload-fields').append(`
+        <div class="form-group row">
+            <label for="var_${key}" class="col-sm-2 col-form-label"><b>${key_cap}</b>:</label>
+            <div class="input-group col-sm-10">
+                <input class="form-control" type="text" name="${key}" id="var_${key}" value="${field_value}" required>
+                ${field_text}
             </div>
-            `);
-            console.log('$$$$ ' + key + ' => ' + anon_variables[key]);
-        }
-
-        
+        </div>
+        `);
+        console.log('$$$$ ' + key + ' => ' + anon_variables[key]);
     });
 
     let session_id = selected_session_id,
@@ -1111,9 +1172,10 @@ function select_session_id(new_session_id) {
     $('#pet_tracer_container').remove();
     
     if (all_modalities.indexOf('PT') !== -1) {
-        
+        let subtype = $('#var_subtype').val();
         let pet_tracer_options = pet_tracers.map(function(el) {
-            return `<option value="${el}">${el}</option>`;
+            let selected = (subtype && el == subtype) ? ' selected="selected"' : '';
+            return `<option value="${el}" ${selected}>${el}</option>`;
         });
 
         pet_tracer_options.unshift('<option value="">...</option>')
@@ -1431,7 +1493,7 @@ function dicomParse(_files, root_path) {
                 resetSubsequentTabs();
                 resseting_functions.get(1)();
                 
-                swal({
+                    swal({
                     title: 'No DICOM files',
                     text: 'No DICOM files were found inside selected folder. Please choose another folder.',
                     icon: "warning",
@@ -1448,6 +1510,7 @@ function dicomParse(_files, root_path) {
                 });
 
                 select_session_id(my_session_id);
+                $('#nav-verify').find('.js_upload').removeClass('disabled').prop('disabled', false);
                 $('.tab-pane.active .js_next').trigger('click');
 
                 break;
@@ -1481,6 +1544,7 @@ function dicomParse(_files, root_path) {
                     tbl_data.push(session_data);
                 });
 
+                $('#nav-verify').find('.js_upload').removeClass('disabled').prop('disabled', false);
                 _init_session_selection_table(tbl_data);
                 $('#session-selection').modal('show');
         }
@@ -1525,6 +1589,22 @@ function experiment_label() {
         
         return allModalities;
     }, {});
+
+    let selected_modality = get_form_value('datatype', 'modality');
+    if (selected_modality && selected_modality != full_modality) {
+        swal({
+            title: "Mismatched modality",
+            text: `You are trying to upload ${full_modality} data after indicating that you were going to upload ${selected_modality} data.`,
+            icon: "error",
+            button: "Okay",
+        }).then(proceed => {
+            resetSubsequentTabs();
+            resseting_functions.get(1)();
+            resseting_functions.get(3)();
+            $('a[href="#nav-project"]').click();
+        });
+        return;
+    }
 
     let upload_modalities = Object.keys(upload_modalities_index);
 
@@ -1823,6 +1903,29 @@ function append_visit_row(visit){
     `)
 }
 
+function append_datatype_row(datatype){
+    $('#datatype').append(`
+        <li>
+            <a href="javascript:void(0)"
+                data-datatype="${datatype.xsitype}"
+                data-modality="${datatype.modality}">
+                ${datatype.name}
+            </a>
+        </li>
+    `)
+}
+
+function append_subtype_row(subtype){
+    $('#subtype').append(`
+        <li>
+            <a href="javascript:void(0)"
+                data-subtype="${subtype}">
+                ${subtype}
+            </a>
+        </li>
+    `)
+}
+
 const no_upload_privileges_warning = () => {
     swal({
         title: `Warning: No projects to display`,
@@ -1940,6 +2043,14 @@ function promise_visits(project_id, subject_id) {
     return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_id + '/visits?open=true', requestSettings)
 }
 
+function promise_visit_datatypes(project_id, visit_id) {
+    return axios.get(xnat_server + '/xapi/protocols/projects/' + project_id + '/visits/' + visit_id + '/datatypes?imagingOnly=true', requestSettings)
+}
+
+function promise_visit_subtypes(project_id, visit_id, datatype) {
+    return axios.get(xnat_server + '/xapi/protocols/projects/' + project_id + '/visits/' + visit_id + '/datatypes/' + datatype + '/subtypes', requestSettings)
+}
+
 function promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, modality) {
     let params = new URLSearchParams();
     params.append('visitid', visit_id);
@@ -2018,10 +2129,14 @@ ipc.on('launch_upload', function(e, data){
         return;
     }
     $('#visit_prm').val(params[VISIT_PARAM]);
+    if (!params.hasOwnProperty(DATATYPE_PARAM)) {
+        return;
+    }
+    $('#datatype_prm').val(params[DATATYPE_PARAM]);
     if (!params.hasOwnProperty(SUBTYPE_PARAM)) {
         return;
     }
-    $('#subtype').val(params[SUBTYPE_PARAM]).change();
+    $('#subtype_prm').val(params[SUBTYPE_PARAM]);
 });
 
 function select_link_for_item(ulid, attrs, targetid) {
@@ -2036,7 +2151,7 @@ function select_link_for_item(ulid, attrs, targetid) {
     $target.val('');
     for (let i = 0; i < attrs.length; i++) {
         let attr = attrs[i];
-        let $link = $('#' + ulid + ' a[data-' + attr + '=' + val + ']');
+        let $link = $('#' + ulid + ' a[data-' + attr + '=' +  $.escapeSelector(val) + ']');
         if ($link.length > 0) {
             $link.get(0).scrollIntoView();
             $link.click();
