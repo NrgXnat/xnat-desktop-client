@@ -67,6 +67,7 @@
     "jquery.scrollintoview": "^1.9.4",
     "lodash": "^4.17.5",
     "lokijs": "^1.5.3",
+    "magic-check": "^1.0.3",
     "mime-types": "^2.1.18",
     "mkdir-recursive": "^0.4.0",
     "moment": "^2.24.0",

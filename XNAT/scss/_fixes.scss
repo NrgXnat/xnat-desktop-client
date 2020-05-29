@@ -4,6 +4,59 @@ $nprogress_color: #12BB00;
     display: none;
 }
 
+.break-all {
+    word-break: break-all;
+}
+
+th.highlight {
+    background: #C7D9EE;
+}
+
+td.highlight {
+    background: #E4EFFF;
+}
+
+#upload-section {
+    .tab-content>.active {
+        position: relative;
+        padding-bottom: 67px;
+    }
+
+    .tab-content {
+        min-height: calc(100vh - 191px);
+    }
+    .container-fluid {
+        margin-bottom: 0;
+    }
+
+    .action-button-row {
+        position: fixed;
+        width: 100%;
+        bottom: 0;
+        left: 15px;
+        justify-content: center;
+        
+        .button-row {
+            margin-bottom: 0;
+        }
+
+        > div {
+            &.row_items {
+                display: flex;
+                justify-content: space-between;
+            }
+            background: #f4f4f4;
+            padding: 10px;
+            max-width: 1110px;
+            width: 100%;
+            
+            border-top: 1px solid #ccc;
+            border-right: 1px solid #ccc;
+            border-left: 1px solid #ccc;
+        }
+    }
+}
+
 body #nprogress {
     .bar {
         z-index: 99999;
@@ -188,6 +241,14 @@ body>.ui-pnotify {
     overflow: auto;
 }
 
+.notice {
+    color: #ef6544;
+    font-style: italic;
+    span {
+        font-style: normal;
+    }
+}
+
 // SWEETALERT style FIX
 .swal-modal {
     border-radius: 0;
@@ -225,4 +286,31 @@ body>.ui-pnotify {
 // Pnotify
 .stack-bar-bottom {
     margin-bottom: 10px;
+}
+
+
+/* MAGIC-CHECK */
+
+.magic-checkbox + label {
+    &:before {
+      border-radius: 0px;
+      background-color: white;
+    }
+}
+
+
+/*************************/
+#view-receipt.show {
+    &.modal{
+        display: block !important; /* I added this to see the modal, you don't need this */
+    }
+    
+    /* Important part */
+    .modal-dialog{
+        overflow-y: initial !important
+    }
+    .modal-body{
+        max-height: 70vh;
+        overflow-y: auto;
+    }
 }

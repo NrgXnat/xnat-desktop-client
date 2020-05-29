@@ -309,3 +309,48 @@ div.progress-container {
 		background-position: 100% 100%;
 	}
 }
+
+/* INPUT DAY VALIDATION */
+input.day-validation {
+	text-align: center;
+	border: 1px solid #ccc;
+
+	~ .day-valid {
+		color: green;
+		font-weight: bold;
+		line-height: 1;
+	}
+	
+	~ .day-invalid {
+		color: #e20000;
+		font-weight: bold;
+		line-height: 1;
+	}
+
+	&:invalid {
+		background: #ffa9a9;
+		~ .day-valid {
+			display: none;
+		}
+		~ .day-invalid {
+			display: inline;
+		}
+	}
+	&:placeholder-shown {
+		background: yellow;
+
+		~ .day-valid {
+			display: none;
+		}
+	}
+	&::placeholder {
+		font-style: normal;
+	}
+	~ .day-valid {
+		display: inline;
+	}
+	~ .day-invalid {
+		display: none;
+	}
+}
+

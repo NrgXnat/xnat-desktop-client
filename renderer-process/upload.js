@@ -1515,10 +1515,12 @@ $(document).on('change', '#pet_tracer', function(e) {
     }
 
     $('#experiment_label').val(experiment_label());
+    validate_upload_form()    
 })
 
 $(document).on('keyup', '#custom_pet_tracer', function(e) {
     $('#experiment_label').val(experiment_label());
+    validate_upload_form() 
 })
 
 $(document).on('submit', '#form_new_subject', function(e) {
