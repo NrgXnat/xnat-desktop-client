@@ -479,7 +479,7 @@ bluebird@~3.4.1:
   resolved "https://registry.yarnpkg.com/bluebird/-/bluebird-3.4.7.tgz#f72d760be09b7f76d08ed8fae98b289a8d05fab3"
   integrity sha1-9y12C+Cbf3bQjtj66Ysomo0F+rM=
 
-bootstrap-table@^1.12.1:
+bootstrap-table@^1.16.0:
   version "1.16.0"
   resolved "https://registry.yarnpkg.com/bootstrap-table/-/bootstrap-table-1.16.0.tgz#d05bd262e7f70a76ee872c658918983beb3befce"
   integrity sha512-bLbVetbyiXYmhU1LSsaiOHH4uvmlyBa/fNUo3y0owCfQSyQms/sfXOBvbcJWlDmjGtTY7kPW5z7KQvQJDPzN5w==
