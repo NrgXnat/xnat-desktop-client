@@ -1890,14 +1890,16 @@ function append_subject_row(subject){
 }
 
 function append_visit_row(visit){
+    let vt = visit.type ? visit.type : 'ad hoc';
+    let label = `${visit.name} (${vt})`;
     $('#visit').append(`
         <li>
             <a href="javascript:void(0)"
                 data-visit_id="${visit.id}"
                 data-visit_name="${visit.name}"
-                data-visit_type="${visit.type}"
-                data-visit_label="${visit.name} (${visit.type})">
-                ${visit.name} ${visit.type}<span class="meta_key">ID: ${visit.id}</span>
+                data-visit_type="${vt}"
+                data-visit_label="${label}">
+                ${label}<span class="meta_key">ID: ${visit.id}</span>
             </a>
         </li>
     `)
