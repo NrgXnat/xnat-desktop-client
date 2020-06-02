@@ -1573,6 +1573,7 @@ ipc.on('progress_cell',function(e, item){
     console_red('progress_cell', item);
     let $item_table = $(item.table);
     let $tbl_row = $(`${item.table} [data-uniqueid="${item.id}"]`);
+    let is_upload = item.table === '#upload_monitor_table';
 
     if ($item_table.length && $tbl_row.length) {
         let $progress_bar = $tbl_row.find('.progress-bar');
@@ -1589,7 +1590,7 @@ ipc.on('progress_cell',function(e, item){
         if (!reinit) {
             let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
             $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
-            if (percent === 100) {
+            if (percent === 100 && is_upload) {
                 $progress_bar.append('Archiving...');
             }
         }
@@ -1624,7 +1625,7 @@ ipc.on('progress_cell',function(e, item){
             }
         }
 
-        if (item.table === '#upload_monitor_table') {
+        if (is_upload) {
             let $modal_content = $(`#upload-details [data-id=${item.id}]`);
 
             if (typeof item.value != 'number') {
