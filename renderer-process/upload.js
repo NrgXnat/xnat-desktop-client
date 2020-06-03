@@ -4,6 +4,7 @@ const path = require('path');
 
 const getSize = require('get-folder-size');
 const axios = require('axios');
+const https = require('https');
 require('promise.prototype.finally').shim();
 const auth = require('../services/auth');
 const api = require('../services/api');
@@ -71,11 +72,56 @@ let xnat_server, user_auth, session_map, selected_session_id, defined_project_ex
 let global_date_required, date_required, selected_session_data;
 let pet_tracers = [];
 
+let requestSettings = {};
+
 let anon_variables = {};
 
 let allow_visual_phi_check;
 
 let resizing_tm;
+const PROJECT_PARAM = 'project';
+const SUBJECT_PARAM = 'subject';
+const VISIT_PARAM = 'visit';
+const DATATYPE_PARAM = 'datatype';
+const SUBTYPE_PARAM = 'protocol';
+
+let load_params = false;
+
+async function _init_variables() {
+    /*
+    console.log(user_settings.get())
+    console.log(user_settings.get('xxx'))
+
+    user_settings.set('ime', 'Darko');
+    user_settings.set('prezime', 'Ljubic');
+    user_settings.set('neki_niz', [1, 3, 5])
+    console.log(user_settings.get('ime'))
+    console.log(user_settings.get())
+
+    let neki_niz = user_settings.get('neki_niz')
+    if (Array.isArray(neki_niz)) {
+        neki_niz.push(10)
+    } else {
+        neki_niz = [10]
+    }
+    user_settings.set('neki_niz', neki_niz)
+    console.log(user_settings.get())
+
+    user_settings.unset('prezime');
+    console.log(user_settings.get())
+
+    user_settings.pop('neki_niz', 10)
+    user_settings.pop('neki_niz', 3)
+    user_settings.push('neki_niz', 4)
+    user_settings.pop('neki_niz', 4)
+    user_settings.push('neki_niz', 2)
+    user_settings.push('neki_niz', 1)
+    
+    user_settings.push('neki_niz', 4)
+    user_settings.push('neki_niz', 4)
+    user_settings.push('neki_niz', 4, false)
+    console.log(user_settings.get())
+    */
 
 let rectangle_state_registry = [];
 let event_timeout;
@@ -88,6 +134,13 @@ async function _init_variables() {
     
     xnat_server = settings.get('xnat_server');
     user_auth = auth.get_user_auth();
+    requestSettings.auth = user_auth;
+
+    let httpsOptions = { keepAlive: true };
+    if (auth.allow_insecure_ssl()) {
+        httpsOptions.rejectUnauthorized = false
+    }
+    requestSettings.httpsAgent = new https.Agent(httpsOptions);
 
     session_map = new Map();
     selected_session_id = null;
@@ -149,7 +202,7 @@ async function _init_variables() {
 
         $('#anon_variables').find(':input[required]').removeClass('is-invalid');
 
-        $('#nav-verify').find('.js_next').addClass('disabled');
+        $('#nav-verify').find('.js_upload').addClass('disabled').prop('disabled', true);
     });
 
     // Visual PHI Check
@@ -309,7 +362,7 @@ function _init_img_sessions_table(table_rows) {
         if (has_pt_scan) {
             $('#pet_tracer').trigger('change');
         } else {
-            $('#experiment_label').val(experiment_label());
+            experiment_label();
         }
     })
 
@@ -1029,6 +1082,8 @@ $(document).on('page:load', '#upload-section', async function(e){
                     `)
                     
                 }
+
+                select_link_for_item('upload-project', ['project_id'], 'project_prm');
             } else {
                 no_upload_privileges_warning()
             }
@@ -1177,7 +1232,7 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
             console.log(sorted_subjects)
 
             sorted_subjects.forEach(append_subject_row);
-
+            select_link_for_item('subject-session', ['subject_label', 'subject_id'], 'subject_prm');
         })
         .catch(handle_error);
 
@@ -1229,8 +1284,129 @@ $(document).on('click', 'a[data-subject_id]', function(e){
     // set Review data
     $('#var_subject').val(get_form_value('subject_id', 'subject_label'));
     
-    $('.tab-pane.active .js_next').removeClass('disabled');
+    let project_id = $('#var_project').val();
+    let subject_id = $(this).data('subject_id');
+
+    promise_visits(project_id, subject_id)
+        .then(res => {
+            $('#visit').html('');
+            $('#var_visit').val('');
+            $('#var_visit_label').val('');
+
+            let visits = res.data;
+            if (!visits || !Array.isArray(visits) || visits.length === 0) {
+                $('.project-subject-visits-holder').hide();
+                $('.tab-pane.active .js_next').removeClass('disabled');
+                return;
+            }
+
+
+            $('.tab-pane.active .js_next').addClass('disabled');
+            let sorted_visits = visits.sort(function SortByTitle(a, b){
+                var aLabel = a.name.toLowerCase();
+                var bLabel = b.name.toLowerCase();
+                return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
+            });
+
+            console.log(sorted_visits)
+
+            sorted_visits.forEach(append_visit_row);
+
+            $('.project-subject-visits-holder').show();
+            select_link_for_item('visit', ['visit_id'], 'visit_prm');
+        })
+        .catch(handle_error);
+});
+
+$(document).on('click', 'a[data-visit_id]', function(e){
+    resetSubsequentTabs();
     
+    $(this).closest('ul').find('a').removeClass('selected');
+    $(this).addClass('selected');
+
+    let project_id = $('#var_project').val();
+    let visit_id = $(this).data('visit_id');
+
+    // set Review data
+    $('#var_visit_label').val(get_form_value('visit_id', 'visit_label'));
+    $('#var_visit').val(visit_id);
+
+    promise_visit_datatypes(project_id, visit_id)
+        .then(res => {
+            $('#datatype').html('');
+            $('#var_datatype').val('');
+
+            let types = res.data;
+            if (!types || !Array.isArray(types) || types.length === 0) {
+                $('.datatypes-holder').hide();
+                $('.tab-pane.active .js_next').addClass('disabled');
+                swal({
+                    title: `Error`,
+                    text: `No datatypes for this visit`,
+                    icon: "error",
+                    dangerMode: true
+                })
+                return;
+            }
+
+            let sorted_types = types.sort(function SortByTitle(a, b){
+                var aLabel = a.name.toLowerCase();
+                var bLabel = b.name.toLowerCase();
+                return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
+            });
+
+            console.log(sorted_types)
+            sorted_types.forEach(append_datatype_row);
+            $('.datatypes-holder').show();
+
+            select_link_for_item('datatype', ['datatype'], 'datatype_prm');
+        })
+        .catch(handle_error);
+});
+
+$(document).on('click', 'a[data-datatype]', function(e){
+    resetSubsequentTabs();
+    
+    $(this).closest('ul').find('a').removeClass('selected');
+    $(this).addClass('selected')
+
+    let project_id = $('#var_project').val();
+    let visit_id   = $('#var_visit').val();
+    let datatype   = $(this).data('datatype');
+
+    $('#var_datatype').val(datatype);
+
+    promise_visit_subtypes(project_id, visit_id, datatype)
+        .then(res => {
+            $('#subtype').html('');
+            $('#var_subtype').val('');
+
+            let subtypes = res.data;
+            if (!subtypes || !Array.isArray(subtypes) || subtypes.length === 0) {
+                $('.subtypes-holder').hide();
+                $('.tab-pane.active .js_next').removeClass('disabled');
+                return;
+            }
+
+            $('.tab-pane.active .js_next').addClass('disabled');
+            console.log(subtypes)
+            subtypes.forEach(append_subtype_row);
+            $('.subtypes-holder').show();
+            select_link_for_item('subtype', ['subtype'], 'subtype_prm');
+        })
+        .catch(handle_error);
+});
+
+$(document).on('click', 'a[data-subtype]', function(e){
+    resetSubsequentTabs();
+    
+    $(this).closest('ul').find('a').removeClass('selected');
+    $(this).addClass('selected')
+
+    // set Review data
+    $('#var_subtype').val(get_form_value('subtype', 'subtype'));
+
+    $('.tab-pane.active .js_next').removeClass('disabled');
 });
 
 $(document).on('click', '.js_next:not(.disabled)', function() {
@@ -1394,7 +1570,6 @@ $(document).on('click', '.js_upload', function() {
 
     if (!upload_form_error) {
         if (!valid_pixel_anon()) {
-
             swal({
                 title: `Area Selection Error`,
                 text: `All selected areas must be confirmed using "Save Scan" button.`,
@@ -1407,13 +1582,21 @@ $(document).on('click', '.js_upload', function() {
 
         let selected_series_ids = get_selected_series_ids()
         
-        let expt_label_val = $('#experiment_label').val();
-
         let url_data = {
-            expt_label: expt_label_val ? expt_label_val : experiment_label(),
+            expt_label: $('#experiment_label').val(),
             project_id: get_form_value('project_id', 'project_id'),
             subject_id: get_form_value('subject_id', 'subject_label')
         };
+
+        let visit_id = $('#var_visit').val();
+        if (visit_id) {
+            url_data['visit_id'] = visit_id;
+        }
+        
+        let subtype = $('#var_subtype').val();
+        if (subtype) {
+            url_data['subtype'] = subtype;
+        }
 
         let my_anon_variables = {};
 
@@ -1449,7 +1632,6 @@ $(document).on('click', '.js_upload', function() {
             dangerMode: true
         })
     }
-    
 
 });
 
@@ -1521,6 +1703,11 @@ $(document).on('change', '#pet_tracer', function(e) {
 $(document).on('keyup', '#custom_pet_tracer', function(e) {
     $('#experiment_label').val(experiment_label());
     validate_upload_form() 
+    experiment_label();
+})
+
+$(document).on('keyup', '#custom_pet_tracer', function(e) {
+    experiment_label();
 })
 
 $(document).on('submit', '#form_new_subject', function(e) {
@@ -1601,35 +1788,23 @@ function select_session_id(new_session_id) {
 
     $('#additional-upload-fields').html('');
     Object.keys(anon_variables).forEach(key => {
+        if (key == 'project' || key == 'subject' || key == 'session' || key == 'visit' || key == 'subtype') {
+            return;
+        }
         let key_cap = Helper.capitalizeFirstLetter(key);
-        let field_type = (key == 'subject' || key == 'project') ? 'hidden' : 'text';
+        let field_text = '';
+        let field_value = anon_variables[key];
 
-        let field_text, field_value;
-        if (key == 'subject') {
-            field_text = get_form_value('subject_id', 'subject_label');
-            field_value = field_text;
-        } else if (key == 'project') {
-            field_text = get_form_value('project_id', 'project_id');
-            field_value = field_text;
-        } else {
-            field_text = '';
-            field_value = anon_variables[key];
-        }
-
-        if (key != 'project' && key != 'subject' && key != 'session') {
-            $('#additional-upload-fields').append(`
-            <div class="form-group row">
-                <label for="var_${key}" class="col-sm-2 col-form-label"><b>${key_cap}</b>:</label>
-                <div class="input-group col-sm-10">
-                    <input class="form-control" type="${field_type}" name="${key}" id="var_${key}" value="${field_value}" required>
-                    ${field_text}
-                </div>
+        $('#additional-upload-fields').append(`
+        <div class="form-group row">
+            <label for="var_${key}" class="col-sm-2 col-form-label"><b>${key_cap}</b>:</label>
+            <div class="input-group col-sm-10">
+                <input class="form-control" type="text" name="${key}" id="var_${key}" value="${field_value}" required>
+                ${field_text}
             </div>
-            `);
-            console.log('$$$$ ' + key + ' => ' + anon_variables[key]);
-        }
-
-        
+        </div>
+        `);
+        console.log('$$$$ ' + key + ' => ' + anon_variables[key]);
     });
 
     let session_id = selected_session_id,
@@ -1682,9 +1857,11 @@ function select_session_id(new_session_id) {
     console.log(selected_session.modality);
     console.log(selected_session.studyInstanceUid);
 
-    let expt_label = experiment_label();
-    
-    $('#experiment_label').val(expt_label);
+    if (selected_session.date) {
+        $('#image_session_date').html(selected_session.date);
+    }
+
+    experiment_label();
 
     let studyDate = selected_session.date ? 
         selected_session.date.substr(0, 4) + '-' +
@@ -1714,9 +1891,10 @@ function select_session_id(new_session_id) {
     $('#pet_tracer_container').remove();
     
     if (all_modalities.indexOf('PT') !== -1) {
-        
+        let subtype = $('#var_subtype').val();
         let pet_tracer_options = pet_tracers.map(function(el) {
-            return `<option value="${el}">${el}</option>`;
+            let selected = (subtype && el == subtype) ? ' selected="selected"' : '';
+            return `<option value="${el}" ${selected}>${el}</option>`;
         });
 
         pet_tracer_options.unshift('<option value="">...</option>')
@@ -2034,7 +2212,7 @@ function dicomParse(_files, root_path) {
                 resetSubsequentTabs();
                 resseting_functions.get(1)();
                 
-                swal({
+                    swal({
                     title: 'No DICOM files',
                     text: 'No DICOM files were found inside selected folder. Please choose another folder.',
                     icon: "warning",
@@ -2051,6 +2229,7 @@ function dicomParse(_files, root_path) {
                 });
 
                 select_session_id(my_session_id);
+                $('#nav-verify').find('.js_upload').removeClass('disabled').prop('disabled', false);
                 $('.tab-pane.active .js_next').trigger('click');
 
                 break;
@@ -2084,6 +2263,7 @@ function dicomParse(_files, root_path) {
                     tbl_data.push(session_data);
                 });
 
+                $('#nav-verify').find('.js_upload').removeClass('disabled').prop('disabled', false);
                 _init_session_selection_table(tbl_data);
                 $('#session-selection').modal('show');
         }
@@ -2103,8 +2283,8 @@ function dicomParse(_files, root_path) {
 }
 
 function experiment_label() {
-    let modality = '';
-    let subject_id = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
+    let modality = full_modality = '';
+    let subject_label = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
 
     let selected = $('#image_session').bootstrapTable('getSelections');
 
@@ -2122,11 +2302,28 @@ function experiment_label() {
                 allModalities[row.modality]++;
             } else {
                 allModalities[row.modality] = 1;
+                full_modality += row.modality;
             }
         }
         
         return allModalities;
     }, {});
+
+    let selected_modality = get_form_value('datatype', 'modality');
+    if (selected_modality && selected_modality != full_modality) {
+        swal({
+            title: "Mismatched modality",
+            text: `You are trying to upload ${full_modality} data after indicating that you were going to upload ${selected_modality} data.`,
+            icon: "error",
+            button: "Okay",
+        }).then(proceed => {
+            resetSubsequentTabs();
+            resseting_functions.get(1)();
+            resseting_functions.get(3)();
+            $('a[href="#nav-project"]').click();
+        });
+        return;
+    }
 
     let upload_modalities = Object.keys(upload_modalities_index);
 
@@ -2149,20 +2346,53 @@ function experiment_label() {
         }
     }
 
+    let project_id = $('#var_project').val();
+    let subject_id = get_form_value('subject_id', 'subject_id');
+    let visit_id = $('#var_visit').val();
+    let subtype = $('#var_subtype').val();
+    let session_date = $('#image_session_date').text();
 
-    let expt_label = subject_id.split(' ').join('_') + '_' + modality + '_';
-    for (let i = 1; i < 100000; i++) {
-        let my_expt_label = expt_label + i;
-        if (defined_project_exp_labels.indexOf(my_expt_label) === -1) {
-            expt_label = my_expt_label;
-            break;
-        }
+    function update_experiment_label(expt_label) {
+        console.log('EXPT_LABEL_NEW', expt_label);
+        $('#experiment_label').val(expt_label);
     }
 
-    console.log('EXPT_LABEL_NEW', expt_label);
+    function default_set_experiment_label() {
+        let expt_label = subject_label.split(' ').join('_') + '_' + modality + '_';
+        for (let i = 1; i < 100000; i++) {
+            let my_expt_label = expt_label + i;
+            if (defined_project_exp_labels.indexOf(my_expt_label) === -1) {
+                expt_label = my_expt_label;
+                break;
+            }
+        }
+        update_experiment_label(expt_label);
+    }
 
-    return expt_label;
-
+    promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, full_modality)
+        .then(res => {
+            let expt_label = res.data;
+            if (!expt_label) {
+                default_set_experiment_label();
+            } else {
+                update_experiment_label(expt_label);
+            }
+        })
+        .catch(function(error) {
+            if (error.response.status === 400) {
+                swal({
+                    title: `Warning: unable to set session label per project protocol labeling template`,
+                    text: 'Unable to set session label per protocol template: ' + error.response.data + '. Reverting to default labeling.',
+                    icon: "warning",
+                    button: 'OK',
+                    dangerMode: true
+                }).then((proceed) => {
+                    default_set_experiment_label();
+                });
+            } else {
+                default_set_experiment_label();
+            }
+        });
 }
 
 
@@ -2390,6 +2620,43 @@ function append_subject_row(subject){
     `)
 }
 
+function append_visit_row(visit){
+    $('#visit').append(`
+        <li>
+            <a href="javascript:void(0)"
+                data-visit_id="${visit.id}"
+                data-visit_name="${visit.name}"
+                data-visit_type="${visit.type}"
+                data-visit_label="${visit.name} (${visit.type})">
+                ${visit.name} ${visit.type}<span class="meta_key">ID: ${visit.id}</span>
+            </a>
+        </li>
+    `)
+}
+
+function append_datatype_row(datatype){
+    $('#datatype').append(`
+        <li>
+            <a href="javascript:void(0)"
+                data-datatype="${datatype.xsitype}"
+                data-modality="${datatype.modality}">
+                ${datatype.name}
+            </a>
+        </li>
+    `)
+}
+
+function append_subtype_row(subtype){
+    $('#subtype').append(`
+        <li>
+            <a href="javascript:void(0)"
+                data-subtype="${subtype}">
+                ${subtype}
+            </a>
+        </li>
+    `)
+}
+
 const no_upload_privileges_warning = () => {
     swal({
         title: `Warning: No projects to display`,
@@ -2406,16 +2673,12 @@ const no_upload_privileges_warning = () => {
 
 // allow_create_subject
 function global_allow_create_subject() {
-    return axios.get(xnat_server + '/data/config/applet/allow-create-subject?contents=true&accept-not-found=true', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/config/applet/allow-create-subject?contents=true&accept-not-found=true', requestSettings);
 }
 
 
 function project_allow_create_subject(project_id) {
-    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/allow-create-subject?contents=true&accept-not-found=true', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/allow-create-subject?contents=true&accept-not-found=true', requestSettings);
 }
 
 const handle_create_subject_response = (res) => {
@@ -2428,15 +2691,11 @@ const handle_create_subject_response = (res) => {
 
 // require_date
 function global_require_date() {
-    return axios.get(xnat_server + '/data/config/applet/require-date?contents=true&accept-not-found=true', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/config/applet/require-date?contents=true&accept-not-found=true', requestSettings);
 }
 
 function project_require_date(project_id) {
-    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/require-date?contents=true&accept-not-found=true', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/require-date?contents=true&accept-not-found=true', requestSettings);
 }
 
 const handle_global_require_date = (res) => {
@@ -2492,47 +2751,55 @@ const handle_error = (err) => {
 //================================
 
 function promise_projects() {
-    return axios.get(xnat_server + '/data/projects?permissions=edit&dataType=xnat:subjectData', {
-    //return axios.get(xnat_server + '/data/projects?accessible=true', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/projects?permissions=edit&dataType=xnat:subjectData', requestSettings);
 }
 
 function promise_project_experiments(project_id) {
-    return axios.get(xnat_server + '/data/projects/'+project_id+'/experiments?columns=ID,label,xnat:experimentData/meta/status', {
-        auth: user_auth
-    });
+    return axios.get(xnat_server + '/data/projects/'+project_id+'/experiments?columns=ID,label,xnat:experimentData/meta/status', requestSettings);
 }
 
 function promise_project_pet_tracers(project_id) {
-    return axios.get(xnat_server + `/data/projects/${project_id}/config/tracers/tracers?contents=true&accept-not-found=true`, {
-        auth: user_auth
-    })
+    return axios.get(xnat_server + `/data/projects/${project_id}/config/tracers/tracers?contents=true&accept-not-found=true`, requestSettings)
 }
 
 function promise_server_pet_tracers() {
-    return axios.get(xnat_server + `/data/config/tracers/tracers?contents=true&accept-not-found=true`, {
-        auth: user_auth
-    })
+    return axios.get(xnat_server + `/data/config/tracers/tracers?contents=true&accept-not-found=true`, requestSettings)
 }
 
 function promise_subjects(project_id) {
-    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects?columns=group,insert_date,insert_user,project,label', {
-        auth: user_auth
-    })
+    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects?columns=group,insert_date,insert_user,project,label', requestSettings)
+}
     
+function promise_visits(project_id, subject_id) {
+    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_id + '/visits?open=true', requestSettings)
+}
+
+function promise_visit_datatypes(project_id, visit_id) {
+    return axios.get(xnat_server + '/xapi/protocols/projects/' + project_id + '/visits/' + visit_id + '/datatypes?imagingOnly=true', requestSettings)
+}
+
+function promise_visit_subtypes(project_id, visit_id, datatype) {
+    return axios.get(xnat_server + '/xapi/protocols/projects/' + project_id + '/visits/' + visit_id + '/datatypes/' + datatype + '/subtypes', requestSettings)
+}
+
+function promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, modality) {
+    let params = new URLSearchParams();
+    params.append('visitid', visit_id);
+    params.append('project', project_id);
+    params.append('subject', subject_id);
+    params.append('modality', modality);
+    params.append('subtype', subtype);
+    params.append('date', session_date);
+    params.append('dateFormat', 'yyyyMMdd');
+    return axios.post(xnat_server + '/xapi/protocols/generate_label', params, requestSettings)
 }
 
 function promise_project_subject(project_id, subject_label) {
-    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?format=json', {
-        auth: user_auth
-    })
+    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?format=json', requestSettings)
 }
 
 function promise_create_project_subject(project_id, subject_label, group) {
-    return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group=' + group + '&event_reason=XNAT+Application' + '&XNAT_CSRF=' + csrfToken, {
-        auth: user_auth
-    })
+    return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group=' + group + '&event_reason=XNAT+Application' + '&XNAT_CSRF=' + csrfToken, requestSettings)
 }
 
 
@@ -2577,4 +2844,48 @@ const summary_add = (text, label = '') => {
     let label_html = label ? `<b>${label}: </b>` : '';
 
     $('#summary_info').append(`<p>${label_html} ${text}</p>`);
+}
+
+ipc.on('launch_upload', function(e, data){
+    const params = data.PARAMS;
+    if (!params.hasOwnProperty(PROJECT_PARAM)) {
+        return;
+    }
+    $('#project_prm').val(params[PROJECT_PARAM]);
+    if (!params.hasOwnProperty(SUBJECT_PARAM)) {
+        return;
+    }
+    $('#subject_prm').val(params[SUBJECT_PARAM]);
+    if (!params.hasOwnProperty(VISIT_PARAM)) {
+        return;
+    }
+    $('#visit_prm').val(params[VISIT_PARAM]);
+    if (!params.hasOwnProperty(DATATYPE_PARAM)) {
+        return;
+    }
+    $('#datatype_prm').val(params[DATATYPE_PARAM]);
+    if (!params.hasOwnProperty(SUBTYPE_PARAM)) {
+        return;
+    }
+    $('#subtype_prm').val(params[SUBTYPE_PARAM]);
+});
+
+function select_link_for_item(ulid, attrs, targetid) {
+    const $target = $('#' + targetid);
+    if ($target.length === 0) {
+        return;
+    }
+    const val = $target.val();
+    if (!val) {
+        return;
+    }
+    $target.val('');
+    for (let i = 0; i < attrs.length; i++) {
+        let attr = attrs[i];
+        let $link = $('#' + ulid + ' a[data-' + attr + '=' +  $.escapeSelector(val) + ']');
+        if ($link.length > 0) {
+            $link.get(0).scrollIntoView();
+            $link.click();
+        }
+    }
 }

@@ -46,19 +46,56 @@
                                 <ul id="subject-session" class="choose-list"></ul>
                             </div>
 
-
-
-
                             <div class="row">
                                 <div class="col-12">
                                     <div class="button-row  project-subjects-holder">
                                         <button class="btn btn-gray" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
                                     </div>
                                 </div>
-                                
                             </div>
 
-
+                            <div class="project-subject-visits-holder">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <h2 class="section-title search-inline">Select Visit</h2>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="filter-control title-inline">
+                                            <input type="text" id="visit-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                        </div>
+                                    </div>
+                                </div>
+                                <ul id="visit" class="choose-list"></ul>
+                            
+                                <div class="datatypes-holder">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <h2 class="section-title search-inline">Select datatype</h2>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="filter-control title-inline">
+                                                <input type="text" id="datatype-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <ul id="datatype" class="choose-list"></ul>
+                                </div>
+                            
+                                <div class="subtypes-holder">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <h2 class="section-title search-inline">Select subtype</h2>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="filter-control title-inline">
+                                                <input type="text" id="subtype-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <ul id="subtype" class="choose-list"></ul>
+                                </div>
+                            </div>
+                            
                             <div class="row action-button-row">
                                 <div class="col-12">
                                     <div class="text-right button-row">
@@ -70,6 +107,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="tab-pane fade" id="nav-folder" role="tabpanel" aria-labelledby="nav-folder-tab">
                             <h2 class="section-title">Select Folder</h2>
 
@@ -166,7 +204,27 @@
                                         <input class="form-control" type="text" name="subject" id="var_subject" value="yyy" required readonly>
                                     </div>
                                 </div>
+                                <div class="project-subject-visits-holder">
+                                    <div class="form-group row">
+                                        <label class="col-sm-2 col-form-label">
+                                            <b>Visit</b>:
+                                        </label>
+                                        <div class="input-group col-sm-10">
+                                            <input class="form-control" type="text" name="visit" id="var_visit_label" value="" readonly>
+                                            <input type="hidden" id="var_visit" value="">
+                                        </div>
+                                    </div>
+                                    <div class="form-group row subtypes-holder">
+                                        <label class="col-sm-2 col-form-label">
+                                            <b>Subtype</b>:
+                                        </label>
+                                        <div class="input-group col-sm-10">
+                                            <input class="form-control" type="text" name="subtype" id="var_subtype" value="" readonly>
+                                        </div>
+                                    </div>
 
+                                    <input type="hidden" id="var_datatype" value="">
+                                </div>
                                 
 
                                 <div class="form-group row" id="experiment_label_container">
@@ -195,6 +253,7 @@
                                 <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
                                 <p>Note: Unchecked scans will not be uploaded</p>
                                 <table class="table table-bordered" id="image_session"></table>
+                                <span class="hidden" id="image_session_date"></span>
                             </div>
 
                             <div class="col">
@@ -766,5 +825,13 @@ body.dicomImageViewerFS #header_menu {
 }
         </style>
 
+        <!-- Params passed through from webapp -->
+        <div class="hidden">
+            <input type="hidden" id="project_prm" value="">
+            <input type="hidden" id="subject_prm" value="">
+            <input type="hidden" id="visit_prm" value="">
+            <input type="hidden" id="datatype_prm" value="">
+            <input type="hidden" id="subtype_prm" value="">
+        </div>
     </section>
 </template>

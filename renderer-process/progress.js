@@ -104,13 +104,8 @@ function _init_upload_progress_table() {
 
                     if (typeof value !== 'string') {
                         let my_value = parseFloat(value);
-                        return `
-                        <div class="progress-container">
-                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${my_value}" aria-valuemin="0" aria-valuemax="100" style="width:${my_value}%; height:25px;">
-                                <span class="sr-only">In progress</span>
-                            </div>
-                        </div>
-                        `;
+                        let my_text = my_value === 100 ? 'Archiving...' : '';
+                        return progress_bar_html(my_value, my_text);
                     } else {
                         //return value
                         return value === 'finished' ? 'Completed' : value;
@@ -646,6 +641,40 @@ $(document).on('show.bs.modal', '#error-log--download', function(e) {
 $(document).on('show.bs.modal', '#error-log--upload', function(e) {
     var transfer_id = $(e.relatedTarget).data('id');
     $('#error-log--upload .modal-content').attr('data-id', transfer_id);
+    var log = $(this).find('.log-text');
+    nedb_log_reader.fetch_log(transfer_id, (err, docs) => {
+        console.log(docs);
+        table = '<table class="table table-bordered">';
+        table += `
+            <tr>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Date/Time</th>
+                <th>Details</th>
+            </tr>
+        `;
+        
+        docs.forEach(doc => {
+            let datetime = moment(doc.timestamp).format('YYYY-MM-DD HH:mm:ss')
+            let details;
+            try {
+                details = JSON.parse(doc.details).data;
+            } catch (e) {
+                details = doc.details;
+            }
+            table += `
+                <tr>
+                    <td>${doc.level}</td>
+                    <td>${doc.message}</td>
+                    <td>${datetime}</td>
+                    <td>${details}</td>
+                </tr>
+            `;
+        })
+        table += '</table>';
+        log.html('');
+        log.append(table);
+    });
 });
 
 $(document).on('show.bs.modal', '#upload-details', function(e) {
@@ -974,14 +1003,7 @@ function _init_upload_details_table(transfer_id) {
                     title: 'Upload Progress',
                     sortable: false,
                     formatter: function(value, row, index, field) {
-                        let percent = value;
-                        return `
-                        <div class="progress-container">
-                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="100" style="width:${percent}%; height:25px;">
-                                <span class="sr-only">In progress</span>
-                            </div>
-                        </div>
-                        `;
+                        return progress_bar_html(value);
                     }
                 },
                 {
@@ -1524,6 +1546,17 @@ function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status)
     });
 }
 
+function progress_bar_html(my_value, my_text) {
+    return `
+    <div class="progress-container">
+        <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${my_value}" aria-valuemin="0" aria-valuemax="100" style="width:${my_value}%; height:25px;">
+            ${my_text || ''}
+            <span class="sr-only">In progress</span>
+        </div>
+    </div>
+    `;
+}
+
 ipc.on('upload_finished',function(e, transfer_id){
     let $modal_content = $(`#upload-details [data-id=${transfer_id}]`);
 
@@ -1556,6 +1589,9 @@ ipc.on('progress_cell',function(e, item){
         if (!reinit) {
             let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
             $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
+            if (percent === 100) {
+                $progress_bar.append('Archiving...');
+            }
         }
 
 
@@ -1649,4 +1685,3 @@ ipc.on('global_pause_status', function(e, item) {
     global_pause_status(item)
     // $('.js_pause_all').html(pause_btn_content(item));
 })
-
