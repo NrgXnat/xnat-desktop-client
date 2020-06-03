@@ -96,10 +96,10 @@ function loadPage(page) {
             let clone = document.importNode(template.content, true)
         
             let contentContainer = document.querySelector('.content');
-            console.log({page});
+            console.log({page, contentContainer, clone});
             contentContainer.innerHTML = '';
-
             contentContainer.appendChild(clone);
+            console.log({clone});
             document.body.scrollTop = 0;
 
             settings.set('active_page', page); 
@@ -358,6 +358,7 @@ function parse_error_message(err) {
 }
 
 function console_log(...log_this) {
+    console.trace()
     console.log(...log_this);
 }
 
