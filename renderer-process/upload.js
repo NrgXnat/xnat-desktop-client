@@ -7,11 +7,9 @@ const axios = require('axios');
 const https = require('https');
 require('promise.prototype.finally').shim();
 const auth = require('../services/auth');
-const api = require('../services/api');
 const settings = require('electron-settings');
 const ipc = require('electron').ipcRenderer;
 const swal = require('sweetalert');
-const archiver = require('archiver');
 const mime = require('mime-types');
 
 const prettyBytes = require('pretty-bytes');
@@ -24,8 +22,6 @@ const mizer = remote.require('./mizer');
 const db_uploads = remote.require('./services/db/uploads')
 
 const electron_log = remote.require('./services/electron_log');
-
-const lodashClonedeep = require('lodash/cloneDeep');
 
 
 // ===================
@@ -76,7 +72,7 @@ let requestSettings = {};
 
 let anon_variables = {};
 
-let allow_visual_phi_check;
+const allow_visual_phi_check = true;
 
 let resizing_tm;
 const PROJECT_PARAM = 'project';
@@ -85,43 +81,6 @@ const VISIT_PARAM = 'visit';
 const DATATYPE_PARAM = 'datatype';
 const SUBTYPE_PARAM = 'protocol';
 
-let load_params = false;
-
-async function _init_variables() {
-    /*
-    console.log(user_settings.get())
-    console.log(user_settings.get('xxx'))
-
-    user_settings.set('ime', 'Darko');
-    user_settings.set('prezime', 'Ljubic');
-    user_settings.set('neki_niz', [1, 3, 5])
-    console.log(user_settings.get('ime'))
-    console.log(user_settings.get())
-
-    let neki_niz = user_settings.get('neki_niz')
-    if (Array.isArray(neki_niz)) {
-        neki_niz.push(10)
-    } else {
-        neki_niz = [10]
-    }
-    user_settings.set('neki_niz', neki_niz)
-    console.log(user_settings.get())
-
-    user_settings.unset('prezime');
-    console.log(user_settings.get())
-
-    user_settings.pop('neki_niz', 10)
-    user_settings.pop('neki_niz', 3)
-    user_settings.push('neki_niz', 4)
-    user_settings.pop('neki_niz', 4)
-    user_settings.push('neki_niz', 2)
-    user_settings.push('neki_niz', 1)
-    
-    user_settings.push('neki_niz', 4)
-    user_settings.push('neki_niz', 4)
-    user_settings.push('neki_niz', 4, false)
-    console.log(user_settings.get())
-    */
 
 let rectangle_state_registry = [];
 let event_timeout;
@@ -130,7 +89,6 @@ let anno2;
 
 async function _init_variables() {
     console.log(':::::::::::::: >>> UPLOAD _init_variables');
-    allow_visual_phi_check = true;
     
     xnat_server = settings.get('xnat_server');
     user_auth = auth.get_user_auth();
@@ -202,7 +160,8 @@ async function _init_variables() {
 
         $('#anon_variables').find(':input[required]').removeClass('is-invalid');
 
-        $('#nav-verify').find('.js_upload').addClass('disabled').prop('disabled', true);
+        $('#nav-verify').find('.js_next').addClass('disabled');
+        $('#nav-verify').find('.js_upload').addClass('disabled').prop('disabled', true); 
     });
 
     // Visual PHI Check
@@ -217,24 +176,6 @@ async function _init_variables() {
             clear_all_states()
         }
         
-        
-        
-        /*
-        if (cornerstone_is_enabled(element)) {
-            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
-            try {
-                cornerstone.updateImage(element)
-            } catch(e) {
-                console.log('Nije loadovan img');
-            }
-
-            console.log('Cleared RectangleOverlay state data');
-        } else {
-            console.log('Not Enabled', element);
-        }
-        */
-        
-
         $('#nav-visual').find('.js_next').addClass('disabled');
     });
 
@@ -603,7 +544,7 @@ $(document).on('click', '#reset-scan-btn', function(e) {
 function cornerstone_enable_thumb_element() {
     let element = document.createElement('div');
 
-    element.style.cssText = "width: 150px; height: 150px;";
+    element.style.cssText = "width: 150px; height: 150px; position: absolute; left: -300px; top: 0;";
     document.body.appendChild(element);
 
     cornerstone.enable(element);
@@ -1977,14 +1918,6 @@ function getSizeAsPromised(pth) {
     });
 }
 
-// TODO - remove (not used)
-function dicomParseMime(_files) {
-    let mime_types = [];
-    for (let i = 0; i < _files.length; i++) {
-        let file = _files[i]
-        console.log(path.basename(file) + ':' + mime.lookup(file));
-    }
-}
 
 function dicomParse(_files, root_path) {
     $.blockUI({
