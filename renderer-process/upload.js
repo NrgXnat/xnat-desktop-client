@@ -2163,7 +2163,9 @@ function dicomParse(_files, root_path) {
 
                 select_session_id(my_session_id);
                 $('#nav-verify').find('.js_upload').removeClass('disabled').prop('disabled', false);
-                $('.tab-pane.active .js_next').trigger('click');
+                setTimeout(function() {
+                    $('.tab-pane.active .js_next').trigger('click');
+                }, 500)
 
                 break;
 
@@ -2313,15 +2315,15 @@ function experiment_label() {
         })
         .catch(function(error) {
             if (error.response.status === 400) {
+                default_set_experiment_label();
+
                 swal({
                     title: `Warning: unable to set session label per project protocol labeling template`,
                     text: 'Unable to set session label per protocol template: ' + error.response.data + '. Reverting to default labeling.',
                     icon: "warning",
                     button: 'OK',
                     dangerMode: true
-                }).then((proceed) => {
-                    default_set_experiment_label();
-                });
+                })
             } else {
                 default_set_experiment_label();
             }
