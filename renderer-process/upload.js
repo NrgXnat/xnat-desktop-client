@@ -289,7 +289,7 @@ function _init_img_sessions_table(table_rows) {
         data: table_rows
     });
 
-    $('#image_session').on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table', function (e) {
+    $('#image_session').on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table', async function (e) {
         let selected = $('#image_session').bootstrapTable('getSelections');
 
         let has_pt_scan = selected.reduce((total, row) => row.modality === 'PT' ? true : total, false);
@@ -303,7 +303,7 @@ function _init_img_sessions_table(table_rows) {
         if (has_pt_scan) {
             $('#pet_tracer').trigger('change');
         } else {
-            experiment_label();
+            await experiment_label();
         }
     })
 
@@ -1628,7 +1628,7 @@ $(document).on('input propertychange change', '#form_new_subject input[type=text
     }
 });
 
-$(document).on('change', '#pet_tracer', function(e) {
+$(document).on('change', '#pet_tracer', async function(e) {
     let custom_pt_required = $(this).val() === 'OTHER';
     
     $('#custom_pet_tracer').prop('required', custom_pt_required).prop('disabled', !custom_pt_required).toggleClass('hidden', !custom_pt_required);
@@ -1637,18 +1637,17 @@ $(document).on('change', '#pet_tracer', function(e) {
         $('#custom_pet_tracer').focus();
     }
 
-    $('#experiment_label').val(experiment_label());
+    await experiment_label()
     validate_upload_form()    
 })
 
-$(document).on('keyup', '#custom_pet_tracer', function(e) {
-    $('#experiment_label').val(experiment_label());
+$(document).on('keyup', '#custom_pet_tracer', async function(e) {
+    await experiment_label()
     validate_upload_form() 
-    experiment_label();
 })
 
-$(document).on('keyup', '#custom_pet_tracer', function(e) {
-    experiment_label();
+$(document).on('keyup', '#custom_pet_tracer', async function(e) {
+    await experiment_label();
 })
 
 $(document).on('submit', '#form_new_subject', function(e) {
@@ -1720,7 +1719,7 @@ $(document).on('hidden.bs.modal', '#session-selection', function(e) {
     }
 });
 
-function select_session_id(new_session_id) {
+async function select_session_id(new_session_id) {
     selected_session_id = new_session_id;
     
     console.log('******************************************');
@@ -1802,7 +1801,7 @@ function select_session_id(new_session_id) {
         $('#image_session_date').html(selected_session.date);
     }
 
-    experiment_label();
+    await experiment_label();
 
     let studyDate = selected_session.date ? 
         selected_session.date.substr(0, 4) + '-' +
@@ -2217,7 +2216,7 @@ function dicomParse(_files, root_path) {
 
 }
 
-function experiment_label() {
+async function experiment_label() {
     let modality = full_modality = '';
     let subject_label = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
 
@@ -2304,30 +2303,32 @@ function experiment_label() {
         update_experiment_label(expt_label);
     }
 
-    promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, full_modality)
-        .then(res => {
-            let expt_label = res.data;
-            if (!expt_label) {
-                default_set_experiment_label();
-            } else {
-                update_experiment_label(expt_label);
-            }
-        })
-        .catch(function(error) {
-            if (error.response.status === 400) {
-                default_set_experiment_label();
+    try {
+        const res = await promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, full_modality)
 
-                swal({
-                    title: `Warning: unable to set session label per project protocol labeling template`,
-                    text: 'Unable to set session label per protocol template: ' + error.response.data + '. Reverting to default labeling.',
-                    icon: "warning",
-                    button: 'OK',
-                    dangerMode: true
-                })
-            } else {
-                default_set_experiment_label();
-            }
-        });
+        let expt_label = res.data;
+        if (!expt_label) {
+            default_set_experiment_label();
+        } else {
+            update_experiment_label(expt_label);
+        }
+        
+    } catch (err) {
+        if (err.response && err.response.status === 400) {
+            default_set_experiment_label();
+
+            swal({
+                title: `Warning: unable to set session label per project protocol labeling template`,
+                text: 'Unable to set session label per protocol template: ' + err.response.data + '. Reverting to default labeling.',
+                icon: "warning",
+                button: 'OK',
+                dangerMode: true
+            })
+        } else {
+            default_set_experiment_label();
+        }
+    }
+
 }
 
 
