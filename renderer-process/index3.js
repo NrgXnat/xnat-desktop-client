@@ -358,7 +358,6 @@ function parse_error_message(err) {
 }
 
 function console_log(...log_this) {
-    console.trace()
     console.log(...log_this);
 }
 
