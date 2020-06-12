@@ -60,4 +60,20 @@ exports.isReallyWritable = (_path) => {
     }
 }
 
+exports.isEmptyObject = (myObj) => {
+    return JSON.stringify(myObj) === '{}'
+}
+
+exports.promiseSerial = (funcs) => {
+    const reducer = (promise, func) => {
+        return promise.then(result => {
+            return func().then(resp => {
+                //return Array.prototype.concat.bind(result)(resp)
+                return (resp !== false) ? result.concat(resp) : result
+            })
+        })
+    }
+
+    return funcs.reduce(reducer, Promise.resolve([]))
+}
 

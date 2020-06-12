@@ -598,6 +598,10 @@ ipcMain.on('xnat_cant_handle_stream_upload', (e, item) => {
   post_message('xnat_cant_handle_stream_upload', item);
 })
 
+ipcMain.on('mizer_error_file', (e, message, file) => {
+  post_message('mizer_error_file', message, file);
+})
+
 ipcMain.on('global_pause_status', (e, new_status) => {
   post_message('global_pause_status', new_status);
 

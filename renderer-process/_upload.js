@@ -35,6 +35,11 @@ const nedb_logger = remote.require('./services/db/nedb_logger')
 
 const { copy_anonymize_zip } = require('../services/upload/copy_anonymize_zip');
 
+const { isEmptyObject, promiseSerial } = require('../services/app_utils')
+
+const { MizerError } = require('../services/errors');
+
+
 let summary_log = {};
 
 let transfer_progress = [];
@@ -118,8 +123,6 @@ const execute_cancel_token = (transfer_id) => {
     console_red('execute_cancel_token :: AFTER', {transfer_id, cancel_tokens})
 
 }
-
-
 
 
 /*
@@ -318,7 +321,7 @@ function do_transfer(source_series_id = 'initial', source_upload_success = true)
 }
 
 function set_transfer_totals_summary(transfer) {
-    if (!transfer.summary || emptyObject(transfer.summary)) {
+    if (!transfer.summary || isEmptyObject(transfer.summary)) {
 
         let total_files = transfer.series.reduce((total, ss) => {
             return ss.length + total
@@ -733,12 +736,16 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         let log_and_respawn = true;
         let stream_upload_error = false;
         let authentication_error = false;
+        let mizer_error = false;
 
         if (axios.isCancel(err)) {
             console_red('upload canceled error: cancelCurrentUpload', err);
 
             if (err.message === 'cancel_many') {
                 log_and_respawn = false;
+            } else if (err.message instanceof MizerError) {
+                log_and_respawn = false;
+                mizer_error = true;
             }
         } else {
             console_red('upload error 2', {err});
@@ -775,6 +782,37 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             execute_cancel_token(transfer.id);
             ipc.send('force_reauthenticate', auth.current_login_data());
         }
+
+        if (mizer_error) {
+            _queue_.remove_many(transfer.id);
+            execute_cancel_token(transfer.id);
+
+            db_uploads().update(
+                { id: transfer.id }, 
+                {
+                    $set: {
+                        canceled: true, 
+                        status: 'xnat_error'
+                    },
+                    $push: {
+                        anon_errors: {
+                            message: err.message.message,
+                            file: err.message.file
+                        }
+                    }
+                }, 
+                function(nedb_err, num) {
+                    if (nedb_err) throw nedb_err;
+
+                    ipc.send('upload_finished', transfer.id);
+
+                    nedb_logger.error(transfer.id, 'upload', `Anonymization error: ${err.message.file}`, {data: err.message.message});
+
+                    ipc.send('mizer_error_file', err.message.message, err.message.file);
+                }
+            );
+
+        }
         
     });
 
@@ -805,8 +843,9 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                 let counter = 1;
                 while (fs.existsSync(target)) {
                     target = orig_target + '-' + counter;
+                    counter++;
                 }
-        
+
                 let readStream = fs.createReadStream(source);
                 
                 
@@ -845,11 +884,17 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                         console_red('copy/anonymization ERROR', {source, target})
                         console.log({error});
                         console.log(error.message);
+                        
                         electron_log.error(error)
                         electron_log.error(error.message)
-                        
-    
-                        resolve(source)
+
+                        if (error.message && error.message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0) {
+                            console_red('MizerError')
+                            reject(new MizerError(error.message, source));
+                        } else {
+                            resolve(source)
+                        }
+
                         /*
                         response.copy_error.push({
                             file: source,
@@ -872,11 +917,17 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         //archive.finalize(); // TODO REMOVE THIS LINE
         archive.abort() // removing any pending queue tasks, ends both sides of the Transform stream
         // todo ... axios thinks everything is OK ... thinks the stream ended without a problem so we cancel it
-        cancelCurrentUpload('cancel_single');
+
+        if (err instanceof MizerError) {
+            cancelCurrentUpload(err);
+        } else {
+            cancelCurrentUpload('cancel_single');
+        }
+        
     }
 
     // execute Promises in serial
-    Helper.promiseSerial(funcs)
+    promiseSerial(funcs)
     .then((copy_errors) => {
         console_red('anon finished 1', {copy_errors})
 
@@ -884,7 +935,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             // ===== Attempt 2
             const funcs2 = copy_errors.map(copyAnonArchive);
 
-            Helper.promiseSerial(funcs2)
+            promiseSerial(funcs2)
             .then((copy_errors2) => {
                 console_red('anon finished 2', {copy_errors2})
 
@@ -892,7 +943,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                     // ===== Attempt 3
                     const funcs3 = copy_errors2.map(copyAnonArchive);
 
-                    Helper.promiseSerial(funcs3)
+                    promiseSerial(funcs3)
                     .then((copy_errors3) => {
                         console_red('anon finished 3', {copy_errors3})
 
@@ -1449,12 +1500,6 @@ function summary_add(transfer_id, series_id, text, label = '') {
 
     console.log('summary_all', summary_all);
 }
-
-
-function emptyObject(myObj) {
-    return JSON.stringify(myObj) === '{}'
-}
-
 
 
 

@@ -87,12 +87,16 @@ let event_timeout;
 
 let anno2;
 
+let show_unable_to_set_session_label_warning = 0;
+
 async function _init_variables() {
     console.log(':::::::::::::: >>> UPLOAD _init_variables');
     
     xnat_server = settings.get('xnat_server');
     user_auth = auth.get_user_auth();
     requestSettings.auth = user_auth;
+
+    show_unable_to_set_session_label_warning = 0;
 
     let httpsOptions = { keepAlive: true };
     if (auth.allow_insecure_ssl()) {
@@ -124,6 +128,8 @@ async function _init_variables() {
         
         session_map.clear();
         selected_session_id = null;
+        show_unable_to_set_session_label_warning = 0;
+        
         $('#upload_folder, #file_upload_folder').val('');
 
         $('#upload_folder').closest('.tab-pane').find('.js_next').addClass('disabled');
@@ -2244,7 +2250,8 @@ async function experiment_label() {
     }, {});
 
     let selected_modality = get_form_value('datatype', 'modality');
-    if (selected_modality && selected_modality != full_modality) {
+    
+    if (selected_modality && selected_modality != full_modality && selected.length) {
         swal({
             title: "Mismatched modality",
             text: `You are trying to upload ${full_modality} data after indicating that you were going to upload ${selected_modality} data.`,
@@ -2317,13 +2324,18 @@ async function experiment_label() {
         if (err.response && err.response.status === 400) {
             default_set_experiment_label();
 
-            swal({
-                title: `Warning: unable to set session label per project protocol labeling template`,
-                text: 'Unable to set session label per protocol template: ' + err.response.data + '. Reverting to default labeling.',
-                icon: "warning",
-                button: 'OK',
-                dangerMode: true
-            })
+            if (show_unable_to_set_session_label_warning === 0) {
+                show_unable_to_set_session_label_warning++
+                swal({
+                    title: `Warning: unable to set session label per project protocol labeling template`,
+                    text: 'Unable to set session label per protocol template: ' + err.response.data + '. Reverting to default labeling.',
+                    icon: "warning",
+                    button: 'OK',
+                    dangerMode: true
+                })
+            }
+
+            
         } else {
             default_set_experiment_label();
         }
