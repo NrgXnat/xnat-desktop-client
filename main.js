@@ -598,8 +598,8 @@ ipcMain.on('xnat_cant_handle_stream_upload', (e, item) => {
   post_message('xnat_cant_handle_stream_upload', item);
 })
 
-ipcMain.on('mizer_error_file', (e, message, file) => {
-  post_message('mizer_error_file', message, file);
+ipcMain.on('refresh_progress_tables', (e, item) => {
+  post_message('refresh_progress_tables', item);
 })
 
 ipcMain.on('global_pause_status', (e, new_status) => {
@@ -619,6 +619,10 @@ ipcMain.on('progress_alert', (e, item) => {
 // ?
 ipcMain.on('custom_error', (e, title, msg) => {
   post_message('custom_error', title, msg);
+})
+
+ipcMain.on('custom_error_with_details', (e, title, subtitle, details) => {
+  post_message('custom_error_with_details', title, subtitle, details);
 })
 
 

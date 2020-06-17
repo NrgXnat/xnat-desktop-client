@@ -5,6 +5,8 @@ const archiver = require('archiver');
 const remote = require('electron').remote;
 const mizer = remote.require('./mizer');
 
+const { MizerError } = require('../errors');
+
 const filePromiseChain = (funcs) => {
     const reducer = (promise, func) => {
         return promise.then(result => {
@@ -19,6 +21,11 @@ const filePromiseChain = (funcs) => {
                 })
                 .catch(err => {
                     result.fail.push(err.file)
+
+                    if (err instanceof MizerError) {
+                        throw err
+                    }
+
                     if (err.copy) {
                         result.copies.push(err.copy)
                     }
@@ -140,6 +147,10 @@ const all_file_tasks = (file, target_dir, archive, contexts, variables) => {
                             if (unlink_err) throw unlink_err;
                             console.log(`+++ XXX ERROR => Deleted ${path.basename(err.copy)}`);
                         });
+                    }
+
+                    if (err.err.message && err.err.message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0) {
+                        reject(new MizerError(err.err.message, err.copy));
                     }
 
                     reject({

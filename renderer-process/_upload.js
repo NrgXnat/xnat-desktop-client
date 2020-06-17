@@ -5,45 +5,29 @@ const path = require('path');
 const axios = require('axios');
 const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
+const isRetryAllowed = require('is-retry-allowed');
 require('promise.prototype.finally').shim();
 const settings = require('electron-settings');
 const ElectronStore = require('electron-store');
 const app_config = new ElectronStore();
-
-const ipc = require('electron').ipcRenderer;
-
-const remote = require('electron').remote;
+const archiver = require('archiver');
+const tempDir = require('temp-dir');
+const { ipcRenderer: ipc, remote } = electron;
 
 const auth = require('../services/auth');
-
 const mizer = remote.require('./mizer');
-
-const archiver = require('archiver');
-
-const tempDir = require('temp-dir');
-
 const db_uploads = remote.require('./services/db/uploads')
-
 const { console_red } = require('../services/logger');
-//function console_red() {}
-
 const electron_log = remote.require('./services/electron_log');
-
 const user_settings = require('../services/user_settings');
-
 const nedb_logger = remote.require('./services/db/nedb_logger')
-
 const { copy_anonymize_zip } = require('../services/upload/copy_anonymize_zip');
-
 const { isEmptyObject, promiseSerial } = require('../services/app_utils')
-
 const { MizerError } = require('../services/errors');
 
 
 let summary_log = {};
-
 let transfer_progress = [];
-
 let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
 
 const appMetaData = require('../package.json');
@@ -61,8 +45,6 @@ function summary_log_update(transfer_id, prop, val) {
 
     summary_log[transfer_id][prop].push(val)
 
-    //console_red('summary_log_update', summary_log)
-
     // TODO remove comment and add promise
     //db_uploads.updateProperty(transfer_id, 'summary', summary_log[transfer_id])
 }
@@ -78,6 +60,7 @@ ipc.on('cancel_upload',function(e, transfer_id){
     console_red('ipc.on :: cancel_upload', transfer_id);
     execute_cancel_token(transfer_id)
 });
+
 
 /**
  * // array
@@ -173,15 +156,12 @@ if (isDevEnv()) {
         //     rejectUnauthorized: false
         // });
     }
-    
 
     electron_log.info('data', {
         csrfToken,
         commit_url,
         request_settings
     })
-    
-
     
 	// axios.post(commit_url, {
 	// 	//auth: user_auth
@@ -246,18 +226,7 @@ let _queue_ = {
 }
 
 
-console_log(__filename);
-
-
 do_transfer();
-
-// try {
-//     do_transfer()
-// } catch(err) {
-//     console_log(err)
-//     ipc.send('custom_error', 'Upload Error', err.message);
-// }
-
 setInterval(do_transfer, 60000);
 
 
@@ -419,7 +388,6 @@ function get_temp_upload_path() {
         user_settings.get('temp_folder_alternative') : path.join(tempDir, '_xdc_temp');
 }
 
-let upload_counter = 0;
 async function copy_and_anonymize(transfer, series_id, filePaths, contexts, variables, csrfToken) {
     console_red('copy_and_anonymize')
     let _timer = performance.now();
@@ -732,101 +700,8 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         respawn_transfer(transfer.id, series_id, true)
     })
     .catch(err => {
-        // TODO - REFACTOR (DUPLICATED CODE BELOW)
-        let log_and_respawn = true;
-        let stream_upload_error = false;
-        let authentication_error = false;
-        let mizer_error = false;
-
-        if (axios.isCancel(err)) {
-            console_red('upload canceled error: cancelCurrentUpload', err);
-
-            if (err.message === 'cancel_many') {
-                log_and_respawn = false;
-            } else if (err.message instanceof MizerError) {
-                log_and_respawn = false;
-                mizer_error = true;
-            }
-        } else {
-            console_red('upload error 2', {err});
-
-            // critical error message 
-            let err_msg_search = 'File posts must include the file directly as the body of the message';
-            if (err.response && err.response.status === 400 && err.response.data.indexOf(err_msg_search) > 0) {
-                log_and_respawn = false;
-                stream_upload_error = true;
-            } else if (err.response.status === 401) {
-                log_and_respawn = false;
-                authentication_error = true;
-            }
-        }
-        
-        remove_cancel_token(transfer.id, series_id)
-        _queue_.remove(transfer.id, series_id);
-
-        if (log_and_respawn) {
-            update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
-                respawn_transfer(transfer.id, series_id, false)
-            });
-        }
-
-        if (stream_upload_error) {
-            _queue_.remove_many(transfer.id);
-            execute_cancel_token(transfer.id);
-            ipc.send('global_pause_status', true);
-            ipc.send('xnat_cant_handle_stream_upload');
-        }
-
-        if (authentication_error) {
-            _queue_.remove_many(transfer.id);
-            execute_cancel_token(transfer.id);
-            ipc.send('force_reauthenticate', auth.current_login_data());
-        }
-
-        if (mizer_error) {
-            _queue_.remove_many(transfer.id);
-            execute_cancel_token(transfer.id);
-
-            db_uploads().update(
-                { id: transfer.id }, 
-                {
-                    $set: {
-                        canceled: true, 
-                        status: 'xnat_error'
-                    },
-                    $push: {
-                        anon_errors: {
-                            message: err.message.message,
-                            file: err.message.file
-                        }
-                    }
-                }, 
-                function(nedb_err, num) {
-                    if (nedb_err) throw nedb_err;
-
-                    ipc.send('upload_finished', transfer.id);
-
-                    nedb_logger.error(transfer.id, 'upload', `Anonymization error: ${err.message.file}`, {data: err.message.message});
-
-                    ipc.send('mizer_error_file', err.message.message, err.message.file);
-                }
-            );
-
-        }
-        
+        handleUploadError(transfer, series_id, err)
     });
-
-    function respawn_transfer(transfer_id, series_id, success) {
-        console_red('respawn_transfer', {transfer_id, series_id})
-
-        do_transfer(series_id, success);
-
-        // let _time_took = ((performance.now() - upload_timer) / 1000).toFixed(2);
-        // update_transfer_summary(transfer_id, 'timer_upload', _time_took, function() {
-        //     //_queue_.remove(transfer_id, series_id);
-        //     do_transfer(series_id, success);
-        // });
-    }
 
     /**************************************************** */
     /**************************************************** */
@@ -971,6 +846,107 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
 }
 
+function handleUploadError(transfer, series_id, err) {
+    let log_and_respawn = true;
+    let stream_upload_error = false;
+    let authentication_error = false;
+    let mizer_error = false;
+    let non_retriable_error = false;
+
+    if (err instanceof MizerError) {
+        log_and_respawn = false;
+        mizer_error = err;
+    } else if (axios.isCancel(err)) {
+        console_red('upload canceled error: cancelCurrentUpload', err);
+
+        if (err.message === 'cancel_many') {
+            log_and_respawn = false;
+        } else if (err.message instanceof MizerError) {
+            log_and_respawn = false;
+            mizer_error = err.message;
+        }
+    } else {
+        console_red('upload error 2', {err});
+
+        // critical error message 
+        let err_msg_search = 'File posts must include the file directly as the body of the message';
+        if (err.response && err.response.status === 400 && err.response.data.indexOf(err_msg_search) > 0) {
+            log_and_respawn = false;
+            stream_upload_error = true;
+        } else if (err.response && err.response.status === 401) {
+            log_and_respawn = false;
+            authentication_error = true;
+        } else if (!isRetryAllowed(err)) {
+            log_and_respawn = false;
+            non_retriable_error = true;
+        }
+    }
+    
+    remove_cancel_token(transfer.id, series_id)
+    _queue_.remove(transfer.id, series_id);
+
+    if (log_and_respawn) {
+        update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
+            respawn_transfer(transfer.id, series_id, false)
+        });
+    } else {
+        _queue_.remove_many(transfer.id);
+        execute_cancel_token(transfer.id);
+
+        if (stream_upload_error) {
+            ipc.send('global_pause_status', true);
+            ipc.send('xnat_cant_handle_stream_upload');
+        } else if (authentication_error) {
+            ipc.send('force_reauthenticate', auth.current_login_data());
+        } else if (mizer_error) {
+            db_uploads().update(
+                { id: transfer.id }, 
+                {
+                    $set: {
+                        canceled: true, 
+                        status: 'xnat_error',
+                        last_error: mizer_error.message
+                    }
+                }, 
+                function(nedb_err, num) {
+                    if (nedb_err) throw nedb_err;
+
+                    nedb_logger.error(transfer.id, 'upload', `Anonymization error: ${mizer_error.file}`, {data: mizer_error.message});
+
+                    let subtitle = `An error occured while trying to anonymize a file:\n${mizer_error.file}.\nSession: ${transfer.url_data.expt_label}\n\nTransfer was canceled.`
+                    ipc.send('custom_error_with_details', 'Anonymization Error', subtitle, mizer_error.message)
+
+                    ipc.send('upload_finished', transfer.id);
+                    ipc.send('refresh_progress_tables');
+                }
+            );
+        } else if (non_retriable_error) {
+            db_uploads().update(
+                { id: transfer.id }, 
+                {
+                    $set: {
+                        canceled: true, 
+                        status: 'xnat_error',
+                        last_error: `${err.code}: ${err.message}`
+                    }
+                }, 
+                function(nedb_err, num) {
+                    if (nedb_err) throw nedb_err;
+
+                    nedb_logger.error(transfer.id, 'upload', `Non retriable request error`, {
+                        data: `${err.code}: [URL: ${err.config.url}] ${err.message}`
+                    });
+
+                    let subtitle = `Request error occurred.\nURL:${err.config.url}\nError code: ${err.code}\nSession: ${transfer.url_data.expt_label}\n\nTransfer was canceled.`
+
+                    ipc.send('custom_error_with_details', 'API Request Error', subtitle, err.message)
+                    ipc.send('upload_finished', transfer.id);
+                }
+            );
+        }
+    }
+}
+
 async function copy_and_anonymize_zip(transfer, series_id, _files, contexts, variables, csrfToken) {
     let dicom_temp_folder_path = get_temp_upload_path();
     let new_dirname = 'dir_' + Date.now(); // eg. dir_1522274921704
@@ -986,6 +962,7 @@ async function copy_and_anonymize_zip(transfer, series_id, _files, contexts, var
         })
         .catch(err => {
             console.log('FINAL', err)
+            handleUploadError(transfer, series_id, err)
         })
     
 }
@@ -1235,66 +1212,18 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
             respawn_transfer(transfer.id, series_id, true)
         })
         .catch(err => {
-            // TODO - REFACTOR
-            let log_and_respawn = true;
-            let stream_upload_error = false;
-            let authentication_error = false;
-
-            if (axios.isCancel(err)) {
-                console_red('upload canceled error: cancelCurrentUpload', err);
-
-                if (err.message === 'cancel_many') {
-                    log_and_respawn = false;
-                }
-            } else {
-                console_red('upload error 2', {err});
-
-                // critical error message 
-                let err_msg_search = 'File posts must include the file directly as the body of the message';
-                if (err.response && err.response.status === 400 && err.response.data.indexOf(err_msg_search) > 0) {
-                    log_and_respawn = false;
-                    stream_upload_error = true;
-                } else if (err.response.status === 401) {
-                    log_and_respawn = false;
-                    authentication_error = true;
-                }
-            }
-
-            remove_cancel_token(transfer.id, series_id)
-            _queue_.remove(transfer.id, series_id);
-
-            if (log_and_respawn) {
-                update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
-                    respawn_transfer(transfer.id, series_id, false)
-                });
-            }
-
-            if (stream_upload_error) {
-                _queue_.remove_many(transfer.id);
-                execute_cancel_token(transfer.id);
-                ipc.send('global_pause_status', true);
-                ipc.send('xnat_cant_handle_stream_upload');
-            }
-
-            if (authentication_error) {
-                _queue_.remove_many(transfer.id);
-                execute_cancel_token(transfer.id);
-                ipc.send('force_reauthenticate', auth.current_login_data());
-            }
-            
+            handleUploadError(transfer, series_id, err)
         });
-    
-        function respawn_transfer(transfer_id, series_id, success) {
-            console_red('respawn_transfer', {transfer_id, series_id, success})
-    
-            do_transfer(series_id, success);
-        }
     
         /**************************************************** */
         /**************************************************** */
     });
 }
 
+function respawn_transfer(transfer_id, series_id, success) {
+    console_red('respawn_transfer', {transfer_id, series_id, success})
+    do_transfer(series_id, success);
+}
 
 function mark_uploaded(transfer_id, series_id) {
     console.count('mark_uploaded')
@@ -1367,8 +1296,6 @@ async function update_transfer_summary(transfer_id, property, new_value, callbac
         callback()
     }
 }
-
-
 
 
 function transfer_tpl(transfer) {
@@ -1476,7 +1403,6 @@ async function update_progress_details_zip(transfer, table_row, progress) {
 }
 
 
-
 window.onerror = function (errorMsg, url, lineNumber) {
     electron_log.error(`[Custom Uncaught Error]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)
     console_log('[ERRORRR]:: ' +__filename + ':: ' +  errorMsg);
@@ -1502,11 +1428,6 @@ function summary_add(transfer_id, series_id, text, label = '') {
 }
 
 
-
 function _time_offset(start_time) {
     return ((performance.now() - start_time) / 1000).toFixed(2);
 }
-
-
-
-

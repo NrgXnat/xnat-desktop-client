@@ -5,13 +5,15 @@ const app_config = new ElectronStore();
 const ipc = electron.ipcRenderer
 const app = electron.remote.app
 const shell = electron.shell
-const axios = require('axios');
 const isOnline = require('is-online');
 const auth = require('../services/auth');
 const api = require('../services/api');
 const tempDir = require('temp-dir');
 const path = require('path')
 const remote = require('electron').remote;
+
+const ipcEventHandlers = require('../services/ipc-event-handlers')
+
 
 const { isReallyWritable } = require('../services/app_utils');
 
@@ -28,8 +30,6 @@ electron.crashReporter.start({
 
 
 
-
-
 try {
     let mizer = remote.require('./mizer');
 } catch(e) {
@@ -42,7 +42,6 @@ try {
         throw e;
     }
 }
-
 
 
 
@@ -584,8 +583,12 @@ ipc.on('force_reauthenticate', (e, login_data) => {
 ipc.on('handle_protocol_request', protocol_request)
 
 
+ipc.on('custom_error_with_details', ipcEventHandlers.customErrorWithDetails);
+
+
 window.onerror = function (errorMsg, url, lineNumber) {
     electron_log.error(`[Custom Uncaught Error]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)
     console_log(__filename + ':: ' +  errorMsg);
     return false;
 }
+

@@ -1687,36 +1687,7 @@ ipc.on('global_pause_status', function(e, item) {
     // $('.js_pause_all').html(pause_btn_content(item));
 })
 
-ipc.on('mizer_error_file', (e, message, file) => {
-
-    let msg = `An error occured while trying to anonymize a file:\n${file}.\n\nTransfer was canceled.`
-
-    let html = $(`<div class="error-details-outer">
-        <p>
-            <button class="btn btn-sm btn-gray" 
-                type="button" data-toggle="collapse" data-target="#errorDetails" 
-                aria-expanded="false" aria-controls="errorDetails">
-                Details
-            </button>
-        </p>
-        <div class="collapse" id="errorDetails">
-            <small class="card card-body text-left">
-                ${message}
-            </small>
-        </div>
-    </div>
-    `)
-
-    swal({
-        title: 'Anonymization Error',
-        text: msg,
-        content: html.get(0),
-        icon: "error",
-        buttons: ['Okay'],
-        dangerMode: true
-    })
-
+ipc.on('refresh_progress_tables', (e, refresh_data) => {
     _init_upload_progress_table()
-
-    console.log({mizer_error: message});
+    console.log({refresh_data});
 })
