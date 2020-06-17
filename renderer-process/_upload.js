@@ -763,19 +763,12 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                         electron_log.error(error)
                         electron_log.error(error.message)
 
-                        if (error.message && error.message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0) {
+                        if (mizer.isMizerError(error.message)) {
                             console_red('MizerError')
                             reject(new MizerError(error.message, source));
                         } else {
                             resolve(source)
                         }
-
-                        /*
-                        response.copy_error.push({
-                            file: source,
-                            error: error
-                        });
-                        */
                     }
         
                 });

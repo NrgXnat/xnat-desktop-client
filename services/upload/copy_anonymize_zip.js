@@ -149,7 +149,7 @@ const all_file_tasks = (file, target_dir, archive, contexts, variables) => {
                         });
                     }
 
-                    if (err.err.message && err.err.message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0) {
+                    if (mizer.isMizerError(err.err.message)) {
                         reject(new MizerError(err.err.message, err.copy));
                     }
 

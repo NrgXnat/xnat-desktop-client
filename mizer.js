@@ -388,3 +388,6 @@ function remove_commented_lines(script) {
     return weeded_script_lines.join("\n");
 }
 
+mizer.isMizerError = (error_message) => {
+    return error_message && error_message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0
+}
