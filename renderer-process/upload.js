@@ -89,6 +89,69 @@ let anno2;
 
 let show_unable_to_set_session_label_warning = 0;
 
+
+
+let site_wide_settings = {};
+let project_settings = {};
+
+async function fetch_site_wide_settings(xnat_server, user_auth) {
+    const xnat_api = new XNATAPI(xnat_server, user_auth)
+
+    try {
+        const res = await Promise.all([
+            xnat_api.sitewide_allow_create_subject(),
+            xnat_api.sitewide_require_date(),
+            xnat_api.sitewide_anon_script(),
+            xnat_api.sitewide_series_import_filter(),
+            xnat_api.sitewide_pet_tracers()
+        ])
+
+        return {
+            allow_create_subject: res[0],
+            require_date: res[1],
+            anon_script: res[2],
+            series_import_filter: res[3],
+            pet_tracers: res[4]
+        }
+    } catch (err) {
+        throw err
+    }
+}
+
+async function fetch_project_settings(project_id, xnat_server, user_auth) {
+    const xnat_api = new XNATAPI(xnat_server, user_auth)
+
+    try {
+        const res = await Promise.all([
+            xnat_api.project_subjects(project_id),
+            xnat_api.project_allow_create_subject(project_id),
+            xnat_api.project_require_date(project_id),
+            xnat_api.project_anon_script(project_id),
+            xnat_api.project_sessions(project_id),
+            xnat_api.project_series_import_filter(project_id),
+            xnat_api.project_upload_destination(project_id),
+            xnat_api.project_data(project_id),
+            xnat_api.project_pet_tracers(project_id)
+        ])
+
+        return {
+            subjects: res[0],
+            allow_create_subject: res[1],
+            require_date: res[2],
+            anon_script: res[3],
+            sessions: res[4],
+            series_import_filter: res[5],
+            upload_destination: res[6],
+            project: res[7],
+            pet_tracers: res[8]
+        }
+    } catch (err) {
+        throw err
+    }
+}
+
+
+
 async function _init_variables() {
     console.log(':::::::::::::: >>> UPLOAD _init_variables');
     

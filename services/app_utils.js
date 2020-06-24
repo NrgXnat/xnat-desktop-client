@@ -77,3 +77,14 @@ exports.promiseSerial = (funcs) => {
     return funcs.reduce(reducer, Promise.resolve([]))
 }
 
+
+// sort alphabetically (if attr is set, sort objects by attr alphabetically)
+// string_arr.sort(sortAlpha())
+// obj_arr.sort(sortAlpha('name'))
+exports.sortAlpha = (attr = false) => {
+    return function (a, b) {
+        var aValue = attr === false ? a : a[attr].toLowerCase();
+        var bValue = attr === false ? b : b[attr].toLowerCase(); 
+        return ((aValue < bValue) ? -1 : ((aValue > bValue) ? 1 : 0));
+    }
+}
