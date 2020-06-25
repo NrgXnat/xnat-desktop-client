@@ -1,5 +1,7 @@
 const axios = require('axios');
 const { sortAlpha } = require('./app_utils');
+const settings = require('electron-settings');
+const https = require('https');
 
 
 class XNATAPI {
@@ -8,14 +10,31 @@ class XNATAPI {
         this.user_auth = user_auth
     }
 
+    axios_config() {
+        let httpsOptions = { keepAlive: true };
+
+        const allow_insecure_ssl = settings.has('allow_insecure_ssl') ? settings.get('allow_insecure_ssl') : false;
+        
+        // TODO resolve circular dependency and replace allow_insecure_ssl with method auth.allow_insecure_ssl()
+        httpsOptions.rejectUnauthorized = !allow_insecure_ssl
+
+        return {
+            httpsAgent: new https.Agent(httpsOptions),
+            auth: this.user_auth
+        }
+    }
 
     //******** axios helpers ********* */
     axios_get(url_path) {
-        const {xnat_server, user_auth} = this
+        return axios.get(this.xnat_server + url_path, this.axios_config())
+    }
 
-        return axios.get(xnat_server + url_path, {
-            auth: user_auth
-        })
+    axios_put(url_path) {
+        return axios.put(this.xnat_server + url_path, this.axios_config())
+    }
+
+    axios_post(url_path, params) {
+        return axios.post(this.xnat_server + url_path, params, this.axios_config())
     }
 
     catch_handler(err, resolve, reject) {
@@ -25,22 +44,54 @@ class XNATAPI {
         })
     }
 
+    async get_csrf_token() {
+        const res = await this.axios_get('/')
+
+        let csrfTokenRequestData = res.data
+        let m, csrfToken = false
+        const regex = /var csrfToken = ['"](.+?)['"];/g
+
+        while ((m = regex.exec(csrfTokenRequestData)) !== null) {
+            // This is necessary to avoid infinite loops with zero-width matches
+            if (m.index === regex.lastIndex) {
+                regex.lastIndex++
+            }
+
+            csrfToken = m[1]
+        }
+
+        return csrfToken
+    }
+
+    async create_project_subject(project_id, subject_label, group, csrfToken) {
+        return await this.axios_put(`/data/projects/${project_id}/subjects/${subject_label}?group=${group}&event_reason=XNAT+Application&XNAT_CSRF=${csrfToken}`)
+    }
+
 
     //******** SITEWIDE ********* */
 
     async sitewide_pet_tracers() {
         const res = await this.axios_get('/data/config/tracers/tracers?contents=true&accept-not-found=true')
+
         const pet_tracers_str = res.data.trim();
 
         return pet_tracers_str.length ? pet_tracers_str.split(/\s+/) : []
     }
 
+    
+
     async sitewide_series_import_filter() {
         try {
             const res = await this.axios_get('/data/config/seriesImportFilter?contents=true&accept-not-found=true')
 
-            const global_filter_enabled = res.data.ResultSet.Result[0].status == 'disabled' ? false : true;
-            const global_filter = res.data.ResultSet.Result[0].contents;
+            let global_filter_enabled, global_filter
+
+            if (res.data.ResultSet) {
+                global_filter_enabled = res.data.ResultSet.Result[0].status == 'disabled' ? false : true;
+                global_filter = res.data.ResultSet.Result[0].contents;
+            } else {
+                global_filter_enabled = false
+            }
 
             return global_filter_enabled ? global_filter : false
             
@@ -86,6 +137,7 @@ class XNATAPI {
     }
 
 
+
     //************************** */
     //******** PROJECT ********* */
     //************************** */
@@ -122,10 +174,23 @@ class XNATAPI {
         return typeof res.data === 'boolean' ? res.data : (res.data === '' || res.data.toLowerCase() === 'true')
     }
 
+    /*
     async project_require_date(project_id) {
         const res = await this.axios_get(`/data/config/projects/${project_id}/applet/require-date?contents=true&accept-not-found=true`)
 
         return typeof res.data === 'boolean' ? res.data : (res.data.toLowerCase() !== 'false' && res.data !== '')
+    }
+    */
+
+    async project_require_date(project_id) {
+        const res = await this.axios_get(`/data/config/projects/${project_id}/applet/require-date?contents=true&accept-not-found=true`)
+
+        if (res.data === '') {
+            // return null;
+            return await this.sitewide_require_date(); // use sitewide
+        } else {
+            return typeof res.data === 'boolean' ? res.data : (res.data.toLowerCase() !== 'false');
+        }
     }
 
     async project_sessions(project_id) {
@@ -184,6 +249,75 @@ class XNATAPI {
             return false
         }
     }
+
+    async get_projects() {
+        let projects;
+        const resp = await this.axios_get(`/data/projects?permissions=edit&dataType=xnat:subjectData`)
+
+        let totalRecords = resp.data && resp.data.ResultSet ? resp.data.ResultSet.Result.length : 0;
+
+        if (totalRecords === 0) {
+            projects = []
+        } else if (totalRecords === 1) {
+            projects= [resp.data.ResultSet.Result[0]]
+        } else {
+            projects = resp.data.ResultSet.Result
+        }
+
+        return projects;
+    }
+
+    async project_subject_visits(project_id, subject_id) {
+        const res = await this.axios_get(`/data/projects/${project_id}/subjects/${subject_id}/visits?open=true`)
+
+        let visits = res.data;
+        if (!visits || !Array.isArray(visits)) {
+            visits = []
+        }
+
+        return visits.sort(sortAlpha('name'))
+    }
+
+    async project_visit_datatypes(project_id, visit_id) {
+        const res = await this.axios_get(`/xapi/protocols/projects/${project_id}/visits/${visit_id}/datatypes?imagingOnly=true`)
+
+        let types = res.data;
+        if (!types || !Array.isArray(types)) {
+            types = []
+        }
+
+        return types.sort(sortAlpha('name'))
+    }
+
+    async project_visit_subtypes(project_id, visit_id, datatype) {
+        const res = await this.axios_get(`/xapi/protocols/projects/${project_id}/visits/${visit_id}/datatypes/${datatype}/subtypes`)
+
+        let subtypes = res.data;
+        if (!subtypes || !Array.isArray(subtypes)) {
+            subtypes = []
+        }
+
+        console.log({xxx_subtypes: subtypes});
+
+        return subtypes.sort(sortAlpha())
+    }
+    
+    async project_experiment_label(project_id, subject_id, visit_id, subtype, session_date, full_modality) {
+        let params = new URLSearchParams();
+        params.append('visitid', visit_id);
+        params.append('project', project_id);
+        params.append('subject', subject_id);
+        params.append('modality', modality);
+        params.append('subtype', subtype);
+        params.append('date', session_date);
+        params.append('dateFormat', 'yyyyMMdd');
+
+        const res = await this.axios_post(`/xapi/protocols/generate_label`, params)
+
+        return res.data ? res.data : null
+    }
+
+
 
 
     /* OTHER */

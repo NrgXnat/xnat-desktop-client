@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 
 const getSize = require('get-folder-size');
-const axios = require('axios');
 const https = require('https');
 require('promise.prototype.finally').shim();
 const auth = require('../services/auth');
@@ -23,7 +22,7 @@ const db_uploads = remote.require('./services/db/uploads')
 
 const electron_log = remote.require('./services/electron_log');
 
-
+const XNATAPI = require('../services/xnat-api')
 // ===================
 const dicomParser = require('dicom-parser');
 const cornerstone = require('cornerstone-core');
@@ -63,14 +62,9 @@ NProgress.configure({
     minimum: 0.03
 });
 
-let csrfToken = '';
-let xnat_server, user_auth, session_map, selected_session_id, defined_project_exp_labels, resseting_functions;
-let global_date_required, date_required, selected_session_data;
-let pet_tracers = [];
+let xnat_server, user_auth, session_map, selected_session_id, resseting_functions;
 
 let requestSettings = {};
-
-let anon_variables = {};
 
 const allow_visual_phi_check = true;
 
@@ -90,9 +84,10 @@ let anno2;
 let show_unable_to_set_session_label_warning = 0;
 
 
-
 let site_wide_settings = {};
 let project_settings = {};
+
+
 
 async function fetch_site_wide_settings(xnat_server, user_auth) {
     const xnat_api = new XNATAPI(xnat_server, user_auth)
@@ -159,6 +154,13 @@ async function _init_variables() {
     user_auth = auth.get_user_auth();
     requestSettings.auth = user_auth;
 
+    try {
+        site_wide_settings = await fetch_site_wide_settings(xnat_server, user_auth)
+        console.log({site_wide_settings});
+    } catch (err) {
+        handle_error(err)
+    }
+
     show_unable_to_set_session_label_warning = 0;
 
     let httpsOptions = { keepAlive: true };
@@ -169,8 +171,6 @@ async function _init_variables() {
 
     session_map = new Map();
     selected_session_id = null;
-
-    defined_project_exp_labels = [];
 
     // RESETTING TABS
     resseting_functions = new Map();
@@ -210,17 +210,10 @@ async function _init_variables() {
 
         $('#upload_session_date').val('');
 
-        if (date_required != undefined) {
-            $('#upload_session_date').prop('required', date_required);
         
-            let next_button = $('#upload_session_date').closest('.tab-pane').find('.js_next');
-            if (date_required) {
-                next_button.addClass('disabled'); 
-            } else {
-                next_button.removeClass('disabled');     
-            }
-        }
-
+        $('#upload_session_date').prop('required', project_settings.require_date);
+        let next_button = $('#upload_session_date').closest('.tab-pane').find('.js_next');
+        next_button.toggleClass('disabled', project_settings.require_date); 
     });
 
     // Review and Verify
@@ -971,6 +964,10 @@ function get_current_series_id() {
 $(document).on('page:load', '#upload-section', async function(e){
     console.log('Upload page:load triggered');
 
+    $.blockUI({
+        message: '<h1>Processing...</h1>'
+    });
+
     rectangle_state_registry = [];
 
     //Modal
@@ -1009,112 +1006,92 @@ $(document).on('page:load', '#upload-section', async function(e){
             $('.dicomImageViewerFS #dicom_image_container').css('height', `${($(window).height() - 41 - 70)}px`);
         }, 20);
     });
-    
-    _init_variables();
-
 
     $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', !allow_visual_phi_check);
-
-
-
-    csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
-    console.log(csrfToken);
-
-    if (csrfToken === false) {
-        // An error occured while fetching CSRF token
-    }
-
-    global_allow_create_subject().then(handle_create_subject_response).catch(handle_error);
-    global_require_date().then(handle_global_require_date).catch(handle_error);
-    
-
-    $.blockUI({
-        message: '<h1>Processing...</h1>'
-    });
-    promise_projects()
-        .then(function(resp) {
-            let totalRecords = resp.data.ResultSet.Result.length;
-
-            let projects = (totalRecords === 1) ? [resp.data.ResultSet.Result[0]] : resp.data.ResultSet.Result;
-            //let projects = resp.data.ResultSet.Result;
-
-            console.log(projects)
-
-            $('#upload-project').html('')
-
-            
-            if (projects.length) {
-                let rupc = user_settings.get('recent_upload_projects_count');
-                if (rupc === undefined) {
-                    rupc = constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT
-                }
-
-                if (rupc > 0) {
-                    let recent_projects_ids = user_settings.get('recent_upload_projects') || [];
-                    if (recent_projects_ids.length > rupc) {
-                        recent_projects_ids = recent_projects_ids.slice(0, rupc);
-                    }
-                    
-                    let recent_projects = [];
-    
-                    // find recent projects and preserve order
-                    recent_projects_ids.forEach(recent_project_id => {
-                        let found_project = projects.find(project => project.id === recent_project_id)
-                        if (found_project) {
-                            recent_projects.push(found_project)
-                        }
-                    })
-                    
-                    let other_projects = projects.filter((project) => !recent_projects_ids.includes(project.id));
-    
-                    projects = recent_projects.concat(other_projects)
-
-                    console.log({recent_projects_ids, recent_projects, other_projects, projects});
-                }
-
-
-                for (let i = 0, len = projects.length; i < len; i++) {
-                    console.log('---', projects[i].id)
-                    if (i == 0 && rupc != 0) {
-                        $('#upload-project').append(`
-                            <li class="divider">Recent:</li>
-                        `)
-                    }
-
-                    if (i == rupc && rupc != 0) {
-                        $('#upload-project').append(`
-                            <li class="divider">Other:</li>
-                        `)
-                    }
-                    
-                    $('#upload-project').append(`
-                        <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} <span class="project_id">ID: ${projects[i].id}</span></a></li>
-                    `)
-                    
-                }
-
-                select_link_for_item('upload-project', ['project_id'], 'project_prm');
-            } else {
-                no_upload_privileges_warning()
-            }
-
-        })
-        .catch(function(err) {
-            console.log(err.message);
-        })
-        .finally(function() {
-            $.unblockUI();
-        })
-    
 
     $('#upload_session_date')
         .attr('min', '1990-01-01')
         .attr('max', new Date().toISOString().split('T')[0])
 
+
+    await _init_variables();
+
+    $('#upload-project').html('')
+
+    
+    set_date_tab(site_wide_settings.require_date)
+
+    try {
+        const xnat_api = new XNATAPI(xnat_server, user_auth)
+        let projects = await xnat_api.get_projects()
+    
+        if (projects.length) {
+            generate_project_list(projects)
+        } else {
+            no_upload_privileges_warning()
+        }
+    } catch (err) {
+        handle_error(err)
+    }
+
+    $.unblockUI();
         
 });
 
-$(document).on('click', '#upload-section a[data-project_id]', function(e){
+function generate_project_list(projects) {
+    let rupc = user_settings.get('recent_upload_projects_count');
+    if (rupc === undefined) {
+        rupc = constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT
+    }
+
+    if (rupc > 0) {
+        let recent_projects_ids = user_settings.get('recent_upload_projects') || [];
+        if (recent_projects_ids.length > rupc) {
+            recent_projects_ids = recent_projects_ids.slice(0, rupc);
+        }
+        
+        let recent_projects = [];
+
+        // find recent projects and preserve order
+        recent_projects_ids.forEach(recent_project_id => {
+            let found_project = projects.find(project => project.id === recent_project_id)
+            if (found_project) {
+                recent_projects.push(found_project)
+            }
+        })
+        
+        let other_projects = projects.filter((project) => !recent_projects_ids.includes(project.id));
+
+        projects = recent_projects.concat(other_projects)
+
+        console.log({recent_projects_ids, recent_projects, other_projects, projects});
+    }
+
+
+    for (let i = 0, len = projects.length; i < len; i++) {
+        console.log('---', projects[i].id)
+        if (i == 0 && rupc != 0) {
+            $('#upload-project').append(`
+                <li class="divider">Recent:</li>
+            `)
+        }
+
+        if (i == rupc && rupc != 0) {
+            $('#upload-project').append(`
+                <li class="divider">Other:</li>
+            `)
+        }
+        
+        $('#upload-project').append(`
+            <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} <span class="project_id">ID: ${projects[i].id}</span></a></li>
+        `)
+        
+    }
+
+    select_link_for_item('upload-project', ['project_id'], 'project_prm');
+}
+
+$(document).on('click', '#upload-section a[data-project_id]', async function(e){
     resetSubsequentTabs();
     
     $('.tab-pane.active .js_next').addClass('disabled');
@@ -1130,162 +1107,119 @@ $(document).on('click', '#upload-section a[data-project_id]', function(e){
     // set Review data
     $('#var_project').val(get_form_value('project_id', 'project_id'));
     
-
     let project_id = $(this).data('project_id');
 
+    try {
+        project_settings = await fetch_project_settings(project_id, xnat_server, user_auth);
 
-    mizer.get_mizer_scripts(xnat_server, user_auth, project_id).then(scripts => {
-        let suppress = user_settings.get('suppress_anon_script_missing_warning');
+        const scripts = XNATAPI._aggregate_script(site_wide_settings.anon_script, project_settings.anon_script)
 
-        let warning_suppressed = Array.isArray(suppress) && 
-            (suppress.indexOf('*|*') !== -1 || 
-            suppress.indexOf(`${xnat_server}|*`) !== -1 || 
-            suppress.indexOf(`${xnat_server}|${project_id}`) !== -1);
-
-        if (scripts.length === 0 && !warning_suppressed) {
-            
-            let html = $(`<div class="outer">
-
-                <div class="container">
-                    <div class="row">
-                        <div class="col-sm-8">
-                            <div class="checkbox" style="font-size: 0.8rem; color: #777; text-align: right;">
-                                <label data-toggle="collapse" data-target="#collapseOptions" aria-expanded="false" aria-controls="collapseOptions">
-                                    <input type="checkbox" name="suppress_toggle" id="suppress_toggle"/> Don't show this message again
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-sm-2" style="padding: 0">
-                            <div id="collapseOptions" aria-expanded="false" class="collapse">
-                                <select class="form-control" name="suppress_anon_script_missing_warning" id="suppress_anon_script_missing_warning" 
-                                    style="font-size: 0.8rem; color: #777; height: auto; padding: 1px;">
-                                    <option value="${xnat_server}|${project_id}">For this project</option>
-                                    <option value="${xnat_server}|*">For This Server</option>
-                                    
-                                    <!-- <option value="*|*">For Any Server</option> -->
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-            </div>
-            `);
-
-            swal({
-                title: `Warning: No anonymization scripts found!`,
-                text: `Anonymization scripts are not set for this site or this project. Do you want to continue?`,
-                content: html.get(0),
-                icon: "warning",
-                buttons: ['Choose a different project', 'Continue'],
-                dangerMode: true
-            })
-            .then(proceed => {
-
-                if ($('#suppress_toggle').is(':checked')) {
-                    let suppress_error = $('#suppress_anon_script_missing_warning').val()
-                    user_settings.push('suppress_anon_script_missing_warning', suppress_error)
-                }
-        
-                if (proceed) {
-                    
-                } else {
-                    $('#subject-session').html('');
-                    $('.project-subjects-holder').hide();
-
-                    $('#upload-project a.selected').removeClass('selected');
-                }
-            })
-
+        project_settings.computed = {
+            scripts: scripts,
+            anon_variables: mizer.get_scripts_anon_vars(scripts),
+            experiment_labels: project_settings.sessions.map(item => item.label),
+            pet_tracers: get_pet_tracers(project_settings.pet_tracers, site_wide_settings.pet_tracers, user_defined_pet_tracers(settings))
         }
 
-        let contexts = mizer.getScriptContexts(scripts);
-        anon_variables = mizer.getReferencedVariables(contexts);
+        console.log({PROJECT_SETTINGS: project_settings});
+
+        //$('#file_upload_folder').prop('disabled', false).closest('.btn').removeClass('disabled')
+
+        // -----------------------------------------------------
+        // if needed - generate warning modal (about no anon script) and suppress warning logic
+        suppress_anon_script_warning(scripts, xnat_server, project_id, user_settings)
         
-    }).catch(error => {
-        let title, message;
-        if (error.type == 'axios') {
-            title = "XNAT Connection Error";
-            message = `${Helper.errorMessage(error.data)} \n\n${error.data.request.responseURL}`;
+    } catch (err) {
+        handle_error(err)
+        resseting_functions.get(0)();
+    }
 
-            electron_log.error(title, message)
-        } else {
-            title = "Anonymization script error - Please contact XNAT Admin";
-            message = error.message;
+    // ******** HANDLE SUBJECTS **********
+    project_settings.subjects.forEach(append_subject_row);
+    select_link_for_item('subject-session', ['subject_label', 'subject_id'], 'subject_prm');
 
-            electron_log.error(title, error)
-        }
+    // TODO - check if we need to take site-wide settings into consideration (site_wide_settings.allow_create_subject)
+    $('button[data-target="#new-subject"]').prop('disabled', !project_settings.allow_create_subject);
+    
+    // ******** HANDLE REQUIRE DATE VALUE **********
+    $('#upload_session_date').prop('required', project_settings.require_date);
 
-        swal({
-            title: title,
-            text: message,
-            icon: "error",
-            button: "Okay",
-        })
-            .then(() => {
-                resseting_functions.get(0)();
-            });
-
-        
-    });
-
-    promise_subjects(project_id)
-        .then(res => {
-            let subjects = res.data.ResultSet.Result;
-
-            let sorted_subjects = subjects.sort(function SortByTitle(a, b){
-                let aLabel = a.label.toLowerCase();
-                let bLabel = b.label.toLowerCase(); 
-                return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
-            });
-
-            console.log(sorted_subjects)
-
-            sorted_subjects.forEach(append_subject_row);
-            select_link_for_item('subject-session', ['subject_label', 'subject_id'], 'subject_prm');
-        })
-        .catch(handle_error);
-
-    project_allow_create_subject(project_id).then(handle_create_subject_response).catch(handle_error);
-    project_require_date(project_id).then(handle_require_date).catch(handle_error);
-
-
-    promise_project_experiments(project_id)
-        .then(res => {
-            console.log('----------------promise_project_experiments------------------------');
-            console.log(res.data.ResultSet.totalRecords, res.data.ResultSet.Result)
-            if (res.data.ResultSet.totalRecords) {
-                defined_project_exp_labels = res.data.ResultSet.Result.map(function(item){
-                    return item.label;
-                });
-                console.log(defined_project_exp_labels);
-            }
-            console.log('-----------------------------------------------------------');
-        })
-        .catch(handle_error);
-
-    // set pet tracers
-    promise_project_pet_tracers(project_id)
-        .then(res => {
-            if (res.status === 200) {
-                pet_tracers = res.data.split(/\s+/);
-                pet_tracers.push('OTHER')
-            } else {
-                promise_server_pet_tracers()
-                    .then(res1 => {
-                        if (res1.status === 200 && $.trim(res1.data).length > 0) {
-                            pet_tracers = res1.data.split(/\s+/);
-                        } else {
-                            pet_tracers = settings.get('default_pet_tracers').split(",");
-                        }
-                        pet_tracers.push('OTHER')
-                    })
-            }
-            
-        });
+    let next_button = $('#upload_session_date').closest('.tab-pane').find('.js_next');
+    next_button.toggleClass('disabled', project_settings.require_date)
+    set_date_tab(project_settings.require_date)
 });
 
-$(document).on('click', 'a[data-subject_id]', function(e){
+
+function suppress_anon_script_warning(scripts, xnat_server, project_id, user_settings) {
+    let suppress = user_settings.get('suppress_anon_script_missing_warning');
+
+    let warning_suppressed = Array.isArray(suppress) && 
+        (suppress.indexOf('*|*') !== -1 || 
+        suppress.indexOf(`${xnat_server}|*`) !== -1 || 
+        suppress.indexOf(`${xnat_server}|${project_id}`) !== -1);
+
+    if (scripts.length === 0 && !warning_suppressed) {
+        generate_anon_script_warning(xnat_server, project_id, user_settings)
+    }
+}
+
+
+function generate_anon_script_warning(xnat_server, project_id, user_settings) {
+    let html = $(`<div class="outer">
+
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-8">
+                    <div class="checkbox" style="font-size: 0.8rem; color: #777; text-align: right;">
+                        <label data-toggle="collapse" data-target="#collapseOptions" aria-expanded="false" aria-controls="collapseOptions">
+                            <input type="checkbox" name="suppress_toggle" id="suppress_toggle"/> Don't show this message again
+                        </label>
+                    </div>
+                </div>
+                <div class="col-sm-2" style="padding: 0">
+                    <div id="collapseOptions" aria-expanded="false" class="collapse">
+                        <select class="form-control" name="suppress_anon_script_missing_warning" id="suppress_anon_script_missing_warning" 
+                            style="font-size: 0.8rem; color: #777; height: auto; padding: 1px;">
+                            <option value="${xnat_server}|${project_id}">For this project</option>
+                            <option value="${xnat_server}|*">For This Server</option>
+                            
+                            <!-- <option value="*|*">For Any Server</option> -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    `);
+
+    swal({
+        title: `Warning: No anonymization scripts found!`,
+        text: `Anonymization scripts are not set for this site or this project. Do you want to continue?`,
+        content: html.get(0),
+        icon: "warning",
+        buttons: ['Choose a different project', 'Continue'],
+        dangerMode: true
+    })
+    .then(proceed => {
+
+        if ($('#suppress_toggle').is(':checked')) {
+            let suppress_error = $('#suppress_anon_script_missing_warning').val()
+            user_settings.push('suppress_anon_script_missing_warning', suppress_error)
+        }
+
+        if (proceed) {
+            
+        } else {
+            $('#subject-session').html('');
+            $('.project-subjects-holder').hide();
+
+            $('#upload-project a.selected').removeClass('selected');
+        }
+    })
+}
+
+$(document).on('click', 'a[data-subject_id]', async function(e){
     resetSubsequentTabs();
 
     $(this).closest('ul').find('a').removeClass('selected');
@@ -1297,38 +1231,35 @@ $(document).on('click', 'a[data-subject_id]', function(e){
     let project_id = $('#var_project').val();
     let subject_id = $(this).data('subject_id');
 
-    promise_visits(project_id, subject_id)
-        .then(res => {
-            $('#visit').html('');
-            $('#var_visit').val('');
-            $('#var_visit_label').val('');
+    try {
+        const xnat_api = new XNATAPI(xnat_server, user_auth)
+        const sorted_visits = await xnat_api.project_subject_visits(project_id, subject_id)
 
-            let visits = res.data;
-            if (!visits || !Array.isArray(visits) || visits.length === 0) {
-                $('.project-subject-visits-holder').hide();
-                $('.tab-pane.active .js_next').removeClass('disabled');
-                return;
-            }
+        console.log({sorted_visits});
 
+        $('#visit').html('');
+        $('#var_visit').val('');
+        $('#var_visit_label').val('');
 
+        if (sorted_visits.length === 0) {
+            $('.tab-pane.active .js_next').removeClass('disabled');
+            $('.project-subject-visits-holder').hide();
+        } else {
             $('.tab-pane.active .js_next').addClass('disabled');
-            let sorted_visits = visits.sort(function SortByTitle(a, b){
-                var aLabel = a.name.toLowerCase();
-                var bLabel = b.name.toLowerCase();
-                return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
-            });
-
-            console.log(sorted_visits)
 
             sorted_visits.forEach(append_visit_row);
 
             $('.project-subject-visits-holder').show();
             select_link_for_item('visit', ['visit_id'], 'visit_prm');
-        })
-        .catch(handle_error);
+        }
+        
+    } catch(err) {
+        handle_error(err)
+    }
+
 });
 
-$(document).on('click', 'a[data-visit_id]', function(e){
+$(document).on('click', 'a[data-visit_id]', async function(e){
     resetSubsequentTabs();
     
     $(this).closest('ul').find('a').removeClass('selected');
@@ -1341,40 +1272,37 @@ $(document).on('click', 'a[data-visit_id]', function(e){
     $('#var_visit_label').val(get_form_value('visit_id', 'visit_label'));
     $('#var_visit').val(visit_id);
 
-    promise_visit_datatypes(project_id, visit_id)
-        .then(res => {
-            $('#datatype').html('');
-            $('#var_datatype').val('');
+    try {
+        const xnat_api = new XNATAPI(xnat_server, user_auth)
+        const sorted_types = await xnat_api.project_visit_datatypes(project_id, visit_id)
+        console.log({sorted_types});
 
-            let types = res.data;
-            if (!types || !Array.isArray(types) || types.length === 0) {
-                $('.datatypes-holder').hide();
-                $('.tab-pane.active .js_next').addClass('disabled');
-                swal({
-                    title: `Error`,
-                    text: `No datatypes for this visit`,
-                    icon: "error",
-                    dangerMode: true
-                })
-                return;
-            }
+        $('#datatype').html('');
+        $('#var_datatype').val('');
 
-            let sorted_types = types.sort(function SortByTitle(a, b){
-                var aLabel = a.name.toLowerCase();
-                var bLabel = b.name.toLowerCase();
-                return ((aLabel < bLabel) ? -1 : ((aLabel > bLabel) ? 1 : 0));
-            });
-
-            console.log(sorted_types)
+        if (sorted_types.length === 0) {
+            $('.datatypes-holder').hide();
+            $('.tab-pane.active .js_next').addClass('disabled');
+            swal({
+                title: `Error`,
+                text: `No datatypes for this visit`,
+                icon: "error",
+                dangerMode: true
+            })
+        } else {
             sorted_types.forEach(append_datatype_row);
             $('.datatypes-holder').show();
 
             select_link_for_item('datatype', ['datatype'], 'datatype_prm');
-        })
-        .catch(handle_error);
+        }
+        
+    } catch(err) {
+        handle_error(err)
+    }
+    
 });
 
-$(document).on('click', 'a[data-datatype]', function(e){
+$(document).on('click', 'a[data-datatype]', async function(e){
     resetSubsequentTabs();
     
     $(this).closest('ul').find('a').removeClass('selected');
@@ -1386,25 +1314,29 @@ $(document).on('click', 'a[data-datatype]', function(e){
 
     $('#var_datatype').val(datatype);
 
-    promise_visit_subtypes(project_id, visit_id, datatype)
-        .then(res => {
-            $('#subtype').html('');
-            $('#var_subtype').val('');
+    try {
+        const xnat_api = new XNATAPI(xnat_server, user_auth)
+        const subtypes = await xnat_api.project_visit_subtypes(project_id, visit_id, datatype)
+        console.log({subtypes});
 
-            let subtypes = res.data;
-            if (!subtypes || !Array.isArray(subtypes) || subtypes.length === 0) {
-                $('.subtypes-holder').hide();
-                $('.tab-pane.active .js_next').removeClass('disabled');
-                return;
-            }
+        $('#subtype').html('');
+        $('#var_subtype').val('');
 
+        if (subtypes.length === 0) {
+            $('.subtypes-holder').hide();
+            $('.tab-pane.active .js_next').removeClass('disabled');
+        } else {
             $('.tab-pane.active .js_next').addClass('disabled');
-            console.log(subtypes)
+
             subtypes.forEach(append_subtype_row);
             $('.subtypes-holder').show();
             select_link_for_item('subtype', ['subtype'], 'subtype_prm');
-        })
-        .catch(handle_error);
+        }
+        
+    } catch(err) {
+        handle_error(err)
+    }
+
 });
 
 $(document).on('click', 'a[data-subtype]', function(e){
@@ -1512,7 +1444,7 @@ $(document).on('input', '#upload_session_date', function(e) {
     if (this.validity.valid) {
         console.log('Valid')
         console.log(session_map, selected_session_id, session_map.get(selected_session_id), session_map.get(selected_session_id).date);
-        if (date_required) {
+        if (project_settings.require_date) {
             if ($('#upload_session_date').val().split("-").join('') === session_map.get(selected_session_id).date) {
                 $('.tab-pane.active .js_next').removeClass('disabled');
             } else {
@@ -1610,10 +1542,10 @@ $(document).on('click', '.js_upload', function() {
 
         let my_anon_variables = {};
 
-        console.log('++++++++++++++', anon_variables);
+        console.log('++++++++++++++', project_settings.computed.anon_variables);
         
 
-        if (anon_variables.hasOwnProperty('session')) {
+        if (project_settings.computed.anon_variables.hasOwnProperty('session')) {
             my_anon_variables['session'] = url_data.expt_label;
         }
 
@@ -1719,7 +1651,7 @@ $(document).on('keyup', '#custom_pet_tracer', async function(e) {
     await experiment_label();
 })
 
-$(document).on('submit', '#form_new_subject', function(e) {
+$(document).on('submit', '#form_new_subject', async function(e) {
     e.preventDefault();
     let $form = $(e.target);
 
@@ -1748,30 +1680,34 @@ $(document).on('submit', '#form_new_subject', function(e) {
         group = $group.val();
         //group = group.replace(/\s+/g, '_');
 
-        promise_create_project_subject(project_id, subject_label, group)
-            .then(res => {
-                console.log(res);
-    
-                append_subject_row({
-                    ID: res.data,
-                    URI: '/data/subjects/' + res.data,
-                    insert_date: '',
-                    label: subject_label,
-                    group: group
-                });
-    
-                $('#subject-session li:last-child a').trigger('click');
-    
-                $('#new-subject').modal('hide');
-    
-            })
-            .catch(handle_error)
-            .finally(() => {
-                Helper.unblockModal(modal_id);
-                $form.data('processing', false);
+        try {
+            const csrfToken = await auth.get_csrf_token(xnat_server, user_auth)
+
+            const xnat_api = new XNATAPI(xnat_server, user_auth)
+
+            const new_subject_res = await xnat_api.create_project_subject(project_id, subject_label, group, csrfToken)
+            console.log({promise_create_project_subject: new_subject_res})
+
+            project_settings.subjects = await xnat_api.project_subjects(project_id)
+
+            append_subject_row({
+                ID: new_subject_res.data,
+                URI: '/data/subjects/' + new_subject_res.data,
+                insert_date: '',
+                label: subject_label,
+                group: group
             });
+
+            $('#subject-session li:last-child a').trigger('click');
+
+            $('#new-subject').modal('hide');
+        } catch(err) {
+            handle_error(err)
+        }
+
+        Helper.unblockModal(modal_id);
+        $form.data('processing', false);
     }
-    
     
 });
 
@@ -1792,17 +1728,17 @@ async function select_session_id(new_session_id) {
     selected_session_id = new_session_id;
     
     console.log('******************************************');
-    console.log('anon_variables', anon_variables);
+    console.log('anon_variables', project_settings.computed.anon_variables);
     console.log('******************************************');
 
     $('#additional-upload-fields').html('');
-    Object.keys(anon_variables).forEach(key => {
+    Object.keys(project_settings.computed.anon_variables).forEach(key => {
         if (key == 'project' || key == 'subject' || key == 'session' || key == 'visit' || key == 'subtype') {
             return;
         }
         let key_cap = Helper.capitalizeFirstLetter(key);
         let field_text = '';
-        let field_value = anon_variables[key];
+        let field_value = project_settings.computed.anon_variables[key];
 
         $('#additional-upload-fields').append(`
         <div class="form-group row">
@@ -1813,7 +1749,7 @@ async function select_session_id(new_session_id) {
             </div>
         </div>
         `);
-        console.log('$$$$ ' + key + ' => ' + anon_variables[key]);
+        console.log('$$$$ ' + key + ' => ' + project_settings.computed.anon_variables[key]);
     });
 
     let session_id = selected_session_id,
@@ -1901,7 +1837,7 @@ async function select_session_id(new_session_id) {
     
     if (all_modalities.indexOf('PT') !== -1) {
         let subtype = $('#var_subtype').val();
-        let pet_tracer_options = pet_tracers.map(function(el) {
+        let pet_tracer_options = project_settings.computed.pet_tracers.map(function(el) {
             let selected = (subtype && el == subtype) ? ' selected="selected"' : '';
             return `<option value="${el}" ${selected}>${el}</option>`;
         });
@@ -1922,6 +1858,8 @@ async function select_session_id(new_session_id) {
             </div>
         `);
         $pet_tracer_container.insertBefore('#experiment_label_container');
+
+        $('#pet_tracer').trigger('change');
 
     }
 
@@ -2286,7 +2224,7 @@ function dicomParse(_files, root_path) {
 }
 
 async function experiment_label() {
-    let modality = full_modality = '';
+    let XXX_modality = full_modality = '';
     let subject_label = '' + $('a[data-subject_id].selected').data('subject_label'); // always cast as string
 
     let selected = $('#image_session').bootstrapTable('getSelections');
@@ -2297,10 +2235,8 @@ async function experiment_label() {
     console.log({pet_tracer: pet_tracer});
 
 
-    let PRIMARY_MODALITIES = ['CR', 'CT', 'MR', 'PT', 'DX', 'ECG', 'EPS', 'ES', 'GM', 'HD', 'IO', 'MG', 'NM', 'OP', 'OPT', 'RF', 'SM', 'US', 'XA', 'XC', 'OT'];
-
     let upload_modalities_index = selected.reduce((allModalities, row) => {
-        if (PRIMARY_MODALITIES.indexOf(row.modality) !== -1) {
+        if (constants.PRIMARY_MODALITIES.indexOf(row.modality) !== -1) {
             if (allModalities.hasOwnProperty(row.modality)) {
                 allModalities[row.modality]++;
             } else {
@@ -2333,9 +2269,9 @@ async function experiment_label() {
 
 
     if (upload_modalities.indexOf('PT') >= 0) {
-        modality = pet_tracer === 'OTHER' ? custom_pet_tracer : pet_tracer;
+        XXX_modality = pet_tracer === 'OTHER' ? custom_pet_tracer : pet_tracer;
     } else if (upload_modalities.length == 1) {
-        modality = upload_modalities[0];
+        XXX_modality = upload_modalities[0];
     } else {
         //remove OT from upload_modalities_index
         delete upload_modalities_index['OT'];
@@ -2345,10 +2281,12 @@ async function experiment_label() {
         for (let mod in upload_modalities_index) {
             if (upload_modalities_index[mod] > greatest_mod_value) {
                 greatest_mod_value = upload_modalities_index[mod]
-                modality = mod
+                XXX_modality = mod
             }
         }
     }
+
+    console.log({selected_modality, upload_modalities, pet_tracer, modality: XXX_modality, full_modality, upload_modalities_index});
 
     let project_id = $('#var_project').val();
     let subject_id = get_form_value('subject_id', 'subject_id');
@@ -2362,21 +2300,25 @@ async function experiment_label() {
     }
 
     function default_set_experiment_label() {
-        let expt_label = subject_label.split(' ').join('_') + '_' + modality + '_';
+        let expt_label = subject_label.split(' ').join('_') + '_' + XXX_modality + '_';
+        console.log({expt_label0: expt_label});
         for (let i = 1; i < 100000; i++) {
             let my_expt_label = expt_label + i;
-            if (defined_project_exp_labels.indexOf(my_expt_label) === -1) {
+            if (project_settings.computed.experiment_labels.indexOf(my_expt_label) === -1) {
                 expt_label = my_expt_label;
                 break;
             }
         }
+        console.log({expt_label1: expt_label});
         update_experiment_label(expt_label);
     }
 
     try {
-        const res = await promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, full_modality)
+        const xnat_api = new XNATAPI(xnat_server, user_auth)
+        const expt_label = await xnat_api.project_experiment_label(project_id, subject_id, visit_id, subtype, session_date, full_modality)
 
-        let expt_label = res.data;
+        console.log({expt_label2: expt_label});
+
         if (!expt_label) {
             default_set_experiment_label();
         } else {
@@ -2397,7 +2339,6 @@ async function experiment_label() {
                     dangerMode: true
                 })
             }
-
             
         } else {
             default_set_experiment_label();
@@ -2407,8 +2348,8 @@ async function experiment_label() {
 }
 
 
-function storeUpload(url_data, session_id, series_ids, anon_variables) {
-    console.log('==== anon_variables ====', anon_variables);
+function storeUpload(url_data, session_id, series_ids, _anon_variables) {
+    console.log('==== anon_variables ====', _anon_variables);
     
     let project_id = url_data.project_id;
     let subject_id = url_data.subject_id;
@@ -2487,7 +2428,7 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
     let upload_digest = {
         id: Helper.uuidv4(),
         url_data: url_data,
-        anon_variables: anon_variables,
+        anon_variables: _anon_variables,
         session_id: session_id,
         session_data: {
             studyId: selected_session.studyId,
@@ -2530,51 +2471,6 @@ function storeUpload(url_data, session_id, series_ids, anon_variables) {
     setTimeout(function(){
         $('#nav-upload-tab').trigger('click');
     }, 40);
-    
-    return;
-
-    // -----------------------------------------------------
-
-
-
-    summary_add(project_id, 'PROJECT_ID');
-    summary_add(subject_id, 'SUBJECT_ID');
-    summary_add(expt_label, 'EXPT_LABEL');
-    summary_add(session_id, 'STUDY_ID');
-    summary_add(series_ids.length, 'SCANS');
-    summary_add(_files.length, 'FILES');
-    summary_add(`${(total_size / 1024 / 1024).toFixed(2)}MB`, 'FILESIZE');
-
-    console.log(_files);
-    
-
-    //swal(project_id + "\n" + subject_id + "\nFiles: " + _files.length);
-
-    
-
-    copy_and_anonymize(_files)
-        .then((res) => {
-            summary_add(res.directory, 'Anonymization dir');
-            summary_add(res.copy_success.length, 'Anonymized files');
-            summary_add(res.copy_error.length, 'Anonymization errors');
-
-            // todo add additional logic for errors
-            if (res.copy_error.length == 0) {
-                zip_and_upload(res.directory, res.copy_success, url_data);
-            } else {
-                let error_file_list = '';
-                for(let i = 0; i < res.copy_error.length; i++) {
-                    error_file_list += res.copy_error[i].file + "\n * " + res.copy_error[i].error + "\n\n";
-                }
-
-                swal({
-                    title: `Anonymization Error`,
-                    text: `An error occured during anonymization of the folowing files: \n${error_file_list}`,
-                    icon: "error",
-                    dangerMode: true
-                })
-            }
-        })
     
 }
 
@@ -2684,64 +2580,7 @@ const no_upload_privileges_warning = () => {
 }
 
 
-// allow_create_subject
-function global_allow_create_subject() {
-    return axios.get(xnat_server + '/data/config/applet/allow-create-subject?contents=true&accept-not-found=true', requestSettings);
-}
 
-
-function project_allow_create_subject(project_id) {
-    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/allow-create-subject?contents=true&accept-not-found=true', requestSettings);
-}
-
-const handle_create_subject_response = (res) => {
-    console.log( '===========', typeof res.data, '===========');
-    
-    let allow_create_subject = (typeof res.data === 'boolean') ? res.data : (res.data === '' || res.data.toLowerCase() === 'true');
-    console.log('allow_create_subject:', allow_create_subject, `(${res.data})`);
-    $('button[data-target="#new-subject"]').prop('disabled', !allow_create_subject);
-};
-
-// require_date
-function global_require_date() {
-    return axios.get(xnat_server + '/data/config/applet/require-date?contents=true&accept-not-found=true', requestSettings);
-}
-
-function project_require_date(project_id) {
-    return axios.get(xnat_server + '/data/config/projects/'+project_id+'/applet/require-date?contents=true&accept-not-found=true', requestSettings);
-}
-
-const handle_global_require_date = (res) => {
-    
-    
-    global_date_required = (typeof res.data === 'boolean') ? res.data : (res.data.toLowerCase() !== 'false' && res.data !== '');
-    console.log('========== handle_global_require_date ===========', global_date_required, $('#nav-date', 'a[href="#nav-date"]').length);
-    
-    set_date_tab(global_date_required)
-}
-
-const handle_require_date = (res) => {
-    console.log( '===========', typeof res.data, '===========');
-    if (res.data === '') {
-        date_required = global_date_required;
-    } else {
-        date_required = (typeof res.data === 'boolean') ? res.data : (res.data.toLowerCase() !== 'false');
-    }
-    
-    console.log('date_required:', date_required, `(${res.data})`);
-    $('#upload_session_date').prop('required', date_required);
-    
-
-    let next_button = $('#upload_session_date').closest('.tab-pane').find('.js_next');
-    if (date_required) {
-        next_button.addClass('disabled'); 
-    } else {
-        next_button.removeClass('disabled');     
-    }
-
-    set_date_tab(date_required)
-    
-};
 
 const set_date_tab = (date_required) => {
     if (date_required) {
@@ -2757,64 +2596,50 @@ const set_date_tab = (date_required) => {
     }
 }
 
-const handle_error = (err) => {
-    console.log(err, err.response);
-};
+function user_defined_pet_tracers(settings) {
+    return settings.has('default_pet_tracers') ? settings.get('default_pet_tracers').split(",") : []
+}
+
+
+function get_pet_tracers(project_pts, server_pts, user_defined_pts) {
+    let _pet_tracers;
+    if (project_pts !== false) {
+        _pet_tracers = project_pts
+    } else if (server_pts.length) {
+        _pet_tracers = server_pts
+    } else {
+        _pet_tracers = user_defined_pts;
+    }
+
+    if (!_pet_tracers.includes('OTHER')) {
+        _pet_tracers.push('OTHER')
+    }
+
+    return _pet_tracers;
+}
+
+
+function handle_error(err) {
+    console.error({err})
+
+    let message = err.message;
+
+    // AXIOS?
+    if (err.config && err.config.url) {
+        message += "\n" + err.config.url 
+    }
+    message += "\n\n STACK:\n" + err.stack
+
+    swal({
+        title: err.name,
+        text: `MESSAGE:\n\n${message}`,
+        icon: "error",
+        dangerMode: true
+    })
+
+}
 
 //================================
-
-function promise_projects() {
-    return axios.get(xnat_server + '/data/projects?permissions=edit&dataType=xnat:subjectData', requestSettings);
-}
-
-function promise_project_experiments(project_id) {
-    return axios.get(xnat_server + '/data/projects/'+project_id+'/experiments?columns=ID,label,xnat:experimentData/meta/status', requestSettings);
-}
-
-function promise_project_pet_tracers(project_id) {
-    return axios.get(xnat_server + `/data/projects/${project_id}/config/tracers/tracers?contents=true&accept-not-found=true`, requestSettings)
-}
-
-function promise_server_pet_tracers() {
-    return axios.get(xnat_server + `/data/config/tracers/tracers?contents=true&accept-not-found=true`, requestSettings)
-}
-
-function promise_subjects(project_id) {
-    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects?columns=group,insert_date,insert_user,project,label', requestSettings)
-}
-    
-function promise_visits(project_id, subject_id) {
-    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_id + '/visits?open=true', requestSettings)
-}
-
-function promise_visit_datatypes(project_id, visit_id) {
-    return axios.get(xnat_server + '/xapi/protocols/projects/' + project_id + '/visits/' + visit_id + '/datatypes?imagingOnly=true', requestSettings)
-}
-
-function promise_visit_subtypes(project_id, visit_id, datatype) {
-    return axios.get(xnat_server + '/xapi/protocols/projects/' + project_id + '/visits/' + visit_id + '/datatypes/' + datatype + '/subtypes', requestSettings)
-}
-
-function promise_experiment_label(project_id, subject_id, visit_id, subtype, session_date, modality) {
-    let params = new URLSearchParams();
-    params.append('visitid', visit_id);
-    params.append('project', project_id);
-    params.append('subject', subject_id);
-    params.append('modality', modality);
-    params.append('subtype', subtype);
-    params.append('date', session_date);
-    params.append('dateFormat', 'yyyyMMdd');
-    return axios.post(xnat_server + '/xapi/protocols/generate_label', params, requestSettings)
-}
-
-function promise_project_subject(project_id, subject_label) {
-    return axios.get(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?format=json', requestSettings)
-}
-
-function promise_create_project_subject(project_id, subject_label, group) {
-    return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group=' + group + '&event_reason=XNAT+Application' + '&XNAT_CSRF=' + csrfToken, requestSettings)
-}
-
 
 const displayMessage = (text = '', isError = false) => {
     if (isError) {

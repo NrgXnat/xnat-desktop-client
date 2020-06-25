@@ -1,9 +1,6 @@
 const mizer = exports;
 const path = require('path');
 const fs = require('fs');
-const axios = require('axios');
-const https = require('https');
-const auth = require('./services/auth');
 
 //console.log(__dirname);
 
@@ -16,13 +13,6 @@ fs.writeFileSync('mizer.js.txt', "MizerLibs: [" + _app_path +  "]" + path.resolv
     console.log('Error writing mizer.js.txt');
 });
 */
-
-
-let httpsOptions = { keepAlive: true };
-if (auth.allow_insecure_ssl()) {
-    httpsOptions.rejectUnauthorized = false
-}
-let httpsAgent = new https.Agent(httpsOptions)
 
 let java;
 let jarDir;
@@ -219,144 +209,12 @@ mizer.anonymize_single = (source, script, variables) => {
     mizerService.anonymizeSync(file, list);
 };
 
-// ================================================================================
-// ================================================================================
-// ================================================================================
-mizer.get_mizer_scripts_old = (xnat_server, user_auth, project_id) => {
-    return new Promise(function(resolve, reject) {
-        let scripts = [];
-        get_global_anon_script(xnat_server, user_auth).then(resp => {
-            console.log('get_global_anon_script', resp.data.ResultSet.Result);
-            
-            let global_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
-            let global_anon_script = resp.data.ResultSet.Result[0].contents;
-        
-            if (global_anon_script_enabled) {
-                scripts.push(remove_commented_lines(global_anon_script));
-            }
-        
-            get_project_anon_script(xnat_server, user_auth, project_id).then(resp => {
-                console.log('get_project_anon_script', resp.data.ResultSet.Result);
-                
-                let project_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
-                let project_anon_script = resp.data.ResultSet.Result[0].contents;
-                
-                if (project_anon_script_enabled) {
-                    scripts.push(remove_commented_lines(project_anon_script));
-                }
-
-                console.log('============= SCRIPTS ================');
-                console.log(scripts);
-                console.log('=============================');
-                
-
-                resolve(scripts);
-        
-            }).catch(err => {
-                reject(err);
-            });  
-        
-        }).catch(err => {
-            reject(err);
-        });  
-
-    });
+mizer.get_scripts_anon_vars = (scripts) => {
+    const contexts = mizer.getScriptContexts(scripts);
+    return mizer.getReferencedVariables(contexts);
 }
 
-
-mizer.get_mizer_scripts = (xnat_server, user_auth, project_id) => {
-    return new Promise((resolve, reject) => {
-        Promise.all([
-            get_global_anon_script(xnat_server, user_auth), 
-            get_project_anon_script(xnat_server, user_auth, project_id)
-        ]).then(anon_scripts => {
-            let scripts = [];
-            //console.log('== BEFORE ==', anon_scripts);
-            
-            anon_scripts.forEach((script) => {
-                if (script) { // false if not enabled
-                    let parsed_script = remove_commented_lines(script);
-                    if (parsed_script) {
-                        scripts.push(parsed_script)
-                    }
-                }
-            });
-
-            //console.log('== AFTER ==', scripts);
-            
-            resolve(scripts);
-        }).catch(err => {
-            reject(err);
-        })
-    });
-    
-}
-
-// global anon script
-function get_global_anon_script(xnat_server, user_auth) {
-    return new Promise(function(resolve, reject) {
-        axios.get(xnat_server + '/data/config/anon/script?format=json', {
-            httpsAgent: httpsAgent,
-            auth: user_auth
-        }).then(resp => {
-            //console.log('get_global_anon_script', resp.data.ResultSet.Result);
-
-            let global_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
-            let global_anon_script = resp.data.ResultSet.Result[0].contents;
-
-            if (global_anon_script_enabled) {
-                resolve(global_anon_script);
-            } else {
-                resolve(false);
-            }
-            
-        }).catch(err => {
-            if (err.response && err.response.status === 404) {
-                resolve(false);    
-            } else {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            }
-        });
-    });
-    
-}
-
-
-function get_project_anon_script(xnat_server, user_auth, project_id) {
-
-    return new Promise(function(resolve, reject) {
-        axios.get(xnat_server + '/data/projects/' + project_id + '/config/anon/projects/' + project_id + '?format=json', {
-            httpsAgent: httpsAgent,
-            auth: user_auth
-        }).then(resp => {
-            console.log('get_project_anon_script', resp.data.ResultSet.Result);
-            
-            let project_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
-            let project_anon_script = resp.data.ResultSet.Result[0].contents;
-            
-            if (project_anon_script_enabled) {
-                resolve(project_anon_script);
-            } else {
-                resolve(false);
-            }
-    
-        }).catch(err => {
-            if (err.response && err.response.status === 404) {
-                resolve(false);    
-            } else {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            }
-        });  
-    });
-}
-
-function generateAlterPixelCode(rectangles) {
+mizer.generateAlterPixelCode = (rectangles) => {
     let lines = rectangles.map(rect => {
       return `alterPixels["rectangle", "l=${Math.round(rect[0])}, t=${Math.round(rect[1])}, r=${Math.round(rect[2])}, b=${Math.round(rect[3])}", "solid", "v=100"]`;
     })
@@ -366,26 +224,6 @@ function generateAlterPixelCode(rectangles) {
     }
     
     return lines.join("\n");
-}
-
-mizer.generateAlterPixelCode = generateAlterPixelCode
-
-
-function remove_commented_lines(script) {
-    let weeded_script_lines = [], 
-        script_lines = script.split("\n");
-
-    //console.log(script_lines);
-    for (let i = 0; i < script_lines.length; i++) {
-        let line = script_lines[i].trim();
-        if (line.length && line.indexOf('//') !== 0) {
-            weeded_script_lines.push(line);
-        }
-    }
-
-    //console.log(weeded_script_lines);
-
-    return weeded_script_lines.join("\n");
 }
 
 mizer.isMizerError = (error_message) => {
