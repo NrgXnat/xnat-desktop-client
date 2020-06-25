@@ -581,7 +581,10 @@ ipc.on('handle_protocol_request', protocol_request)
 
 
 window.onerror = function (errorMsg, url, lineNumber) {
-    electron_log.error(`[Custom Uncaught Error]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)
+    let error_msg = `${__filename}:: (${url}:${lineNumber}) ${errorMsg}`;
+    electron_log.error(`[Custom Uncaught Error]:: ${error_msg}`)
     console_log(__filename + ':: ' +  errorMsg);
+
+    ipc.send('custom_error', `Custom Uncaught Error`, error_msg)
     return false;
 }

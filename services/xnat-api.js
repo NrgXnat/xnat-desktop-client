@@ -1,5 +1,7 @@
 const axios = require('axios');
 const { sortAlpha } = require('./app_utils');
+const settings = require('electron-settings');
+const https = require('https');
 
 
 class XNATAPI {
@@ -8,15 +10,27 @@ class XNATAPI {
         this.user_auth = user_auth
     }
 
+    axios_config() {
+        let httpsOptions = { keepAlive: true };
 
+        const allow_insecure_ssl = settings.has('allow_insecure_ssl') ? settings.get('allow_insecure_ssl') : false;
+        
+        // TODO resolve circular dependency and replace allow_insecure_ssl with method auth.allow_insecure_ssl()
+        httpsOptions.rejectUnauthorized = !allow_insecure_ssl
+
+        return {
+            httpsAgent: new https.Agent(httpsOptions),
+            auth: this.user_auth
+        }
+    }
 
     //******** axios helpers ********* */
     axios_get(url_path) {
-        const {xnat_server, user_auth} = this
+        return axios.get(this.xnat_server + url_path, this.axios_config())
+    }
 
-        return axios.get(xnat_server + url_path, {
-            auth: user_auth
-        })
+    axios_put(url_path) {
+        return axios.put(this.xnat_server + url_path, this.axios_config())
     }
 
     catch_handler(err, resolve, reject) {
@@ -24,6 +38,29 @@ class XNATAPI {
             type: 'axios',
             data: err
         })
+    }
+
+    async get_csrf_token() {
+        const res = await this.axios_get('/')
+
+        let csrfTokenRequestData = res.data
+        let m, csrfToken = false
+        const regex = /var csrfToken = ['"](.+?)['"];/g
+
+        while ((m = regex.exec(csrfTokenRequestData)) !== null) {
+            // This is necessary to avoid infinite loops with zero-width matches
+            if (m.index === regex.lastIndex) {
+                regex.lastIndex++
+            }
+
+            csrfToken = m[1]
+        }
+
+        return csrfToken
+    }
+
+    async create_project_subject(project_id, subject_label, group, csrfToken) {
+        return await this.axios_put(`/data/projects/${project_id}/subjects/${subject_label}?group=${group}&event_reason=XNAT+Application&XNAT_CSRF=${csrfToken}`)
     }
 
 
@@ -35,30 +72,6 @@ class XNATAPI {
         const pet_tracers_str = res.data.trim();
 
         return pet_tracers_str.length ? pet_tracers_str.split(/\s+/) : []
-
-        
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get('/data/config/tracers/tracers?contents=true&accept-not-found=true')
-            .then(resp => {
-                let pet_tracers, 
-                    pet_tracers_str = resp.data.trim();
-    
-                if (pet_tracers_str.length) {
-                    pet_tracers = pet_tracers_str.split(/\s+/);
-                } else {
-                    pet_tracers = [];
-                }
-    
-                resolve(pet_tracers);
-                
-            }).catch(err => {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            });
-        });
     }
 
     
@@ -67,83 +80,36 @@ class XNATAPI {
         try {
             const res = await this.axios_get('/data/config/seriesImportFilter?contents=true&accept-not-found=true')
 
-            const global_filter_enabled = res.data.ResultSet.Result[0].status == 'disabled' ? false : true;
-            const global_filter = res.data.ResultSet.Result[0].contents;
+            let global_filter_enabled, global_filter
+
+            if (res.data.ResultSet) {
+                global_filter_enabled = res.data.ResultSet.Result[0].status == 'disabled' ? false : true;
+                global_filter = res.data.ResultSet.Result[0].contents;
+            } else {
+                global_filter_enabled = false
+            }
 
             return global_filter_enabled ? global_filter : false
             
         } catch (err) {
             if (err.response && err.response.status === 404) {
                 return false   
+            } else {
+                throw err
             }
         }
-        
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get('/data/config/seriesImportFilter?contents=true&accept-not-found=true')
-            .then(resp => {
-                let global_filter_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
-                let global_filter = resp.data.ResultSet.Result[0].contents;
-    
-                if (global_filter_enabled) {
-                    resolve(global_filter);
-                } else {
-                    resolve(false);
-                }
-                
-            }).catch(err => {
-                if (err.response && err.response.status === 404) {
-                    resolve(false);    
-                } else {
-                    reject({
-                        type: 'axios',
-                        data: err
-                    })
-                }
-            });
-        });
     }
 
     async sitewide_allow_create_subject() {
         const res = await this.axios_get('/data/config/applet/allow-create-subject?contents=true&accept-not-found=true')
 
         return typeof res.data === 'boolean' ? res.data : (res.data === '' || res.data.toLowerCase() === 'true')
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get('/data/config/applet/allow-create-subject?contents=true&accept-not-found=true')
-            .then(res => {
-                const result = (typeof res.data === 'boolean') ? res.data : (res.data === '' || res.data.toLowerCase() === 'true')
-                
-                resolve(result);
-            }).catch(err => {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            });
-        });
     }
 
     async sitewide_require_date() {
         const res = await this.axios_get('/data/config/applet/require-date?contents=true&accept-not-found=true')
 
         return (typeof res.data === 'boolean') ? res.data : (res.data.toLowerCase() !== 'false' && res.data !== '')
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get('/data/config/applet/require-date?contents=true&accept-not-found=true')
-            .then(res => {
-                const result = (typeof res.data === 'boolean') ? res.data : (res.data.toLowerCase() !== 'false' && res.data !== '')
-                resolve(result);
-            }).catch(err => {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            });
-        });
     }
 
     async sitewide_anon_script() {
@@ -164,35 +130,6 @@ class XNATAPI {
                 throw err
             }
         }
-
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get('/data/config/anon/script?format=json')
-            .then(resp => {
-                console.log('sitewide_anon_script', resp.data.ResultSet.Result);
-
-                const global_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
-                const global_anon_script = resp.data.ResultSet.Result[0].contents;
-
-                if (global_anon_script_enabled) {
-                    resolve(global_anon_script)
-                } else {
-                    resolve(false)
-                }
-                
-            }).catch(err => {
-                if (err.response && err.response.status === 404) {
-                    resolve(false)
-                } else {
-                    reject({
-                        type: 'axios',
-                        data: err
-                    })
-                }
-            })
-        })
-        
     }
 
 
@@ -205,26 +142,6 @@ class XNATAPI {
         const res = await this.axios_get(`/data/projects/${project_id}/subjects?columns=group,insert_date,insert_user,project,label`)
 
         return res.data.ResultSet.Result.sort(sortAlpha('label'))
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get('/data/projects/' + project_id + '/subjects?columns=group,insert_date,insert_user,project,label')
-            .then(resp => {
-                /*
-                let subjects = resp.data.ResultSet.Result;
-                let sorted_subjects = subjects.sort(sortAlpha('label'));
-                resolve(sorted_subjects);
-                */
-                
-                resolve(resp.data.ResultSet.Result.sort(sortAlpha('label')));
-                
-            }).catch(err => {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            });
-        });
     }
 
     async project_anon_script(project_id) {
@@ -245,57 +162,12 @@ class XNATAPI {
                 throw err
             }
         }
-
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get('/data/projects/' + project_id + '/config/anon/projects/' + project_id + '?format=json')
-            .then(resp => {
-                console.log('project_anon_script', resp.data.ResultSet.Result);
-                
-                const project_anon_script_enabled = resp.data.ResultSet.Result[0].status == 'disabled' ? false : true;
-                const project_anon_script = resp.data.ResultSet.Result[0].contents;
-                
-                if (project_anon_script_enabled) {
-                    resolve(project_anon_script);
-                } else {
-                    resolve(false);
-                }
-        
-            }).catch(err => {
-                if (err.response && err.response.status === 404) {
-                    resolve(false);    
-                } else {
-                    reject({
-                        type: 'axios',
-                        data: err
-                    })
-                }
-            });  
-        });
     }
 
     async project_allow_create_subject(project_id) {
         const res = await this.axios_get(`/data/config/projects/${project_id}/applet/allow-create-subject?contents=true&accept-not-found=true`)
         
         return typeof res.data === 'boolean' ? res.data : (res.data === '' || res.data.toLowerCase() === 'true')
-
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get(`/data/config/projects/${project_id}/applet/allow-create-subject?contents=true&accept-not-found=true`)
-            .then(res => {
-                const result = (typeof res.data === 'boolean') ? res.data : (res.data === '' || res.data.toLowerCase() === 'true')
-                
-                resolve(result)
-            }).catch(err => {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            });  
-        });
-
     }
 
     async project_require_date(project_id) {
@@ -308,21 +180,6 @@ class XNATAPI {
         const res = await this.axios_get(`/data/projects/${project_id}/experiments?columns=ID,label&format=json`)
 
         return res.data.ResultSet.Result
-
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get('/data/projects/' + project_id + '/experiments?columns=ID,label&format=json')
-            .then(resp => {
-                console.log({sessions: resp.data.ResultSet.Result});
-                resolve(resp.data.ResultSet.Result);
-            }).catch(err => {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            });
-        });
     }
 
     async project_series_import_filter(project_id) {
@@ -339,28 +196,6 @@ class XNATAPI {
                 throw err
             }
         }
-
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get(`/data/projects/${project_id}/config/seriesImportFilter/config?format=json`)
-            .then(resp => {
-                let filter_data = resp.data.ResultSet.Result[0];
-                let filter_value = filter_data.status === 'disabled' ? false : JSON.parse(filter_data.contents)
-    
-                resolve(filter_value);
-                
-            }).catch(err => {
-                if (err.response && err.response.status === 404) {
-                    resolve(false);    
-                } else {
-                    reject({
-                        type: 'axios',
-                        data: err
-                    })
-                }
-            });
-        });
     }
 
     async project_upload_destination(project_id) {
@@ -377,57 +212,12 @@ class XNATAPI {
             default:
                 return "ARCHIVE (Overwrite duplicates)"
         }
-
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get(`/data/projects/${project_id}/prearchive_code`)
-            .then(resp => {
-                let upload_destination;
-                console.log({resp_data: resp.data});
-                switch (resp.data) {
-                    case 0:
-                        upload_destination = "PREARCHIVE";
-                        break;
-                    case 4:
-                        upload_destination = "ARCHIVE (Reject duplicates)";
-                        break;
-                    case 5:
-                        upload_destination = "ARCHIVE (Overwrite duplicates)"
-                        break;
-                }
-    
-                resolve(upload_destination);
-                
-            }).catch(err => {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            });
-        });
     }
 
     async project_data(project_id) {
         const res = await this.axios_get(`/data/projects/${project_id}?format=json`)
 
         return res.data.items[0].data_fields
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get(`/data/projects/${project_id}?format=json`)
-            .then(resp => {
-                console.log({project_data: resp.data});
-    
-                resolve(resp.data.items[0].data_fields);
-                
-            }).catch(err => {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            });
-        });
     }
 
     async project_pet_tracers(project_id) {
@@ -441,37 +231,24 @@ class XNATAPI {
         } else {
             return false
         }
-
-
-        /* ** PROMISE based ** */
-        return new Promise((resolve, reject) => {
-            this.axios_get(`/data/projects/${project_id}/config/tracers/tracers?contents=true&accept-not-found=true`)
-            .then(resp => {
-                let pet_tracers
-    
-                if (resp.status === 200) {
-                    let pet_tracers_str = resp.data.trim()
-    
-                    if (pet_tracers_str.length) {
-                        pet_tracers = pet_tracers_str.split(/\s+/)
-                    } else {
-                        pet_tracers = []
-                    }
-                } else {
-                    pet_tracers = false
-                }
-    
-                resolve(pet_tracers)
-                
-            }).catch(err => {
-                reject({
-                    type: 'axios',
-                    data: err
-                })
-            });
-        });
     }
 
+    async get_projects() {
+        let projects;
+        const resp = await this.axios_get(`/data/projects?permissions=edit&dataType=xnat:subjectData`)
+
+        let totalRecords = resp.data && resp.data.ResultSet ? resp.data.ResultSet.Result.length : 0;
+
+        if (totalRecords === 0) {
+            projects = []
+        } else if (totalRecords === 1) {
+            projects= [resp.data.ResultSet.Result[0]]
+        } else {
+            projects = resp.data.ResultSet.Result
+        }
+
+        return projects;
+    }
 
 
 

@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const dicomParser = require('dicom-parser');
 const getSize = require('get-folder-size');
-const axios = require('axios');
 require('promise.prototype.finally').shim();
 const auth = require('../services/auth');
 const api = require('../services/api');
@@ -45,7 +44,6 @@ NProgress.configure({
     minimum: 0.03
 });
 
-let csrfToken = '';
 let xnat_server, user_auth, session_map, selected_session_id;
 
 
@@ -167,7 +165,6 @@ async function _init_variables() {
     FlowReset.add('reset_overwrite_selection', () => {
         $('#upload_overwrite_method').prop('selectedIndex', 0);
     })
-
 
 
     // RESETTING FLOW
@@ -431,94 +428,81 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
 
 $(document).on('page:load', '#upload-section', async function(e){
     console.log('Upload page:load triggered');
-    
-    _init_variables();
-
-    csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
-    console.log(csrfToken);
-
-    if (csrfToken === false) {
-        // An error occured while fetching CSRF token
-    }
-
-    global_allow_create_subject().then(handle_create_subject_response).catch(handle_error);
-    
 
     $.blockUI({
         message: '<h1>Processing...</h1>'
     });
+    
+    await _init_variables();
+    
+    $('#upload-project').html('')
+    $('button[data-target="#new-subject"]').prop('disabled', !site_wide_settings.allow_create_subject);
 
-    promise_projects()
-    .then(function(resp) {
-        let totalRecords = resp.data.ResultSet.Result.length;
-
-        let projects = (totalRecords === 1) ? [resp.data.ResultSet.Result[0]] : resp.data.ResultSet.Result;
-        //let projects = resp.data.ResultSet.Result;
-
-        console.log(projects)
-
-        $('#upload-project').html('')
-
-        
+    try {
+        const xnat_api = new XNATAPI(xnat_server, user_auth)
+        let projects = await xnat_api.get_projects()
+    
         if (projects.length) {
-            let rupc = user_settings.get('recent_upload_projects_count');
-            if (rupc === undefined) {
-                rupc = constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT
-            }
-
-            if (rupc > 0) {
-                let recent_projects_ids = user_settings.get('recent_upload_projects') || [];
-                if (recent_projects_ids.length > rupc) {
-                    recent_projects_ids = recent_projects_ids.slice(0, rupc);
-                }
-                
-                let recent_projects = [];
-
-                // find recent projects and preserve order
-                recent_projects_ids.forEach(recent_project_id => {
-                    let found_project = projects.find(project => project.id === recent_project_id)
-                    if (found_project) {
-                        recent_projects.push(found_project)
-                    }
-                })
-                
-                let other_projects = projects.filter((project) => !recent_projects_ids.includes(project.id));
-
-                projects = recent_projects.concat(other_projects)
-
-                console.log({recent_projects_ids, recent_projects, other_projects, projects});
-            }
-
-
-            for (let i = 0, len = projects.length; i < len; i++) {
-                if (i == 0 && rupc != 0) {
-                    $('#upload-project').append(`
-                        <li class="divider">Recent:</li>
-                    `)
-                }
-
-                if (i == rupc && rupc != 0) {
-                    $('#upload-project').append(`
-                        <li class="divider">Other:</li>
-                    `)
-                }
-                
-                $('#upload-project').append(`
-                    <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} <span class="project_id">ID: ${projects[i].id}</span></a></li>
-                `)
-                
-            }
+            generate_project_list(projects)
         } else {
             no_upload_privileges_warning()
         }
+    } catch (err) {
+        handle_error(err)
+    }
 
-    })
-    .catch(handle_error)
-    .finally(function() {
-        $.unblockUI();
-    })
-    
+    $.unblockUI();
 });
+
+function generate_project_list(projects) {
+    let rupc = user_settings.get('recent_upload_projects_count');
+    if (rupc === undefined) {
+        rupc = constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT
+    }
+
+    if (rupc > 0) {
+        let recent_projects_ids = user_settings.get('recent_upload_projects') || [];
+        if (recent_projects_ids.length > rupc) {
+            recent_projects_ids = recent_projects_ids.slice(0, rupc);
+        }
+        
+        let recent_projects = [];
+
+        // find recent projects and preserve order
+        recent_projects_ids.forEach(recent_project_id => {
+            let found_project = projects.find(project => project.id === recent_project_id)
+            if (found_project) {
+                recent_projects.push(found_project)
+            }
+        })
+        
+        let other_projects = projects.filter((project) => !recent_projects_ids.includes(project.id));
+
+        projects = recent_projects.concat(other_projects)
+
+        console.log({recent_projects_ids, recent_projects, other_projects, projects});
+    }
+
+
+    for (let i = 0, len = projects.length; i < len; i++) {
+        if (i == 0 && rupc != 0) {
+            $('#upload-project').append(`
+                <li class="divider">Recent:</li>
+            `)
+        }
+
+        if (i == rupc && rupc != 0) {
+            $('#upload-project').append(`
+                <li class="divider">Other:</li>
+            `)
+        }
+        
+        $('#upload-project').append(`
+            <li><a href="javascript:void(0)" data-project_id="${projects[i].id}">${projects[i].secondary_id} <span class="project_id">ID: ${projects[i].id}</span></a></li>
+        `)
+        
+    }
+}
 
 $(document).on('click', '#upload-section a[data-project_id]', async function(e){
     $('.tab-pane.active .js_next').addClass('disabled');
@@ -980,7 +964,7 @@ $(document).on('keyup', '#custom_pet_tracer', function(e) {
     $('#experiment_label').val(experiment_label());
 })
 
-$(document).on('submit', '#form_new_subject', function(e) {
+$(document).on('submit', '#form_new_subject', async function(e) {
     e.preventDefault();
     let $form = $(e.target);
 
@@ -1009,26 +993,27 @@ $(document).on('submit', '#form_new_subject', function(e) {
         group = $group.val();
         //group = group.replace(/\s+/g, '_');
 
-        promise_create_project_subject(project_id, subject_label, group)
-        .then(async res => {
-            console.log({promise_create_project_subject: res});
-
+        
+        try {
             const xnat_api = new XNATAPI(xnat_server, user_auth)
-            
+
+            const csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
+
+            const new_subject_res = await xnat_api.create_project_subject(project_id, subject_label, group, csrfToken)
+            console.log({promise_create_project_subject: new_subject_res})
+
             project_settings.subjects = await xnat_api.project_subjects(project_id)
 
-            generate_subject_dropdown(res.data)
-
-            //$('#experiment_label').val(experiment_label());$('#experiment_label').val(experiment_label());
+            generate_subject_dropdown(new_subject_res.data)
 
             $('#new-subject').modal('hide');
+        } catch(err) {
+            handle_error(err)
+        }
 
-        })
-        .catch(handle_error)
-        .finally(() => {
-            Helper.unblockModal(modal_id);
-            $form.data('processing', false);
-        });
+        Helper.unblockModal(modal_id);
+        $form.data('processing', false);
+        
     }
     
     
@@ -1962,15 +1947,6 @@ const no_upload_privileges_warning = () => {
 }
 
 
-// allow_create_subject
-function global_allow_create_subject() {
-    return axios.get(xnat_server + '/data/config/applet/allow-create-subject?contents=true&accept-not-found=true', {
-        auth: user_auth
-    });
-}
-
-
-
 
 function user_defined_pet_tracers(settings) {
     return settings.has('default_pet_tracers') ? settings.get('default_pet_tracers').split(",") : []
@@ -1996,18 +1972,6 @@ function get_pet_tracers(project_pts, server_pts, user_defined_pts) {
 
 
 
-
-const handle_create_subject_response = (res) => {
-    console.log( '===========', typeof res.data, '===========');
-    
-    let allow_create_subject = (typeof res.data === 'boolean') ? res.data : (res.data === '' || res.data.toLowerCase() === 'true');
-    console.log('allow_create_subject:', allow_create_subject, `(${res.data})`);
-    $('button[data-target="#new-subject"]').prop('disabled', !allow_create_subject);
-};
-
-
-
-
 function handle_error(err) {
     console.error({err})
 
@@ -2030,22 +1994,6 @@ function handle_error(err) {
 }
 
 //================================
-
-function promise_projects() {
-    return axios.get(xnat_server + '/data/projects?permissions=edit&dataType=xnat:subjectData', {
-    //return axios.get(xnat_server + '/data/projects?accessible=true', {
-        auth: user_auth
-    });
-}
-
-
-
-function promise_create_project_subject(project_id, subject_label, group) {
-    return axios.put(xnat_server + '/data/projects/' + project_id + '/subjects/' + subject_label + '?group=' + group + '&event_reason=XNAT+Application' + '&XNAT_CSRF=' + csrfToken, {
-        auth: user_auth
-    })
-}
-
 
 const displayMessage = (text = '', isError = false) => {
     if (isError) {
