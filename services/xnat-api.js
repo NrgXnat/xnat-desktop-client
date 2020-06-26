@@ -302,7 +302,7 @@ class XNATAPI {
         return subtypes.sort(sortAlpha())
     }
     
-    async project_experiment_label(project_id, subject_id, visit_id, subtype, session_date, full_modality) {
+    async project_experiment_label(project_id, subject_id, visit_id, subtype, session_date, modality) {
         let params = new URLSearchParams();
         params.append('visitid', visit_id);
         params.append('project', project_id);
