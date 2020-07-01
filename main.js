@@ -667,7 +667,44 @@ ipcMain.on('shell.showItemInFolder', (e, full_path) => {
   shell.showItemInFolder(full_path)
 })
 
-ipcMain.on('print_pdf', (e, html) => {
+ipcMain.on('print_pdf', (e, html, destination, pdf_settings) => {
+  const file_name = Date.now()
+  const pdf_filepath = path.join(destination, `Upload-Receipt--${file_name}.pdf`)
+  const html_filepath = path.join(destination, `Upload-Receipt--${file_name}.html`)
+
+  try {
+    fs.writeFileSync(html_filepath, html, 'utf8')
+  } catch(err) {
+    showErrorBox('Greska', err)
+    return
+  }
+
+  const window_to_PDF = new BrowserWindow({show : false})//to just open the browser in background
+  window_to_PDF.loadURL(`file://${html_filepath}`) //give the file link you want to display
+
+  window_to_PDF.webContents.once('did-finish-load', () => {
+    window_to_PDF.webContents.printToPDF(pdf_settings, function(err, data) {
+      if (err) {
+        devToolsLog(err)
+      } else {
+        try {
+          fs.writeFileSync(pdf_filepath, data)
+          fs.unlinkSync(html_filepath)
+        } catch (err) {
+          devToolsLog(err)
+        }
+      }
+      
+      window_to_PDF.close()
+      shell.showItemInFolder(pdf_filepath)
+    })
+    
+  });
+  
+})
+
+/*
+ipcMain.on('print_pdf__OLD', (e, html) => {
   const pseudo_url = `data:text/html;charset=utf-8,<body>${html}</body>`
 
   const window_to_PDF = new BrowserWindow({show : false});//to just open the browser in background
@@ -701,7 +738,7 @@ ipcMain.on('print_pdf', (e, html) => {
 
   }, 2000)
 })
-
+*/
 
 
 exports.log = log

@@ -692,9 +692,29 @@ $(document).on('show.bs.modal', '#view-receipt', async function(e) {
 
     $('#receipt-content').html(parsed_tpl)
 
+    $('#receipt-to-pdf').data('expt_label', transfer.url_data.expt_label)
 })
 
 $(document).on('click', '#receipt-to-pdf', function() {
+    
+    if (settings.has('receipt_pdf_settings.destination')) {
+        $('#pdf_destination').val(settings.get('receipt_pdf_settings.destination'))
+    }
+
+    if (settings.has('receipt_pdf_settings.orientation')) {
+        $('[name="pdf_orientation"]', '#upload-receipt-destination').each(function() {
+            const is_checked = $(this).val() === settings.get('receipt_pdf_settings.orientation')
+            $(this).prop("checked", is_checked)
+        })
+    }
+
+    if (settings.has('receipt_pdf_settings.pagesize')) {
+        $('[name="pdf_pagesize"]', '#upload-receipt-destination').each(function() {
+            const is_checked = $(this).val() === settings.get('receipt_pdf_settings.pagesize')
+            $(this).prop("checked", is_checked)
+        })
+    }
+
     $('#upload-receipt-destination').modal('show')
 });
 
@@ -707,9 +727,19 @@ $(document).on('hide.bs.modal', '#upload-receipt-destination', function(e) {
 })
 
 $(document).on('click', '#save-pdf-destination', function(e) {
-    const destination = $('#pdf_destination').val();
+    const pdf_destination = $('#pdf_destination').val()
+    const pdf_orientation = $('[name="pdf_orientation"]:checked').val()
+    const landscape_setting = pdf_orientation === 'landscape'
+    const pdf_pagesize = $('[name="pdf_pagesize"]:checked').val();
 
-    if (destination) {
+    if (pdf_destination) {
+        // store pdf settings
+        settings.set('receipt_pdf_settings', {
+            destination: pdf_destination,
+            orientation: pdf_orientation,
+            pagesize: pdf_pagesize
+        })
+
         $(this).closest('.modal').modal('hide');
 
         let partial = $('#view-receipt .modal-body').html();
@@ -719,62 +749,18 @@ $(document).on('click', '#save-pdf-destination', function(e) {
 
         html = `<html><body>${html}</body></html>`
 
-        
-        // METHOD 1:
-        const pdf = require('html-pdf');
-        const fs = require('fs')
-        const app_path = remote.app.getAppPath()
-
-        console.log({app_path});
-
-        const phantomjs_path = path.join(app_path, '..', '..', 'resources', 'app.asar.unpacked', 'node_modules', 'phantomjs-prebuilt', 'lib', 'phantom', 'bin', 'phantomjs.exe')
-
-        console.log({phantomjs_path});
-
-        if (fs.existsSync(phantomjs_path)) {
-            console.log('phantomjs_path POSTOJI');
-        } else {
-            console.error('phantomjs_path NE POSTOJI');
+        const pdf_settings = {
+            landscape: landscape_setting,
+            marginsType: 0,
+            printBackground: false,
+            printSelectionOnly: false,
+            pageSize: pdf_pagesize
         }
 
-        const script_path = path.join(app_path, '..', '..', 'resources', 'app.asar.unpacked', 'node_modules', 'html-pdf', 'lib', 'scripts', 'pdf_a4_portrait.js')
-
-        console.log({script_path});
-
-        const options = { 
-            format: 'Letter',
-            phantomPath: phantomjs_path,
-            script: script_path
-        };
-        
-        const destination_file = path.join(destination, `upload-receipt--${Date.now()}.pdf`);
-
-        console.log({destination_file});
-
-        pdf.create(html, options).toFile(destination_file, function(err, res) {
-            if (err) {
-                console.log({pdf_create_error: err});
-
-                electron_log.error(err)
-                throw err
-            }
-
-            console.log({res}); // { filename: '/file/path.pdf' }
-
-            //shell.openItem(res.filename)
-            //shell.showItemInFolder(destination_file)
-            ipcRenderer.send('shell.showItemInFolder', res.filename)
-        });
-        
-
-
-        // METHOD 2:
-        // var blob = new Blob([html], {type: "text/html;charset=utf-8"});
-        // FileSaver.saveAs(blob, "hello-world.html");
-
-
+        const expt_label = $('#receipt-to-pdf').data('expt_label')
+        const filename = `xxx-${expt_label}-xxx`;
         // METHOD 3:
-        //ipc.send('print_pdf', inline);
+        ipcRenderer.send('print_pdf', html, pdf_destination, pdf_settings);
     }
     
 })
@@ -1183,7 +1169,6 @@ $(document).on('click', '.js_cancel_download', function(e){
     
     let transfer_id = $button.data('transfer_id');
     let new_cancel_status = $button.data('new_cancel_status');
-
 
 
     // disable button to prevent further submission
