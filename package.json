@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "npm-run-all -s sass:build electron-start",
+    "clean": "node -e \"['node_modules'].forEach(x => require('fs-extra').emptyDir(x))\"",
     "dev": "npm-run-all -p electron-dev sass",
     "sass-cli": "sass --watch XNAT/scss:assets/css",
     "dev-win": "start yarn sass-cli & start yarn electron-dev",
