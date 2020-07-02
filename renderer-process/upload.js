@@ -65,8 +65,6 @@ NProgress.configure({
 
 let xnat_server, user_auth, session_map, selected_session_id, resseting_functions;
 
-let requestSettings = {};
-
 // PIXEL EDITING UI switch
 const allow_visual_phi_check = true;
 
@@ -154,7 +152,6 @@ async function _init_variables() {
     
     xnat_server = settings.get('xnat_server');
     user_auth = auth.get_user_auth();
-    requestSettings.auth = user_auth;
 
     try {
         site_wide_settings = await fetch_site_wide_settings(xnat_server, user_auth)
@@ -164,12 +161,6 @@ async function _init_variables() {
     }
 
     show_unable_to_set_session_label_warning = 0;
-
-    let httpsOptions = { keepAlive: true };
-    if (auth.allow_insecure_ssl()) {
-        httpsOptions.rejectUnauthorized = false
-    }
-    requestSettings.httpsAgent = new https.Agent(httpsOptions);
 
     session_map = new Map();
     selected_session_id = null;
