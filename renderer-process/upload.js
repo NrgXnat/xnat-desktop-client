@@ -65,9 +65,6 @@ NProgress.configure({
 
 let xnat_server, user_auth, session_map, selected_session_id, resseting_functions;
 
-// PIXEL EDITING UI switch
-const allow_visual_phi_check = true;
-
 let resizing_tm;
 const PROJECT_PARAM = 'project';
 const SUBJECT_PARAM = 'subject';
@@ -509,7 +506,7 @@ function cornerston_initialize_main() {
 }
 
 function cornerstone_enable_main_element(element) {
-    if (allow_visual_phi_check) {
+    if (constants.ALLOW_VISUAL_PHI_CHECK) {
         cornerstone.enable(element);
 
         cornerstoneTools.addToolForElement(element, cornerstoneTools.ZoomTool);
@@ -1001,9 +998,9 @@ $(document).on('page:load', '#upload-section', async function(e){
 
     await _init_variables();
 
-    $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', !allow_visual_phi_check);
-    $('#nav-verify .js_next').toggleClass('hidden', !allow_visual_phi_check);
-    $('#nav-verify .js_upload').toggleClass('hidden', allow_visual_phi_check);
+    $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', !constants.ALLOW_VISUAL_PHI_CHECK);
+    $('#nav-verify .js_next').toggleClass('hidden', !constants.ALLOW_VISUAL_PHI_CHECK);
+    $('#nav-verify .js_upload').toggleClass('hidden', constants.ALLOW_VISUAL_PHI_CHECK);
 
     $('#upload-project').html('')
 
