@@ -23,6 +23,7 @@ const db_uploads = remote.require('./services/db/uploads')
 const electron_log = remote.require('./services/electron_log');
 
 const XNATAPI = require('../services/xnat-api')
+const { normalizeDateString } = require('../services/app_utils');
 // ===================
 const dicomParser = require('dicom-parser');
 const cornerstone = require('cornerstone-core');
@@ -66,6 +67,7 @@ let xnat_server, user_auth, session_map, selected_session_id, resseting_function
 
 let requestSettings = {};
 
+// PIXEL EDITING UI switch
 const allow_visual_phi_check = true;
 
 let resizing_tm;
@@ -207,13 +209,12 @@ async function _init_variables() {
     // date selection
     resseting_functions.set(2, function(){
         console.log('resseting values in tab 2')
+        const $date_validation_field = $('#upload_session_date');
 
-        $('#upload_session_date').val('');
+        $date_validation_field.val('').removeClass('is-valid is-invalid').prop('required', project_settings.require_date);
 
-        
-        $('#upload_session_date').prop('required', project_settings.require_date);
-        let next_button = $('#upload_session_date').closest('.tab-pane').find('.js_next');
-        next_button.toggleClass('disabled', project_settings.require_date); 
+        const $next_button = $date_validation_field.closest('.tab-pane').find('.js_next');
+        $next_button.toggleClass('disabled', project_settings.require_date); 
     });
 
     // Review and Verify
@@ -437,8 +438,6 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
 // triggered when selected tab (#nav-verify) is displayed
 $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]', function(){
     validate_upload_form();
-    $('#nav-verify .js_next').toggleClass('hidden', !allow_visual_phi_check);
-    $('#nav-verify .js_upload').toggleClass('hidden', allow_visual_phi_check);
 });
 
 
@@ -997,17 +996,12 @@ $(document).on('page:load', '#upload-section', async function(e){
 
     
     $(window).on('resize', function() {
-        console.log('trigger resize EVENT');
         clearTimeout(resizing_tm);
         resizing_tm = setTimeout(() => {
-            console.log('resize EVENT');
-            
             $('.dicomImageViewerFS #series_thumbs').css('max-height', `${($(window).height() - 41 - 70 - 20)}px`);
             $('.dicomImageViewerFS #dicom_image_container').css('height', `${($(window).height() - 41 - 70)}px`);
         }, 20);
     });
-
-    $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', !allow_visual_phi_check);
 
     $('#upload_session_date')
         .attr('min', '1990-01-01')
@@ -1015,6 +1009,10 @@ $(document).on('page:load', '#upload-section', async function(e){
 
 
     await _init_variables();
+
+    $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', !allow_visual_phi_check);
+    $('#nav-verify .js_next').toggleClass('hidden', !allow_visual_phi_check);
+    $('#nav-verify .js_upload').toggleClass('hidden', allow_visual_phi_check);
 
     $('#upload-project').html('')
 
@@ -1441,30 +1439,21 @@ $(document).on('change', '#file_upload_folder', function(e) {
 $(document).on('input', '#upload_session_date', function(e) {
     resetSubsequentTabs();
 
-    if (this.validity.valid) {
-        console.log('Valid')
-        console.log(session_map, selected_session_id, session_map.get(selected_session_id), session_map.get(selected_session_id).date);
-        if (project_settings.require_date) {
-            if ($('#upload_session_date').val().split("-").join('') === session_map.get(selected_session_id).date) {
-                $('.tab-pane.active .js_next').removeClass('disabled');
-            } else {
-                swal({
-                    title: `Error`,
-                    text: 'Entered session date doesn\'t match with date from session!',
-                    icon: "error",
-                    dangerMode: true
-                })
-                $('.tab-pane.active .js_next').addClass('disabled');
-            }
-        } else {
-            $('.tab-pane.active .js_next').removeClass('disabled');
-        }
-        
-        
-    } else {
-        console.log('INVALID')
-        $('.tab-pane.active .js_next').addClass('disabled');
-    }
+    const $date_field = $('#upload_session_date');
+
+    console.log({
+        selected_session: session_map.get(selected_session_id), 
+        selected_session_date: session_map.get(selected_session_id).date,
+        normalizeDateString_VALUE: normalizeDateString(session_map.get(selected_session_id).date),
+        input_VALUE: $date_field.val()
+    });
+
+    const valid_date_value = this.validity.valid && $date_field.val() === normalizeDateString(session_map.get(selected_session_id).date)
+
+    $date_field.toggleClass('is-invalid', !valid_date_value)
+    $date_field.toggleClass('is-valid', valid_date_value)
+
+    $('.tab-pane.active .js_next').toggleClass('disabled', !valid_date_value)
 });
 
 function validate_upload_form() {
@@ -1489,7 +1478,8 @@ function validate_upload_form() {
         required_input_error = true;
     }
 
-    $('#nav-verify .js_next').toggleClass('disabled', required_input_error);
+    $('#nav-verify .js_next, #upload-section .js_upload').toggleClass('disabled', required_input_error);
+    $('#upload-section .js_upload').prop('disabled', required_input_error);
 
     return required_input_error;
 }

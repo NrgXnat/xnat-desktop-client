@@ -88,3 +88,41 @@ exports.sortAlpha = (attr = false) => {
         return ((aValue < bValue) ? -1 : ((aValue > bValue) ? 1 : 0));
     }
 }
+
+function normalizeDateTimeString(date_string, time_string = false) {
+    let date = normalizeDateString(date_string);
+    if (date) {
+        let time = normalizeTimeString(time_string)
+        if (!time) {
+            time = '00:00:00'
+        }
+
+        return `${date} ${time}`;
+    } else {
+        return false
+    }
+}
+exports.normalizeDateTimeString = normalizeDateTimeString
+
+function normalizeDateString(date_string) {
+    if (!date_string) {
+        return false;
+    } else {
+        let only_numbers = date_string.replace(/[^\d]/g, '');
+
+        return only_numbers.length == 8 ? `${only_numbers.substr(0, 4)}-${only_numbers.substr(4, 2)}-${only_numbers.substr(6, 2)}` : false
+    }
+}
+exports.normalizeDateString = normalizeDateString
+
+function normalizeTimeString(only_numbers) {
+    if (!only_numbers) {
+        return false;
+    } else {
+        only_numbers = only_numbers.replace(/[^\d]/g, '');
+
+        // time is sometimes stored with decimal point so ">= 6" instead of "== 6"
+        return only_numbers.length >= 6 ? `${only_numbers.substr(0, 2)}:${only_numbers.substr(2, 2)}:${only_numbers.substr(4, 2)}` : false;
+    }
+}
+exports.normalizeTimeString = normalizeTimeString

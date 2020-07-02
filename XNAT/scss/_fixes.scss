@@ -110,6 +110,29 @@ body #upload_session_date {
         display: none;
         -webkit-appearance: none;
     }
+    &.is-invalid, &.is-valid {
+        background-image: none;
+        padding-right: .75rem;
+    }
+    &.is-invalid::after, &.is-valid::after {
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+        font-size: 25px;
+        pointer-events: none;
+        position: absolute;
+        
+        top: 0px;
+    }
+    &.is-valid::after {
+        content: "\f00c";
+        color: #28a745;
+        right: -19px;
+    }
+    &.is-invalid::after {
+        content: "\f00d";
+        color: #dc3545;
+        right: -11px;
+    }
 }
 
 progress[value] {
