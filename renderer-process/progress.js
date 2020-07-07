@@ -758,9 +758,9 @@ $(document).on('click', '#save-pdf-destination', function(e) {
         }
 
         const expt_label = $('#receipt-to-pdf').data('expt_label')
-        const filename = `xxx-${expt_label}-xxx`;
+        const filename_base = `${expt_label}-${user_auth.username}`;
         // METHOD 3:
-        ipcRenderer.send('print_pdf', html, pdf_destination, pdf_settings);
+        ipcRenderer.send('print_pdf', html, pdf_destination, pdf_settings, filename_base);
     }
     
 })

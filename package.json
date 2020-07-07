@@ -54,7 +54,6 @@
     "font-awesome": "^4.7.0",
     "get-folder-size": "^1.0.1",
     "glob": "^7.1.2",
-    "html-pdf": "^2.2.0",
     "humanize-duration": "^3.16.0",
     "is-online": "^7.0.0",
     "is-symlink": "^1.0.0",
@@ -98,8 +97,6 @@
       "node_modules/java/**/*",
       "node_modules/async/**/*",
       "node_modules/lodash/**/*",
-      "node_modules/phantomjs-prebuilt/**/*",
-      "node_modules/html-pdf/**/*",
       "libs/**/*"
     ],
     "directories": {
