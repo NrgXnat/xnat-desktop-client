@@ -20,8 +20,6 @@
                             <button data-username="marko" data-server="https://xw2017-01.xnat.org" class="connect btn btn-known-user btn-lg btn-block" type="button" data-toggle="modal" data-target="#login"><img src="assets/images/xnat-avatar.jpg" /><div >XNAT Central</br><span class="user-name">User: marko</span></div></button>-->
                         </div>
                         
-                        <!-- <a href="connection-settings.php" class="connect btn btn-bigfriendly btn-lg btn-block"><span class="plus"></span><span class="db"></span> ADD NEW XNAT SERVER</a> -->
-                        
                         <br><br><br>
                     </div>
                     
@@ -30,32 +28,7 @@
             </div>
         </div>
         
-        <!-- Modal 
-        <div class="modal fade" id="known-user-login" tabindex="-1" role="dialog" aria-labelledby="known-user-loginTitle" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="exampleModalLongTitle">User login</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <i class="far fa-window-close"></i>
-                            </button>
-                    </div>
-                    <div class="modal-body">
-                        <form>
-                            <div class="form-group">
-                                <label for="password" class="col-form-label">Enter password for user Will:</label>
-                                <input type="password" class="form-control" id="password">
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-gray" type="button" data-dismiss="modal" data-toggle="modal" data-target="#login">New User</button>
-                        <button type="button" class="btn btn-darkblue" data-dismiss="modal">Login</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        -->
+        
 
         <!-- Modal -->
         <div class="modal fade" id="login" tabindex="-1" role="dialog" data-keyboard="false" aria-labelledby="loginTitle" aria-hidden="true">
@@ -72,6 +45,18 @@
                             <div class="alert alert-danger text-center hidden" id="login_feedback" role="alert">
                                 <h2 class="red-title"><i class="fas fa-exclamation-triangle"></i> Login failed !</h2>
                                 <span id="login_error_message"></span>
+                                <div style="text-align: left">
+                                    <br>
+                                    <a class="btn btn-link" data-toggle="collapse" href="#login_error_details" role="button" aria-expanded="false" aria-controls="login_error_details">
+                                        Error Details
+                                    </a>
+                                    <div id="login_error_details" class="collapse" style="font-size: 0.8em;"></div>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-danger text-center hidden" id="session_fail" role="alert">
+                                <h2 class="red-title"><i class="fas fa-exclamation-triangle"></i> Session failed!</h2>
+                                <p>Previous session could not be automatically restarted. Please provide user credentials.</p>
                             </div>
                             
                                 <div class="form-group">
@@ -105,6 +90,7 @@
         </div>
 
 
+        
 
         <script type="text/javascript">
             require('./renderer-process/login')

@@ -4,6 +4,59 @@ $nprogress_color: #12BB00;
     display: none;
 }
 
+.break-all {
+    word-break: break-all;
+}
+
+th.highlight {
+    background: #C7D9EE;
+}
+
+td.highlight {
+    background: #E4EFFF;
+}
+
+#upload-section {
+    .tab-content>.active {
+        position: relative;
+        padding-bottom: 67px;
+    }
+
+    .tab-content {
+        min-height: calc(100vh - 191px);
+    }
+    .container-fluid {
+        margin-bottom: 0;
+    }
+
+    .action-button-row {
+        position: fixed;
+        width: 100%;
+        bottom: 0;
+        left: 15px;
+        justify-content: center;
+        
+        .button-row {
+            margin-bottom: 0;
+        }
+
+        > div {
+            &.row_items {
+                display: flex;
+                justify-content: space-between;
+            }
+            background: #f4f4f4;
+            padding: 10px;
+            max-width: 1110px;
+            width: 100%;
+            
+            border-top: 1px solid #ccc;
+            border-right: 1px solid #ccc;
+            border-left: 1px solid #ccc;
+        }
+    }
+}
+
 body #nprogress {
     .bar {
         z-index: 99999;
@@ -57,6 +110,29 @@ body #upload_session_date {
         display: none;
         -webkit-appearance: none;
     }
+    &.is-invalid, &.is-valid {
+        background-image: none;
+        padding-right: .75rem;
+    }
+    &.is-invalid::after, &.is-valid::after {
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+        font-size: 25px;
+        pointer-events: none;
+        position: absolute;
+        
+        top: 0px;
+    }
+    &.is-valid::after {
+        content: "\f00c";
+        color: #28a745;
+        right: -19px;
+    }
+    &.is-invalid::after {
+        content: "\f00d";
+        color: #dc3545;
+        right: -11px;
+    }
 }
 
 progress[value] {
@@ -89,7 +165,7 @@ progress[value] {
     }
 }
 
-#user_table, #upload_monitor_table, #download_monitor_table, .fixed-table-container {
+#user_table, #upload_monitor_table, #download_monitor_table, .fixed-table-container, #download_archive_table, #upload_archive_table {
     .filter-control {
         padding: 0 4px 4px 4px;
         input {
@@ -119,10 +195,15 @@ progress[value] {
     width: 100%;
     margin-bottom: 15px;
 }
-.project-subjects-holder {
+.project-subjects-holder, .project-subject-visits-holder, .datatypes-holder, .subtypes-holder {
     display: none;
 }
+
+
 #found_sessions {
+    .fixed-table-container[style^="height"] & {
+        margin-bottom: 42px !important;
+    }
     td.break-all {
         word-break: break-all;
     }
@@ -174,5 +255,86 @@ body>.ui-pnotify {
     &.focus {
         border-color: #80bdff;
         box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25)
+    }
+}
+
+#login_error_details {
+    white-space: pre-wrap;
+    font-size: 0.6em !important;
+    max-height: 300px;
+    overflow: auto;
+}
+
+.notice {
+    color: #ef6544;
+    font-style: italic;
+    span {
+        font-style: normal;
+    }
+}
+
+// SWEETALERT style FIX
+.swal-modal {
+    border-radius: 0;
+}
+.swal-footer {
+    margin-top: 30px;
+    background: #f4f4f4;
+}
+.swal-button {
+    @extend .btn;
+    @extend .btn-blue;
+}
+.swal-button--confirm {
+    @extend .btn-blue;
+}
+.swal-button--cancel {
+    @extend .btn-gray;
+}
+// END sweetalrt FIX
+
+.nav-tabs {
+    border-bottom: 6px solid #1A75BB;
+}
+.nav-tabs .nav-item {
+    margin-bottom: 0.5px;
+    margin-right: 4px;
+    border-bottom: none !important;
+}
+
+// Processing message
+.blockUI.blockMsg.blockPage {
+    border-radius: 0 !important;
+}
+
+// Pnotify
+.stack-bar-bottom {
+    margin-bottom: 10px;
+}
+
+
+/* MAGIC-CHECK */
+
+.magic-checkbox + label {
+    &:before {
+      border-radius: 0px;
+      background-color: white;
+    }
+}
+
+
+/*************************/
+#view-receipt.show {
+    &.modal{
+        display: block !important; /* I added this to see the modal, you don't need this */
+    }
+    
+    /* Important part */
+    .modal-dialog{
+        overflow-y: initial !important
+    }
+    .modal-body{
+        max-height: 70vh;
+        overflow-y: auto;
     }
 }

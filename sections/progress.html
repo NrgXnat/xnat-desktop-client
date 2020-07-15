@@ -1,7 +1,7 @@
 <template class="task-template">
     <section id="progress-section" class="section js-section u-category-native-ui">
         <div class="container">
-            <h2 class="main-title">Progress Monitor</h2>
+            <h2 class="main-title">Progress Monitor: <span id="transfer-type">Download</span></h2>
             <div class="row hidden">
                 <div class="col"></div>
                 <div class="col-10">
@@ -22,8 +22,10 @@
                 <div class="col button-row">
                     <button type="button" class="btn btn-gray js_pause_all"><i class="far fa-pause-circle"></i> Pause All</button>
                     <button type="button" class="btn btn-gray js_cancel_all_transfers"><i class="far fa-times-circle"></i> Cancel All</button>
-                    <button type="button" class="btn btn-gray js_restart_all_transfers"><i class="fas fa-redo"></i> Restart All Canceled</button>
-                    <button type="button" class="btn btn-gray js_clear_finished"><i class="far fa-trash-alt"></i> Clear Completed Transfers</button>
+                    <!-- <button type="button" class="btn btn-gray js_restart_all_transfers"><i class="fas fa-redo"></i> Restart All Canceled</button> -->
+                    <button type="button" class="btn btn-gray js_clear_finished"><i class="fas fa-archive"></i> Archive Completed Transfers</button>
+                    <!-- <button type="button" class="btn btn-gray float-right"><i class="fas fa-archive"></i> Archive</button> -->
+                    <a class="btn btn-gray" href="progress-archive.html"><i class="fas fa-folder-open"></i> View Archived Transfers</a>
                 </div>
             </div>
 
@@ -41,7 +43,7 @@
                 </div>
                 <div class="tab-pane fade" id="nav-upload" role="tabpanel" aria-labelledby="nav-upload-tab">
                     <table class="table table-bordered filtered-table" id="upload_monitor_table"></table>
-                    <button data-href="upload.html" type="button" class="btn btn-gray"><i class="fas fa-upload"></i> Upload a New Session</button>
+                    <button data-href="upload.html" type="button" class="btn btn-gray"><i class="fas fa-upload"></i> Upload Another Session</button>
                 </div>
             </div>
         </div>
@@ -64,7 +66,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-blue">Save log as TXT</button>
+                        <button type="button" class="btn btn-blue" data-save-csv>Save log as CSV</button>
                         <!-- <button type="button" class="btn btn-blue">Save log as PDF</button> -->
                     </div>
                 </div>
@@ -73,7 +75,7 @@
 
         <!-- Modal -->
         <div class="modal fade" id="error-log--upload" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-dialog modal-dialog-centered modal-lg modal-xl" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="exampleModalLongTitle">Error log</h5>
@@ -88,31 +90,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-blue">Save log as TXT</button>
-                        <!-- <button type="button" class="btn btn-blue">Save log as PDF</button> -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Modal -->
-        <div class="modal fade" id="success-log" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="exampleModalLongTitle">Transfer log</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <i class="far fa-window-close"></i>
-                          </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="log-text">
-                            Log text...
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-blue" data-save-txt>Save log as TXT</button>
+                        <button type="button" class="btn btn-blue" data-save-csv>Save log as CSV</button>
                         <!-- <button type="button" class="btn btn-blue">Save log as PDF</button> -->
                     </div>
                 </div>
@@ -142,109 +120,15 @@
                             data-toggle="modal" 
                             data-target="#upload-details"
                             data-id=""
-                            data-session_label="">View Log</button>
-                        <button type="button" class="btn btn-blue" data-save-txt>Save log as TXT</button>
+                            data-session_label=""
+                            data-show_transfer_rate="false">View Log</button>
+                        <button type="button" class="btn btn-blue" data-save-csv>Save log as CSV</button>
                         <!-- <button type="button" class="btn btn-blue">Save log as PDF</button> -->
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Modal -->
-        <div class="modal fade" id="upload-details-old" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="exampleModalLongTitle">Session transfer details <br> <span class="session-id">001012_mr_v1</span></h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <i class="far fa-window-close"></i>
-                          </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="process-details">
-                            <table class="table table-bordered" id="table" data-toggle="table" data-click-to-select="true">
-                                <thead>
-                                    <tr>
-                                        <th data-field="scan-type" data-sortable="true">Scan Type</th>
-                                        <th data-field="series-number" data-sortable="true">S/N</th>
-                                        <th data-field="upload-progress">Upload Progress</th>
-                                        <th data-field="file-count" data-sortable="true">File Count</th>
-                                        <th data-field="size" data-sortable="true">Size (bytes)</th>
-
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Lorem ipsum dolor sit amet</td>
-                                        <td>97841</td>
-                                        <td>
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100" style="width:70%; height:25px;">
-                                                <span class="sr-only">In progress</span>
-                                            </div>
-                                        </td>
-                                        <td>8</td>
-                                        <td>1.19 MB</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Lorem ipsum dolor sit amet</td>
-                                        <td>97842</td>
-                                        <td>
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="90" aria-valuemin="0" aria-valuemax="100" style="width:90%; height:25px;">
-                                                <span class="sr-only">In progress</span>
-                                            </div>
-                                        </td>
-                                        <td>2</td>
-                                        <td>1.12 MB</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Lorem ipsum dolor sit amet</td>
-                                        <td>97843</td>
-                                        <td>
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100" style="width:40%; height:25px;">
-                                                <span class="sr-only">In progress</span>
-                                            </div>
-                                        </td>
-                                        <td>5</td>
-                                        <td>1.10 MB</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Lorem ipsum dolor sit amet</td>
-                                        <td>97844</td>
-                                        <td>
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width:60%; height:25px;">
-                                                <span class="sr-only">In progress</span>
-                                            </div>
-                                        </td>
-                                        <td>7</td>
-                                        <td>1.11 MB</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Lorem ipsum dolor sit amet</td>
-                                        <td>97845</td>
-                                        <td>
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100" style="width:20%; height:25px;">
-                                                <span class="sr-only">In progress</span>
-                                            </div>
-                                        </td>
-                                        <td>8</td>
-                                        <td>1.13 MB</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <p>
-                                Estimated time left: 3min 45sec <br/> Transfer rate: 100KB/sec
-                            </p>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-gray" disabled>Go to summary</button>
-                        <button type="button" class="btn btn-blue"><i class="far fa-pause-circle"></i> Pause</button>
-                        <button type="button" class="btn btn-blue"><i class="far fa-stop-circle"></i> Stop</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
 
         <!-- Modal -->
         <div class="modal fade" id="download-details" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
@@ -261,17 +145,32 @@
                             
                             <table class="table table-bordered filtered-table" id="download-details-table"></table>
 
-                            <p>
+                            <div id="transfer_rate_download">
                                 Transfer rate: <span id="download_rate">-</span>
                                 <!-- (Total: <span id="download_time">-</span>, <span id="download_size">-</span>) -->
-                            </p>
+                                <div class="progress-container" style="margin-bottom: 20px;">
+                                    <div class="progress-bar bg-success" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width:0%; height:25px;">
+                                        <span class="sr-only">In progress</span>
+                                    </div>
+                                </div>
+                            </div>
+
+
+                            <button data-toggle="collapse" class="btn btn-blue" data-target="#download-nedb-log-container">Download Log</button>
+                            <button id="download_log_csv" class="btn btn-gray right">CSV Export</button>
+
+                            <div id="download-nedb-log-container" class="collapse">
+                                <table id="download-nedb-log" class="table"></table>
+                            </div>
+
                         </div>
                     </div>
                     <div class="modal-footer">
                         <!--
                         <button type="button" class="btn btn-blue js_pause_download"><i class="far fa-pause-circle"></i> Pause</button>
+                    -->
                         <button type="button" class="btn btn-blue js_cancel_download"><i class="far fa-stop-circle"></i> Cancel Download</button>
-                        -->
+                        
                         <button type="button" class="btn btn-gray" data-dismiss="modal" aria-label="Close"><i class="fas fa-times-circle"></i> Close</button>
                     </div>
                 </div>
@@ -294,13 +193,30 @@
                             
                             <table class="table table-bordered filtered-table" id="upload-details-table"></table>
 
-                            <p>
-                                Transfer rate: <span id="upload_rate">-</span>
-                            </p>
+
+                            <div id="transfer_rate_upload">
+                                Progress: <span id="upload_rate"></span>
+                                <!-- (Total: <span id="download_time">-</span>, <span id="download_size">-</span>) -->
+                                <div class="progress-container" style="margin-bottom: 20px;">
+                                    <div class="progress-bar bg-success" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width:0%; height:25px;">
+                                        <span class="sr-only">In progress</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            
+                            <button data-toggle="collapse" class="btn btn-blue" data-target="#upload-nedb-log-container">Upload Log</button>
+                            <button id="upload_log_csv" class="btn btn-gray right">CSV Export</button>
+
+                            <div id="upload-nedb-log-container" class="collapse">
+                                <table id="upload-nedb-log" class="table"></table>
+                            </div>
+
+
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-blue js_pause_upload"><i class="far fa-pause-circle"></i> Pause</button>
+                        <!-- <button type="button" class="btn btn-blue js_pause_upload"><i class="far fa-pause-circle"></i> Pause</button> -->
                         <button type="button" class="btn btn-blue js_cancel_upload"><i class="far fa-stop-circle"></i> Cancel Upload</button>
                         <button type="button" class="btn btn-gray" data-dismiss="modal" aria-label="Close"><i class="fas fa-times-circle"></i> Close</button>
                     </div>

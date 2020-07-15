@@ -149,7 +149,7 @@ header {
 			position: absolute;
 			display: none;
 			z-index: 100;
-			width: 140px;
+			width: 150px;
 			top: 40px;
 			left: -55px;
 			background: $menu-back;
@@ -337,11 +337,16 @@ h3.step-description {
 }
 
 
-#upload-project a.selected, #subject-session a.selected {
+#upload-project a.selected, #subject-session a.selected, #visit a.selected, #datatype a.selected, #subtype a.selected {
 	background-color: $list-highlight-active;
 }
 .project_id, .meta_key, .meta_value {
 	color: rgba(0,0,0,0.4);
     font-size: 83%;
     padding-left: 1em;
+}
+
+#project_settings_tbl {
+	//width: auto;
+	font-size: 0.85em;
 }

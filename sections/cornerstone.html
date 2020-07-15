@@ -1,0 +1,80 @@
+<template class="task-template">
+    <section id="cornerstone-section" class="section js-section u-category-native-ui">
+        <div class="container-fluid">
+            <div class="row">
+                <h2 class="main-title">Cornerstone Test</h2>
+                <div class="col-12">
+
+                    <form class="form-horizontal">
+                        <div class="form-group">
+                            <input type="file" id="selectFile" webkitdirectory directory>
+                        </div>
+                    </form>
+                                
+                    <button id="get_tool_state">Get Tool State</button>   
+                </div>
+                <div class="col-12" style="margin-bottom: 20px;">
+                    <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                        <label class="btn btn-sm btn-primary active">
+                            <input type="radio" name="left_click" value="Length" id="LengthTool" autocomplete="off" checked> Length Tool
+                        </label>
+                        <label class="btn btn-sm btn-primary">
+                            <input type="radio" name="left_click" value="RectangleRoi" id="RectangleRoiTool" autocomplete="off"> Rectangle Tool
+                        </label>
+                        <label class="btn btn-sm btn-primary">
+                            <input type="radio" name="left_click" value="Probe" id="ProbeTool" autocomplete="off"> Probe Tool
+                        </label>
+                        <label class="btn btn-sm btn-primary">
+                            <input type="radio" name="left_click" value="Bidirectional" id="BidirectionalTool" autocomplete="off"> Bidirectional Tool
+                        </label>
+                        <label class="btn btn-sm btn-primary">
+                            <input type="radio" name="left_click" value="Pan" id="PanTool" autocomplete="off"> Pan Tool
+                        </label>
+                        <label class="btn btn-sm btn-primary">
+                            <input type="radio" name="left_click" value="Zoom" id="ZoomTool" autocomplete="off"> Zoom Tool
+                        </label>
+                    </div>
+                </div>
+                <div class="col-6">
+                    
+                    <div id="dicomImage" style="width: 512px;height:512px"></div>
+                </div>
+
+                <div class="col-6" id="image_data" style="display: none; font-size: 13px;">
+                    <span>Transfer Syntax: </span><span id="transferSyntax"></span><br>
+                    <span>SOP Class: </span><span id="sopClass"></span><br>
+                    <span>Samples Per Pixel: </span><span id="samplesPerPixel"></span><br>
+                    <span>Photometric Interpretation: </span><span id="photometricInterpretation"></span><br>
+                    <span>Number Of Frames: </span><span id="numberOfFrames"></span><br>
+                    <span>Planar Configuration: </span><span id="planarConfiguration"></span><br>
+                    <span>Rows: </span><span id="rows"></span><br>
+                    <span>Columns: </span><span id="columns"></span><br>
+                    <span>Pixel Spacing: </span><span id="pixelSpacing"></span><br>
+                    <span>Row Pixel Spacing: </span><span id="rowPixelSpacing"></span><br>
+                    <span>Column Pixel Spacing: </span><span id="columnPixelSpacing"></span><br>
+                    <span>Bits Allocated: </span><span id="bitsAllocated"></span><br>
+                    <span>Bits Stored: </span><span id="bitsStored"></span><br>
+                    <span>High Bit: </span><span id="highBit"></span><br>
+                    <span>Pixel Representation: </span><span id="pixelRepresentation"></span><br>
+                    <span>WindowCenter: </span><span id="windowCenter"></span><br>
+                    <span>WindowWidth: </span><span id="windowWidth"></span><br>
+                    <span>RescaleIntercept: </span><span id="rescaleIntercept"></span><br>
+                    <span>RescaleSlope: </span><span id="rescaleSlope"></span><br>
+                    <span>Basic Offset Table Entries: </span><span id="basicOffsetTable"></span><br>
+                    <span>Fragments: </span><span id="fragments"></span><br>
+                    <span>Max Stored Pixel Value: </span><span id="minStoredPixelValue"></span><br>
+                    <span>Min Stored Pixel Value: </span><span id="maxStoredPixelValue"></span><br>
+                    <span>Total Time: </span><span id="totalTime"></span><br>
+                    <span>Load Time: </span><span id="loadTime"></span><br>
+                    <span>Decode Time: </span><span id="decodeTime"></span><br>
+                </div>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            require('./renderer-process/cornerstone');
+            Helper.pageLoadTrigger('#cornerstone-section');
+        </script>
+
+    </section>
+</template>

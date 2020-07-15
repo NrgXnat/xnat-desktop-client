@@ -1,5 +1,5 @@
-@import url('https://use.fontawesome.com/releases/v5.0.6/css/all.css');
-@import url('https://fonts.googleapis.com/css?family=Roboto');
+@import url('https://use.fontawesome.com/releases/v5.8.2/css/all.css');
+@import url('https://fonts.googleapis.com/css?family=Roboto:300,400,500,700,900&display=swap');
 $ptsans: 'Roboto', sans-serif;
 $awesome: "Font Awesome 5 Free";
 
@@ -60,3 +60,7 @@ $list-highlight-active: #C4DFFF;
 $table-control: #f3f3f3;
 $table-top:#fcfcfc;
 $table-bottom:#aaaaaa;
+
+/* MAGIC-CHECK */
+$magic-main-color: #2162cc;
+//$magic-checkbox-size: 16px;

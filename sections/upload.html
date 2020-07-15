@@ -13,7 +13,8 @@
                             <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Subject Selection</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false">Select Folder</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Verify Visit Date</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Review and Verify</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Review Files</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-visual" role="tab" aria-controls="nav-visual" aria-selected="false">Inspect Images</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Summary</a>
                         </div>
                     </nav>
@@ -45,16 +46,58 @@
                                 <ul id="subject-session" class="choose-list"></ul>
                             </div>
 
-
-
-
                             <div class="row">
-                                <div class="col-6">
+                                <div class="col-12">
                                     <div class="button-row  project-subjects-holder">
                                         <button class="btn btn-gray" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
                                     </div>
                                 </div>
-                                <div class="col-6">
+                            </div>
+
+                            <div class="project-subject-visits-holder">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <h2 class="section-title search-inline">Select Visit</h2>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="filter-control title-inline">
+                                            <input type="text" id="visit-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                        </div>
+                                    </div>
+                                </div>
+                                <ul id="visit" class="choose-list"></ul>
+                            
+                                <div class="datatypes-holder">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <h2 class="section-title search-inline">Select datatype</h2>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="filter-control title-inline">
+                                                <input type="text" id="datatype-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <ul id="datatype" class="choose-list"></ul>
+                                </div>
+                            
+                                <div class="subtypes-holder">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <h2 class="section-title search-inline">Select subtype</h2>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="filter-control title-inline">
+                                                <input type="text" id="subtype-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <ul id="subtype" class="choose-list"></ul>
+                                </div>
+                            </div>
+                            
+                            <div class="row action-button-row">
+                                <div class="col-12">
                                     <div class="text-right button-row">
                                         <button type="button" class="btn btn-gray" data-href="home.html" type="button">Cancel</button>
                                         <button type="button" class="btn btn-blue js_next disabled">Next
@@ -64,6 +107,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="tab-pane fade" id="nav-folder" role="tabpanel" aria-labelledby="nav-folder-tab">
                             <h2 class="section-title">Select Folder</h2>
 
@@ -94,14 +138,19 @@
                         <input type="file" multiple webkitdirectory id="fileURL" />
                         <ul id="fileOutput"></ul>
                         -->
-                            <div class="col text-right button-row">
-                                <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                                <button type="button" class="btn btn-gray js_prev">
-                                    <i class="fas fa-angle-left"></i> Prev</button>
-                                <button type="button" class="btn btn-blue js_next disabled">Next
-                                    <i class="fas fa-angle-right"></i>
-                                </button>
+                            <div class="row action-button-row">
+                                <div class="col-12">
+                                    <div class="text-right button-row">
+                                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                        <button type="button" class="btn btn-gray js_prev">
+                                            <i class="fas fa-angle-left"></i> Prev</button>
+                                        <button type="button" class="btn btn-blue js_next disabled">Next
+                                            <i class="fas fa-angle-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
+
                         </div>
                         <div class="tab-pane fade" id="nav-date" role="tabpanel" aria-labelledby="nav-date-tab">
                             <h2 class="section-title">Enter the visit details of the session you plan to upload</h2>
@@ -118,14 +167,21 @@
 
                             <p>Please enter the date for the session you wish to upload. These values <b>must</b> match the DICOM study
                                 date of the selected session or you will not be able to upload the session to the XNAT server.</p>
-                            <div class="col text-right button-row">
-                                <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                                <button type="button" class="btn btn-gray js_prev" type="button">
-                                    <i class="fas fa-angle-left"></i> Prev</button>
-                                <button type="button" class="btn btn-blue js_next disabled">Next
-                                    <i class="fas fa-angle-right"></i>
-                                </button>
+                            
+
+                            <div class="row action-button-row">
+                                <div class="col-12">
+                                    <div class="text-right button-row">
+                                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                        <button type="button" class="btn btn-gray js_prev" type="button">
+                                            <i class="fas fa-angle-left"></i> Prev</button>
+                                        <button type="button" class="btn btn-blue js_next disabled">Next
+                                            <i class="fas fa-angle-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
+
                         </div>
 
 
@@ -148,7 +204,27 @@
                                         <input class="form-control" type="text" name="subject" id="var_subject" value="yyy" required readonly>
                                     </div>
                                 </div>
+                                <div class="project-subject-visits-holder">
+                                    <div class="form-group row">
+                                        <label class="col-sm-2 col-form-label">
+                                            <b>Visit</b>:
+                                        </label>
+                                        <div class="input-group col-sm-10">
+                                            <input class="form-control" type="text" name="visit" id="var_visit_label" value="" readonly>
+                                            <input type="hidden" id="var_visit" value="">
+                                        </div>
+                                    </div>
+                                    <div class="form-group row subtypes-holder">
+                                        <label class="col-sm-2 col-form-label">
+                                            <b>Subtype</b>:
+                                        </label>
+                                        <div class="input-group col-sm-10">
+                                            <input class="form-control" type="text" name="subtype" id="var_subtype" value="" readonly>
+                                        </div>
+                                    </div>
 
+                                    <input type="hidden" id="var_datatype" value="">
+                                </div>
                                 
 
                                 <div class="form-group row" id="experiment_label_container">
@@ -177,6 +253,7 @@
                                 <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
                                 <p>Note: Unchecked scans will not be uploaded</p>
                                 <table class="table table-bordered" id="image_session"></table>
+                                <span class="hidden" id="image_session_date"></span>
                             </div>
 
                             <div class="col">
@@ -184,14 +261,162 @@
                                 <p id="session_info"></p>
                             </div>
 
-                            <div class="col text-right button-row">
-                                <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                                <button type="button" class="btn btn-gray js_prev" type="button">
-                                    <i class="fas fa-angle-left"></i> Prev</button>
-                                <button type="button" class="btn btn-blue js_upload">Upload</button>
+
+                            <div class="row action-button-row">
+                                <div class="col-12">
+                                    <div class="text-right button-row">
+                                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                        <button type="button" class="btn btn-gray js_prev" type="button">
+                                            <i class="fas fa-angle-left"></i> Prev</button>
+                                        <button type="button" class="btn btn-blue js_next disabled">Next
+                                            <i class="fas fa-angle-right"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-blue js_upload">Upload</button>
+                                    </div>
+                                </div>
                             </div>
 
                         </div>
+
+                        <div class="tab-pane fade" id="nav-visual" role="tabpanel" aria-labelledby="nav-visual-tab">
+                            <h2 class="section-title">Required Visual Check for Burned-in PHI</h2>
+                            
+
+                            <p>This project requires one or more scans that you have selected to upload go through 
+                                a visual check to identify and block out any burned-in PHI. If you are not sure 
+                                what consistutes PHI in your project, contact a project or site administrator. For 
+                                help using this feature, view our <a href="javascript:;" id="show_div_tour">PHI Inspection Tutorial</a>.</p>
+                            
+                            
+
+                            <section id="fullscreenMode">
+                                <div class="container">
+                                    <div class="row">
+                                        <div id="fullscreenContent">
+                                            <section id="topBarCustom">
+                                                <nav class="navbar bg-black">
+                                                    <ul class="nav" id="dicom_image_tools">
+                                                        <li class="nav-item">
+                                                            <a id="stack-scroll-btn" class="nav-link active" 
+                                                                data-tool="StackScrollMouseWheel" href="#">
+                                                                <svg version="1.2" preserveAspectRatio="none"
+                                                                    viewBox="0 0 24 24">
+                                                                    <g>
+                                                                        <path xmlns:default="http://www.w3.org/2000/svg"
+                                                                            d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z">
+                                                                        </path>
+                                                                    </g>
+                                                                </svg>
+                                                                <p>Stack Scroll</p>
+                                                            </a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a id="zoom-btn" class="nav-link" 
+                                                                data-tool="Zoom" href="#">
+                                                                <svg id="icon-tools-zoom">
+                                                                    <use href="assets/images/icons.svg#icon-tools-zoom"></use>
+                                                                </svg>
+                                                                <p>Zoom</p>
+                                                            </a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a id="pan-btn" class="nav-link"
+                                                                data-tool="Pan" href="#">
+                                                                <svg id="icon-tools-zoom">
+                                                                    <use href="assets/images/icons.svg#icon-tools-pan"></use>
+                                                                </svg>
+                                                                <p>Pan</p>
+                                                            </a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a id="select-area-btn" class="nav-link" 
+                                                                data-tool="RectangleOverlay" href="#">
+                                                                <div class="el-group"
+                                                                    style="opacity: 1; mix-blend-mode: normal;">
+                                                                    <svg id="select-area-plus" viewBox="0 0 24 24"
+                                                                        style="width: 17px; height: 17px; transform: rotate(0deg) translate(5px, -6px);">
+                                                                        <use href="assets/images/icons.svg#select-area-plus">
+                                                                        </use>
+                                                                    </svg>
+                                                                    <svg id="select-area-body" viewBox="0 0 30 20"
+                                                                        style="overflow: visible; width: 30px; height: 20px; transform: translate(-10px,0);">
+                                                                        <use href="assets/images/icons.svg#select-area-body">
+                                                                        </use>
+                                                                    </svg>
+                                                                </div>
+                                                                <p>Select Area</p>
+                                                            </a>
+                                                        </li>
+                                                    </ul>
+                                                    <ul class="nav" id="scans_save_toolbar">
+                                                        <li class="nav-item">
+                                                            <a id="reset-scan-btn" class="nav-link" href="#">
+                                                                <svg id="reset-scan" viewBox="0 0 24 24"
+                                                                    style="transform: rotate(0deg) rotate(315deg);">
+                                                                    <use href="assets/images/icons.svg#reset-scan"></use>
+                                                                </svg>
+                                                                <p>Reset Scan</p>
+                                                            </a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a id="save-scan-btn" class="nav-link" href="#">
+                                                                <svg id="save-scan" viewBox="0 0 24 24"
+                                                                    style="transform: rotate(0deg);">
+                                                                    <use href="assets/images/icons.svg#save-scan"></use>
+                                                                </svg>
+                                                                <p>Save scan</p>
+                                                            </a>
+                                                        </li>
+                                                        <ul class="modal-nav">
+                                                            <li class="nav-item full-mod-btn">
+                                                                <a id="fullscreenBtn" class="btn btn-sm"
+                                                                    data-toggle="modal" data-target="#fullscreenModal" href="#">
+                                                                    <svg id="fullscreen" viewBox="0 0 24 24"
+                                                                        style="width: 20px; height: 20px; transform: rotate(0deg) translate(-5px, -1px);">
+                                                                        <use href="assets/images/icons.svg#fullscreen"></use>
+                                                                    </svg>
+                                                                </a>
+                                                            </li>
+                                                            <li class="nav-item close-mod-btn">
+                                                                <button type="button" id="closeBtn" aria-hidden="true">
+                                                                </button>
+                                                            </li>
+                                                        </ul>
+                                                    </ul>
+                                                </nav>
+                                            </section>
+                                            <section id="imgGalleryPreview">
+                                                <div class="container">
+                                                    <div class="row">
+                                                        <div class="col-sm-3" id="series_thumbs_holder">
+                                                            <ul id="series_thumbs"></ul>
+                                                        </div>
+                                                        <div class="col-sm-9" style="max-width: calc(100% - 194px); flex: 0 1 auto;">
+                                                            <div id="dicom_image_container" style="width: 100%; height: 500px;"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </section>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+
+
+
+                            <div class="row action-button-row">
+                                <div class="col-12">
+                                    <div class="text-right button-row">
+                                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                        <button type="button" class="btn btn-gray js_prev" type="button">
+                                            <i class="fas fa-angle-left"></i> Prev</button>
+                                        <button type="button" class="btn btn-blue js_upload">Finish and Upload</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="tab-pane fade" id="nav-summary" role="tabpanel" aria-labelledby="nav-profile-tab">
                             <h2 class="section-title">Summary</h2>
 
@@ -332,6 +557,16 @@
                     </div>
                 </div>
             </div>
+
+
+            <!-- Modal -->
+            <div class="modal fade" id="fullscreenModal" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-scrollable" role="document">
+                <div class="modal-content">
+                    <div class="modal-body"></div>
+                </div>
+                </div>
+            </div>
         </div>
 
 
@@ -341,5 +576,262 @@
             Helper.pageLoadTrigger('#upload-section'); 
         </script>
 
+        <style>
+            #image-toolbar-wrap {
+                display: flex; 
+                justify-content: space-between; 
+            }
+            #image-toolbar-wrap ul {
+                display: inline-flex;
+                padding-left: 0;
+                list-style-type: none;
+            }
+
+            #image-toolbar-wrap li {
+                margin: 0 2px;
+            }
+
+            #image-toolbar-wrap label.btn.btn-sm.btn-primary {
+                padding: 4px 15px;
+                height: 32px;
+            }
+
+            #series_thumbs_holder {
+                max-width: 194px; 
+                flex: 0 1 auto; 
+                background: #202020;
+                border-right: 1px solid #20A5D6;
+                padding-top: 17px;
+            }
+
+            #series_thumbs {
+                list-style-type: none;
+                padding: 0;
+                max-height: 480px;
+                overflow-y: auto;
+                width: 176px;
+                padding-left: 7px;
+                background: inherit;
+                margin-bottom: 0;
+            }
+
+
+            #dicom_image_tools, #scans_save_toolbar, #dicom_image_container {
+                background: #202020;
+            }
+
+            /* Let's get this party started */
+            #series_thumbs::-webkit-scrollbar {
+                width: 8px;
+            }
+
+            /* Track */
+            #series_thumbs::-webkit-scrollbar-track {
+                box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+                border-radius: 10px;
+            }
+
+            /* Handle */
+            #series_thumbs::-webkit-scrollbar-thumb {
+                border-radius: 10px;
+                background: #20a5d6;
+                box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5);
+            }
+            /*
+            #series_thumbs::-webkit-scrollbar-thumb:window-inactive {
+                background: black;
+            }
+            */
+
+            
+            #series_thumbs li {
+                margin-bottom: 20px;
+                width: 150px;
+                margin-top: 3px;
+            }
+
+            .highlite-outline {
+                outline: 3px solid #20a5d6;
+            }
+
+
+            /* ACA */
+#topBarCustom .bg-black {
+  background-color: #202020; }
+  #topBarCustom .bg-black .nav {
+    align-items: flex-end;
+    height: 100%; }
+    #topBarCustom .bg-black .nav .nav-item a {
+      color: #9CCEF9;
+      fill: currentColor;
+      stroke: currentColor;
+      font-size: 12px;
+      text-align: center;
+      padding: 0 8px; }
+      #topBarCustom .bg-black .nav .nav-item a:hover {
+        color: #fff; }
+        #topBarCustom .bg-black .nav .nav-item a.active {
+            color: #20A5D6;
+        }
+      #topBarCustom .bg-black .nav .nav-item a#select-area-btn .el-group {
+        min-width: 55px; }
+      #topBarCustom .bg-black .nav .nav-item a svg {
+        background-color: transparent;
+        margin: 0;
+        width: 24px;
+        height: 24px; }
+        #topBarCustom .bg-black .nav .nav-item a svg#reset-scan, #topBarCustom .bg-black .nav .nav-item a svg#save-scan {
+          height: 28px;
+          width: 28px; }
+      #topBarCustom .bg-black .nav .nav-item a p {
+        line-height: 1;
+        margin: 0;
+        padding-top: 5px; }
+
+#imgGalleryPreview {
+  border-top: 1px solid #20A5D6;}
+  #imgGalleryPreview > .container {
+      margin-bottom: 0;
+  }
+  #imgGalleryPreview .img-list {
+    height: 300px;
+    overflow: scroll;
+    overflow-x: hidden; }
+    #imgGalleryPreview .img-list img {
+      width: 100%;
+      height: auto;
+      padding-bottom: 5px; }
+  #imgGalleryPreview .canvas #imgPreview {
+    width: 100%;
+    height: 300px; }
+#fullscreenContent {
+    background: #000; 
+    color: white;
+    width: 100%;
+    margin: 0;
+}
+#fullscreenContent .navbar {
+  align-items: flex-end; }
+  #fullscreenContent .navbar .nav {
+    align-items: flex-end; }
+    #fullscreenContent .navbar .nav .nav-item .nav-link:hover {
+      color: #fff; }
+    #fullscreenContent .navbar .nav .nav-item .nav-link p {
+      line-height: 1;
+      padding-top: 5px; }
+    #fullscreenContent .navbar .nav .modal-nav {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      list-style-type: none;
+      height: 54px;
+      padding-left: 8px; }
+      #fullscreenContent .navbar .nav .modal-nav .nav-item {
+        box-sizing: border-box;
+        height: 24px; }
+        #fullscreenContent .navbar .nav .modal-nav .nav-item #fullscreenBtn {
+          border: 2px solid;
+          border-radius: 2px;
+          cursor: pointer;
+          height: 24px;
+          width: 30px; }
+          #fullscreenContent .navbar .nav .modal-nav .nav-item #fullscreenBtn:active, #fullscreenContent .navbar .nav .modal-nav .nav-item #fullscreenBtn:focus {
+            outline: none;
+            box-shadow: none; }
+        #fullscreenContent .navbar .nav .modal-nav .nav-item #closeBtn {
+          background: transparent;
+          border-radius: 2px;
+          height: 24px;
+          position: relative;
+          width: 30px; }
+          #fullscreenContent .navbar .nav .modal-nav .nav-item #closeBtn:after {
+            border-radius: 2px;
+            bottom: 2px;
+            content: '';
+            display: inline-block;
+            height: 10px;
+            position: absolute;
+            right: 2px;
+            width: 14px; }
+
+#fullscreenMode {
+  padding: 20px 0 0 0; }
+  #fullscreenMode .modal-nav .nav-item #fullscreenBtn {
+    cursor: pointer; }
+    #fullscreenMode .modal-nav .nav-item #fullscreenBtn:hover {
+      color: #fff; }
+  #fullscreenMode .modal-nav .nav-item #closeBtn {
+    border: 2px solid #484848;
+    pointer-events: none; }
+    #fullscreenMode .modal-nav .nav-item #closeBtn:after {
+      background: #484848;
+      border: 2px solid #484848; }
+body.dicomImageViewerFS .modal-backdrop {
+    top: 40px;
+}
+body.dicomImageViewerFS #header_menu {
+    z-index: 1100;
+}
+#fullscreenModal {
+    top: 40px;
+  padding: 0 !important; }
+  #fullscreenModal .modal-dialog {
+    height: calc(100vh - 40px) !important;
+    max-height: 100vh !important;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    width: 100%; }
+    #fullscreenModal .modal-dialog .modal-content {
+      border: 0;
+      border-radius: 0;
+      height: calc(100vh - 40px) !important;
+      max-height: 100vh !important;
+      max-width: 100vw !important;
+      width: 100%; }
+      #fullscreenModal .modal-dialog .modal-content .modal-body {
+        padding: 0; }
+        #fullscreenModal .modal-dialog .modal-content .modal-body .modal-nav .nav-item #fullscreenBtn {
+          color: #484848;
+          pointer-events: none; }
+        #fullscreenModal .modal-dialog .modal-content .modal-body .modal-nav .nav-item #closeBtn {
+          border: 2px solid #9CCEF9; }
+          #fullscreenModal .modal-dialog .modal-content .modal-body .modal-nav .nav-item #closeBtn:after {
+            background: #9CCEF9;
+            border: 2px solid #9CCEF9; }
+          #fullscreenModal .modal-dialog .modal-content .modal-body .modal-nav .nav-item #closeBtn:hover {
+            border-color: #fff; }
+            #fullscreenModal .modal-dialog .modal-content .modal-body .modal-nav .nav-item #closeBtn:hover:after {
+              background: #fff;
+              border-color: #fff; }
+#fullscreenModal #imgGalleryPreview > .container {
+    max-width: 100%;
+}
+.footer {
+  background-color: #333;
+  color: #fff;
+  padding: 50px 0; }
+  .footer p {
+    text-align: center;
+    font-family: 'Roboto';
+    font-size: 20px; }
+
+    .dicomImageViewerFS.modal-open .modal {
+        overflow-y: hidden;
+    }
+.green_mark, .yellow_mark {
+    display: none;
+}
+        </style>
+
+        <!-- Params passed through from webapp -->
+        <div class="hidden">
+            <input type="hidden" id="project_prm" value="">
+            <input type="hidden" id="subject_prm" value="">
+            <input type="hidden" id="visit_prm" value="">
+            <input type="hidden" id="datatype_prm" value="">
+            <input type="hidden" id="subtype_prm" value="">
+        </div>
     </section>
 </template>

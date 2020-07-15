@@ -4,7 +4,10 @@ const ipc = require('electron').ipcRenderer
 const auth = require('../services/auth');
 const api = require('../services/api');
 
-const app = require('electron').remote.app
+const remote = require('electron').remote;
+
+const electron_log = remote.require('./services/electron_log');
+const app = remote.app
 
 let xnat_server = '';
 let user_auth = {
@@ -63,7 +66,7 @@ $(document).on('show.bs.modal', '#login', function(e) {
 });
 
 $(document).on('hide.bs.modal', '#login', function(e) {
-    $('#login_feedback').addClass('hidden');
+    $('#login .modal-body > .alert').addClass('hidden');
     $(e.currentTarget).find('input[name="password"]').val('');
 });
 
@@ -71,7 +74,7 @@ $(document).on('submit', '#loginForm', function(e){
     Helper.blockModal('#login');
     e.preventDefault();
 
-    $('#login_feedback').addClass('hidden');
+    $('#login .modal-body > .alert').addClass('hidden');
 
     let my_xnat_server = $('#server').val().replace(/\/$/, '');
 
@@ -83,6 +86,7 @@ $(document).on('submit', '#loginForm', function(e){
     allow_insecure_ssl = $('#allow_insecure_ssl').is(':checked');
 
     app.allow_insecure_ssl = allow_insecure_ssl;
+
     
     if (my_xnat_server.indexOf('http://') === 0 || my_xnat_server.indexOf('https://') === 0) {
         login_attempt(my_xnat_server, my_user_auth);
@@ -117,7 +121,6 @@ $(document).on('click', '#remove_login', function(e){
                 username: $('#username').val(),
                 password: $('#password').val()
             }
-            console.log('--------', xnat_server, user_auth)
 
             let logins = settings.get('logins');
             
@@ -152,11 +155,32 @@ function login_attempt(xnat_server, user_auth) {
         .catch(handleLoginFail);
 }
 
+function htmlEntities(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function handleLoginFail(error) {
+    let error_details = error.response ? error.response : {
+        error: error,
+        message: error.message
+    };
+
+    error_details = auth.anonymize_response(error_details)
+
+    var div = document.createElement("div");
+    div.innerHTML = JSON.stringify(error_details, undefined, 4);
+    var text = div.textContent || div.innerText || "";
+
+    text = text.replace(/<!--[\s\S]*?-->/g, "")
+    electron_log.error(text)
+
+    $('#login_error_details').html(text);
+
     // reset temporary update
     app.allow_insecure_ssl = false;
 
     let msg = Helper.errorMessage(error);
+    //console.log(JSON.stringify(error))
         
     Helper.unblockModal('#login');
     

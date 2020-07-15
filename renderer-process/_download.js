@@ -1,3 +1,4 @@
+const electron = require('electron');
 const fs = require('fs');
 const fx = require('mkdir-recursive');
 const path = require('path');
@@ -7,14 +8,17 @@ const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
 
 const settings = require('electron-settings');
-const ipc = require('electron').ipcRenderer;
+const ElectronStore = require('electron-store');
+const app_config = new ElectronStore();
 
-const remote = require('electron').remote;
+const ipc = electron.ipcRenderer;
+
+const remote = electron.remote;
 const auth = require('../services/auth');
 
 const sha1 = require('sha1');
 const unzipper = require('unzipper');
-const shell = require('electron').shell;
+const shell = electron.shell;
 
 const filesize = require('filesize');
 
@@ -22,9 +26,27 @@ const tempDir = require('temp-dir');
 
 const isOnline = require('is-online');
 
-const electron_log = require('electron-log');
+const electron_log = remote.require('./services/electron_log');
+
+const nedb_logger = remote.require('./services/db/nedb_logger')
+
 const prettyBytes = require('pretty-bytes');
-const humanizeDuration = require('humanize-duration')
+const humanizeDuration = require('humanize-duration');
+
+const { console_red } = require('../services/logger');
+
+const db_downloads = remote.require('./services/db/downloads');
+
+let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
+
+const appMetaData = require('../package.json');
+electron.crashReporter.start({
+    companyName: appMetaData.author,
+    productName: appMetaData.name,
+    productVersion: appMetaData.version,
+    submitURL: appMetaData.extraMetadata.submitUrl,
+    uploadToServer: app_config.get('send_crash_reports', false)
+});
 
 
 if (!settings.has('global_pause')) {
@@ -34,49 +56,56 @@ if (!settings.has('global_pause')) {
 // always set to false when initializing the page
 settings.set('transfering_download', false);
 
+/**
+ * // array
+ * cancel_tokens = [
+ *      {
+ *          transfer_id: ... , // int
+ *          uri: ... , // string
+ *          cancel: ... // function
+ *      },
+ *      
+ *      ...
+ * ]
+ */
+let cancel_tokens = [];
 
-function get_jsession_cookie(xnat_url) {
-	return new Promise((resolve, reject) => {
-		let slash_url = xnat_url + '/';
-		
-		let jsession = {
-			id: null,
-			expiration: null
-		}
-		
-		// Query cookies associated with a specific url.
-		remote.session.defaultSession.cookies.get({url: slash_url}, (error, cookies) => {
-			if (cookies.length) {
-				cookies.forEach(item => {
-					if (item.name === 'JSESSIONID') {
-						jsession.id = item.value
-					}
+const remove_cancel_token = (transfer_id, uri = false) => {
+    //console_red('remove_cancel_token::BEFORE', {cancel_tokens})
+    cancel_tokens = cancel_tokens.filter(ct => {
+        if (uri === false) {
+            return ct.transfer_id !== transfer_id
+        } else {
+            return ct.transfer_id !== transfer_id || ct.uri !== uri
+        }
+    });
 
-					if (item.name === 'SESSION_EXPIRATION_TIME') {
-						jsession.expiration = item.value;
-					}
-				});
-				
-				if (jsession.id && jsession.expiration) {
-					resolve(`JSESSIONID=${jsession.id}; SESSION_EXPIRATION_TIME=${jsession.expiration};`);
-				} else {
-					reject(xnat_url + ' [No JSESSIONID Cookie]')
-				}
-				
-			} else {
-				reject(xnat_url + ' [No Cookies]')
-			}
-			
-		})
-	});
+    //console_red('remove_cancel_token::AFTER', {cancel_tokens})
 }
+
+const execute_cancel_token = (transfer_id) => {
+    console_red('execute_cancel_token', {transfer_id, cancel_tokens})
+
+    cancel_tokens = cancel_tokens.filter(ct => {
+        // execute cancel token if it matches transfer_id
+        if (ct.transfer_id === transfer_id) {
+            console_red('execute_cancel_token', transfer_id)
+            ct.cancel('Operation canceled by the user - CANCEL TOKEN.');
+        }
+
+        // and remove it
+        return ct.transfer_id !== transfer_id
+    });
+
+}
+
 
 
 console_log(__filename);
 
 function console_log(...log_this) {
     electron_log.info(...log_this);
-    //console.log(...log_this);
+    console.log(...log_this);
     //console.trace('<<<<== DOWNLOAD TRACE ==>>>>');
     //ipc.send('log', ...log_this);
 }
@@ -85,13 +114,15 @@ ipc.on('start_download',function(e, item){
     do_transfer();
 });
 
+ipc.on('cancel_download',function(e, transfer_id){
+    console.log(transfer_id);
+    execute_cancel_token(transfer_id)
+});
+
 do_transfer();
 
 setInterval(do_transfer, 10000);
 
-// setInterval(function() {
-//     console_log('transfering_download ===> ', new Date().toLocaleString(), settings.get('transfering_download'));
-// }, 1000);
 
 function do_transfer() {
     start_transfer();
@@ -110,6 +141,7 @@ function do_transfer() {
 
 function start_transfer() {
     console_log('transfering_state :: ', settings.get('transfering_download'))
+    
     if (settings.get('transfering_download')) {
         //console_log('Download in progress. Aborting download reinit.')
         return;
@@ -117,25 +149,28 @@ function start_transfer() {
         //console_log('transfering_ NOT TRANSFERING ... INITIALIZING');
     }
     
-
-    let my_transfers = store.get('transfers.downloads');
-    
     let current_xnat_server = settings.get('xnat_server');
     let current_username = auth.get_current_user();
 
     let user_auth = auth.get_user_auth();
     let manifest_urls;
 
-    my_transfers.forEach(function(transfer) {
-        // validate current user/server
-        if (transfer.server === current_xnat_server 
-            && transfer.user === current_username
-            && transfer.canceled !== true
-        ) {
+
+    db_downloads.listAll((err, my_transfers) => {
+        let transfer = my_transfers.find(transfer => 
+            transfer.server === current_xnat_server && 
+            transfer.user === current_username &&
+            transfer.canceled !== true &&
+            transfer.sessions.find(session => 
+                session.files.find(file => 
+                    file.status === 0))
+        )
+
+        if (transfer) {
             manifest_urls = new Map();
-    
-            transfer.sessions.forEach(function(session){
-                session.files.forEach(function(file){
+        
+            transfer.sessions.forEach((session) => {
+                session.files.forEach((file) => {
                     if (file.status === 0) {
                         manifest_urls.set(file.name, file.uri)
                     }
@@ -147,30 +182,31 @@ function start_transfer() {
             if (manifest_urls.size) {
                 try {
                     // start download
-                    download_items(transfer.server, user_auth, transfer, manifest_urls, true);
+                    download_items(transfer, manifest_urls, true);
                 } catch(err) {
                     //console_log(err.message)
+                    electron_log.error('Download Error', err);
+                    nedb_logger.error(transfer.id, 'download', err.message, err);
+
                     ipc.send('custom_error', 'Download Error', err.message);
                 }
             }
-            
         }
-        
+
     });
 
 }
 
-function download_items(xnat_server, user_auth, transfer, manifest_urls, create_dir_structure = false) {
+async function download_items(transfer, manifest_urls, create_dir_structure = false) {
     settings.set('transfering_download', false);
 
     if (settings.get('global_pause')) return; 
 
+    let xnat_server = transfer.server;
+    let user_auth = auth.get_user_auth();
+
     let transfer_id = transfer.id;
-
-    let temp_zip_path = path.resolve(tempDir, '_xdc_temp');
-    let real_path = path.resolve(transfer.destination, xnat_server.split('//')[1]);
-
-    let transfer_info = get_transfer_info(transfer_id);
+    let transfer_info = await get_transfer_info(transfer_id);
 
     // console_log('------ PROGRESS --------');
     // console_log(transfer_info);
@@ -179,10 +215,17 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
     if (manifest_urls.size == 0) {
         let final_status = transfer_info.error_count ? 'complete_with_errors' : 'finished';
 
-        // all done
-        update_tranfer_data(transfer_id, {
+        //all done
+        let updated_transfer = await update_tranfer_data(transfer_id, {
             status: final_status
         });
+
+        console_log({transfer_info});
+
+        nedb_logger.success(transfer_id, 'download', `Updated status: ${final_status}. (URLs processed: ${transfer_info.success_count} success, ${transfer_info.error_count} errors) `);
+
+
+        // let transfer_by_id = await db_downloads._getById(transfer_id)
 
         ipc.send('progress_cell', {
             table: '#download_monitor_table',
@@ -196,6 +239,11 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
 
     settings.set('transfering_download', transfer_id);
 
+    let temp_zip_path = path.resolve(tempDir, '_xdc_temp');
+    let server_dir_path = xnat_server.split('//')[1];
+    server_dir_path = server_dir_path.replace(/:/gi, "_"); // if server path contains port number
+    let real_path = path.resolve(transfer.destination, server_dir_path);
+
     if (create_dir_structure) {
         fx.mkdirSync(temp_zip_path, function (err) {
             if (err) throw err;
@@ -203,14 +251,12 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
         });
     }
 
-
     ipc.send('progress_cell', {
         table: '#download_monitor_table',
         id: transfer_id,
         field: "download_status",
         value: transfer_info.progress_percent
     });
-    
 
     let dir = manifest_urls.keys().next().value;
     let uri = manifest_urls.get(dir);
@@ -220,336 +266,462 @@ function download_items(xnat_server, user_auth, transfer, manifest_urls, create_
     let stream_timer;
 
     // fix multliple session creation with token login
-    // let user_auth_fix = user_auth.username === auth.get_current_user() ? user_auth : undefined;    
+    let user_auth_fix = user_auth.username === auth.get_current_user() ? user_auth : undefined;    
 
-    get_jsession_cookie(xnat_server).then(jsession_cookie => {
-        let request_settings = {
-            //auth: user_auth_fix,
-            responseType: 'stream',
-            adapter: httpAdapter,
-            headers: {
-                'Cookie': jsession_cookie
-            }
-        }
-    
-        if (auth.allow_insecure_ssl()) {
-            // insecure SSL at request level
-            request_settings.httpsAgent = new https.Agent({  
-                rejectUnauthorized: false
-            });
-        }
+    let jsession_cookie;
+    try {
+        jsession_cookie = await auth.get_jsession_cookie(xnat_server)
+    } catch (e) {
+        console.log({e});
+        jsession_cookie = null;
+    }
 
-        //console.log('********* request_settings *********')
-        //console.log(request_settings);
+    console.log({jsession_cookie});
+
     
-        axios.get(xnat_server + uri, request_settings)
-        .then(resp => {
-            let zip_path = path.resolve(temp_zip_path, sha1(xnat_server + uri) + '__YYY__' + Math.random() + '.zip');
+    let CancelToken = axios.CancelToken;
+
+    // todo - test if we need user auth here
+    let request_settings = {
+        auth: user_auth_fix,
+        responseType: 'stream',
+        adapter: httpAdapter,
+        headers: {
+            'Cookie': jsession_cookie,
+            'User-Agent': userAgentString
+        },
+        cancelToken: new CancelToken(function executor(c) {
+            // An executor function receives a cancel function as a parameter
+            //cancelCurrentUpload = c;
+
+            cancel_tokens.push({
+                transfer_id: transfer_id,
+                uri: uri,
+                cancel: c
+            })
+        })
+    }
+
+    let https_agent_options = { keepAlive: true };
+    if (auth.allow_insecure_ssl()) {
+        https_agent_options.rejectUnauthorized = false // insecure SSL at request level
+    }
+    request_settings.httpsAgent = new https.Agent(https_agent_options);
+
+    /*
+    if (auth.allow_insecure_ssl()) {
+        // insecure SSL at request level
+        request_settings.httpsAgent = new https.Agent({
+            rejectUnauthorized: false
+        });
+    }
+    */
+
+    //console.log('********* request_settings *********')
+    console.log({request_settings});
+
+    axios.get(xnat_server + uri, request_settings)
+    .then(resp => {
+        let zip_path = path.resolve(temp_zip_path, sha1(xnat_server + uri) + '__YYY__' + Math.random() + '.zip');
+        // let clean_uri = uri.split('?');
+        // let uri_str = clean_uri[0].replace(/\//g, '_');
+        // let zip_path = path.resolve(temp_zip_path, uri_str +  '__YYY__' + Math.random() + '.zip');
+
+
+        let stream = resp.data;
+        stream.on('data', (chunk) => {  // chunk is an ArrayBuffer
+            let bytes_chunk = chunk.byteLength;
+
+            bytes_total += bytes_chunk;
+
+            if (!stream_timer) {
+                stream_timer = setTimeout(function() {
+                    console_log(prettyBytes(bytes_total));
+
+                    let timer_now = new Date() / 1000;
+                    let download_speed = bytes_total / (timer_now - timer_start);
     
-            let stream = resp.data;
-            stream.on('data', (chunk /* chunk is an ArrayBuffer */) => {
-                let bytes_chunk = chunk.byteLength;
-    
-                bytes_total += bytes_chunk;
-    
-                if (!stream_timer) {
-                    stream_timer = setTimeout(function() {
-                        console_log(prettyBytes(bytes_total));
-    
-                        let timer_now = new Date() / 1000;
-                        let download_speed = bytes_total / (timer_now - timer_start);
-        
-                        ipc.send('download_progress', {
-                            selector: `#download-details [data-id="${transfer_id}"] #download_rate`,
-                            html: filesize(download_speed) + '/sec'
-                        });
-    
-                        stream_timer = null;
-                    }, 500);
-                }
-              
-    
-                fs.appendFileSync(zip_path, Buffer(chunk));
-            });
-    
-            stream.on('end', () => {
-                //console_log('stream on.end', bytes_total);
-                let timer_now = new Date() / 1000;
-                let total_time_ms = (timer_now - timer_start) * 1000;
-    
-                ipc.send('download_progress', {
-                    selector: `#download-details [data-id="${transfer_id}"] #download_size`,
-                    html: prettyBytes(bytes_total)
-                });
-    
-                ipc.send('download_progress', {
-                    selector: `#download-details [data-id="${transfer_id}"] #download_time`,
-                    html: humanizeDuration(total_time_ms, { round: true })
-                });
-                
-    
-                fs.createReadStream(zip_path)
-                    .pipe(unzipper.Parse())
-                    .on('entry', function (entry) {
-                        
-                        if (entry.type === 'File') {
-                            // file basename
-                            let basename = path.basename(entry.path);
-    
-                            // extract path where file will end up
-                            let extract_path = path.resolve(real_path, dir);
-    
-                            // create directory structure recursively
-                            fx.mkdirSync(extract_path, function (err) {
-                                if (err) throw err;
-                            });
-    
-                            // write file to path
-                            entry.pipe(fs.createWriteStream(path.resolve(extract_path, basename)));
-                        } else {
-                            entry.autodrain();
-                        }
-                    })
-                    .on('finish', () => {
-                        // TODO - files are sometimes locked ... make unlock explicit          
-                        fs.unlink(zip_path, (err) => {
-                            if (err) throw err;
-                            console_log('----' + zip_path + ' was DELETED');
-                        });
+                    ipc.send('download_progress', {
+                        selector: `#download-details [data-id="${transfer_id}"] #download_rate`,
+                        html: filesize(download_speed) + '/sec'
                     });
+
+                    stream_timer = null;
+                }, 500);
+            }
+
+            try {
+                fs.appendFileSync(zip_path, Buffer(chunk));
+            } catch (err) {
+                console_red(`${zip_path} - appended to file!`, {err});
+            }
+            
+        });
+
+        stream.on('end', () => {
+            remove_cancel_token(transfer_id, uri);
+
+            //console_log('stream on.end', bytes_total);
+            let timer_now = new Date() / 1000;
+            let total_time_ms = (timer_now - timer_start) * 1000;
+
+            ipc.send('download_progress', {
+                selector: `#download-details [data-id="${transfer_id}"] #download_size`,
+                html: prettyBytes(bytes_total)
+            });
+
+            ipc.send('download_progress', {
+                selector: `#download-details [data-id="${transfer_id}"] #download_time`,
+                html: humanizeDuration(total_time_ms, { round: true })
+            });
+
+            let skip_finish = false;
+            let unzip_promise = new Promise((resolve, reject) => {
+                console.log({zip_path});
+                fs.createReadStream(zip_path)
+                .pipe(unzipper.Parse())
+                .on('entry', function (entry) {
+                    if (entry.type === 'File') {
+                        // file basename
+                        let basename = path.basename(entry.path);
+
+                        //console_red(basename, entry)
+
+                        // get directory substructure
+                        let entry_dirname = path.dirname(entry.path);
+                        let dir_substructure = '';
+                        if (entry_dirname.match(/\/files\//)) {
+                            let dir_parts = entry_dirname.split('/files/');
+                            dir_substructure = dir_parts[dir_parts.length - 1]
+                        }
+
+                        // extract path where file will end up
+                        let extract_path = path.join(real_path, dir, dir_substructure);
+
+                        // create directory structure recursively
+                        fx.mkdirSync(extract_path, function (err) {
+                            if (err) throw err;
+                        });
+
+                        // write file to path
+                        entry.pipe(fs.createWriteStream(path.resolve(extract_path, basename)));
+                    } else {
+                        entry.autodrain();
+                    }
+                })
+                .on('error', (err) => {
+                    skip_finish = true;
+                    console_red('unzipper error', {err});
+
+                    fs.unlink(zip_path, (unlink_err) => {
+                        // if (err) throw err;
+                        console_log('----' + zip_path + ' was DELETED');
+
+                        reject(err)
+                    });
+
+                    //reject()
+                })
+                .on('finish', () => {
+                    if (!skip_finish) {
+                        fs.unlink(zip_path, (err) => {
+                            // if (err) throw err;
+                            console_log('++++' + zip_path + ' was DELETED');
     
+                            resolve()
+                        });
+                    } else {
+                        console_red('skipped finish', 'OK')
+                    }
+                    
+                    //resolve()
+                });
+            });
+
+            unzip_promise.then(() => {
+                //console_red('after unzip_promise', {transfer});
+
                 // delete item from url map
                 manifest_urls.delete(dir);
-                mark_downloaded(transfer_id, uri);
-    
-                update_modal_ui(transfer_id, uri);
-    
-                download_items(xnat_server, user_auth, transfer, manifest_urls);
-            });
-    
-    
+
+                return mark_downloaded(transfer_id, uri)
+            })
+            .then(updated_tranfer => {
+                //console_red('after mark_downloaded', {updated_tranfer});
+
+                return update_modal_ui(transfer_id, uri);
+            })
+            .then(() => {
+                // check to see if the transfer is canceled in the meantime
+                db_downloads._getById(transfer_id)
+                .then(transfer => {
+                    if (transfer) {
+                        if (!transfer.canceled || manifest_urls.size == 0) {
+                            console_red('TRANSFER NOT CANCELED', 'Continuing with download_items...')
+                            download_items(transfer, manifest_urls)  
+                        } else {
+                            console_red('DOWNLOAD CANCELED IN THE MEANTIME', transfer)
+                            settings.set('transfering_download', false);
+                        }
+                    } else {
+                        throw new Error(`mark_downloaded: No transfer with id: ${transfer_id}`)
+                    }
+                })
+                .catch(err => {
+                    console_red('IMMEDIATE ERROR', {err})
+                    throw err;
+                })
+            })
+            .catch(err => {
+                console_red('unzip_promise FAIL', err)
+                settings.set('transfering_download', false);
+            })
+            
+        });
+
+        stream.on('error', (err) => {
+            console_log(err);
+            console_red('STREAM ERROR', err);
         })
-        .catch(err => {
-            console_log(err.response, err)
+
+    })
+    .catch(err => {
+        console_red('AXIOS CATCH ERROR', err)
+
+        remove_cancel_token(transfer_id, uri);
+
+        if (axios.isCancel(err)) {
+            settings.set('transfering_download', false);
+
+            console_red('Request canceled', {err});
+            electron_log.error('Download error:', xnat_server + uri, JSON.stringify(err));
+            nedb_logger.error(transfer_id, 'download', 'Request canceled!' + err.message, err);
+        } else {
+            electron_log.error('Download error:', xnat_server + uri, Helper.errorMessage(err));
     
-            if (err.response && err.response.status === 404) {
+            if (err.response && err.response.status === 401) {
+                settings.set('transfering_download', false);
+
+                ipc.send('force_reauthenticate', auth.current_login_data())
+            } else if (err.response && err.response.status === 404) {
                 // =============================================
                 // SOFT FAIL
                 // =============================================
                 // delete item from url map
                 manifest_urls.delete(dir);
-                mark_error_file(transfer_id, uri); // set file status (-1)
     
-                update_modal_ui(transfer_id, uri);
+                mark_error_file(transfer_id, uri, `Resource doesn't exist. (404 response)`)
+                .then(updated_tranfer => {
+                    console_red('after mark_error_file', {updated_tranfer});
     
-                download_items(xnat_server, user_auth, transfer, manifest_urls);
+                    return update_modal_ui(transfer_id, uri);
+                })
+                .then(() => {
+                    console_red('SOFT_FAIL', 'Continuing with download_items...')
+                    download_items(transfer, manifest_urls)
+                })
+                
                 // =============================================
             } else {
                 update_tranfer_data(transfer_id, {
                     status: 'xnat_error',
                     error: Helper.errorMessage(err)
-                });
-    
-                ipc.send('progress_cell', {
-                    table: '#download_monitor_table',
-                    id: transfer_id,
-                    field: "download_status",
-                    value: "xnat_error"
-                });
-                
-                settings.set('transfering_download', false);
-            }
-    
-        })
-        .finally(() => {      
-            // console_log('TRANSFER_DONE :: ', xnat_server + uri);
-        });
-    }).catch(err => {
-        console_log(err)
-    });
+                }).then(updated_tranfer => {
+                    nedb_logger.error(transfer_id, 'download', Helper.errorMessage(err), err);
 
+                    console_red('after update_tranfer_data', {updated_tranfer});
+    
+                    ipc.send('progress_cell', {
+                        table: '#download_monitor_table',
+                        id: transfer_id,
+                        field: "download_status",
+                        value: "xnat_error"
+                    });
+                    
+                    settings.set('transfering_download', false);
+                })
+            }
+        }
+
+    })
     
 }
 
 function mark_downloaded(transfer_id, uri) {
-    let my_transfers = store.get('transfers.downloads');
 
-    // could be oprimized with for loop + continue
-    my_transfers.forEach(function(transfer) {
-        if (transfer.id === transfer_id) {
-            transfer.sessions.forEach(function(session){
-                session.files.forEach(function(file){
-                    if (file.uri === uri) {
-                        file.status = 1;
+    return new Promise((resolve, reject) => {
+        db_downloads._getById(transfer_id)
+        .then(transfer => {
+            if (transfer) {
+                let file;
+                transfer.sessions.forEach((session) => {
+                    file = session.files.find(file => file.uri === uri)
+                    if (file) {
+                        file.status = 1
                     }
                 });
-            });
-        }
-    });
 
-    store.set('transfers.downloads', my_transfers);
+                nedb_logger.success(transfer_id, 'download', `Downloaded ${uri}`, file);
+                
+                return db_downloads._replaceDoc(transfer_id, Helper.copy_obj(transfer))
+
+            } else {
+                throw new Error(`mark_downloaded: No transfer with id: ${transfer_id}`)
+            }
+        })
+        .then(transfer => {
+            //console_red('mark_downloaded', transfer, uri)
+            resolve(transfer);
+        })
+        .catch(err => {
+            reject(err);
+        })
+    })
+
 }
 
 function get_transfer_info(transfer_id) {
-    let my_transfers = store.get('transfers.downloads');
-
     let progress_counter = 0, success_files = 0, error_files = 0, file_counter = 0, progress = 0;
 
-    let transfer_index = get_transfer_index(my_transfers, transfer_id);
+    return new Promise((resolve, reject) => {
+        db_downloads._getById(transfer_id)
+        .then(transfer => {
+            if (transfer) {
+                transfer.sessions.forEach((session) => {
+                    session.files.forEach((file) => {
+                        // if file.status not zero
+                        if (file.status) {
+                            progress_counter++
+                        }
+        
+                        if (file.status === 1) {
+                            success_files++;
+                        } else if (file.status === -1) {
+                            error_files++
+                        }
+                        
+                    });
+        
+                    file_counter += session.files.length;
+                });
+    
+                progress = file_counter > 0 ? progress_counter / file_counter * 100 : 100;
+    
+                resolve({
+                    total_files: file_counter,
+                    success_count: success_files,
+                    error_count: error_files,
+                    progress_percent: progress
+                });
 
-    if (transfer_index !== undefined) {
-        my_transfers[transfer_index].sessions.forEach(function(session){
-            session.files.forEach(function(file){
-                // if file.status not zero
-                if (file.status) {
-                    progress_counter++
-                }
+            } else {
+                throw new Error(`get_transfer_info: No transfer with id: ${transfer_id}`)
+            }
 
-                if (file.status === 1) {
-                    success_files++;
-                } else if (file.status === -1) {
-                    error_files++
-                }
-                
-            });
-
-            file_counter += session.files.length;
-        });
-
-        progress = file_counter > 0 ? progress_counter / file_counter * 100 : 100;
-    }
-
-    return {
-        total_files: file_counter,
-        success_count: success_files,
-        error_count: error_files,
-        progress_percent: progress
-    }
+        })
+        .catch(err => {
+            reject(err);
+        })
+    })
 
 }
-
 
 
 function update_tranfer_data(transfer_id, data) {
-    let my_transfers = store.get('transfers.downloads');
-
-    let transfer_index = get_transfer_index(my_transfers, transfer_id);
-
-    if (transfer_index !== undefined) {
-        Object.keys(data).forEach(function(key,index) {
-            // key: the name of the object key
-            // index: the ordinal position of the key within the object 
-            my_transfers[transfer_index][key] = data[key];
-        });
-
-        store.set('transfers.downloads', my_transfers);
-    }
-}
-
-function get_transfer_index(my_transfers, transfer_id) {
-    let transfer_index;
-
-    for (let i = 0; i < my_transfers.length; i++) {
-        if (my_transfers[i].id === transfer_id) {
-            transfer_index = i;
-            break;
-        }
-    }
-
-    return transfer_index;
-}
-
-function get_transfer_and_session_index(my_transfers, transfer_id, uri) {
-    let transfer_index, session_index, file_index;
-    for (let i = 0; i < my_transfers.length; i++) {
-        if (my_transfers[i].id === transfer_id) {
-            transfer_index = i;
-
-            for (let j = 0; j < my_transfers[i].sessions.length; j++) {
-                for (let k = 0; k < my_transfers[i].sessions[j].files.length; k++) {
-                    if (my_transfers[i].sessions[j].files[k].uri === uri) {
-                        session_index = j;
-                        file_index = k;
-                        break;
-                    }
-                }
-
-                if (session_index !== undefined) {
-                    break;
-                }
+    return new Promise((resolve, reject) => {
+        db_downloads._getById(transfer_id)
+        .then(transfer => {
+            if (transfer) {
+                return Object.assign(transfer, data);
+            } else {
+                throw new Error(`update_tranfer_data: No transfer with id: ${transfer_id}`)
             }
-        }
+        })
+        .then(transfer => {
+            return db_downloads._replaceDoc(transfer_id, Helper.copy_obj(transfer))
+        })
+        .then(num_replaced => {
+            console_red('update_tranfer_data', num_replaced)
+            resolve(num_replaced);
+        })
+        .catch(err => {
+            reject(err);
+        })
+    })
 
-        if (transfer_index !== undefined) {
-            break;
-        }
-    }
-
-    return {
-        transfer: transfer_index,
-        session: session_index,
-        file: file_index
-    }
 }
 
-function mark_error_file(transfer_id, uri) {
-    let my_transfers = store.get('transfers.downloads');
 
-    let index = get_transfer_and_session_index(my_transfers, transfer_id, uri);
+function mark_error_file(transfer_id, uri, error_message = 'File Download Error') {
+    return new Promise((resolve, reject) => {
+        db_downloads._getById(transfer_id)
+        .then(transfer => {
+            if (transfer) {
+                transfer.sessions.forEach((session) => {
+                    let file = session.files.find(file => file.uri === uri)
+                    if (file) {
+                        Object.assign(file, {
+                            status: -1, 
+                            error: error_message
+                        });
+                    }
+                });
 
-    my_transfers[index.transfer].sessions[index.session].files[index.file].status = -1;
-    my_transfers[index.transfer].sessions[index.session].files[index.file].error = 'Error Message';
+                nedb_logger.error(transfer_id, 'download', error_message, {
+                    uri: uri
+                });
+    
+                return db_downloads._replaceDoc(transfer_id, Helper.copy_obj(transfer))
 
-    store.set('transfers.downloads', my_transfers);
+            } else {
+                throw new Error(`mark_error_file: No transfer with id: ${transfer_id}`)
+            }
+        })
+        .then(transfer => {
+            console_red('update_tranfer_data', transfer)
+            resolve(transfer);
+        })
+        .catch(err => {
+            reject(err);
+        })
+    })
 }
+
 
 function update_modal_ui(transfer_id, uri) {
-    let my_transfers = store.get('transfers.downloads');
+    return new Promise((resolve, reject) => {
+        db_downloads._getById(transfer_id)
+        .then(transfer => {
+            if (transfer) {
+                let session = transfer.sessions.find(session => session.files.find(file => file.uri === uri));
 
-    let index = get_transfer_and_session_index(my_transfers, transfer_id, uri);
+                let current_progress = session.files.reduce((accumulator, file) => {
+                    let increment = file.status === 0 ? 0 : 1;
+                    return accumulator + increment;
+                }, 0);
+                
+                ipc.send('progress_cell', {
+                    table: '#download-details-table',
+                    id: session.id,
+                    field: "progress",
+                    value: current_progress
+                });
 
-    let current_progress = 0;
-    my_transfers[index.transfer].sessions[index.session].files.forEach(function(file){
-        let increment = file.status === 0 ? 0 : 1;
-        current_progress += increment;
-    });
+                resolve()
 
-    let session_id = my_transfers[index.transfer].sessions[index.session].id;
+            } else {
+                throw new Error(`mark_error_file: No transfer with id: ${transfer_id}`)
+            }
+        })
+        .catch(err => {
+            reject(err);
+        })
+    })
 
-    ipc.send('progress_cell', {
-        table: '#download-details-table',
-        id: session_id,
-        field: "progress",
-        value: current_progress
-    });
-
-}
-
-function move_to_archive(transfer_id) {
-    let my_transfers = store.get('transfers.downloads');
-
-    if (!store.has('transfers.downloads_archive')) {
-        store.set('transfers.downloads_archive', []);
-    }
-    let my_archive = store.get('transfers.downloads_archive');
-
-    let index;
-    for (let i = 0; i < my_transfers.length; i++) {
-        if (my_transfers[i].id === transfer_id) {
-            index = i;
-            break;
-        }
-    }
-
-    my_archive.push(my_transfers[index]);
-    my_transfers.splice(index, 1);
-
-    
-    store.set('transfers.downloads_archive', my_archive);
-    store.set('transfers.downloads', my_transfers);
 }
 
 window.onerror = function (errorMsg, url, lineNumber) {
+    electron_log.error(`[Custom Uncaught Error - Download]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)
     console_log(__filename + ':: ' +  errorMsg);
     return false;
 }

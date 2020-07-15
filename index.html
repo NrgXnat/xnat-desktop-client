@@ -20,6 +20,8 @@
     <link rel="stylesheet" href="node_modules/x-editable/dist/bootstrap3-editable/css/bootstrap-editable.css">
     <link rel="stylesheet" href="node_modules/nprogress/nprogress.css">
 
+    <link rel="stylesheet" href="node_modules/anno.js/dist/anno.css">
+
     <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.css">
     <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.brighttheme.css">
     <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.buttons.css">
@@ -36,7 +38,9 @@
     <link rel="import" href="sections/home.html">
     <link rel="import" href="sections/upload.html">
     <link rel="import" href="sections/progress.html">
+    <link rel="import" href="sections/progress-archive.html">
     <link rel="import" href="sections/version.html">
+    <link rel="import" href="sections/cornerstone.html">
 
 </head>
 
@@ -51,10 +55,11 @@
                 <a href="home.html">Home</a>
                 <a href="upload.html">Upload</a>
                 <a href="#" id="trigger_download">Download</a>
-                <a href="https://wiki.xnat.org/xnat-tools/dxm" target="_blank">Documentation</a>
+                <a href="progress.html">Progress Monitor</a>
+                <a href="https://wiki.xnat.org/xnat-tools/dxm" target="_blank" class="monitor">Documentation</a>
                 <a href="version.html">About</a>
                 <a href="progress.html" class="monitor">Monitor</a>
-                <!-- <a href="projects.html" class="">Projects</a> -->
+                <a href="cornerstone.html" class="">Image Viewer</a>
             </div>
         </div>
         <div class="server-name hidden-by-default hidden" id="menu--server"></div>
@@ -65,7 +70,7 @@
             </a>
             <div class="user-dropdown">
                 <span class="username" id="menu--username-server"></span>
-                <button class="btn btn-darkblue" id="menu--logout">Logout</button>
+                <button class="btn btn-blue" id="menu--logout">Logout</button>
             </div>
         </div>
     </header>
@@ -108,6 +113,111 @@
     </div>
 
 
+    <div class="modal fade" id="win_install_cpp" tabindex="-1" role="dialog" aria-labelledby="win_install_cpp"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLongTitle">XNAT Desktop Client</h5>
+                    
+                </div>
+                <div class="modal-body">
+                    <h2>Dependency Error</h2>
+                    <p>
+                        An error occured while trying to start the application.<br><br>
+                        Please download and install <b>Microsoft Visual C++ 2010 Service Pack 1 Redistributable Package</b> 
+                        (<code>vcredist_x64.exe</code> for 64-bit Windows or <code>vcredist_x86.exe</code> for 32-bit Windows) and restart XNAT Desktop Client.
+                        <br><br>
+                    </p>
+                    
+                </div>
+
+                <div class="modal-footer">
+                    <a class="btn btn-blue" href="https://www.microsoft.com/en-us/download/details.aspx?id=26999">Download Required Package</a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <div class="modal fade" id="alt_upload_method_modal" tabindex="-1" role="dialog" aria-labelledby="alt_upload_method_modal"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLongTitle">XNAT Desktop Client</h5>
+                    
+                </div>
+                <div class="modal-body">
+                    <h2>Upload Error</h2>
+                    <p>
+                        The XNAT target is based on a release that does not support streaming uploads. 
+                        This can be solved on the XNAT backend with an upgrade to a more recent version of XNAT 
+                        or using a front end proxy such as NGINX that resolves the issue.
+                    </p>
+
+                    <p>
+                        In order to upload your data now, this application will create a full zip file 
+                        in temporary storage and then upload that file. This will take up local disk space, 
+                        but will not trigger the upload error. You can use the default storage area listed 
+                        below or select a different folder for temporary space.
+                    </p>
+
+                    <h5>Select Temporary File Location</h5>
+
+                    <style>
+                        input[name="temp_location"]:checked + label {
+                            font-weight: bold;
+                            color: green;
+                        }
+
+                        input[name="temp_location"]:checked + label > span {
+                            font-weight: normal;
+                            color: black;
+                        }
+                    </style>
+
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="temp_location" id="temp_location_default" value="default" checked>
+                        <label class="form-check-label" for="temp_location_default">
+                            Default Temporary storage location <span>(<span id="default_temp_location"></span>)</span>
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="temp_location" id="temp_location_custom" value="custom">
+                        <label class="form-check-label" for="temp_location_custom">
+                            Choose a different storage location
+                        </label>
+                    </div>
+                    
+                    <div id="temp_folder_alternative_holder" class="form-group" style="display: none;">
+                        <div class="input-group">
+                            <input type="text" id="temp_folder_alternative" value="" class="form-control col-6 settings-input" readonly>
+                            <div class="col-3">
+                                <label class="input-group-btn">
+                                    <span class="btn btn-blue">
+                                        Browse
+                                        <input type="file" id="file_temp_folder_alternative" style="display: none" webkitdirectory directory>
+                                    </span>
+                                </label>
+                            </div>
+
+                        </div>
+                        <small>Select a folder on your local hard drive or networked drive with enough space.</small>
+                    </div>
+                    
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-blue" id="confirm_temp_folder">Confirm</a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
 
 
     <!-- Bootstrap core JavaScript
@@ -119,6 +229,11 @@
         Helper = require('./assets/js/helpers');
 
     </script>
+
+
+    <script src="node_modules/anno.js/dist/anno.js"></script>
+    <script src="node_modules/jquery.scrollintoview/jquery.scrollintoview.js"></script>
+
     <script src="node_modules/blockui-npm/jquery.blockUI.js"></script>
 
     <script src="node_modules/pnotify/dist/pnotify.js"></script>
@@ -135,6 +250,8 @@
     <script src="node_modules/popper.js/dist/umd/popper.min.js"></script>
     <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
     <script src="node_modules/bootstrap-table/dist/bootstrap-table.js"></script>
+
+
     <!-- <script src="node_modules/bootstrap-table/dist/extensions/flat-json/bootstrap-table-flat-json.min.js"></script> -->
 
     <script src="node_modules/bootstrap-table/dist/extensions/filter-control/bootstrap-table-filter-control.js"></script>

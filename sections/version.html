@@ -7,21 +7,19 @@
 
                     <div class="version">XNAT Desktop Client version: <span id="semver"></span></div>
                     <br>
-                    <!-- TODO - Use this when autoupdater is implemented
-                    <div class="updates">By clicking the button below you can check for application updates:
-                        <br/>
-                        <br/>
-                        <a href="#" class="btn btn-blue">Check for updates</a>
+                    
+                    <div class="updates">
+                        <p id="version_info"></p>
+                        <a href="#" class="btn btn-blue" id="check_for_updated_verision">Check for updates</a>
                     </div>
-                     -->
+                    
                 </div>
             </div>
         </div>
 
         <script type="text/javascript">
-            var app = require('electron').remote.app
-
-            $('#semver').text(app.getVersion())
+            require('./renderer-process/version')
+            Helper.pageLoadTrigger('#version-section');
         </script>
 
     </section>

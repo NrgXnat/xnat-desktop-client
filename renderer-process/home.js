@@ -13,6 +13,7 @@ const xml2js = require('xml2js');
 const swal = require('sweetalert');
 
 const remote = require('electron').remote;
+const electron_log = remote.require('./services/electron_log');
 
 const FileSaver = require('file-saver');
 const zlib = require('zlib');
@@ -20,7 +21,12 @@ const zlib = require('zlib');
 const unzipper = require('unzipper');
 const sha1 = require('sha1');
 
-const app = require('electron').remote.app;
+const app = remote.app;
+
+const db_downloads = remote.require('./services/db/downloads')
+
+const nedb_logger = remote.require('./services/db/nedb_logger')
+const nedb_log_reader = remote.require('./services/db/nedb_log_reader')
 
 
 let xnat_server, user_auth, default_local_storage;
@@ -37,6 +43,35 @@ NProgress.configure({
     minimum: 0.03
 });
 
+$(document).on('click', '#nedb_log_insert', function() {
+    let transfer_id, type, message, details_object;
+
+    transfer_id = Math.random();
+    type = 'upload';
+    message = `Some message for ... ${transfer_id}`;
+    
+    nedb_logger.debug(transfer_id, type, message)
+    nedb_logger.info(transfer_id, type, message)
+    nedb_logger.error(transfer_id, type, message)
+    nedb_logger.success(transfer_id, type, message)
+
+    
+
+    transfer_id = 152;
+    type = 'upload';
+    message = `Some message for ... ${transfer_id}`;
+    
+    nedb_logger.debug(transfer_id, type, message)
+    nedb_logger.info(transfer_id, type, message)
+    nedb_logger.error(transfer_id, type, message)
+    nedb_logger.success(transfer_id, type, message)
+});
+
+$(document).on('click', '#nedb_log_read', function() {
+    nedb_log_reader.fetch_log(152, (err, docs) => {
+        console.log(docs);
+    })
+});
 
 $(document).on('page:load', '#home-section', function(e){
     console.log('HOME page:load triggered');
@@ -79,7 +114,7 @@ $(document).on('change', '#xnt_manifest_file', function(e) {
     $(this).val('');
 });
 
-$(document).on('click', '.js_download_session_files', function(){
+$(document).on('click', '.js_download_session_files', async function(){
     // validate
     let error_message = '';
     let $alert = $(this).closest('.modal-content').find('.alert');
@@ -93,7 +128,7 @@ $(document).on('click', '.js_download_session_files', function(){
         error_message = 'Please set a download destination path.';
     } else {
         try {
-            attempt_download(xnt_file, destination)
+            await attempt_download(xnt_file, destination)
         } catch(err) {
             error_message = err.message;
         }
@@ -101,11 +136,12 @@ $(document).on('click', '.js_download_session_files', function(){
     }
 
     if (error_message.length) {
-        $alert.show().find('.error_message').text(error_message);
+        $alert.show().find('.error_message').html(error_message);
     } else {
         $alert.hide();
     }
 });
+
 
 async function attempt_download(file_path, destination) {
     let data;
@@ -119,7 +155,22 @@ async function attempt_download(file_path, destination) {
             }
         ]
     });
-    console.log(parser);  
+
+    let test_path = '__TEST__'  + (new Date() / 1);
+    let write_test_path = path.join(destination, test_path)
+    
+    
+    // using a workaround since fs.accessSync(destination, fs.constants.R_OK | fs.constants.W_OK) does not work
+    try {
+        fs.mkdirSync(write_test_path);
+        fs.rmdirSync(write_test_path);
+        
+    } catch(err) {
+        electron_log.error('Download Destination Permission Error', err);
+        throw new Error(`Destination "${destination}" is not writable. Please choose a different destination path.`);
+    }
+
+    
 
     try {
         // add if (file_path starts with "xnat(s)://" and put THAT into data)
@@ -133,8 +184,6 @@ async function attempt_download(file_path, destination) {
             });
             
             let xml_resp = await xml_request; // wait till the promise resolves (*)
-            console.log('////////////////////////////////////////////////////////////////');
-            console.log(xml_resp);
             
             data = xml_resp.data;
         } else {
@@ -146,12 +195,11 @@ async function attempt_download(file_path, destination) {
         throw new Error('File reading error. Please choose another XML manifest file.');
     }
 
-    let parsing_error_message = 'An error occurred while parsing manifest file! Please try again or use another manifest file.';
+    let parsing_error_message = 'An error occurred while parsing manifest file! Please try again, use another manifest file or check the documentation (<a href="https://wiki.xnat.org/xnat-tools/xnat-desktop-client-dxm/downloading-image-sessions">Downloading Image Sessions</a>).';
 
     parser.parseString(data, function (err2, result) {
-        console.log(err2, result);
         if (err2) {
-            throw new Error(parsing_error_message);
+            throw new Error(`${parsing_error_message} <br><small>[Error: ${err2.message}]</small>`);
         }
         
         try {
@@ -180,7 +228,6 @@ async function attempt_download(file_path, destination) {
             
             for (let i = 0; i < my_sets.length; i++) {
                 if (my_sets[i].hasOwnProperty('sets')) {
-                    console.log('=====================================')
 
                     let session = {
                         name: my_sets[i].$.description,
@@ -213,13 +260,13 @@ async function attempt_download(file_path, destination) {
                 }
             }
 
-            console.log(download_digest);
+            //console.log(download_digest);
+
+            db_downloads().insert(download_digest, (err, newItem) => {
+                console.log(newItem);
+            })
             
-            let my_transfers = store.transfers.get('downloads');
-            my_transfers.push(download_digest);
-            store.transfers.set('downloads', my_transfers);
-            
-            console.log(manifest_urls);
+            //console.log(manifest_urls);
             
             $('.modal').modal('hide');
 
@@ -227,33 +274,33 @@ async function attempt_download(file_path, destination) {
             ipc.send('redirect', 'progress.html');
 
         } catch(parse_error) {
-            console.log(parse_error.message);
-            
-            throw new Error(parsing_error_message);
+            throw new Error(`${parsing_error_message} <br><small>[Error: ${parse_error.message}]</small>`);
         }
 
     });
+    
 }
 
 function _init_variables() {
-    console.log(':::::::::::::: >>> HOME _init_variables');
-    console.log(remote.getGlobal('user_auth').password);
-    
-    
     xnat_server = settings.get('xnat_server');
     user_auth = settings.get('user_auth');
     default_local_storage = settings.get('default_local_storage')
 }
 
 ipc.on('launch_download_modal',function(e, data){
-    console.log(':::::::::::::: >>> launch_download_modal');
+    var $dm = $('#download_modal');
 
-    setTimeout(function(){
-        console.log(data);
+    var show_modal = function(){
+        //console.log(data);
         protocol_data = data;
 
         $('#xnt_manifest_text').val(data.URL);
-        
-        $('#download_modal').modal('show');
-    }, 300);
+        $dm.modal('show');
+    }
+
+    $dm.modal('hide');
+    $('.modal-backdrop').remove();
+
+    setTimeout(show_modal, 500)
+    
 });

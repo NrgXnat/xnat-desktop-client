@@ -52,7 +52,10 @@ let Helper = {
             //console.log(error.response.status);
             //console.log(error.response.data);
             //console.log(error.response.headers);
-            switch (error.response.status) {
+            
+            let error_response = auth.anonymize_response(error.response, '***ANON***')
+            
+            switch (error_response.status) {
                 case 401:
                     msg = 'Invalid username or password!';
                     break;
@@ -60,14 +63,18 @@ let Helper = {
                     msg = 'Invalid XNAT server address!';
                     break;
                 default:
-                    msg = 'An error occured. Please try again.'
+                try {
+                    msg =  `An error occured. Please try again. (${JSON.stringify(error_response, undefined, 2)})`;
+                } catch (e) {
+                    msg =  `An error occured. Please try again. (${error_response.status})`;
+                }
             }
 
         } else if (error.request) {
             // The request was made but no response was received
             // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
             // http.ClientRequest in node.js
-            console.log(error.request);
+            console.log("Here is the request that got an error: " + error.request);
             msg = 'Please check XNAT server address (and your internet connection).'
         } else {
             // Something happened in setting up the request that triggered an Error
@@ -147,6 +154,40 @@ let Helper = {
         return a;
     },
 
+    arrayBatch: (arr, batch_size = 10) => {
+
+        return arr.reduce((accumulator, currentValue) => {
+            if (accumulator.length === 0) {
+                accumulator.push([currentValue]);
+            } else {
+                let last_arr_el = accumulator[accumulator.length - 1];
+                if (last_arr_el.length < batch_size) {
+                    last_arr_el.push(currentValue)
+                } else {
+                    accumulator.push([currentValue]);
+                }
+            }
+            
+            return accumulator;
+        }, []);
+    },
+
+    promiseSerial: (funcs) => {
+        const reducer = (promise, func) => {
+            return promise.then(result => {
+                return func().then(resp => {
+                    //return Array.prototype.concat.bind(result)(resp)
+                    return (resp !== false) ? result.concat(resp) : result
+                })
+            })
+        }
+
+        return funcs.reduce(reducer, Promise.resolve([]))
+    },
+
+    copy_obj: (obj) => JSON.parse(JSON.stringify(obj)), // alternative => lodash.clonedeep
+           
+
     // types => success (green), info (blue), notice (yellow), error (red)
     pnotify: (title, text, type = 'success', delay = 7000) => {
 
@@ -179,6 +220,20 @@ let Helper = {
         options.delay = delay
 
         new PNotify(options);
+    },
+
+    string_download: (filename, text, mime = 'text/plain') => {
+        console.log(document)
+        let element = document.createElement('a');
+        element.setAttribute('href', 'data:'+mime+';charset=utf-8,' + encodeURIComponent(text));
+        element.setAttribute('download', filename);
+      
+        element.style.display = 'none';
+        document.body.appendChild(element);
+      
+        element.click();
+        console.log('done download')
+        document.body.removeChild(element);
     }
 }
 

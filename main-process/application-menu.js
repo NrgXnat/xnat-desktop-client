@@ -2,6 +2,8 @@ const electron = require('electron');
 const path = require('path')
 const {app, BrowserWindow, Menu, shell, Tray} = electron;
 
+const download_log = require('../services/download_log')
+
 const version = app.getVersion();
 
 //create menu template
@@ -33,6 +35,12 @@ let template = [
             {
                 label: `Version ${version}`,
                 enabled: false
+            },
+            {
+                label: 'Export Log Files',
+                click: function(item, focusedWindow, event){
+                    download_log()
+                }
             },
             {
                 label: 'Quit',
