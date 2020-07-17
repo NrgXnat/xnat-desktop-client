@@ -1,6 +1,6 @@
 build_config: &build_config
   BUILD_IMAGE_NAME: xnat/node-java-build
-  BUILD_IMAGE_TAG: 4-develop
+  BUILD_IMAGE_TAG: 6-develop
   CACHE_VERSION: v2
   NODE_VERSION: "v10.21.0"
   NVM_VERSION: "0.35.3"
