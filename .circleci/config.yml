@@ -63,7 +63,7 @@ jobs:
                 for ARTIFACT in $(find artifacts -type f); do
                     echo " * ${ARTIFACT}"
                 done
-                curl --user "${BB_REPO_OWNER}:${BB_REPO_TOKEN}" --request POST $(for ARTIFACT in $(find artifacts -type f); do echo "--form files=@${ARTIFACT}"; done) "https://api.bitbucket.org/2.0/repositories/${BB_REPO_SLUG}/${TARGET}/downloads"
+                http --auth "${BB_REPO_OWNER}:${BB_REPO_TOKEN}" --check-status --form POST "https://api.bitbucket.org/2.0/repositories/${BB_REPO_SLUG}/${TARGET}/downloads" $(for ARTIFACT in $(find artifacts -type f); do echo files@${ARTIFACT}; done)
             } || {
                 echo "Build on ${CIRCLE_BRANCH} branch, no artifacts pushed to application downloads page"
             }
