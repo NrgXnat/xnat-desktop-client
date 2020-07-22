@@ -28,7 +28,7 @@ const db_uploads = remote.require('./services/db/uploads')
 
 const electron_log = remote.require('./services/electron_log');
 
-const { selected_sessions_table } = require('../services/tables/upload-prepare');
+const { selected_sessions_table, custom_upload_multiple_table } = require('../services/tables/upload-prepare');
 
 const { random_string } = require('../services/app_utils');
 
@@ -269,10 +269,17 @@ function _init_img_sessions_table(table_rows) {
 $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]', function(){
     let upload_method = $('#nav-verify').data('upload_method')
 
-    if (upload_method === 'quick_upload') {
-        $('#quick_upload').show().siblings().hide()
-    } else {
-        $('#custom_upload').show().siblings().hide()
+    switch (upload_method) {
+        case 'quick_upload':
+            $('#quick_upload').show().siblings().hide()
+            break
+        case 'custom_upload_multiple':
+            $('#custom_upload_multiple').show().siblings().hide()
+            break
+        case 'custom_upload':
+        default:
+            $('#custom_upload').show().siblings().hide()
+            break
     }
 })
 
@@ -297,7 +304,8 @@ function toggle_upload_buttons() {
     }
 
     $('.js_quick_upload').prop('disabled', invalid_days || selected.length < 2); // TODO < 2
-    $('.js_custom_upload').prop('disabled', invalid_days || selected.length != 1)
+    //$('.js_custom_upload').prop('disabled', invalid_days || selected.length != 1)
+    $('.js_custom_upload').prop('disabled', invalid_days || selected.length === 0)
 }
 
 $(document).on('change', '#skip_session_date_validation', toggle_upload_buttons)
@@ -730,8 +738,23 @@ $(document).on('click', '.js_upload', async function() {
             })
         }
         
-    } else {
+    } else if (upload_method === 'custom_upload') {
         await handle_custom_upload()
+    } else if (upload_method === 'custom_upload_multiple') {
+        const data = $('#custom_upload_multiple_tbl').bootstrapTable('getData')
+
+        if (validate_required_inputs($('#custom_upload_multiple'))) {
+            const _sessions = $('#custom_upload_multiple_tbl').bootstrapTable('getData');
+            const overwrite = $('#upload_overwrite_method').val()
+            await handle_quick_upload(_sessions, project_settings, overwrite)
+        } else {
+            swal({
+                title: `Form Error`,
+                text: `Please enter all variable value(s)`,
+                icon: "warning",
+                dangerMode: true
+            })
+        }
     }
 
 });
@@ -765,7 +788,8 @@ async function handle_quick_upload(_sessions, project_settings, overwrite) {
         patient_name: "MR/BRAIN/GRASE/1024",
         scan_count: 1,
         study_date: "1995-03-30",
-        xnat_subject_id: "L1OG4ZRA"
+        xnat_subject_id: "L1OG4ZRA",
+        tracer: "XYZ" // ? optional
     }
 
 
@@ -800,6 +824,7 @@ async function handle_quick_upload(_sessions, project_settings, overwrite) {
             }
         })
 
+        // TODO REMOVE NEXT BLOCK
         if (my_anon_variables.hasOwnProperty('pet_tracer')) {
             if (my_anon_variables.pet_tracer === 'OTHER') {
                 my_anon_variables['tracer'] = my_anon_variables.custom_pet_tracer; // potential problem with quick upload
@@ -807,6 +832,11 @@ async function handle_quick_upload(_sessions, project_settings, overwrite) {
                 my_anon_variables['tracer'] = my_anon_variables.pet_tracer;
             }
         }
+
+        if (session.hasOwnProperty('tracer')) {
+            my_anon_variables['tracer'] = session.tracer;
+        }
+
         // -----------------------------------------------------
         const all_series = get_session_series(session_map.get(session.id))
         const selected_series = all_series.map(ser => ser.series_id);
@@ -1028,7 +1058,12 @@ $(document).on('click', '.js_custom_upload', function(){
 
     console.log({selected});
 
-    select_session_id(selected[0])
+    if (selected.length > 1) {
+        custom_upload_multiple_selection(selected)
+    } else {
+        select_session_id(selected[0])
+    }
+    
     $('#session-selection').modal('hide');
 })
 
@@ -1119,13 +1154,40 @@ function get_session_series(session) {
 }
 
 function quick_upload_selection(_sessions) {
-    let session_ids = _sessions.map(sess => sess.id)
+    const session_ids = _sessions.map(sess => sess.id)
+    const tbl_data = selected_sessions_display_data(session_map, session_ids, project_settings.subjects)
 
-    let tbl_data = [];
+    console.log({session_ids, tbl_data});
 
+    selected_sessions_table($('#selected_session_tbl'), tbl_data)
+
+    selected_session_id = session_ids;
+
+    $('.tab-pane.active .js_next').removeClass('disabled');
+
+    $('#nav-verify').data('upload_method', 'quick_upload');
+}
+
+function custom_upload_multiple_selection(_sessions) {
+    const session_ids = _sessions.map(sess => sess.id)
+    const tbl_data = selected_sessions_display_data(session_map, session_ids, project_settings.subjects)
+
+    console.log({session_ids, tbl_data});
+
+    custom_upload_multiple_table($('#custom_upload_multiple_tbl'), tbl_data)
+
+    selected_session_id = session_ids;
+
+    $('.tab-pane.active .js_next').removeClass('disabled');
+
+    $('#nav-verify').data('upload_method', 'custom_upload_multiple');
+}
+
+function selected_sessions_display_data(session_map, session_ids, project_subjects) {
+    let tbl_data = []
     let xnat_subject_ids = []
 
-    let existing_project_subjects = project_settings.subjects.map(item => item.label)
+    let existing_project_subjects = project_subjects.map(item => item.label)
 
     session_map.forEach(function(cur_session, key) {
         console.log({cur_session});
@@ -1163,15 +1225,7 @@ function quick_upload_selection(_sessions) {
         tbl_data.push(session_data);
     });
 
-    console.log({session_ids, tbl_data});
-
-    selected_sessions_table($('#selected_session_tbl'), tbl_data)
-
-    selected_session_id = session_ids;
-
-    $('.tab-pane.active .js_next').removeClass('disabled');
-
-    $('#nav-verify').data('upload_method', 'quick_upload');
+    return tbl_data;
 }
 
 

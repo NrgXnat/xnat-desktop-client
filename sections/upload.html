@@ -276,6 +276,43 @@
 
                             </div><!-- #quick_upload -->
 
+                            <div id="custom_upload_multiple">
+                                <div class="col">
+                                    <h2>Custom Upload</h2>
+                                    <p>A "custom upload" process allows you to modify session metadata and add parameters, 
+                                        and also includes visual PHI inspection and pixel anonymization, before uploading 
+                                        to your XNAT. You can switch to the Quick Upload Process if you wish.</p>
+                                </div>
+                                
+
+                                <div class="col">
+                                    <table class="table table-bordered" id="custom_upload_multiple_tbl"></table>
+                                </div>
+
+                                <div class="row action-button-row">
+                                    <div class="col-12 row_items">
+                                        <div class="button-row">
+                                            <label for="upload_overwrite_method" style="font-weight: bold; margin: 0 10px 0 0;">How should XNAT handle overwriting existing data?</label>
+                                            <select required id="upload_overwrite_method" style="display: inline-block; width: auto;" class="form-control form-control-sm">
+                                                <option value="">Select</option>
+                                                <option value="append">Append to Existing Data</option>
+                                                <option value="delete">Overwrite Existing Data</option>
+                                                <option value="none">Ignore Duplicate Data (Default)</option>
+                                            </select>
+                                        </div>
+    
+                                        <div class="button-row">
+                                            <button type="button" data-href="home.html"
+                                                class="btn btn-gray">Cancel</button>
+                                            <button type="button" class="btn btn-gray js_prev" type="button">
+                                                <i class="fas fa-angle-left"></i> Prev</button>
+                                            <button type="button" class="btn btn-blue js_upload">Upload</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div><!-- #custom_upload_multiple -->
+
                         </div>
                         <div class="tab-pane fade" id="nav-summary" role="tabpanel" aria-labelledby="nav-profile-tab">
                             <h2 class="section-title">Summary</h2>

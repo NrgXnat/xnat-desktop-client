@@ -52,7 +52,7 @@ const electron_log = electron.remote.require('./services/electron_log');
 
 const {URL} = require('url');
 
-reset_user_data();
+//reset_user_data();
 
 
 const links = document.querySelectorAll('link[rel="import"]')
