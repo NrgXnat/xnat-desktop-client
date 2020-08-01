@@ -638,6 +638,10 @@ ipcMain.on('upload_finished', (e, transfer_id) => {
   post_message('upload_finished', transfer_id);
 })
 
+ipcMain.on('custom_upload_multiple:generate_exp_label', (e, row) => {
+  post_message('custom_upload_multiple:generate_exp_label', row);
+})
+
 
 ipcMain.on('reload_upload_window', (e, item) => {
   uploadWindow.reload(true);

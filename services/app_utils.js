@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const checksum = require('checksum');
+const FileSaver = require('file-saver');
 
 exports.isDevEnv = () => {
     // return process.argv && process.argv.length >= 3 && /--debug/.test(process.argv[2]);
@@ -12,7 +13,7 @@ exports.isDevEnv = () => {
 }
 
 
-exports.objArrayToCSV = (objArray) => {
+function objArrayToCSV(objArray) {
     function isObject (value) {
         return value && typeof value === 'object' && value.constructor === Object;
     }
@@ -44,6 +45,15 @@ exports.objArrayToCSV = (objArray) => {
     csv = csv.join('\r\n');
 
     return csv;
+}
+
+exports.objArrayToCSV = objArrayToCSV
+
+exports.saveAsCSV = (data, filename) => {
+    let csv = objArrayToCSV(data);
+
+    var file = new File([csv], filename, {type: "text/csv;charset=utf-8"});
+    FileSaver.saveAs(file);
 }
 
 exports.isReallyWritable = (_path) => {

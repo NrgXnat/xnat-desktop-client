@@ -1,4 +1,9 @@
-const constants = require('../services/constants');
+const {
+    DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT, 
+    MAX_RECENT_UPLOAD_PROJECTS_STORED,
+    PRIMARY_MODALITIES,
+    CSV_UPLOAD_FIELDS
+} = require('../services/constants')
 const fs = require('fs');
 const path = require('path');
 const dicomParser = require('dicom-parser');
@@ -11,6 +16,7 @@ const ipc = require('electron').ipcRenderer;
 const swal = require('sweetalert');
 const archiver = require('archiver');
 const mime = require('mime-types');
+const csvToJson = require('csvtojson')
 
 const templateEngine = require('../services/template_engine');
 
@@ -30,7 +36,7 @@ const electron_log = remote.require('./services/electron_log');
 
 const { selected_sessions_table, custom_upload_multiple_table } = require('../services/tables/upload-prepare');
 
-const { random_string } = require('../services/app_utils');
+const { random_string, saveAsCSV } = require('../services/app_utils');
 
 const XNATAPI = require('../services/xnat-api')
 
@@ -465,7 +471,7 @@ $(document).on('page:load', '#upload-section', async function(e){
 function generate_project_list(projects) {
     let rupc = user_settings.get('recent_upload_projects_count');
     if (rupc === undefined) {
-        rupc = constants.DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT
+        rupc = DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT
     }
 
     if (rupc > 0) {
@@ -727,8 +733,8 @@ $(document).on('click', '.js_upload', async function() {
     if (upload_method === 'quick_upload') {
         if (validate_required_inputs($('#quick_upload'))) {
             const _sessions = $('#selected_session_tbl').bootstrapTable('getData');
-            const overwrite = $('#upload_overwrite_method').val()
-            await handle_quick_upload(_sessions, project_settings, overwrite)
+            const overwrite = $('#upload_overwrite_method', '#quick_upload').val()
+            await handle_upload(_sessions, project_settings, overwrite)
         } else {
             swal({
                 title: `Form Error`,
@@ -741,12 +747,12 @@ $(document).on('click', '.js_upload', async function() {
     } else if (upload_method === 'custom_upload') {
         await handle_custom_upload()
     } else if (upload_method === 'custom_upload_multiple') {
-        const data = $('#custom_upload_multiple_tbl').bootstrapTable('getData')
+        const _sessions = $('#custom_upload_multiple_tbl').bootstrapTable('getSelections');
 
-        if (validate_required_inputs($('#custom_upload_multiple'))) {
-            const _sessions = $('#custom_upload_multiple_tbl').bootstrapTable('getData');
-            const overwrite = $('#upload_overwrite_method').val()
-            await handle_quick_upload(_sessions, project_settings, overwrite)
+        if (_sessions.length && validate_required_inputs($('#custom_upload_multiple'))) {
+            const overwrite = $('#upload_overwrite_method', '#custom_upload_multiple').val()
+            
+            await handle_upload(_sessions, project_settings, overwrite)
         } else {
             swal({
                 title: `Form Error`,
@@ -775,7 +781,7 @@ function validate_required_inputs($container) {
     return all_valid;
 }
 
-async function handle_quick_upload(_sessions, project_settings, overwrite) {
+async function handle_upload(_sessions, project_settings, overwrite) {
 
     const selected_session_id = _sessions.map(sess => sess.id);
     
@@ -823,15 +829,6 @@ async function handle_quick_upload(_sessions, project_settings, overwrite) {
                         project_settings.computed.anon_variables[key];
             }
         })
-
-        // TODO REMOVE NEXT BLOCK
-        if (my_anon_variables.hasOwnProperty('pet_tracer')) {
-            if (my_anon_variables.pet_tracer === 'OTHER') {
-                my_anon_variables['tracer'] = my_anon_variables.custom_pet_tracer; // potential problem with quick upload
-            } else {
-                my_anon_variables['tracer'] = my_anon_variables.pet_tracer;
-            }
-        }
 
         if (session.hasOwnProperty('tracer')) {
             my_anon_variables['tracer'] = session.tracer;
@@ -1172,6 +1169,10 @@ function custom_upload_multiple_selection(_sessions) {
     const session_ids = _sessions.map(sess => sess.id)
     const tbl_data = selected_sessions_display_data(session_map, session_ids, project_settings.subjects)
 
+    tbl_data.forEach(row => {
+        row.enabled = true
+    })
+
     console.log({session_ids, tbl_data});
 
     custom_upload_multiple_table($('#custom_upload_multiple_tbl'), tbl_data)
@@ -1182,6 +1183,143 @@ function custom_upload_multiple_selection(_sessions) {
 
     $('#nav-verify').data('upload_method', 'custom_upload_multiple');
 }
+
+
+$(document).on('click', '#upload-section [data-csv-tpl-download]', function(e) {
+    const data = $('#custom_upload_multiple_tbl').bootstrapTable('getSelections')
+    
+    if (data.length === 0) {
+        Helper.pnotify('Selection Error', 'You have to select at least 1 session for CSV export.', 'warning', 3000);
+    } else {
+        const relevant_data = data.map(item => {
+            let mapped_item = {}
+    
+            // remap item property names
+            for (const property in item) {
+                const selected_field = CSV_UPLOAD_FIELDS.find(field => field.name === property)
+
+                if (selected_field !== undefined) {
+                    mapped_item[selected_field['label']] = item[property]
+                }
+            }
+    
+            return mapped_item
+        })
+    
+        saveAsCSV(relevant_data, `Sessions Upload ${Date.now()}.csv`)
+    }
+})
+
+async function validate_csv_upload(csv_path) {
+
+    try {
+        let jsonArray
+
+        if (!csv_path.toLowerCase().endsWith('.csv')) {
+            throw new Error('filetype_error')
+        }
+
+        try {
+            jsonArray = await csvToJson().fromFile(csv_path);
+        } catch(err) {
+            throw new Error('csv_conversion_error')
+        }
+
+        if (jsonArray.length === 0) {
+            throw new Error('empty_json_error')
+        }
+
+        // get all JSON fields
+        const jsonFields = Object.keys(jsonArray[0]);
+
+        // get all required field
+        const required_fields = CSV_UPLOAD_FIELDS.filter(item => item.required).map(item => item.label)
+
+        // all required fields are present in JSON object
+        let jsonFieldsValid = required_fields.every(rf => jsonFields.includes(rf));
+
+        if (!jsonFieldsValid) {
+            throw new Error('required_fields_error')
+        }
+
+        return jsonArray
+
+    } catch(err) {
+        let error_title = 'Error', error_message;
+
+        switch (err.message) {
+            case 'filetype_error':
+                error_title = `Filetype Error`
+                error_message = `You must select a CSV file.`
+                break;
+
+            case 'csv_conversion_error':
+                error_title = 'CVS to JSON Conversion Error'
+                error_message = `The file you have selected could not be converted to JSON.`
+                break;
+
+            case 'empty_json_error':
+                error_title = 'Empty JSON Error'
+                error_message = `The file you have selected does not contain valid rows.`
+                break;
+
+            case 'required_fields_error':
+                error_title = 'CSV Column(s) Missing Error'
+                error_message = `One or more CSV colums are missing.`
+                break;
+
+            default:
+                error_title = 'Error'
+                error_message = err.message
+        }
+
+        swal({
+            title: error_title,
+            text: error_message,
+            icon: "error",
+            dangerMode: true
+        })
+
+        return false;
+    }
+
+
+}
+
+$(document).on('change', '#upload-section [data-csv-file-upload]', async function(e) {
+    if (this.files.length === 1) {
+        let jsonArray = await validate_csv_upload(this.files[0].path);
+
+        if (jsonArray !== false) {
+            let default_data = $('#custom_upload_multiple_tbl').bootstrapTable('getData')
+
+            // disable all rows
+            default_data.forEach(row => row.enabled = false)
+
+            jsonArray.forEach(row => {
+                let item_match_index = default_data.findIndex(item => item.id === row['Study UID'])
+
+                if (item_match_index >= 0) {
+                    default_data[item_match_index].enabled = true
+                    
+                    for (const column in row) {
+                        const selected_field = CSV_UPLOAD_FIELDS.find(field => field.label === column)
+
+                        if (selected_field !== undefined) {
+                            default_data[item_match_index][selected_field.name] = row[column]
+                        }
+                    }
+                }
+            })
+
+            custom_upload_multiple_table($('#custom_upload_multiple_tbl'), default_data)
+        }
+
+        this.value = '' // reset upload field
+    } 
+
+
+})
 
 function selected_sessions_display_data(session_map, session_ids, project_subjects) {
     let tbl_data = []
@@ -1219,6 +1357,7 @@ function selected_sessions_display_data(session_map, session_ids, project_subjec
             experiment_label: generate_experiment_label(new_xnat_subject_id, series_data, 'PT', 'YYY'), // TODO replace PT and YYY values with dicom data
             modality: cur_session.modality.join(", "),
             scan_count: cur_session.scans.size,
+            tracer: null,
             study_date: studyDate
         }
 
@@ -1775,7 +1914,7 @@ function getStudyTime(time_string) {
 
 function generate_experiment_label(_subject_id, _selected_series, _pet_tracer, _custom_pet_tracer) {
     let upload_modalities_index = _selected_series.reduce((allModalities, row) => {
-        if (constants.PRIMARY_MODALITIES.indexOf(row.modality) !== -1) {
+        if (PRIMARY_MODALITIES.indexOf(row.modality) !== -1) {
             if (allModalities.hasOwnProperty(row.modality)) {
                 allModalities[row.modality]++;
             } else {
@@ -1958,7 +2097,7 @@ async function update_recent_projects(project_id) {
     filtered.unshift(project_id)
 
     // limit recent upload list
-    filtered = filtered.slice(0, constants.MAX_RECENT_UPLOAD_PROJECTS_STORED)
+    filtered = filtered.slice(0, MAX_RECENT_UPLOAD_PROJECTS_STORED)
 
     // store it
     user_settings.set('recent_upload_projects', filtered)
@@ -2077,3 +2216,21 @@ const summary_add = (text, label = '') => {
 
     $('#summary_info').append(`<p>${label_html} ${text}</p>`);
 }
+
+ipc.on('custom_upload_multiple:generate_exp_label',function(e, row){
+    const series_data = get_session_series(session_map.get(row.id))
+
+    const tracer_val = row.tracer ? row.tracer : 'PT'
+    const new_label = generate_experiment_label(row.xnat_subject_id, series_data, tracer_val, '')
+    
+    $('#custom_upload_multiple_tbl').bootstrapTable("updateCellByUniqueId", {
+        id: row.id,
+        field: 'experiment_label',
+        value: new_label,
+        reinit: false
+    });
+
+    $('.label-field', `tr[data-uniqueid="${row.id}"]`).val(new_label)
+
+    console.log({row, series_data});
+})

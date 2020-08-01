@@ -1,3 +1,5 @@
+const ipcRenderer = require('electron').ipcRenderer;
+
 function selected_sessions_table($tbl, tbl_data) {
     destroyBootstrapTable($tbl);
 
@@ -75,7 +77,7 @@ function selected_sessions_table($tbl, tbl_data) {
 
 function custom_upload_multiple_table($tbl, tbl_data) {
     destroyBootstrapTable($tbl);
-
+    
     const pt_count = tbl_data.reduce((total, item) => {
         return total += (item.modality === 'PT' ? 1 : 0)
     }, 0)
@@ -83,12 +85,14 @@ function custom_upload_multiple_table($tbl, tbl_data) {
     window.customMultipleUploadTracerChange = {
         'input .tracer-field': function (e, value, row, index) {
             row.tracer = $(e.target).val()
+            ipcRenderer.send('custom_upload_multiple:generate_exp_label', row)
         }
     }
 
     window.customMultipleUploadSubjectChange = {
         'input .subject-field': function (e, value, row, index) {
             row.xnat_subject_id = $(e.target).val()
+            ipcRenderer.send('custom_upload_multiple:generate_exp_label', row)
         }
     }
 
@@ -98,15 +102,42 @@ function custom_upload_multiple_table($tbl, tbl_data) {
         }
     }
 
+    function setRowInputRequiredStatus(row, $element) {
+        const $inputs = $element.closest('tr').find('input[type="text"]')
+        
+        $inputs.each(function() {
+            $(this).prop('required', row.enabled)
+        })
+    }
+
+    function setTableInputRequiredStatus(rowsAfter, rowsBefore) {
+        const $inputs = $tbl.find('input[type="text"]')
+        
+        $inputs.each(function() {
+            const enabled = rowsAfter.length > 0
+            $(this).prop('required', enabled)
+        })
+    }
+
 
     $tbl.bootstrapTable({
         height: tbl_data.length > 8 ? 400 : 0,
         sortName: 'patient_name',
-        classes: 'table-sm',
+        classes: 'table-sm bootstrap-table-small',
         //theadClasses: 'thead-light',
         maintainMetaData: true,
         uniqueId: 'id',
+        onCheck: setRowInputRequiredStatus,
+        onUncheck: setRowInputRequiredStatus,
+        onCheckAll: setTableInputRequiredStatus,
+        onUncheckAll: setTableInputRequiredStatus,
         columns: [
+            {
+                field: 'enabled',
+                checkbox: true,
+                align: 'center',
+                valign: 'middle'
+            },
             {
                 field: 'id',
                 title: 'StudyInstanceUID',
@@ -130,7 +161,7 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 sortable: true,
                 class: 'break-all highlight',
                 formatter: function(value, row, index, field) {
-                    return `<input required name="xnat_subject_id--${row.patient_id}" value="${value}" class="subject-field form-control form-control-sm" />`
+                    return `<input required type="text" name="xnat_subject_id--${row.patient_id}" value="${value}" class="subject-field form-control form-control-sm" />`
                 }
             },
             {
@@ -141,23 +172,14 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 class: 'break-all'
             },
             {
-                field: 'experiment_label',
-                title: 'XNAT Session Label',
-                events: 'customMultipleUploadLabelChange',
-                sortable: true,
-                class: 'break-all highlight',
-                formatter: function(value, row, index, field) {
-                    return `<input required name="experiment_label--${row.patient_id}" value="${value}" class="label-field form-control form-control-sm" />`
-                }
-            },
-            {
                 field: 'tracer',
                 title: 'Tracer',
                 events: 'customMultipleUploadTracerChange',
                 visible: pt_count > 0,
                 class: 'highlight',
                 formatter: function(value, row, index, field) {
-                    return row.modality === 'PT' ? `<input required name="tracer--${row.patient_id}" size="4" value="" class="tracer-field form-control form-control-sm" />` : '';
+                    const field_val = value ? value : ''
+                    return row.modality === 'PT' ? `<input required type="text" name="tracer--${row.patient_id}" size="4" value="${field_val}" class="tracer-field form-control form-control-sm" />` : '';
                 }
             },
             {
@@ -181,6 +203,17 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 title: 'Scans',
                 sortable: true,
                 class: 'right-aligned'
+            },
+            {
+                field: 'experiment_label',
+                title: 'XNAT Session Label',
+                events: 'customMultipleUploadLabelChange',
+                sortable: true,
+                class: 'break-all highlight',
+                formatter: function(value, row, index, field) {
+                    return `<input required type="text" name="experiment_label--${row.patient_id}" value="${value}" 
+                    class="label-field form-control form-control-sm" />`
+                }
             }
             
         ],
