@@ -95,6 +95,7 @@
     "devtron": "^1.4.0",
     "electron": "^3.1.13",
     "electron-builder": "^21.2.0",
+    "electron-notarize": "^1.0.0",
     "electron-packager": "^10.1.2",
     "node-sass-chokidar": "^1.4.0",
     "npm-run-all": "^4.1.2",
@@ -103,6 +104,7 @@
   "build": {
     "appId": "com.xnatapp.app",
     "productName": "XNAT-Desktop-Client",
+    "afterSign": "scripts/notarize.js",
     "asarUnpack": [
       "node_modules/java/**/*",
       "node_modules/async/**/*",
@@ -147,7 +149,11 @@
           "from": "build_resources/jre/mac",
           "to": "jre"
         }
-      ]
+      ],
+      "gatekeeperAssess": false,
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "linux": {
       "artifactName": "${productName}-${version}.AppImage",
