@@ -1,10 +1,11 @@
 build_config: &build_config
   BUILD_IMAGE_NAME: xnat/node-java-build
   BUILD_IMAGE_TAG: latest
-  CACHE_VERSION: v1
-  NODE_VERSION: "v10.20.1"
+  CACHE_VERSION: v2
+  NODE_VERSION: "v10.22.0"
   NVM_VERSION: "0.35.3"
-  JAVA_VERSION: "zulu8.46.0.19-ca-jdk8.0.252"
+  JAVA_VERSION: "zulu8.48.0.53-ca-jdk8.0.265"
+  JDK_ROOT: "https://cdn.azul.com/zulu/bin"
 
 version: 2
 
@@ -102,11 +103,18 @@ jobs:
           command: |
             [[ ! -d build_resources/jre/mac ]] && {
                 JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
-                http --download https://cdn.azul.com/zulu/bin/${JAVA_TARGET}.zip
+                http --download ${JDK_ROOT}/${JAVA_TARGET}.zip
                 unzip ${JAVA_TARGET}.zip
-                mv ${JAVA_TARGET} build_resources/jre/mac
-                rm -rf ${JAVA_TARGET}.zip
+                mv ${JAVA_TARGET}/zulu-8.jdk/Contents/Home/jre build_resources/jre/mac
+                mkdir -p /Applications/XNAT-Desktop-Client.app/Contents/Resources
+                cp -R build_resources/jre/mac /Applications/XNAT-Desktop-Client.app/Contents/Resources/jre
+                rm -rf ${JAVA_TARGET}*
+                echo "JRE installed, using version: $(build_resources/jre/mac/bin/java -version 2>&1 | grep Server)"
+            } || {
+                echo "Existing JRE found, using version: $(build_resources/jre/mac/bin/java -version 2>&1 | grep Server)"
             }
+            # Last, make sure there are no read-only files! These cause the update process to fail.
+            find build_resources/jre/mac -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \;
       - run:
           name: Install and build node dependencies
           command: |

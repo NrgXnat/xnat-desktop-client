@@ -9,6 +9,7 @@
   "scripts": {
     "start": "npm-run-all -s sass:build electron-start",
     "dev": "npm-run-all -p electron-dev sass",
+    "clean": "node -e \"['node_modules'].forEach(x => require('fs-extra').emptyDir(x))\"",
     "sass-cli": "sass --watch XNAT/scss:assets/css",
     "dev-win": "start yarn sass-cli & start yarn electron-dev",
     "electron-start": "electron .",
@@ -31,8 +32,9 @@
     "package-win": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=win32 --arch=ia32 --icon=assets/icons/win/XDC.ico --prune=true --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"Electron XNAT App\"",
     "package-linux": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=linux --arch=x64 --icon=assets/icons/png/XDC.png --prune=true --out=release-builds",
     "postinstall": "electron-builder install-app-deps",
-    "prepublish": "find build_resources -name \"._*\" -exec rm '{}' \\;",
-    "modify-file": "node modify.js"
+    "prepublish": "find build_resources -name \"._*\" -exec rm '{}' \\;; ./fix-java-libdir.sh;",
+    "modify-file": "node modify.js",
+    "fix-java-libdir": "./fix-java-libdir.sh"
   },
   "author": "Washington University in St. Louis",
   "license": "ISC",
@@ -86,6 +88,7 @@
     "devtron": "^1.4.0",
     "electron": "3.1.13",
     "electron-builder": "^21.2.0",
+    "electron-notarize": "^1.0.0",
     "electron-packager": "^10.1.2",
     "node-sass-chokidar": "^1.4.0",
     "npm-run-all": "^4.1.2",
@@ -94,6 +97,7 @@
   "build": {
     "appId": "com.xnatapp.app",
     "productName": "XNAT-Desktop-Client",
+    "afterSign": "scripts/notarize.js",
     "asarUnpack": [
       "node_modules/java/**/*",
       "node_modules/async/**/*",
@@ -138,7 +142,11 @@
           "from": "build_resources/jre/mac",
           "to": "jre"
         }
-      ]
+      ],
+      "gatekeeperAssess": false,
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "linux": {
       "artifactName": "${productName}-${version}.AppImage",
