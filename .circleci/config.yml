@@ -99,6 +99,14 @@ jobs:
       - restore_cache:
           key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
+          name: Copy installed JDK to application folder
+          command: |
+            [[ ! -f /Applications/XNAT-Desktop-Client.app/Contents/Resources/jre/lib/jli/libjli.dylib ]] && {
+              [[ -d /Applications/XNAT-Desktop-Client.app ]] && { rm -rf /Applications/XNAT-Desktop-Client.app; }
+              cp -R /Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk /Applications/XNAT-Desktop-Client.app
+              cp -R /Applications/XNAT-Desktop-Client.app/Contents/Home /Applications/XNAT-Desktop-Client.app/Contents/Resources
+            }
+      - run:
           name: Download and expand JRE for Mac
           command: |
             [[ -d build_resources/jre/mac ]] && {
@@ -108,16 +116,13 @@ jobs:
                     rm -rf build_resources/jre/mac;
                  }
             }
-            [[ ! -d build_resources/jre/mac || ! -d /Applications/XNAT-Desktop-Client.app/Contents/Resources/jre ]] && {
+            [[ ! -d build_resources/jre/mac ]] && {
                 [[ -d build_resources/jre/mac ]] && { rm -rf build_resources/jre/mac; }
-                [[ -d /Applications/XNAT-Desktop-Client.app/Contents/Resources/jre ]] && { rm -rf /Applications/XNAT-Desktop-Client.app/Contents/Resources/jre; }
                 JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
                 echo "No JRE found, downloading ${JAVA_VERSION}"
                 http --download ${JDK_ROOT}/${JAVA_TARGET}.zip
                 unzip ${JAVA_TARGET}.zip
                 mv ${JAVA_TARGET}/zulu-8.jdk/Contents/Home/jre build_resources/jre/mac
-                mkdir -p /Applications/XNAT-Desktop-Client.app/Contents/Resources
-                cp -R build_resources/jre/mac /Applications/XNAT-Desktop-Client.app/Contents/Resources/jre
                 rm -rf ${JAVA_TARGET}*
                 echo "JRE installed, using version: $(build_resources/jre/mac/bin/java -version 2>&1 | grep Server)"
             } || {
@@ -135,7 +140,7 @@ jobs:
           paths:
             - node_modules
             - build_resources/jre/mac
-            - /Applications/XNAT-Desktop-Client.app/Contents/Resources/jre
+            - /Applications/XNAT-Desktop-Client.app
       - run:
           name: Build Mac executable and installer
           command: |

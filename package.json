@@ -31,10 +31,9 @@
     "package-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --icon=assets/icons/mac/XDC.icns --prune=true --out=release-builds",
     "package-win": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=win32 --arch=ia32 --icon=assets/icons/win/XDC.ico --prune=true --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"Electron XNAT App\"",
     "package-linux": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=linux --arch=x64 --icon=assets/icons/png/XDC.png --prune=true --out=release-builds",
-    "postinstall": "electron-builder install-app-deps",
-    "prepublish": "find build_resources -name \"._*\" -exec rm '{}' \\;; ./fix-java-libdir.sh;",
-    "modify-file": "node modify.js",
-    "fix-java-libdir": "./fix-java-libdir.sh"
+    "patch-java-binding": "./patch-java-binding.sh",
+    "postinstall": "find build_resources -name \"._*\" -exec rm '{}' \\;; find build_resources/jre -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \\;; ./patch-java-binding.sh; electron-builder install-app-deps;",
+    "modify-file": "node modify.js"
   },
   "author": "Washington University in St. Louis",
   "license": "ISC",
