@@ -830,7 +830,7 @@ async function handle_upload(_sessions, project_settings, overwrite) {
             }
         })
 
-        if (session.hasOwnProperty('tracer')) {
+        if (session.hasOwnProperty('tracer') && session.tracer) {
             my_anon_variables['tracer'] = session.tracer;
         }
 

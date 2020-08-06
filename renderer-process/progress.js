@@ -202,6 +202,13 @@ function _init_upload_progress_table() {
     db_uploads.listAll((err, uploads) => {
         console.log({uploads});
 
+        /*
+        // log each upload digest
+        uploads.forEach(item => {
+            console.log(item.url_data.expt_label, JSON.stringify(item))
+        })
+        */
+
         let my_data = [];
 
         uploads.forEach((transfer) => {
