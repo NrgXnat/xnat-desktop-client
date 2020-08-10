@@ -12,6 +12,7 @@ const {URL} = require('url');
 const remote = require('electron').remote;
 
 const lodashClonedeep = require('lodash/cloneDeep');
+const isPlainObject = require('lodash/isplainobject');
 
 const auth = {
     login_promise: (xnat_server, user_auth) => {
@@ -171,7 +172,8 @@ const auth = {
     },
 
     get_current_user: () => {
-        return settings.has('user_auth') ? settings.get('user_auth').username : '';
+        const user_auth = settings.get('user_auth')
+        return user_auth && isPlainObject(user_auth) && user_auth.hasOwnProperty('username') ? user_auth.username : ''
     },
 
     get_csrf_token: async (xnat_server, user_auth, created_offset = 30) => {

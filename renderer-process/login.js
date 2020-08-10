@@ -20,8 +20,8 @@ let allow_insecure_ssl;
 
 $(document).on('page:load', '#login-section', function(e){
     let logins = settings.get('logins');
-
-    if (logins.length) {
+    
+    if (Array.isArray(logins) && logins.length) {
         logins.forEach(function(el) {
             var server_name = el.server.split('//');
             $('#known-users').append(`
