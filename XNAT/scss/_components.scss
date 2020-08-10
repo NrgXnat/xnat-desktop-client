@@ -134,6 +134,14 @@ textarea
 .fixed-table-container {
 	overflow: hidden;
 }
+
+.bootstrap-table .fixed-table-container .table thead th {
+	vertical-align: top;
+	.th-inner {
+		padding: .5rem .75rem .45rem;
+	}
+} 
+
 .bootstrap-table .table thead>tr>th {
 	vertical-align: baseline;
 }

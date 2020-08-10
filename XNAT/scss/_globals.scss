@@ -242,7 +242,6 @@ main.content.js-content::before {
 .fixed-table-container {
 	.fixed-table-header thead{
 		th .th-inner {
-			padding: 5px 8px 11px;
 			&::before{
 				content: '';
 				height: 40px;
@@ -253,9 +252,6 @@ main.content.js-content::before {
 				top: 0;
 				left: 0;
 			}
-		}
-		th.right-aligned .th-inner {
-			padding: 5px 22px 11px 0;
 		}
 	}
 
