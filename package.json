@@ -46,7 +46,7 @@
     "bootstrap": "^4.0.0",
     "bootstrap-table": "^1.16.0",
     "bootstrap4-tagsinput-douglasanpa": "^4.1.2",
-    "cornerstone-core": "^2.2.8",
+    "cornerstone-core-with-bg": "^2.2.8",
     "cornerstone-math": "^0.1.8",
     "cornerstone-wado-image-loader": "^2.2.3",
     "cstools-overlay": "^3.18.4",
@@ -182,5 +182,10 @@
         "role": "none"
       }
     ]
+  },
+  "comments": {
+    "dependencies": {
+      "cornerstone-core-with-bg": "This is a fork of 'cornerstone-core' library with a different canvas background"
+    }
   }
 }
