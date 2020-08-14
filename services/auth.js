@@ -12,7 +12,7 @@ const {URL} = require('url');
 const remote = require('electron').remote;
 
 const lodashClonedeep = require('lodash/cloneDeep');
-const isPlainObject = require('lodash/isplainobject');
+const isPlainObject = require('lodash/isPlainObject');
 
 const auth = {
     login_promise: (xnat_server, user_auth) => {
