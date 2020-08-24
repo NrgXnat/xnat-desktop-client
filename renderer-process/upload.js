@@ -786,7 +786,7 @@ function get_series_files(series_id) {
     console.log({series_scans});
 
     //series_scans.sort((a,b) => (a.filepath > b.filepath) ? 1 : ((b.filepath > a.filepath) ? -1 : 0));
-    series_scans.sort((a,b) => a.filepath.localeCompare(b.filepath));
+    series_scans.sort((a,b) => a.filepath.localeCompare(b.filepath)); // TODO - TOOLS-524 (should sort by x00200013 ...)
      
     series_scans.forEach(function(scan) {
         files.push(scan.filepath);
@@ -800,7 +800,15 @@ function load_dicom_image(series_id) {
     const element = $('#dicom_image_container').get(0);
 
     let _files = get_series_files(series_id);
-    const imageIds = _files.map(file => `wadouri:http://localhost:7714/?path=${file}`);
+    //const imageIds = _files.map(file => `wadouri:http://localhost:7714/?path=${file}`);
+    console.log({_files});
+    let imageIds = [];
+    const imageIdRoot = `wadouri:http://localhost:7714/?path=${_files[0]}`;
+    const numFrames = 64;
+    for (let i = 0; i < numFrames; i++) {
+      let imageId = imageIdRoot + "&frame=" + i;
+      imageIds.push(imageId);
+    }
 
     //define the stack
     const stack = {
@@ -1977,6 +1985,10 @@ function dicomParse(_files, root_path) {
                             const study_time = dicom.string('x00080030');
 
                             const accession = dicom.string('x00080050');
+
+                            const NumberOfFrames = parseInt(dicom.string('x00280008'));
+                            const InstanceNumber = parseInt(dicom.string('x00200013'));
+                            console.log({NumberOfFrames, InstanceNumber});
                             // ++++
                 
     
@@ -2019,6 +2031,8 @@ function dicomParse(_files, root_path) {
                                     filepath: file,
                                     filename: file_name,
                                     filesize: file_size,
+                                    frames: NumberOfFrames,
+                                    order: InstanceNumber,
                                     seriesDescription: seriesDescription,
                                     seriesInstanceUid: seriesInstanceUid,
                                     seriesNumber: seriesNumber,
