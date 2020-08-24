@@ -19,9 +19,9 @@ let allow_insecure_ssl;
 
 
 $(document).on('page:load', '#login-section', function(e){
-    let logins = settings.get('logins');
+    let logins = settings.get('logins') || [];
     
-    if (Array.isArray(logins) && logins.length) {
+    if (logins.length) {
         logins.forEach(function(el) {
             var server_name = el.server.split('//');
             $('#known-users').append(`
@@ -122,7 +122,7 @@ $(document).on('click', '#remove_login', function(e){
                 password: $('#password').val()
             }
 
-            let logins = settings.get('logins');
+            let logins = settings.get('logins') || [];
             
             let found = -1;
             logins.forEach(function(el, i) {
