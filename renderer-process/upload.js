@@ -26,7 +26,7 @@ const XNATAPI = require('../services/xnat-api')
 const { normalizeDateString } = require('../services/app_utils');
 // ===================
 const dicomParser = require('dicom-parser');
-const cornerstone = require('cornerstone-core');
+const cornerstone = require('cornerstone-core-with-bg');
 
 const cornerstoneWADOImageLoader = require('cornerstone-wado-image-loader');
 let WADOImageLoaderPath = path.dirname(require.resolve('cornerstone-wado-image-loader'));

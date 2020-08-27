@@ -33,7 +33,7 @@ let Helper = {
             })
         },
         userMenuShow: () =>  {
-            let server_name = settings.get('xnat_server').split('//')[1];
+            let server_name = settings.get('xnat_server') ? settings.get('xnat_server').split('//')[1] : '';
             $("#menu--server").html(server_name);
             $("#menu--username").html(auth.get_current_user());
             $('#menu--username-server').html(auth.get_current_user() + '@' + server_name);

@@ -16,7 +16,7 @@ const auth = require('../services/auth');
 
 // ===================
 const dicomParser = require('dicom-parser');
-const cornerstone = require('cornerstone-core');
+const cornerstone = require('cornerstone-core-with-bg');
 
 const cornerstoneWADOImageLoader = require('cornerstone-wado-image-loader');
 let WADOImageLoaderPath = path.dirname(require.resolve('cornerstone-wado-image-loader'));

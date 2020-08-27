@@ -167,10 +167,11 @@ progress[value] {
 
 #user_table, #upload_monitor_table, #download_monitor_table, .fixed-table-container, #download_archive_table, #upload_archive_table {
     .filter-control {
-        padding: 0 4px 4px 4px;
+        padding: 4px;
         input {
             padding: .125rem .75rem .125rem 30px;
             border-radius: .25rem;
+            height: auto;
         }
         select {
             height: 1.875rem;
@@ -178,7 +179,7 @@ progress[value] {
         }
         &::before {
             left: 11px;
-            top: 4px;
+            top: 8px;
         }
     }
 	

@@ -12,6 +12,7 @@ const {URL} = require('url');
 const remote = require('electron').remote;
 
 const lodashClonedeep = require('lodash/cloneDeep');
+const isPlainObject = require('lodash/isPlainObject');
 
 const auth = {
     login_promise: (xnat_server, user_auth) => {
@@ -39,7 +40,7 @@ const auth = {
     },
 
     save_login_data: (xnat_server, user_auth, allow_insecure_ssl = false, old_user_data = false) => {
-        let logins = settings.get('logins');
+        let logins = settings.get('logins') || [];
 
         // old user data is only used for testing connection
         if (old_user_data) {
@@ -86,7 +87,7 @@ const auth = {
     },
 
     remove_login_data: (xnat_server, user_auth) => {
-        let logins = settings.get('logins');
+        let logins = settings.get('logins') || [];
             
         let found = -1;
         logins.forEach(function(el, i) {
@@ -148,7 +149,7 @@ const auth = {
         let url_object = new URL(url);
         let xnat_server_origin = url_object.origin;
 
-        let logins = settings.get('logins');
+        let logins = settings.get('logins') || [];
         let allow_insecure_ssl = false;
 
         for (let i = 0; i < logins.length; i++) {
@@ -171,7 +172,8 @@ const auth = {
     },
 
     get_current_user: () => {
-        return settings.has('user_auth') ? settings.get('user_auth').username : '';
+        const user_auth = settings.get('user_auth')
+        return user_auth && isPlainObject(user_auth) && user_auth.hasOwnProperty('username') ? user_auth.username : ''
     },
 
     get_csrf_token: async (xnat_server, user_auth, created_offset = 30) => {
