@@ -623,6 +623,9 @@ function clear_main_tool_state(image_path) {
     .then((image) => {
         cornerstone.displayImage(element, image);
         cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+    })
+    .catch(err => {
+        console.log({clear_main_tool_state_ERR: err});
     });
 }
 
@@ -693,6 +696,10 @@ function display_series_thumb(series, index, cornerstone) {
             element = null
         }, 100);
         
+    })
+    .catch(err => {
+        Helper.pnotify('Thumbnail Load Error', `${err.error.message}\n[${imageId}]`, 'warning');
+        console.log({display_series_thumb_ERR: err});
     });
 }
 
@@ -785,12 +792,21 @@ function get_series_files(series_id) {
     let series_scans = session_map.get(selected_session_id).scans.get(series_id);
     console.log({series_scans});
 
-    //series_scans.sort((a,b) => (a.filepath > b.filepath) ? 1 : ((b.filepath > a.filepath) ? -1 : 0));
-    series_scans.sort((a,b) => a.filepath.localeCompare(b.filepath)); // TODO - TOOLS-524 (should sort by x00200013 ...)
-     
-    series_scans.forEach(function(scan) {
-        files.push(scan.filepath);
-    });
+    if (Array.isArray(series_scans) && series_scans.length > 0) {
+        // backward compatibility TOOLS-524 (sort by x00200013 ...)
+        if (series_scans[0].hasOwnProperty('order')) {
+            series_scans.sort((a,b) => a.order > b.order ? 1 : b.order > a.order ? -1 : 0);
+        } else {
+            series_scans.sort((a,b) => a.filepath.localeCompare(b.filepath));
+        }
+
+        series_scans.forEach((scan) => {
+            files.push({
+                filepath: scan.filepath,
+                frames: scan.frames ? scan.frames : 0
+            });
+        });
+    }
 
     console.log({files});
     return files;
@@ -799,15 +815,32 @@ function get_series_files(series_id) {
 function load_dicom_image(series_id) {
     const element = $('#dicom_image_container').get(0);
 
-    let _files = get_series_files(series_id);
-    //const imageIds = _files.map(file => `wadouri:http://localhost:7714/?path=${file}`);
-    console.log({_files});
+    const _files = get_series_files(series_id);
+
+    
     let imageIds = [];
-    const imageIdRoot = `wadouri:http://localhost:7714/?path=${_files[0]}`;
-    const numFrames = 64;
-    for (let i = 0; i < numFrames; i++) {
-      let imageId = imageIdRoot + "&frame=" + i;
-      imageIds.push(imageId);
+    let frames = 0;
+    _files.forEach(file => {
+        const imageIdRoot = `wadouri:http://localhost:7714/?path=${file.filepath}`;
+        
+        if (file.frames > 1) {
+            for (let i = 0; i < file.frames; i++) {
+                imageIds.push(imageIdRoot + `&frame=${i}`);
+            }
+            frames = file.frames
+        } else {
+            imageIds.push(imageIdRoot);
+        }
+    })
+
+    if (frames) {
+        $('#frame_input_container').html(`
+            <div id="input_range_container" data-range-max="${frames}">
+                <input type="range" id="image_frame_counter" name="image_frame_counter" min="0" max="${frames}" value="0">
+            </div>
+        `)
+    } else {
+        $('#frame_input_container').html('')
     }
 
     //define the stack
@@ -815,6 +848,8 @@ function load_dicom_image(series_id) {
         currentImageIdIndex: 0,
         imageIds
     };
+
+    console.log({_files, stack});
 
     cornerstone.loadAndCacheImage(imageIds[0])
     .then((image) => {
@@ -831,6 +866,15 @@ function load_dicom_image(series_id) {
         cornerstoneTools.setToolActiveForElement(element, "RectangleOverlay", {mouseButtonMask: 1});
         cornerstone.updateImage(element)
         cornerstoneTools.setToolEnabledForElement(element, "RectangleOverlay");
+    })
+    .catch(err => {
+        swal({
+            title: `Error`,
+            text: `${err.error.message}\n[${imageIds[0]}]`,
+            icon: "error",
+            dangerMode: true
+        })
+        console.log({load_dicom_image_ERR: err});
     });
 }
 
@@ -839,6 +883,19 @@ function handle_stack_scroll(e) {
 
     let series_id = get_current_series_id();
     let element = e.srcElement;
+    /*
+    wadouri:http://localhost:7714/?path=D:\__XNAT__\__DICOMS__\nemamfmr.imagesAB.tar\DISCIMG\TEST-3\BRFSSPGR&frame=0
+    */
+    const local_url = e.detail.image.imageId.substr(8)
+    const params = (new URL(local_url)).searchParams
+
+    
+    const frame = parseInt(params.get('frame'))
+    console.log({params, frame});
+    if (frame) {
+        $('#image_frame_counter').val(frame)
+    }
+    
 
     /*
     let rectangle_state = find_registry_state(series_id);
