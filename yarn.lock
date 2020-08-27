@@ -918,10 +918,10 @@ core-util-is@1.0.2, core-util-is@~1.0.0:
   resolved "https://registry.yarnpkg.com/core-util-is/-/core-util-is-1.0.2.tgz#b5fd54220aa2bc5ab57aab7140c940754503c1a7"
   integrity sha1-tf1UIgqivFq1eqtxQMlAdUUDwac=
 
-cornerstone-core@^2.2.8:
-  version "2.3.0"
-  resolved "https://registry.yarnpkg.com/cornerstone-core/-/cornerstone-core-2.3.0.tgz#b16430b0dc3883c795fbbd5f64d0f6357f91c889"
-  integrity sha512-1LiCfRIlQvR1j8OhF7/3pvvQvvnTYZUywEkuoEo5K5mMrlKdrQMS75uW1uXb/nXShQDJyyjtTCQSVGgv2yHA+w==
+cornerstone-core-with-bg@^2.2.8:
+  version "2.2.8"
+  resolved "https://registry.yarnpkg.com/cornerstone-core-with-bg/-/cornerstone-core-with-bg-2.2.8.tgz#ebfd786e0c622bdd2d14dbd44a1630aec293d3e5"
+  integrity sha512-B4XR6W5Wzu285zyogFPFCwCUqdaCA+kdSb/VfLNy3DnGz+vzGNwcVZ8vQU6MFd2MTjrhHc45oh5MlWP1BXf4Uw==
 
 cornerstone-math@0.1.7:
   version "0.1.7"
