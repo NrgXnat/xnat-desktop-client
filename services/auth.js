@@ -40,7 +40,7 @@ const auth = {
     },
 
     save_login_data: (xnat_server, user_auth, allow_insecure_ssl = false, old_user_data = false) => {
-        let logins = settings.get('logins');
+        let logins = settings.get('logins') || [];
 
         // old user data is only used for testing connection
         if (old_user_data) {
@@ -87,7 +87,7 @@ const auth = {
     },
 
     remove_login_data: (xnat_server, user_auth) => {
-        let logins = settings.get('logins');
+        let logins = settings.get('logins') || [];
             
         let found = -1;
         logins.forEach(function(el, i) {
@@ -149,7 +149,7 @@ const auth = {
         let url_object = new URL(url);
         let xnat_server_origin = url_object.origin;
 
-        let logins = settings.get('logins');
+        let logins = settings.get('logins') || [];
         let allow_insecure_ssl = false;
 
         for (let i = 0; i < logins.length; i++) {
