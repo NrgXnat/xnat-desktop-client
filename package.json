@@ -1,6 +1,6 @@
 {
   "name": "xnat-desktop-client",
-  "version": "2.0.1-alpha",
+  "version": "2.0.2",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "extraMetadata": {
@@ -49,7 +49,7 @@
     "cornerstone-core-with-bg": "^2.2.8",
     "cornerstone-math": "^0.1.8",
     "cornerstone-wado-image-loader": "^2.2.3",
-    "cstools-overlay": "^3.18.4",
+    "cstools-overlay": "^3.18.6",
     "dicom-parser": "^1.7.6",
     "electron-log": "^2.2.17",
     "electron-settings": "^3.1.4",

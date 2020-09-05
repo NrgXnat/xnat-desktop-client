@@ -48,6 +48,9 @@ cornerstoneWADOImageLoader.webWorkerManager.initialize(WADOWebWorkerConfig);
 
 const cornerstoneMath = require('cornerstone-math');
 const cornerstoneTools = require('cstools-overlay');
+
+const scrollToIndex = cornerstoneTools.import('util/scrollToIndex');
+
 const Hammer = require('hammerjs');
 
 cornerstoneTools.external.cornerstone = cornerstone;
@@ -527,8 +530,8 @@ function cornerstone_enable_main_element(element) {
         element.addEventListener("cornerstonetoolsmeasurementremoved", handle_measurement_update);
         element.addEventListener("cornerstonetoolskeypress", handle_measurement_update);
 
-        element.addEventListener("cornerstonetoolsmousewheel", handle_stack_scroll);
-        //element.addEventListener("cornerstonetoolsstackscroll", handle_stack_scroll);
+        element.addEventListener("cornerstonetoolsmousewheel", redraw_rectangles);
+        element.addEventListener("cornerstonetoolsstackscroll", stack_scroll_handler);
     }
 }
 
@@ -580,7 +583,7 @@ $(document).on('click', '#reset-scan-btn', function(e) {
     //cornerstone.updateImage(element)
     registry_remove_series_state(get_current_series_id());
     
-    handle_stack_scroll({
+    redraw_rectangles({
         srcElement: element
     })
 
@@ -641,6 +644,21 @@ function display_series_thumb(series, index, cornerstone) {
 
         let viewport = cornerstone.getDefaultViewportForImage(element, image);
         cornerstone.displayImage(element, image, viewport);
+
+        // Update first image in case rectangles are not painted on first scan in series
+        setTimeout((series_id, element) => {
+            let rectangle_state = find_registry_state(series_id);
+    
+            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+        
+            if (rectangle_state !== undefined) {
+                rectangle_state.data.forEach(state => {
+                    add_tool_state(element, 'RectangleOverlay', state)
+                });
+            }
+    
+            cornerstone.updateImage(element)
+        }, 20, series.series_id, element)
 
         setTimeout(function() {
             let $img = $('<img>');
@@ -835,10 +853,22 @@ function load_dicom_image(series_id) {
 
     if (frames) {
         $('#frame_input_container').html(`
-            <div id="input_range_container" data-range-max="${frames}">
-                <input type="range" id="image_frame_counter" name="image_frame_counter" min="0" max="${frames}" value="0">
+            <div id="input_range_container" class="range-slider">
+                <input type="range" id="image_frame_counter" name="image_frame_counter" min="0" max="${frames - 1}" value="0">
+                <span class="range-slider__value">0</span>
             </div>
         `)
+
+        let default_image_frame_counter = 0
+        $('#image_frame_counter').off('input').on('input', function(e){
+            const new_frame_index = parseInt(this.value)
+
+            if (default_image_frame_counter != new_frame_index) {
+                scrollToIndex(element, new_frame_index); // triggers "cornerstonetoolsstackscroll" event
+                default_image_frame_counter = new_frame_index
+            }
+            
+        })
     } else {
         $('#frame_input_container').html('')
     }
@@ -878,54 +908,20 @@ function load_dicom_image(series_id) {
     });
 }
 
-function handle_stack_scroll(e) {
-    console.log('STACK_SCROLL:', e)
 
-    let series_id = get_current_series_id();
-    let element = e.srcElement;
-    /*
-    wadouri:http://localhost:7714/?path=D:\__XNAT__\__DICOMS__\nemamfmr.imagesAB.tar\DISCIMG\TEST-3\BRFSSPGR&frame=0
-    */
-    const local_url = e.detail.image.imageId.substr(8)
-    const params = (new URL(local_url)).searchParams
+function stack_scroll_handler(e) {
+    const frame = e.detail.newImageIdIndex
+    $('#image_frame_counter').val(frame).next('.range-slider__value').html(frame);
 
+    redraw_rectangles(e)
+}
+
+function redraw_rectangles(e) {
+    const series_id = get_current_series_id();
+    const element = e.srcElement;
     
-    const frame = parseInt(params.get('frame'))
-    console.log({params, frame});
-    if (frame) {
-        $('#image_frame_counter').val(frame)
-    }
-    
-
-    /*
-    let rectangle_state = find_registry_state(series_id);
-
-    console.log({rectangle_state});
-
-    if (rectangle_state !== undefined) {
-        setTimeout(() => {
-            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
-        
-            rectangle_state.data.forEach(state => {
-                // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
-                add_tool_state(element, 'RectangleOverlay', state)
-            });
-
-            //window.dispatchEvent(new Event('resize'));
-            //cornerstone.draw(element)
-            cornerstone.updateImage(element)
-        }, 20)
-        
-    } else {
-        setTimeout(() => {
-            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
-            cornerstone.updateImage(element)
-        }, 20)
-    }
-    */
-
     setTimeout((series_id, element) => {
-        let rectangle_state = find_registry_state(series_id);
+        const rectangle_state = find_registry_state(series_id);
 
         cornerstoneTools.clearToolState(element, 'RectangleOverlay');
     

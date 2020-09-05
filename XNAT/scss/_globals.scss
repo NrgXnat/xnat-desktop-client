@@ -349,15 +349,18 @@ h3.step-description {
 
 
 // ************************************************
-$thumb-color: #adadad;
-$thumb-border-color: #636363;
+$thumb-color: #272727;
+$thumb-border-color: #8a8a8a;
+$thumb-border-color-active: #9CCEF9;
 
 $thumb-radius: 9px;
 $thumb-height: 18px;
 $thumb-width: 18px;
 
-$track-color: #000000;
-$track-border-color: #636363;
+$track-color: #636363;
+$track-border-color: #000000;
+
+$track-width: calc(100% - 50px);
 // ************************************************
 
 // Styling Cross-Browser Compatible Range Inputs with Sass
@@ -413,6 +416,11 @@ $ie-bottom-track-color: darken($track-color, $contrast) !default;
   width: $thumb-width;
 }
 
+// Base Colors
+$shade-10: #484848 !default;
+$shade-0: #fff !default;
+$range-label-color: $shade-10 !default;
+$range-label-width: 38px !default;
 
 #frame_input_container {
 	#input_range_container {
@@ -454,6 +462,19 @@ $ie-bottom-track-color: darken($track-color, $contrast) !default;
 				@include thumb;
 				-webkit-appearance: none;
 				margin-top: ((-$track-border-width * 2 + $track-height) / 2 - $thumb-height / 2);
+
+				&:hover {
+					border-color: $thumb-border-color-active;
+				}
+			}
+			&:active::-webkit-slider-thumb {
+				border-color: $thumb-border-color-active;
+			}
+			// Focus state
+			&:focus {
+				&::-webkit-slider-thumb {
+					border-color: $thumb-border-color-active;
+				}
 			}
 
 			&::-moz-range-track {
@@ -510,20 +531,33 @@ $ie-bottom-track-color: darken($track-color, $contrast) !default;
 		}
 
 		position: relative;
-	
-		&::before {
+		
+	}
+
+	// Range Label
+	.range-slider__value {
+		display: inline-block;
+		position: relative;
+		width: $range-label-width;
+		color: $shade-0;
+		line-height: 12px;
+		text-align: center;
+		border-radius: 2px;
+		background: $range-label-color;
+		padding: 3px;
+		margin-left: 8px;
+		font-size: 12px;
+
+		&:after {
 			position: absolute;
-			top: 0;
-			content: '1/';
-			right: 23px;
-			display: none;
-		}
-		&::after {
-			position: absolute;
-			top: 0;
-			right: 0;
-			content: attr(data-range-max)"fr";
-			display: none;
+			top: 4px;
+			left: -5px;
+			width: 0;
+			height: 0;
+			border-top: 5px solid transparent;
+			border-right: 5px solid $range-label-color;
+			border-bottom: 5px solid transparent;
+			content: '';
 		}
 	}
 }
