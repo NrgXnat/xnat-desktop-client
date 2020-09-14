@@ -48,6 +48,9 @@ cornerstoneWADOImageLoader.webWorkerManager.initialize(WADOWebWorkerConfig);
 
 const cornerstoneMath = require('cornerstone-math');
 const cornerstoneTools = require('cstools-overlay');
+
+const scrollToIndex = cornerstoneTools.import('util/scrollToIndex');
+
 const Hammer = require('hammerjs');
 
 cornerstoneTools.external.cornerstone = cornerstone;
@@ -527,8 +530,8 @@ function cornerstone_enable_main_element(element) {
         element.addEventListener("cornerstonetoolsmeasurementremoved", handle_measurement_update);
         element.addEventListener("cornerstonetoolskeypress", handle_measurement_update);
 
-        element.addEventListener("cornerstonetoolsmousewheel", handle_stack_scroll);
-        //element.addEventListener("cornerstonetoolsstackscroll", handle_stack_scroll);
+        element.addEventListener("cornerstonetoolsmousewheel", redraw_rectangles);
+        element.addEventListener("cornerstonetoolsstackscroll", stack_scroll_handler);
     }
 }
 
@@ -580,7 +583,7 @@ $(document).on('click', '#reset-scan-btn', function(e) {
     //cornerstone.updateImage(element)
     registry_remove_series_state(get_current_series_id());
     
-    handle_stack_scroll({
+    redraw_rectangles({
         srcElement: element
     })
 
@@ -623,6 +626,9 @@ function clear_main_tool_state(image_path) {
     .then((image) => {
         cornerstone.displayImage(element, image);
         cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+    })
+    .catch(err => {
+        console.log({clear_main_tool_state_ERR: err});
     });
 }
 
@@ -638,6 +644,21 @@ function display_series_thumb(series, index, cornerstone) {
 
         let viewport = cornerstone.getDefaultViewportForImage(element, image);
         cornerstone.displayImage(element, image, viewport);
+
+        // Update first image in case rectangles are not painted on first scan in series
+        setTimeout((series_id, element) => {
+            let rectangle_state = find_registry_state(series_id);
+    
+            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+        
+            if (rectangle_state !== undefined) {
+                rectangle_state.data.forEach(state => {
+                    add_tool_state(element, 'RectangleOverlay', state)
+                });
+            }
+    
+            cornerstone.updateImage(element)
+        }, 20, series.series_id, element)
 
         setTimeout(function() {
             let $img = $('<img>');
@@ -693,6 +714,10 @@ function display_series_thumb(series, index, cornerstone) {
             element = null
         }, 100);
         
+    })
+    .catch(err => {
+        Helper.pnotify('Thumbnail Load Error', `${err.error.message}\n[${imageId}]`, 'warning');
+        console.log({display_series_thumb_ERR: err});
     });
 }
 
@@ -785,12 +810,21 @@ function get_series_files(series_id) {
     let series_scans = session_map.get(selected_session_id).scans.get(series_id);
     console.log({series_scans});
 
-    //series_scans.sort((a,b) => (a.filepath > b.filepath) ? 1 : ((b.filepath > a.filepath) ? -1 : 0));
-    series_scans.sort((a,b) => a.filepath.localeCompare(b.filepath));
-     
-    series_scans.forEach(function(scan) {
-        files.push(scan.filepath);
-    });
+    if (Array.isArray(series_scans) && series_scans.length > 0) {
+        // backward compatibility TOOLS-524 (sort by x00200013 ...)
+        if (series_scans[0].hasOwnProperty('order')) {
+            series_scans.sort((a,b) => a.order > b.order ? 1 : b.order > a.order ? -1 : 0);
+        } else {
+            series_scans.sort((a,b) => a.filepath.localeCompare(b.filepath));
+        }
+
+        series_scans.forEach((scan) => {
+            files.push({
+                filepath: scan.filepath,
+                frames: scan.frames ? scan.frames : 0
+            });
+        });
+    }
 
     console.log({files});
     return files;
@@ -799,14 +833,53 @@ function get_series_files(series_id) {
 function load_dicom_image(series_id) {
     const element = $('#dicom_image_container').get(0);
 
-    let _files = get_series_files(series_id);
-    const imageIds = _files.map(file => `wadouri:http://localhost:7714/?path=${file}`);
+    const _files = get_series_files(series_id);
+
+    
+    let imageIds = [];
+    let frames = 0;
+    _files.forEach(file => {
+        const imageIdRoot = `wadouri:http://localhost:7714/?path=${file.filepath}`;
+        
+        if (file.frames > 1) {
+            for (let i = 0; i < file.frames; i++) {
+                imageIds.push(imageIdRoot + `&frame=${i}`);
+            }
+            frames = file.frames
+        } else {
+            imageIds.push(imageIdRoot);
+        }
+    })
+
+    if (frames) {
+        $('#frame_input_container').html(`
+            <div id="input_range_container" class="range-slider">
+                <input type="range" id="image_frame_counter" name="image_frame_counter" min="0" max="${frames - 1}" value="0">
+                <span class="range-slider__value">0</span>
+            </div>
+        `)
+
+        let default_image_frame_counter = 0
+        $('#image_frame_counter').off('input').on('input', function(e){
+            const new_frame_index = parseInt(this.value)
+
+            if (default_image_frame_counter != new_frame_index) {
+                scrollToIndex(element, new_frame_index); // triggers "cornerstonetoolsstackscroll" event
+                default_image_frame_counter = new_frame_index
+            }
+            
+        })
+    } else {
+        $('#frame_input_container').html('')
+    }
 
     //define the stack
     const stack = {
         currentImageIdIndex: 0,
         imageIds
     };
+
+    console.log({_files, stack});
 
     cornerstone.loadAndCacheImage(imageIds[0])
     .then((image) => {
@@ -823,44 +896,32 @@ function load_dicom_image(series_id) {
         cornerstoneTools.setToolActiveForElement(element, "RectangleOverlay", {mouseButtonMask: 1});
         cornerstone.updateImage(element)
         cornerstoneTools.setToolEnabledForElement(element, "RectangleOverlay");
+    })
+    .catch(err => {
+        swal({
+            title: `Error`,
+            text: `${err.error.message}\n[${imageIds[0]}]`,
+            icon: "error",
+            dangerMode: true
+        })
+        console.log({load_dicom_image_ERR: err});
     });
 }
 
-function handle_stack_scroll(e) {
-    console.log('STACK_SCROLL:', e)
 
-    let series_id = get_current_series_id();
-    let element = e.srcElement;
+function stack_scroll_handler(e) {
+    const frame = e.detail.newImageIdIndex
+    $('#image_frame_counter').val(frame).next('.range-slider__value').html(frame);
 
-    /*
-    let rectangle_state = find_registry_state(series_id);
+    redraw_rectangles(e)
+}
 
-    console.log({rectangle_state});
-
-    if (rectangle_state !== undefined) {
-        setTimeout(() => {
-            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
-        
-            rectangle_state.data.forEach(state => {
-                // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
-                add_tool_state(element, 'RectangleOverlay', state)
-            });
-
-            //window.dispatchEvent(new Event('resize'));
-            //cornerstone.draw(element)
-            cornerstone.updateImage(element)
-        }, 20)
-        
-    } else {
-        setTimeout(() => {
-            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
-            cornerstone.updateImage(element)
-        }, 20)
-    }
-    */
-
+function redraw_rectangles(e) {
+    const series_id = get_current_series_id();
+    const element = e.srcElement;
+    
     setTimeout((series_id, element) => {
-        let rectangle_state = find_registry_state(series_id);
+        const rectangle_state = find_registry_state(series_id);
 
         cornerstoneTools.clearToolState(element, 'RectangleOverlay');
     
@@ -1977,6 +2038,10 @@ function dicomParse(_files, root_path) {
                             const study_time = dicom.string('x00080030');
 
                             const accession = dicom.string('x00080050');
+
+                            const NumberOfFrames = parseInt(dicom.string('x00280008'));
+                            const InstanceNumber = parseInt(dicom.string('x00200013'));
+                            console.log({NumberOfFrames, InstanceNumber});
                             // ++++
                 
     
@@ -2019,6 +2084,8 @@ function dicomParse(_files, root_path) {
                                     filepath: file,
                                     filename: file_name,
                                     filesize: file_size,
+                                    frames: NumberOfFrames,
+                                    order: InstanceNumber,
                                     seriesDescription: seriesDescription,
                                     seriesInstanceUid: seriesInstanceUid,
                                     seriesNumber: seriesNumber,
