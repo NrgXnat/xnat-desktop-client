@@ -1,6 +1,6 @@
 {
   "name": "xnat-desktop-client",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "extraMetadata": {
@@ -51,7 +51,6 @@
     "cstools-overlay": "^3.18.6",
     "dicom-parser": "^1.7.6",
     "electron-log": "^2.2.17",
-    "electron-settings": "^3.1.4",
     "electron-store": "1.3.0",
     "electron-updater": "~4.2.0",
     "file-saver": "^1.3.8",

@@ -5,7 +5,8 @@ module.exports.push = push;
 module.exports.pop = pop;
 
 const store = require('store2');
-const settings = require('electron-settings');
+const ElectronStore = require('electron-store');
+const settings = new ElectronStore();
 const sha1 = require('sha1');
 const auth = require('./auth');
 

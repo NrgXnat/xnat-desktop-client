@@ -4,7 +4,8 @@ const shell = require('electron').shell;
 const fs = require('fs');
 
 const path = require('path');
-const settings = require('electron-settings');
+const ElectronStore = require('electron-store');
+const settings = new ElectronStore();
 
 const axios = require('axios');
 require('promise.prototype.finally').shim();

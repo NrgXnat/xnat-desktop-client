@@ -2,7 +2,6 @@
 const path = require('path');
 const fs = require('fs');
 
-const settings = require('electron-settings')
 const ipc = require('electron').ipcRenderer
 const swal = require('sweetalert');
 
