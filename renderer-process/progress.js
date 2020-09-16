@@ -1,7 +1,8 @@
 const {remote, ipcRenderer, shell} = require('electron')
 
 require('promise.prototype.finally').shim();
-const settings = require('electron-settings');
+const ElectronStore = require('electron-store');
+const settings = new ElectronStore();
 const swal = require('sweetalert');
 const prettyBytes = require('pretty-bytes');
 const FileSaver = require('file-saver');

@@ -1,5 +1,6 @@
 const path = require('path');
-const settings = require('electron-settings')
+const ElectronStore = require('electron-store');
+const settings = new ElectronStore();
 const ipc = require('electron').ipcRenderer
 const auth = require('../services/auth');
 const api = require('../services/api');

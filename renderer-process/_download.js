@@ -7,9 +7,8 @@ require('promise.prototype.finally').shim();
 const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
 
-const settings = require('electron-settings');
 const ElectronStore = require('electron-store');
-const app_config = new ElectronStore();
+const settings = new ElectronStore();
 
 const ipc = electron.ipcRenderer;
 
@@ -45,7 +44,7 @@ electron.crashReporter.start({
     productName: appMetaData.name,
     productVersion: appMetaData.version,
     submitURL: appMetaData.extraMetadata.submitUrl,
-    uploadToServer: app_config.get('send_crash_reports', false)
+    uploadToServer: settings.get('send_crash_reports', false)
 });
 
 

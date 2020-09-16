@@ -14,9 +14,11 @@ const electron_log = require('./services/electron_log')
 
 const { isDevEnv } = require('./services/app_utils');
 
+const MigrateSettings = require('./services/settings_to_store_migration')
+MigrateSettings(app.getPath('userData'))
 
 const ElectronStore = require('electron-store');
-const app_config = new ElectronStore();
+const settings = new ElectronStore();
 
 
 //electron_log.transports.file.clear();
@@ -31,7 +33,7 @@ electron.crashReporter.start({
     productName: appMetaData.name,
     productVersion: appMetaData.version,
     submitURL: appMetaData.extraMetadata.submitUrl,
-    uploadToServer: app_config.get('send_crash_reports', false)
+    uploadToServer: settings.get('send_crash_reports', false)
 });
 
 

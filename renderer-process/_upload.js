@@ -1,4 +1,5 @@
 const electron = require('electron');
+const { ipcRenderer: ipc, remote } = electron;
 const fs = require('fs');
 const fx = require('mkdir-recursive');
 const path = require('path');
@@ -6,24 +7,20 @@ const axios = require('axios');
 const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
 require('promise.prototype.finally').shim();
-const settings = require('electron-settings');
+
 const ElectronStore = require('electron-store');
-const app_config = new ElectronStore();
-
-const ipc = require('electron').ipcRenderer;
-
-const remote = require('electron').remote;
+const settings = new ElectronStore();
 
 const { file_checksum } = remote.require('./services/app_utils');
+
+const archiver = require('archiver');
+const tempDir = require('temp-dir');
+
 
 const auth = require('../services/auth');
 
 const mizer = remote.require('./mizer');
 const XNATAPI = require('../services/xnat-api')
-
-const archiver = require('archiver');
-
-const tempDir = require('temp-dir');
 
 const db_uploads = remote.require('./services/db/uploads')
 
@@ -50,7 +47,7 @@ electron.crashReporter.start({
     productName: appMetaData.name,
     productVersion: appMetaData.version,
     submitURL: appMetaData.extraMetadata.submitUrl,
-    uploadToServer: app_config.get('send_crash_reports', false)
+    uploadToServer: settings.get('send_crash_reports', false)
 });
 
 function summary_log_update(transfer_id, prop, val) {

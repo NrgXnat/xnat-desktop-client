@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { sortAlpha } = require('./app_utils');
-const settings = require('electron-settings');
+const ElectronStore = require('electron-store');
+const settings = new ElectronStore();
 const https = require('https');
 
 

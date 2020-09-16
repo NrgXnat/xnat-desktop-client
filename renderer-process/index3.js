@@ -1,7 +1,6 @@
 const electron = require('electron');
-const settings = require('electron-settings')
 const ElectronStore = require('electron-store');
-const app_config = new ElectronStore();
+const settings = new ElectronStore();
 const ipc = electron.ipcRenderer
 const app = electron.remote.app
 const shell = electron.shell
@@ -23,7 +22,7 @@ electron.crashReporter.start({
     productName: appMetaData.name,
     productVersion: appMetaData.version,
     submitURL: appMetaData.extraMetadata.submitUrl,
-    uploadToServer: app_config.get('send_crash_reports', false)
+    uploadToServer: settings.get('send_crash_reports', false)
 });
 
 
