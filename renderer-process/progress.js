@@ -1,5 +1,6 @@
 require('promise.prototype.finally').shim();
-const settings = require('electron-settings');
+const ElectronStore = require('electron-store');
+const settings = new ElectronStore();
 const ipc = require('electron').ipcRenderer;
 const swal = require('sweetalert');
 const prettyBytes = require('pretty-bytes');

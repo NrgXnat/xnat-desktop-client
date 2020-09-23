@@ -1,4 +1,3 @@
-const settings = require('electron-settings');
 const path = require('path');
 const axios = require('axios');
 const sha1 = require('sha1');

@@ -1,7 +1,8 @@
 const Datastore = require('nedb');
 const path = require('path')
 
-const settings = require('electron-settings');
+const ElectronStore = require('electron-store');
+const settings = new ElectronStore();
 const auth = require('../auth');
 const sha1 = require('sha1');
 
