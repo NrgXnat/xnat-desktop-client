@@ -573,6 +573,11 @@ ipcMain.on('launch_download_modal', (e, item) => {
   post_message('launch_download_modal', item);
 })
 
+ipcMain.on('launch_upload', (e, item) => {
+  post_message('load:page', 'upload.html');
+  post_message('launch_upload', item);
+})
+
 ipcMain.on('log', (e, ...args) => {
   log(...args)
 })
@@ -595,6 +600,10 @@ ipcMain.on('xnat_cant_handle_stream_upload', (e, item) => {
   post_message('xnat_cant_handle_stream_upload', item);
 })
 
+ipcMain.on('refresh_progress_tables', (e, item) => {
+  post_message('refresh_progress_tables', item);
+})
+
 ipcMain.on('global_pause_status', (e, new_status) => {
   post_message('global_pause_status', new_status);
 
@@ -612,6 +621,10 @@ ipcMain.on('progress_alert', (e, item) => {
 // ?
 ipcMain.on('custom_error', (e, title, msg) => {
   post_message('custom_error', title, msg);
+})
+
+ipcMain.on('custom_error_with_details', (e, title, subtitle, details) => {
+  post_message('custom_error_with_details', title, subtitle, details);
 })
 
 
