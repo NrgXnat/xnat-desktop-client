@@ -1,0 +1,1 @@
+exports.MizerError = require('./classes/MizerError');

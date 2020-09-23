@@ -169,7 +169,7 @@ $(document).on('click', '#save_recent_upload_projects_count', function(e) {
 
 
 function render_users() {
-    let logins = settings.get('logins');
+    let logins = settings.get('logins') || [];
 
     let table_rows = [];
 

@@ -37,16 +37,22 @@ console.log(jarDir);
     "dcm4che-iod-2.0.29.jar",
     "dcm4che-net-2.0.29.jar",
     "dicom-edit4-1.0.3.jar",
-    "dicom-edit6-1.0.8-SNAPSHOT.jar",
     "dicomtools-1.7.5.jar",
     "framework-1.7.5.2.jar",
     "guava-20.0.jar",
     "java-uuid-generator-3.1.4.jar",
     "jcl-over-slf4j-1.7.26.jar",
     "log4j-1.2.17.jar",
-    "mizer-1.0.8-SNAPSHOT.jar",
-    "pixelEditor-1.0.0-SNAPSHOT.jar",
-    "pixelmed-20190626.jar",
+    "mizer-1.1.1.jar",
+    "dicom-edit6-1.1.1.jar",
+    "pixelEditor-1.1.1.jar",
+    "pixelmed-nrg-20200327.jar",
+    "pixelmed-codec-20200328.jar",
+    "pixelmed-imageio-20200328.jar",
+    "jai-imageio-core-1.3.0.jar",
+    "jai-imageio-jpeg2000-1.3.0.jar",
+    "commons-compress-1.12.jar",
+    "commons-codec-1.10.jar",
     "reflections-0.9.11.jar",
     "slf4j-api-1.7.26.jar",
     "slf4j-log4j12-1.7.26.jar",
@@ -214,4 +220,18 @@ mizer.get_scripts_anon_vars = (scripts) => {
     return mizer.getReferencedVariables(contexts);
 }
 
+mizer.generateAlterPixelCode = (rectangles) => {
+    let lines = rectangles.map(rect => {
+      return `alterPixels["rectangle", "l=${Math.round(rect[0])}, t=${Math.round(rect[1])}, r=${Math.round(rect[2])}, b=${Math.round(rect[3])}", "solid", "v=100"]`;
+    })
+    
+    if (lines.length) {
+      lines.unshift(`version "6.1"`)
+    }
+    
+    return lines.join("\n");
+}
 
+mizer.isMizerError = (error_message) => {
+    return error_message && error_message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0
+}

@@ -20,6 +20,8 @@
     <link rel="stylesheet" href="node_modules/x-editable/dist/bootstrap3-editable/css/bootstrap-editable.css">
     <link rel="stylesheet" href="node_modules/nprogress/nprogress.css">
 
+    <link rel="stylesheet" href="node_modules/anno.js/dist/anno.css">
+
     <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.css">
     <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.brighttheme.css">
     <link rel="stylesheet" href="node_modules/pnotify/dist/pnotify.buttons.css">
@@ -38,6 +40,7 @@
     <link rel="import" href="sections/progress.html">
     <link rel="import" href="sections/progress-archive.html">
     <link rel="import" href="sections/version.html">
+    <link rel="import" href="sections/cornerstone.html">
 
 </head>
 
@@ -55,7 +58,8 @@
                 <a href="progress.html">Progress Monitor</a>
                 <a href="https://wiki.xnat.org/xnat-tools/dxm" target="_blank" class="monitor">Documentation</a>
                 <a href="version.html">About</a>
-                <!-- <a href="projects.html" class="">Projects</a> -->
+                <a href="progress.html" class="monitor">Monitor</a>
+                <!-- <a href="cornerstone.html" class="">Image Viewer</a> -->
             </div>
         </div>
         <div class="server-name hidden-by-default hidden" id="menu--server"></div>
@@ -225,6 +229,11 @@
         Helper = require('./assets/js/helpers');
 
     </script>
+
+
+    <script src="node_modules/anno.js/dist/anno.js"></script>
+    <script src="node_modules/jquery.scrollintoview/jquery.scrollintoview.js"></script>
+
     <script src="node_modules/blockui-npm/jquery.blockUI.js"></script>
 
     <script src="node_modules/pnotify/dist/pnotify.js"></script>
@@ -241,6 +250,8 @@
     <script src="node_modules/popper.js/dist/umd/popper.min.js"></script>
     <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
     <script src="node_modules/bootstrap-table/dist/bootstrap-table.js"></script>
+
+
     <!-- <script src="node_modules/bootstrap-table/dist/extensions/flat-json/bootstrap-table-flat-json.min.js"></script> -->
 
     <script src="node_modules/bootstrap-table/dist/extensions/filter-control/bootstrap-table-filter-control.js"></script>

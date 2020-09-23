@@ -1,0 +1,1 @@
+exports.customErrorWithDetails = require('./custom_error_with_details');

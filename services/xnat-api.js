@@ -34,6 +34,10 @@ class XNATAPI {
         return axios.put(this.xnat_server + url_path, this.axios_config())
     }
 
+    axios_post(url_path, params) {
+        return axios.post(this.xnat_server + url_path, params, this.axios_config())
+    }
+
     catch_handler(err, resolve, reject) {
         reject({
             type: 'axios',
@@ -171,10 +175,23 @@ class XNATAPI {
         return typeof res.data === 'boolean' ? res.data : (res.data === '' || res.data.toLowerCase() === 'true')
     }
 
+    /*
     async project_require_date(project_id) {
         const res = await this.axios_get(`/data/config/projects/${project_id}/applet/require-date?contents=true&accept-not-found=true`)
 
         return typeof res.data === 'boolean' ? res.data : (res.data.toLowerCase() !== 'false' && res.data !== '')
+    }
+    */
+
+    async project_require_date(project_id) {
+        const res = await this.axios_get(`/data/config/projects/${project_id}/applet/require-date?contents=true&accept-not-found=true`)
+
+        if (res.data === '') {
+            // return null;
+            return await this.sitewide_require_date(); // use sitewide
+        } else {
+            return typeof res.data === 'boolean' ? res.data : (res.data.toLowerCase() !== 'false');
+        }
     }
 
     async project_sessions(project_id) {
@@ -249,6 +266,56 @@ class XNATAPI {
         }
 
         return projects;
+    }
+
+    async project_subject_visits(project_id, subject_id) {
+        const res = await this.axios_get(`/data/projects/${project_id}/subjects/${subject_id}/visits?open=true`)
+
+        let visits = res.data;
+        if (!visits || !Array.isArray(visits)) {
+            visits = []
+        }
+
+        return visits.sort(sortAlpha('name'))
+    }
+
+    async project_visit_datatypes(project_id, visit_id) {
+        const res = await this.axios_get(`/xapi/protocols/projects/${project_id}/visits/${visit_id}/datatypes?imagingOnly=true`)
+
+        let types = res.data;
+        if (!types || !Array.isArray(types)) {
+            types = []
+        }
+
+        return types.sort(sortAlpha('name'))
+    }
+
+    async project_visit_subtypes(project_id, visit_id, datatype) {
+        const res = await this.axios_get(`/xapi/protocols/projects/${project_id}/visits/${visit_id}/datatypes/${datatype}/subtypes`)
+
+        let subtypes = res.data;
+        if (!subtypes || !Array.isArray(subtypes)) {
+            subtypes = []
+        }
+
+        console.log({xxx_subtypes: subtypes});
+
+        return subtypes.sort(sortAlpha())
+    }
+    
+    async project_experiment_label(project_id, subject_id, visit_id, subtype, session_date, modality) {
+        let params = new URLSearchParams();
+        params.append('visitid', visit_id);
+        params.append('project', project_id);
+        params.append('subject', subject_id);
+        params.append('modality', modality);
+        params.append('subtype', subtype);
+        params.append('date', session_date);
+        params.append('dateFormat', 'yyyyMMdd');
+
+        const res = await this.axios_post(`/xapi/protocols/generate_label`, params)
+
+        return res.data ? res.data : null
     }
 
 
