@@ -43,7 +43,7 @@ console.log(jarDir);
     "java-uuid-generator-3.1.4.jar",
     "jcl-over-slf4j-1.7.26.jar",
     "log4j-1.2.17.jar",
-    "mizer-1.1.1.jar",
+    "mizer-1.1.2.jar",
     "dicom-edit6-1.1.1.jar",
     "pixelEditor-1.1.1.jar",
     "pixelmed-nrg-20200327.jar",
