@@ -1,4 +1,4 @@
-const {remote, ipcRenderer, shell} = require('electron')
+const {remote, ipcRenderer: ipc, shell} = require('electron')
 
 require('promise.prototype.finally').shim();
 const ElectronStore = require('electron-store');
@@ -132,13 +132,8 @@ function _init_upload_progress_table() {
 
                     if (typeof value !== 'string') {
                         let my_value = parseFloat(value);
-                        return `
-                        <div class="progress-container">
-                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${my_value}" aria-valuemin="0" aria-valuemax="100" style="width:${my_value}%; height:25px;">
-                                <span class="sr-only">In progress</span>
-                            </div>
-                        </div>
-                        `;
+                        let my_text = my_value === 100 ? 'Archiving...' : '';
+                        return progress_bar_html(my_value, my_text);
                     } else {
                         //return value
                         return value === 'finished' ? 'Completed' : value;
@@ -239,7 +234,7 @@ function _init_upload_progress_table() {
             }
         });
 
-        console.log(my_data);
+        console.log({tbl_data: my_data});
         
 
         $('#upload_monitor_table')
@@ -531,7 +526,7 @@ function _init_variables() {
 
 
 if (!settings.has('user_auth') || !settings.has('xnat_server')) {
-    ipcRenderer.send('redirect', 'login.html');
+    ipc.send('redirect', 'login.html');
     return;
 }
 
@@ -681,6 +676,40 @@ $(document).on('show.bs.modal', '#error-log--download', function(e) {
 $(document).on('show.bs.modal', '#error-log--upload', function(e) {
     var transfer_id = $(e.relatedTarget).data('id');
     $('#error-log--upload .modal-content').attr('data-id', transfer_id);
+    var log = $(this).find('.log-text');
+    nedb_log_reader.fetch_log(transfer_id, (err, docs) => {
+        console.log(docs);
+        table = '<table class="table table-bordered">';
+        table += `
+            <tr>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Date/Time</th>
+                <th>Details</th>
+            </tr>
+        `;
+        
+        docs.forEach(doc => {
+            let datetime = moment(doc.timestamp).format('YYYY-MM-DD HH:mm:ss')
+            let details;
+            try {
+                details = JSON.parse(doc.details).data;
+            } catch (e) {
+                details = doc.details;
+            }
+            table += `
+                <tr>
+                    <td>${doc.level}</td>
+                    <td>${doc.message}</td>
+                    <td>${datetime}</td>
+                    <td style="font-size: 11px;">${details}</td>
+                </tr>
+            `;
+        })
+        table += '</table>';
+        log.html('');
+        log.append(table);
+    });
 });
 
 $(document).on('show.bs.modal', '#view-receipt', async function(e) {
@@ -768,7 +797,7 @@ $(document).on('click', '#save-pdf-destination', function(e) {
         const expt_label = $('#receipt-to-pdf').data('expt_label')
         const filename_base = `${expt_label}-${user_auth.username}`;
         // METHOD 3:
-        ipcRenderer.send('print_pdf', html, pdf_destination, pdf_settings, filename_base);
+        ipc.send('print_pdf', html, pdf_destination, pdf_settings, filename_base);
     }
     
 })
@@ -1112,14 +1141,7 @@ function _init_upload_details_table(transfer_id) {
                     title: 'Upload Progress',
                     sortable: false,
                     formatter: function(value, row, index, field) {
-                        let percent = value;
-                        return `
-                        <div class="progress-container">
-                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="100" style="width:${percent}%; height:25px;">
-                                <span class="sr-only">In progress</span>
-                            </div>
-                        </div>
-                        `;
+                        return progress_bar_html(value);
                     }
                 },
                 {
@@ -1201,9 +1223,9 @@ $(document).on('click', '.js_cancel_download', function(e){
                                     num
                                 })
 
-                                ipcRenderer.send('cancel_download', transfer_id);
+                                ipc.send('cancel_download', transfer_id);
                             } else {
-                                ipcRenderer.send('start_download');
+                                ipc.send('start_download');
                             }
                             
                             $('#download-details').find('.modal-content').toggleClass('transfer-canceled', new_cancel_status);
@@ -1260,9 +1282,9 @@ $(document).on('click', '.js_cancel_upload', function(e){
                                         num
                                     })
                     
-                                    ipcRenderer.send('cancel_upload', transfer_id);
+                                    ipc.send('cancel_upload', transfer_id);
                                 } else {
-                                    ipcRenderer.send('start_upload');
+                                    ipc.send('start_upload');
                                 }
                                 
                                 $('#upload-details').find('.modal-content').toggleClass('transfer-canceled', new_cancel_status);
@@ -1317,8 +1339,8 @@ $(document).on('click', '.js_cancel_all_transfers', function(){
         update_uploads_cancel_status(true), 
         update_downloads_cancel_status(true)
     ]).then(([modified_uploads, modified_downloads]) => {
-        ipcRenderer.send('reload_upload_window');
-        ipcRenderer.send('reload_download_window');
+        ipc.send('reload_upload_window');
+        ipc.send('reload_download_window');
 
         settings.set('global_pause', global_pause);
 
@@ -1343,8 +1365,8 @@ $(document).on('click', '.js_restart_all_transfers', function(){
         update_uploads_cancel_status(false), 
         update_downloads_cancel_status(false)
     ]).then(([modified_uploads, modified_downloads]) => {
-        ipcRenderer.send('reload_upload_window');
-        ipcRenderer.send('reload_download_window');
+        ipc.send('reload_upload_window');
+        ipc.send('reload_download_window');
 
         settings.set('global_pause', global_pause);
 
@@ -1372,8 +1394,8 @@ function global_pause_status(new_pause_status) {
     }
 
     if (!new_pause_status) {
-        ipcRenderer.send('start_download');
-        ipcRenderer.send('start_upload');
+        ipc.send('start_download');
+        ipc.send('start_upload');
     }
     
     settings.set('global_pause', new_pause_status);
@@ -1661,7 +1683,18 @@ function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status)
     });
 }
 
-ipcRenderer.on('upload_finished',function(e, transfer_id){
+function progress_bar_html(my_value, my_text) {
+    return `
+    <div class="progress-container">
+        <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${my_value}" aria-valuemin="0" aria-valuemax="100" style="width:${my_value}%; height:25px;">
+            ${my_text || ''}
+            <span class="sr-only">In progress</span>
+        </div>
+    </div>
+    `;
+}
+
+ipc.on('upload_finished',function(e, transfer_id){
     let $modal_content = $(`#upload-details [data-id=${transfer_id}]`);
 
     console_red('ipc.on upload_finished', $modal_content.length, $modal_content.is(':visible'))
@@ -1673,10 +1706,11 @@ ipcRenderer.on('upload_finished',function(e, transfer_id){
 })
 
 
-ipcRenderer.on('progress_cell',function(e, item){
+ipc.on('progress_cell',function(e, item){
     console_red('progress_cell', item);
     let $item_table = $(item.table);
     let $tbl_row = $(`${item.table} [data-uniqueid="${item.id}"]`);
+    let is_upload = item.table === '#upload_monitor_table';
 
     if ($item_table.length && $tbl_row.length) {
         let $progress_bar = $tbl_row.find('.progress-bar');
@@ -1693,6 +1727,9 @@ ipcRenderer.on('progress_cell',function(e, item){
         if (!reinit) {
             let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
             $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
+            if (percent === 100 && is_upload) {
+                $progress_bar.append('Archiving...');
+            }
         }
 
 
@@ -1725,7 +1762,7 @@ ipcRenderer.on('progress_cell',function(e, item){
             }
         }
 
-        if (item.table === '#upload_monitor_table') {
+        if (is_upload) {
             let $modal_content = $(`#upload-details [data-id=${item.id}]`);
 
             if (typeof item.value != 'number') {
@@ -1747,7 +1784,7 @@ ipcRenderer.on('progress_cell',function(e, item){
 
 });
 
-ipcRenderer.on('download_progress',function(e, item){
+ipc.on('download_progress',function(e, item){
     //console.log(item);
 
     if (item.table !== undefined) {
@@ -1765,7 +1802,7 @@ ipcRenderer.on('download_progress',function(e, item){
     
 });
 
-ipcRenderer.on('upload_progress',function(e, item) {
+ipc.on('upload_progress',function(e, item) {
     //console.log(item);
 
     if (item.table !== undefined) {
@@ -1782,8 +1819,12 @@ ipcRenderer.on('upload_progress',function(e, item) {
     
 });
 
-ipcRenderer.on('global_pause_status', function(e, item) {
+ipc.on('global_pause_status', function(e, item) {
     global_pause_status(item)
     // $('.js_pause_all').html(pause_btn_content(item));
 })
 
+ipc.on('refresh_progress_tables', (e, refresh_data) => {
+    _init_upload_progress_table()
+    console.log({refresh_data});
+})

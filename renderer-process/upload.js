@@ -24,8 +24,9 @@ const prettyBytes = require('pretty-bytes');
 
 const user_settings = require('../services/user_settings');
 const ResetManager = require('../services/reset-manager');
-
 const FlowReset = new ResetManager();
+
+const ExperimentLabel = require('../services/experiment_label')
 
 const remote = require('electron').remote;
 const mizer = remote.require('./mizer');
@@ -34,11 +35,16 @@ const db_uploads = remote.require('./services/db/uploads')
 
 const electron_log = remote.require('./services/electron_log');
 
+const XNATAPI = require('../services/xnat-api')
+const { random_string, saveAsCSV, normalizeDateString, normalizeTimeString, normalizeDateTimeString } = require('../services/app_utils');
 const { selected_sessions_table, custom_upload_multiple_table } = require('../services/tables/upload-prepare');
 
-const { random_string, saveAsCSV } = require('../services/app_utils');
+let show_unable_to_set_session_label_warning = 0
 
-const XNATAPI = require('../services/xnat-api')
+// ===================
+// ADD cornerstone INIT
+// ===================
+
 
 
 
@@ -177,6 +183,32 @@ async function _init_variables() {
     FlowReset.execAll()
 
     _UI();
+}
+
+function initAnno() {
+    anno2 = new Anno([{
+        target  : '#series_thumbs', // second block of code
+        position: 'top',
+        content : 'This pane shows scan thumbnails. Drag a thumbnail into the viewer pane to view it. ',
+        className: 'pera-klasa'
+      }, {
+        target  : '#dicom_image_container',
+        position: 'center-top',
+        content : 'This pane is the viewer. Scroll on this pane or click and drag up and down using the "Scroll Stack" tool to move through the image stack. ',
+      }, {
+        target  : '#dicom_image_tools',
+        position: 'top',
+        content : 'This is the toolbar. Toggle between tools to change how you use the viewer. Use "Select Area" to select an area to black out PHI.'
+      }, {
+        target  : '#scans_save_toolbar',
+        position: 'center-top',
+        content : 'When you have completed your review, use these controls to save or remove your changes to each scan, or mark it okay as is.'
+      }]);
+
+    $('#show_div_tour').on('click', function(e) {
+        e.preventDefault();
+        anno2.show();
+    })
 }
 
 function _UI() {
@@ -638,6 +670,178 @@ function generate_anon_script_warning(xnat_server, project_id, user_settings) {
     })
 }
 
+// ====================================================================================================
+// ====================================================================================================
+$(document).on('change', '#var_subject', async function(e){
+    let project_id = $('#var_project').val();
+    let subject_id = $(this).find('option:selected').eq(0).data('subject_id');
+
+    console.log({project_id, subject_id});
+
+    if (!subject_id) {
+        return
+    }
+
+
+    $('.project-subject-visits-holder').hide()
+    $('.datatypes-holder').hide()
+    $('.subtypes-holder').hide()
+
+    try {
+        const xnat_api = new XNATAPI(xnat_server, user_auth)
+        const sorted_visits = await xnat_api.project_subject_visits(project_id, subject_id)
+
+        console.log({sorted_visits});
+
+        $('#visit').html('');
+        $('#var_visit').val('');
+        $('#var_visit_label').val('');
+
+        if (sorted_visits.length === 0) {
+            $('.project-subject-visits-holder').hide();
+        } else {
+
+            sorted_visits.forEach(append_visit_row);
+
+            $('.project-subject-visits-holder').show();
+            select_link_for_item('visit', ['visit_id'], 'visit_prm');
+        }
+        
+    } catch(err) {
+        handle_error(err)
+    }
+
+});
+
+$(document).on('click', 'a[data-visit_id]', async function(e){
+    $(this).closest('ul').find('a').removeClass('selected');
+    $(this).addClass('selected');
+
+    let project_id = $('#var_project').val();
+    let visit_id = $(this).data('visit_id');
+
+    // set Review data
+    $('#var_visit_label').val(get_form_value('visit_id', 'visit_label'));
+    $('#var_visit').val(visit_id);
+
+    $('.datatypes-holder').hide()
+    $('.subtypes-holder').hide()
+
+    try {
+        const xnat_api = new XNATAPI(xnat_server, user_auth)
+        const sorted_types = await xnat_api.project_visit_datatypes(project_id, visit_id)
+        console.log({sorted_types});
+
+        $('#datatype').html('');
+        $('#var_datatype').val('');
+
+        if (sorted_types.length === 0) {
+            $('.datatypes-holder').hide();
+
+            swal({
+                title: `Error`,
+                text: `No datatypes for this visit`,
+                icon: "error",
+                dangerMode: true
+            })
+        } else {
+            sorted_types.forEach(append_datatype_row);
+            $('.datatypes-holder').show();
+
+            select_link_for_item('datatype', ['datatype'], 'datatype_prm');
+        }
+        
+    } catch(err) {
+        handle_error(err)
+    }
+    
+});
+
+$(document).on('click', 'a[data-datatype]', async function(e){
+    $(this).closest('ul').find('a').removeClass('selected');
+    $(this).addClass('selected')
+
+    let project_id = $('#var_project').val();
+    let visit_id   = $('#var_visit').val();
+    let datatype   = $(this).data('datatype');
+
+    $('#var_datatype').val(datatype);
+
+    $('.subtypes-holder').hide()
+
+    try {
+        const xnat_api = new XNATAPI(xnat_server, user_auth)
+        const subtypes = await xnat_api.project_visit_subtypes(project_id, visit_id, datatype)
+        console.log({subtypes});
+
+        $('#subtype').html('');
+        $('#var_subtype').val('');
+
+        if (subtypes.length === 0) {
+            $('.subtypes-holder').hide();
+        } else {
+            subtypes.forEach(append_subtype_row);
+            $('.subtypes-holder').show();
+            select_link_for_item('subtype', ['subtype'], 'subtype_prm');
+        }
+        
+    } catch(err) {
+        handle_error(err)
+    }
+
+});
+
+$(document).on('click', 'a[data-subtype]', async function(e){
+    $(this).closest('ul').find('a').removeClass('selected');
+    $(this).addClass('selected')
+
+    // set Review data
+    $('#var_subtype').val(get_form_value('subtype', 'subtype'));
+
+    const label = await experiment_label_with_api()
+});
+
+// ====================================================================================================
+function append_visit_row(visit){
+    let vt = visit.type ? visit.type : 'ad hoc';
+    let label = `${visit.name} (${vt})`;
+    $('#visit').append(`
+        <li>
+            <a href="javascript:void(0)"
+                data-visit_id="${visit.id}"
+                data-visit_name="${visit.name}"
+                data-visit_type="${vt}"
+                data-visit_label="${label}">
+                ${label}<span class="meta_key">ID: ${visit.id}</span>
+            </a>
+        </li>
+    `)
+}
+
+function append_datatype_row(datatype){
+    $('#datatype').append(`
+        <li>
+            <a href="javascript:void(0)"
+                data-datatype="${datatype.xsitype}"
+                data-modality="${datatype.modality}">
+                ${datatype.name}
+            </a>
+        </li>
+    `)
+}
+
+function append_subtype_row(subtype){
+    $('#subtype').append(`
+        <li>
+            <a href="javascript:void(0)"
+                data-subtype="${subtype}">
+                ${subtype}
+            </a>
+        </li>
+    `)
+}
+// ====================================================================================================
+// ====================================================================================================
 
 
 $(document).on('click', '.js_next:not(.disabled)', function() {
@@ -1099,7 +1303,7 @@ $(document).on('shown.bs.modal', '#session-selection', function(e) {
 
 function generate_subject_dropdown(selected_id = false) {
     let subject_options = project_settings.subjects.map(function(subject) {
-        return `<option value="${subject.label}" data-subject_ID="${subject.ID}" 
+        return `<option value="${subject.label}" data-subject_id="${subject.ID}" 
             ${(subject.ID === selected_id ? 'selected' : '')}>
             ${subject.label}${(subject.group ? ` (Group: ${subject.group})`: '')}
             </option>`;
@@ -1346,7 +1550,7 @@ function selected_sessions_display_data(session_map, session_ids, project_subjec
         
         let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
 
-        let studyDate = getStudyDate(cur_session.date);
+        let studyDate = normalizeDateString(cur_session.date);
 
         let session_data = {
             id: key,
@@ -1452,11 +1656,15 @@ function select_session_id(_session) {
     console.log(selected_session.modality);
     console.log(selected_session.studyInstanceUid);
 
+    if (selected_session.date) {
+        $('#image_session_date').val(selected_session.date);
+    }
+
     let expt_label = experiment_label();
     
     $('#experiment_label').val(expt_label);
 
-    let studyDate = getStudyDate(selected_session.date, selected_session.time) || 'N/A'
+    let studyDate = normalizeDateTimeString(selected_session.date, selected_session.time) || 'N/A'
     
     let modality_str = (all_modalities.length > 1 ? "Modalities: " : "Modality: ") + all_modalities.join(', ');
 
@@ -1517,7 +1725,7 @@ $.queuer = {
     _timer: null,
     _queue: [],
     add: function(fn, context, time) {
-        var setTimer = function(time) {
+        let setTimer = function(time) {
             $.queuer._timer = setTimeout(function() {
                 time = $.queuer.add();
                 if ($.queuer._queue.length) {
@@ -1534,7 +1742,7 @@ $.queuer = {
             return;
         }
 
-        var next = $.queuer._queue.shift();
+        let next = $.queuer._queue.shift();
         if (!next) {
             return 0;
         }
@@ -1559,15 +1767,6 @@ function getSizeAsPromised(pth) {
             }
         });
     });
-}
-
-// TODO - remove (not used)
-function dicomParseMime(_files) {
-    let mime_types = [];
-    for (let i = 0; i < _files.length; i++) {
-        let file = _files[i]
-        console.log(path.basename(file) + ':' + mime.lookup(file));
-    }
 }
 
 function dicomParse(_files, root_path) {
@@ -1647,6 +1846,9 @@ function dicomParse(_files, root_path) {
                             // ++++
 
                             // ***********
+                            const NumberOfFrames = parseInt(dicom.string('x00280008'));
+                            const InstanceNumber = parseInt(dicom.string('x00200013'));
+                            // ***********
                             const PatientName = dicom.string('x00100010'); // PatientName
                             const PatientID = dicom.string('x00100020'); // PatientID
                             // ***********
@@ -1695,6 +1897,8 @@ function dicomParse(_files, root_path) {
                                     filepath: file,
                                     filename: file_name,
                                     filesize: file_size,
+                                    frames: NumberOfFrames,
+                                    order: InstanceNumber,
                                     seriesDescription: seriesDescription,
                                     seriesInstanceUid: seriesInstanceUid,
                                     seriesNumber: seriesNumber,
@@ -1748,7 +1952,7 @@ function dicomParse(_files, root_path) {
             
             let sep = "\n------ ";
             cur_session.scans.forEach(function(scan, key) {
-                var total_size = scan.reduce(function(prevVal, elem) {
+                let total_size = scan.reduce(function(prevVal, elem) {
                     return prevVal + elem.filesize;
                 }, 0);
 
@@ -1849,7 +2053,7 @@ function dicomParse(_files, root_path) {
                     //     stud_id: cur_session.studyId
                     // })
 
-                    let studyDate = getStudyDate(cur_session.date);
+                    let studyDate = normalizeDateString(cur_session.date);
 
                     let session_data = {
                         id: key,
@@ -1886,98 +2090,9 @@ function dicomParse(_files, root_path) {
 
 }
 
-function getStudyDate(date_string, time_string = false) {
-    if (!date_string) {
-        return false;
-    } else {
-        let only_numbers = date_string.replace(/[^\d]/g, '');
 
-        let _date = `${only_numbers.substr(0, 4)}-${only_numbers.substr(4, 2)}-${only_numbers.substr(6, 2)}`
-
-        if (time_string) {
-            _date += ' ' + getStudyTime(time_string);
-        }
-
-        return _date;
-    }
-}
-
-function getStudyTime(time_string) {
-    if (!time_string) {
-        return false;
-    } else {
-        time_string = time_string.replace(/[^\d]/g, '');
-
-        return `${time_string.substr(0, 2)}:${time_string.substr(2, 2)}:${time_string.substr(4, 2)}`;
-    }
-}
-
-function generate_experiment_label(_subject_id, _selected_series, _pet_tracer, _custom_pet_tracer) {
-    let upload_modalities_index = _selected_series.reduce((allModalities, row) => {
-        if (PRIMARY_MODALITIES.indexOf(row.modality) !== -1) {
-            if (allModalities.hasOwnProperty(row.modality)) {
-                allModalities[row.modality]++;
-            } else {
-                allModalities[row.modality] = 1;
-            }
-        }
-        
-        return allModalities;
-    }, {});
-
-
-    let upload_modalities = Object.keys(upload_modalities_index);
-
-    let modality = '';
-
-    if (upload_modalities.indexOf('PT') >= 0) {
-        modality = _pet_tracer === 'OTHER' ? _custom_pet_tracer : _pet_tracer;
-    } else if (upload_modalities.length == 1) {
-        modality = upload_modalities[0];
-    } else {
-        //remove OT from upload_modalities_index
-        delete upload_modalities_index['OT'];
-
-        // chose most frequent modality (with most series)
-        let greatest_mod_value = 0;
-        for (let mod in upload_modalities_index) {
-            if (upload_modalities_index[mod] > greatest_mod_value) {
-                greatest_mod_value = upload_modalities_index[mod]
-                modality = mod
-            }
-        }
-    }
-
-
-    /* ***************** */
-    let expt_label = _subject_id.split(' ').join('_') + '_' + modality + '_';
-    for (let i = 1; i < 100000; i++) {
-        let my_expt_label = expt_label + i;
-        if (project_settings.computed.experiment_labels.indexOf(my_expt_label) === -1) {
-            project_settings.computed.experiment_labels.push(expt_label)
-            expt_label = my_expt_label;
-            break;
-        }
-    }
-
-    console.log('EXPT_LABEL_NEW', expt_label);
-
-    return expt_label;
-
-}
-
-function experiment_label() {
-    const _subject_id = $('#var_subject').val();
-    const _selected_series = $('#image_session').bootstrapTable('getSelections');
-    const _pet_tracer = $('#pet_tracer').length ? $('#pet_tracer').val() : '';
-    const _custom_pet_tracer = ('' + $('#custom_pet_tracer').val()).trim().split(' ').join('_'); // ???
-
-    return generate_experiment_label(_subject_id, _selected_series, _pet_tracer, _custom_pet_tracer)
-}
-
-
-async function storeUpload(url_data, session_id, series_ids, anon_variables) {
-    console.log('==== anon_variables ====', anon_variables);
+async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
+    console.log('==== anon_variables ====', _anon_variables);
     
     let project_id = url_data.project_id;
 
@@ -2034,14 +2149,14 @@ async function storeUpload(url_data, session_id, series_ids, anon_variables) {
         
     });
 
-    let studyDate = getStudyDate(selected_session.date) || '';
-    let studyTime = getStudyTime(selected_session.time) || '';
+    let studyDate = normalizeDateString(selected_session.date) || '';
+    let studyTime = normalizeTimeString(selected_session.time) || '';
 
 
     let upload_digest = {
         id: Helper.uuidv4(),
         url_data: url_data,
-        anon_variables: anon_variables,
+        anon_variables: _anon_variables,
         session_id: session_id,
         session_data: {
             studyId: selected_session.studyId,
@@ -2147,20 +2262,20 @@ function user_defined_pet_tracers(settings) {
 
 
 function get_pet_tracers(project_pts, server_pts, user_defined_pts) {
-    let pet_tracers;
+    let _pet_tracers;
     if (project_pts !== false) {
-        pet_tracers = project_pts
+        _pet_tracers = project_pts
     } else if (server_pts.length) {
-        pet_tracers = server_pts
+        _pet_tracers = server_pts
     } else {
-        pet_tracers = user_defined_pts;
+        _pet_tracers = user_defined_pts;
     }
 
-    if (!pet_tracers.includes('OTHER')) {
-        pet_tracers.push('OTHER')
+    if (!_pet_tracers.includes('OTHER')) {
+        _pet_tracers.push('OTHER')
     }
 
-    return pet_tracers;
+    return _pet_tracers;
 }
 
 
@@ -2217,6 +2332,36 @@ const summary_add = (text, label = '') => {
     $('#summary_info').append(`<p>${label_html} ${text}</p>`);
 }
 
+const PROJECT_PARAM = 'project';
+const SUBJECT_PARAM = 'subject';
+const VISIT_PARAM = 'visit';
+const DATATYPE_PARAM = 'datatype';
+const SUBTYPE_PARAM = 'protocol';
+
+ipc.on('launch_upload', function(e, data){
+    const params = data.PARAMS;
+    if (!params.hasOwnProperty(PROJECT_PARAM)) {
+        return;
+    }
+    $('#project_prm').val(params[PROJECT_PARAM]);
+    if (!params.hasOwnProperty(SUBJECT_PARAM)) {
+        return;
+    }
+    $('#subject_prm').val(params[SUBJECT_PARAM]);
+    if (!params.hasOwnProperty(VISIT_PARAM)) {
+        return;
+    }
+    $('#visit_prm').val(params[VISIT_PARAM]);
+    if (!params.hasOwnProperty(DATATYPE_PARAM)) {
+        return;
+    }
+    $('#datatype_prm').val(params[DATATYPE_PARAM]);
+    if (!params.hasOwnProperty(SUBTYPE_PARAM)) {
+        return;
+    }
+    $('#subtype_prm').val(params[SUBTYPE_PARAM]);
+});
+
 ipc.on('custom_upload_multiple:generate_exp_label',function(e, row){
     const series_data = get_session_series(session_map.get(row.id))
 
@@ -2234,3 +2379,172 @@ ipc.on('custom_upload_multiple:generate_exp_label',function(e, row){
 
     console.log({row, series_data});
 })
+
+function select_link_for_item(ulid, attrs, targetid) {
+    const $target = $('#' + targetid);
+    if ($target.length === 0) {
+        return;
+    }
+    const val = $target.val();
+    if (!val) {
+        return;
+    }
+    $target.val('');
+    for (let i = 0; i < attrs.length; i++) {
+        let attr = attrs[i];
+        let $link = $('#' + ulid + ' a[data-' + attr + '=' +  $.escapeSelector(val) + ']');
+        if ($link.length > 0) {
+            $link.get(0).scrollIntoView();
+            $link.click();
+        }
+    }
+}
+
+
+
+// =======================================================================
+// ================ EXPERIMENT LABELS ====================================
+// =======================================================================
+
+// single - helper
+function selected_modality_string(selected_series) {
+	// CALCULATED
+	return selected_series.reduce((agg, item) => {
+	  if (!agg.includes(item.modality)) {
+		  agg += item.modality
+	  }
+	  
+	  return agg
+	}, '')
+}
+
+
+// single
+async function experiment_label_api(project_id, subject_id, visit_id, subtype, session_date, selected_modality, selected_series, xnat_api) {
+	// CALCULATED
+	const full_modality = selected_modality_string(selected_series)
+
+	// validation - Mismatched modality
+	if (selected_modality && selected_modality != full_modality && selected_series.length) {
+		throw new Error('ModalityMismatch')
+	}
+
+	try {
+		const expt_label = await xnat_api.project_experiment_label(project_id, subject_id, visit_id, subtype, session_date, full_modality)
+
+		return expt_label ? expt_label : false
+		
+	} catch (err) {
+		if (err.response && err.response.status === 400) {
+			throw err        
+        }
+		
+		return false
+	}
+}
+
+// single
+async function generate_experiment_label_api() {
+	const project_id = $('#var_project').val();
+	const subject_id = $('#var_project option:selected').eq(0).data('subject_id');
+	const visit_id = $('#var_visit').val();
+	const subtype = $('#var_subtype').val();
+	const session_date = $('#image_session_date').val();
+	const selected_modality = get_form_value('datatype', 'modality'); // datatype
+	const selected_series = $('#image_session').bootstrapTable('getSelections');
+
+	const xnat_api = new XNATAPI(xnat_server, user_auth)
+	
+	try {
+		const exp_label = await experiment_label_api(project_id, subject_id, visit_id, subtype, session_date, selected_modality, selected_series, xnat_api)
+		
+		return exp_label === false ? generate_experiment_label_single() : exp_label
+		
+	} catch(err) {
+		if (err.message === 'ModalityMismatch') {
+			// CALCULATED
+			const full_modality = selected_modality_string(selected_series)
+			
+			swal({
+				title: "Mismatched modality",
+				text: `You are trying to upload ${full_modality} data after indicating that you were going to upload ${selected_modality} data.`,
+				icon: "error",
+				button: "Okay",
+			}).then(proceed => {
+				// resetSubsequentTabs();
+				//$('a[href="#nav-project"]').click();
+			});
+			
+		} else if (err.response && err.response.status === 400 && show_unable_to_set_session_label_warning === 0) {
+			show_unable_to_set_session_label_warning++
+			swal({
+				title: `Warning: unable to set session label per project protocol labeling template`,
+				text: 'Unable to set session label per protocol template: ' + err.response.data + '. Reverting to default labeling.',
+				icon: "warning",
+				button: 'OK',
+				dangerMode: true
+			})
+			
+			return generate_experiment_label_single()
+		} else {
+			throw err
+		}
+	}
+	
+}
+
+// single
+function generate_experiment_label_single() {
+	const subject_label = $('#var_subject').val()
+    const selected_series = $('#image_session').bootstrapTable('getSelections')
+    const pet_tracer = $('#pet_tracer').length ? $('#pet_tracer').val() : ''
+    const custom_pet_tracer = ('' + $('#custom_pet_tracer').val()).trim().split(' ').join('_')
+
+	return generate_experiment_label(subject_label, selected_series, pet_tracer, custom_pet_tracer)
+}
+
+// single and bulk
+function generate_experiment_label(_subject_label, _selected_series, _pet_tracer, _custom_pet_tracer) {
+	const data = {
+		subject_label: _subject_label,
+		selected_series: _selected_series,
+		pet_tracer: _pet_tracer,
+		custom_pet_tracer: _custom_pet_tracer
+	};
+	
+	const exp_label = new ExperimentLabel(data, project_settings.computed.experiment_labels);
+
+	return exp_label.generateLabel()
+}
+
+// single
+async function experiment_label_with_api() {
+	const expt_label = await generate_experiment_label_api()
+	
+	if (expt_label) {
+		console.log('EXPT_LABEL_NEW_1', expt_label);
+		
+		// project_settings.computed.experiment_labels.push(expt_label)
+		
+        $('#experiment_label').val(expt_label);
+	}
+}
+
+// bulk
+function experiment_label() {
+	try {
+		const expt_label = generate_experiment_label_single()
+		console.log('EXPT_LABEL_NEW_2', expt_label);
+		
+		project_settings.computed.experiment_labels.push(expt_label)
+		
+		return expt_label
+	} catch(err) {
+		swal({
+			title: `Experiment Label Error`,
+			text: err.message,
+			icon: "error",
+			dangerMode: true
+		})
+	}
+}

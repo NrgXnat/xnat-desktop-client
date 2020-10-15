@@ -6,6 +6,7 @@ const path = require('path');
 const axios = require('axios');
 const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
+const isRetryAllowed = require('is-retry-allowed');
 require('promise.prototype.finally').shim();
 
 const ElectronStore = require('electron-store');
@@ -25,7 +26,6 @@ const XNATAPI = require('../services/xnat-api')
 const db_uploads = remote.require('./services/db/uploads')
 
 const { console_red } = require('../services/logger');
-//function console_red() {}
 
 const electron_log = remote.require('./services/electron_log');
 
@@ -34,11 +34,14 @@ const user_settings = require('../services/user_settings');
 const nedb_logger = remote.require('./services/db/nedb_logger')
 
 const { copy_anonymize_zip } = require('../services/upload/copy_anonymize_zip');
+const { isEmptyObject, promiseSerial } = require('../services/app_utils')
+const { MizerError } = require('../services/errors');
+
+const { uuidv4 } = require('./../services/app_utils');
+
 
 let summary_log = {};
-
 let transfer_progress = [];
-
 let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
 
 const appMetaData = require('../package.json');
@@ -333,7 +336,7 @@ function do_transfer(source_series_id = 'initial', source_upload_success = true)
 }
 
 function set_transfer_totals_summary(transfer) {
-    if (!transfer.summary || emptyObject(transfer.summary)) {
+    if (!transfer.summary || isEmptyObject(transfer.summary)) {
 
         let total_files = transfer.series.reduce((total, ss) => {
             return ss.length + total
@@ -393,6 +396,19 @@ async function doUpload(transfer, series_id) {
     .then(scripts => {
         console_log(scripts);
 
+        let pixel_anon_series = transfer.pixel_anon.find(sd => series_id === sd.series_id)
+        if (pixel_anon_series) {
+            let series_script = mizer.generateAlterPixelCode(pixel_anon_series.rectangles);
+            if (series_script.length) {
+                scripts.push(series_script)
+                console.log('************** AFTER ======');
+                scripts.forEach(scr => {
+                    console.log(scr);
+                })
+                
+            }
+        }
+
         contexts = mizer.getScriptContexts(scripts);
 
         // Convert the JS map anonValues into a Java Properties object.
@@ -421,7 +437,7 @@ function get_temp_upload_path() {
 
 let upload_counter = 0;
 async function copy_and_anonymize(transfer, series_id, filePaths, contexts, variables, csrfToken) {
-    const upload_id = Helper.uuidv4()
+    const upload_id = uuidv4()
     console_red('copy_and_anonymize')
     let _timer = performance.now();
 
@@ -478,7 +494,14 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     /**************************************************** */
     /**************************************************** */
 
-    let {project_id, subject_id, expt_label, overwrite} = transfer.url_data;
+    let { project_id, subject_id, expt_label, visit_id, subtype, overwrite } = transfer.url_data;
+    let qs = '';
+    if (visit_id) {
+        qs += '&VISIT=' + visit_id;
+    }
+    if (subtype) {
+        qs += '&SUBTYPE=' + subtype;
+    }
 
     // if overwrite is undefined
     overwrite = overwrite || 'none'
@@ -490,7 +513,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     let CancelToken = axios.CancelToken;
     let request_settings = {
         method: 'post',
-        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&overwrite=${overwrite}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
+        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}${qs}&overwrite=${overwrite}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
         //url: 'http://localhost:3007',
         adapter: httpAdapter,
         auth: user_auth,
@@ -677,14 +700,16 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                     Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
                     nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
                     
-                    ipc.send('progress_cell', {
-                        table: '#upload_monitor_table',
-                        id: transfer.id,
-                        field: 'status',
-                        value: 'finished'
+                    // have to split this out bc a 301 indicates archival and goes into the catch block, whereas 200 means prearchived so we are in fact finished
+                    db_uploads.updateProperty(transfer.id, 'status', 'finished', function() {
+                        ipc.send('progress_cell', {
+                            table: '#upload_monitor_table',
+                            id: transfer.id,
+                            field: 'status',
+                            value: 'finished'
+                        });
+                        ipc.send('upload_finished', transfer.id);
                     });
-                    
-                    ipc.send('upload_finished', transfer.id);
                 }
             })
             .catch(err => {
@@ -697,29 +722,45 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                     
                     nedb_logger.error(transfer.id, 'upload', error_message, err.response);
 
-                    update_transfer_summary(transfer.id, 'commit_errors', error_message);
+                    db_uploads.updateProperty(transfer.id, 'status', 'xnat_error', function() {
+                        update_transfer_summary(transfer.id, 'commit_errors', error_message);
+                    
+                        ipc.send('progress_cell', {
+                            table: '#upload_monitor_table',
+                            id: transfer.id,
+                            field: 'status',
+                            value: 'xnat_error'
+                        });
+                        
+                        ipc.send('upload_finished', transfer.id);
+                    });
                 } else {
                     console_log(`+++ SESSION ARCHIVED +++`);
                     
                     session_link = `${xnat_server}/data/archive/projects/${project_id}/subjects/${subject_id}/experiments/${expt_label}?format=html`
                     
-                    db_uploads._updateProperty(transfer.id, 'session_link', session_link)
-                        .then(num_updated => {
-                            console_red('num_updated 2', {num_updated})
-                            if (num_updated) {
-                                Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
-                                nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
-                                
-                                ipc.send('progress_cell', {
-                                    table: '#upload_monitor_table',
-                                    id: transfer.id,
-                                    field: 'status',
-                                    value: 'finished'
-                                });
-
-                                ipc.send('upload_finished', transfer.id);
+                    db_uploads().update(
+                        { id: transfer.id }, 
+                        { 
+                            $set: { 
+                                status: 'finished',
+                                session_link: session_link
                             }
-                        });
+                        }, 
+                        function() {
+                            Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
+                            nedb_logger.success(transfer.id, 'upload', `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
+                            
+                            ipc.send('progress_cell', {
+                                table: '#upload_monitor_table',
+                                id: transfer.id,
+                                field: 'status',
+                                value: 'finished'
+                            });
+                            
+                            ipc.send('upload_finished', transfer.id);
+                        }
+                    );
                 }
             })
             .finally(() => {
@@ -738,66 +779,8 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         respawn_transfer(transfer.id, series_id, true)
     })
     .catch(err => {
-        // TODO - REFACTOR (DUPLICATED CODE BELOW)
-        let log_and_respawn = true;
-        let stream_upload_error = false;
-        let authentication_error = false;
-
-        if (axios.isCancel(err)) {
-            console_red('upload canceled error: cancelCurrentUpload', err);
-
-            if (err.message === 'cancel_many') {
-                log_and_respawn = false;
-            }
-        } else {
-            console_red('upload error 2', {err});
-
-            // critical error message 
-            let err_msg_search = 'File posts must include the file directly as the body of the message';
-            if (err.response && err.response.status === 400 && err.response.data.indexOf(err_msg_search) > 0) {
-                log_and_respawn = false;
-                stream_upload_error = true;
-            } else if (err.response.status === 401) {
-                log_and_respawn = false;
-                authentication_error = true;
-            }
-        }
-        
-        remove_cancel_token(transfer.id, series_id)
-        _queue_.remove(transfer.id, series_id);
-
-        if (log_and_respawn) {
-            update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
-                respawn_transfer(transfer.id, series_id, false)
-            });
-        }
-
-        if (stream_upload_error) {
-            _queue_.remove_many(transfer.id);
-            execute_cancel_token(transfer.id);
-            ipc.send('global_pause_status', true);
-            ipc.send('xnat_cant_handle_stream_upload');
-        }
-
-        if (authentication_error) {
-            _queue_.remove_many(transfer.id);
-            execute_cancel_token(transfer.id);
-            ipc.send('force_reauthenticate', auth.current_login_data());
-        }
-        
+        handleUploadError(transfer, series_id, err)
     });
-
-    function respawn_transfer(transfer_id, series_id, success) {
-        console_red('respawn_transfer', {transfer_id, series_id})
-
-        do_transfer(series_id, success);
-
-        // let _time_took = ((performance.now() - upload_timer) / 1000).toFixed(2);
-        // update_transfer_summary(transfer_id, 'timer_upload', _time_took, function() {
-        //     //_queue_.remove(transfer_id, series_id);
-        //     do_transfer(series_id, success);
-        // });
-    }
 
     /**************************************************** */
     /**************************************************** */
@@ -808,10 +791,10 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     function copyAnonArchive(source) {
         return function() {
             return new Promise((resolve, reject) => {
-                let target = path.join(new_dirpath, Helper.uuidv4());
+                let target = path.join(new_dirpath, uuidv4());
 
                 while (fs.existsSync(target)) {
-                    target = path.join(new_dirpath, Helper.uuidv4());
+                    target = path.join(new_dirpath, uuidv4());
                 }
 
                 let readStream = fs.createReadStream(source);
@@ -858,9 +841,13 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                         console.log(error.message);
                         electron_log.error(error)
                         electron_log.error(error.message)
-                        
     
-                        resolve(source)
+                        if (mizer.isMizerError(error.message)) {
+                            console_red('MizerError')
+                            reject(new MizerError(error.message, source));
+                        } else {
+                            resolve(source)
+                        }
                         /*
                         response.copy_error.push({
                             file: source,
@@ -883,11 +870,16 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         //archive.finalize(); // TODO REMOVE THIS LINE
         archive.abort() // removing any pending queue tasks, ends both sides of the Transform stream
         // todo ... axios thinks everything is OK ... thinks the stream ended without a problem so we cancel it
-        cancelCurrentUpload('cancel_single');
+
+        if (err instanceof MizerError) {
+            cancelCurrentUpload(err);
+        } else {
+            cancelCurrentUpload('cancel_single');
+        }
     }
 
     // execute Promises in serial
-    Helper.promiseSerial(funcs)
+    promiseSerial(funcs)
     .then((copy_errors) => {
         console_red('anon finished 1', {copy_errors})
 
@@ -895,7 +887,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             // ===== Attempt 2
             const funcs2 = copy_errors.map(copyAnonArchive);
 
-            Helper.promiseSerial(funcs2)
+            promiseSerial(funcs2)
             .then((copy_errors2) => {
                 console_red('anon finished 2', {copy_errors2})
 
@@ -903,7 +895,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                     // ===== Attempt 3
                     const funcs3 = copy_errors2.map(copyAnonArchive);
 
-                    Helper.promiseSerial(funcs3)
+                    promiseSerial(funcs3)
                     .then((copy_errors3) => {
                         console_red('anon finished 3', {copy_errors3})
 
@@ -930,6 +922,108 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     }).catch(promiseSerialErrorHandler);
 
 }
+
+function handleUploadError(transfer, series_id, err) {
+    let log_and_respawn = true;
+    let stream_upload_error = false;
+    let authentication_error = false;
+    let mizer_error = false;
+    let non_retriable_error = false;
+
+    if (err instanceof MizerError) {
+        log_and_respawn = false;
+        mizer_error = err;
+    } else if (axios.isCancel(err)) {
+        console_red('upload canceled error: cancelCurrentUpload', err);
+
+        if (err.message === 'cancel_many') {
+            log_and_respawn = false;
+        } else if (err.message instanceof MizerError) {
+            log_and_respawn = false;
+            mizer_error = err.message;
+        }
+    } else {
+        console_red('upload error 2', {err});
+
+        // critical error message 
+        let err_msg_search = 'File posts must include the file directly as the body of the message';
+        if (err.response && err.response.status === 400 && err.response.data.indexOf(err_msg_search) > 0) {
+            log_and_respawn = false;
+            stream_upload_error = true;
+        } else if (err.response && err.response.status === 401) {
+            log_and_respawn = false;
+            authentication_error = true;
+        } else if (!isRetryAllowed(err)) {
+            log_and_respawn = false;
+            non_retriable_error = true;
+        }
+    }
+    
+    remove_cancel_token(transfer.id, series_id)
+    _queue_.remove(transfer.id, series_id);
+
+    if (log_and_respawn) {
+        update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
+            respawn_transfer(transfer.id, series_id, false)
+        });
+    } else {
+        _queue_.remove_many(transfer.id);
+        execute_cancel_token(transfer.id);
+
+        if (stream_upload_error) {
+            ipc.send('global_pause_status', true);
+            ipc.send('xnat_cant_handle_stream_upload');
+        } else if (authentication_error) {
+            ipc.send('force_reauthenticate', auth.current_login_data());
+        } else if (mizer_error) {
+            db_uploads().update(
+                { id: transfer.id }, 
+                {
+                    $set: {
+                        canceled: true, 
+                        status: 'xnat_error',
+                        last_error: mizer_error.message
+                    }
+                }, 
+                function(nedb_err, num) {
+                    if (nedb_err) throw nedb_err;
+
+                    nedb_logger.error(transfer.id, 'upload', `Anonymization error: ${mizer_error.file}`, {data: mizer_error.message});
+
+                    let subtitle = `An error occured while trying to anonymize a file:\n${mizer_error.file}.\nSession: ${transfer.url_data.expt_label}\n\nTransfer was canceled.`
+                    ipc.send('custom_error_with_details', 'Anonymization Error', subtitle, mizer_error.message)
+
+                    ipc.send('upload_finished', transfer.id);
+                    ipc.send('refresh_progress_tables');
+                }
+            );
+        } else if (non_retriable_error) {
+            db_uploads().update(
+                { id: transfer.id }, 
+                {
+                    $set: {
+                        canceled: true, 
+                        status: 'xnat_error',
+                        last_error: `${err.code}: ${err.message}`
+                    }
+                }, 
+                function(nedb_err, num) {
+                    if (nedb_err) throw nedb_err;
+
+                    nedb_logger.error(transfer.id, 'upload', `Non retriable request error`, {
+                        data: `${err.code}: [URL: ${err.config.url}] ${err.message}`
+                    });
+
+                    let subtitle = `Request error occurred.\nURL:${err.config.url}\nError code: ${err.code}\nSession: ${transfer.url_data.expt_label}\n\nTransfer was canceled.`
+
+                    ipc.send('custom_error_with_details', 'API Request Error', subtitle, err.message)
+                    ipc.send('upload_finished', transfer.id);
+                }
+            );
+        }
+    }
+}
+
 
 async function copy_and_anonymize_zip(transfer, series_id, _files, contexts, variables, csrfToken) {
     let dicom_temp_folder_path = get_temp_upload_path();
@@ -958,6 +1052,7 @@ async function copy_and_anonymize_zip(transfer, series_id, _files, contexts, var
         })
         .catch(err => {
             console.log('FINAL', err)
+            handleUploadError(transfer, series_id, err)
         })
     
 }
@@ -974,7 +1069,14 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
     let CancelToken = axios.CancelToken;
 
 
-    let {project_id, subject_id, expt_label, overwrite} = transfer.url_data;
+    let {project_id, subject_id, expt_label, visit_id, subtype, overwrite} = transfer.url_data;
+    let qs = '';
+    if (visit_id) {
+        qs += '&VISIT=' + visit_id;
+    }
+    if (subtype) {
+        qs += '&SUBTYPE=' + subtype;
+    }
     // if overwrite is undefined
     overwrite = overwrite || 'none'
 
@@ -982,7 +1084,7 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
 
     let request_settings = {
         method: 'post',
-        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}&overwrite=${overwrite}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
+        url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}${qs}&overwrite=${overwrite}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
         auth: user_auth,
         onUploadProgress: function (progressEvent) {
             // Do whatever you want with the native progress event
@@ -1157,7 +1259,7 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
     
                     if (err.response.status != 301) {
                         electron_log.error('commit_error', commit_url, JSON.stringify(err.response))
-                        let error_message = `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`;
+                        let error_message = `Session archival failed (with status code: ${err.response.status} - "${err.response.statusText}").`;
                         
                         nedb_logger.error(transfer.id, 'upload', error_message, err.response);
     
@@ -1202,66 +1304,18 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
             respawn_transfer(transfer.id, series_id, true)
         })
         .catch(err => {
-            // TODO - REFACTOR
-            let log_and_respawn = true;
-            let stream_upload_error = false;
-            let authentication_error = false;
-
-            if (axios.isCancel(err)) {
-                console_red('upload canceled error: cancelCurrentUpload', err);
-
-                if (err.message === 'cancel_many') {
-                    log_and_respawn = false;
-                }
-            } else {
-                console_red('upload error 2', {err});
-
-                // critical error message 
-                let err_msg_search = 'File posts must include the file directly as the body of the message';
-                if (err.response && err.response.status === 400 && err.response.data.indexOf(err_msg_search) > 0) {
-                    log_and_respawn = false;
-                    stream_upload_error = true;
-                } else if (err.response.status === 401) {
-                    log_and_respawn = false;
-                    authentication_error = true;
-                }
-            }
-
-            remove_cancel_token(transfer.id, series_id)
-            _queue_.remove(transfer.id, series_id);
-
-            if (log_and_respawn) {
-                update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
-                    respawn_transfer(transfer.id, series_id, false)
-                });
-            }
-
-            if (stream_upload_error) {
-                _queue_.remove_many(transfer.id);
-                execute_cancel_token(transfer.id);
-                ipc.send('global_pause_status', true);
-                ipc.send('xnat_cant_handle_stream_upload');
-            }
-
-            if (authentication_error) {
-                _queue_.remove_many(transfer.id);
-                execute_cancel_token(transfer.id);
-                ipc.send('force_reauthenticate', auth.current_login_data());
-            }
-            
+            handleUploadError(transfer, series_id, err)
         });
-    
-        function respawn_transfer(transfer_id, series_id, success) {
-            console_red('respawn_transfer', {transfer_id, series_id, success})
-    
-            do_transfer(series_id, success);
-        }
     
         /**************************************************** */
         /**************************************************** */
     });
 }
 
+function respawn_transfer(transfer_id, series_id, success) {
+    console_red('respawn_transfer', {transfer_id, series_id, success})
+    do_transfer(series_id, success);
+}
 
 function mark_uploaded(transfer_id, series_id) {
     console.count('mark_uploaded')
@@ -1285,7 +1339,8 @@ function mark_uploaded(transfer_id, series_id) {
     
             let finished = transfer.table_rows.length - transfer.series_ids.length;
             let total = transfer.table_rows.length;
-            let new_status = finished == total ? 'finished' : finished / total * 100
+            let percent_complete = finished / total * 100
+            let new_status = finished == total ? 'finished' : percent_complete
     
             transfer.status = new_status;
     
@@ -1293,7 +1348,7 @@ function mark_uploaded(transfer_id, series_id) {
                 table: '#upload_monitor_table',
                 id: transfer_id,
                 field: "status",
-                value: (finished / total * 100)
+                value: percent_complete
             });
             
             db_uploads().update({ id: transfer_id }, {$set: {
@@ -1340,8 +1395,6 @@ async function replace_transfer_doc(transfer) {
     let _transfer = Helper.copy_obj(transfer);
     return await db_uploads._replaceDoc(_transfer.id, _transfer);
 }
-
-
 
 function transfer_tpl(transfer) {
     my_transfer = {
@@ -1448,7 +1501,6 @@ async function update_progress_details_zip(transfer, table_row, progress) {
 }
 
 
-
 window.onerror = function (errorMsg, url, lineNumber) {
     electron_log.error(`[Custom Uncaught Error]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)
     console_log('[ERRORRR]:: ' +__filename + ':: ' +  errorMsg);
@@ -1474,17 +1526,6 @@ function summary_add(transfer_id, series_id, text, label = '') {
 }
 
 
-function emptyObject(myObj) {
-    return JSON.stringify(myObj) === '{}'
-}
-
-
-
-
 function _time_offset(start_time) {
     return ((performance.now() - start_time) / 1000).toFixed(2);
 }
-
-
-
-

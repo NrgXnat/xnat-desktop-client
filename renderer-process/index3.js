@@ -4,13 +4,14 @@ const settings = new ElectronStore();
 const ipc = electron.ipcRenderer
 const app = electron.remote.app
 const shell = electron.shell
-const axios = require('axios');
 const isOnline = require('is-online');
 const auth = require('../services/auth');
 const api = require('../services/api');
 const tempDir = require('temp-dir');
 const path = require('path')
 const remote = require('electron').remote;
+
+const ipcEventHandlers = require('../services/ipc-event-handlers')
 
 const { isReallyWritable } = require('../services/app_utils');
 
@@ -27,8 +28,6 @@ electron.crashReporter.start({
 
 
 
-
-
 try {
     let mizer = remote.require('./mizer');
 } catch(e) {
@@ -41,7 +40,6 @@ try {
         throw e;
     }
 }
-
 
 
 
@@ -196,20 +194,21 @@ async function protocol_request(e, url) {
     
                 let last_download_index = url_object.pathname.lastIndexOf('/download/');
                 let last_upload_index = url_object.pathname.lastIndexOf('/upload/');
-                let last_index;
+                let is_upload;
+                let rest_xml = '';
     
                 // is it upload or download
                 if (last_download_index >= 0) {
                     server += url_object.pathname.substr(0, last_download_index);
-                    last_index = last_download_index;
-    
+                    is_upload = false;
+                    rest_xml = server + '/xapi/archive' + url_object.pathname.substr(last_download_index, url_object.pathname.length - last_download_index - 4) + '/xml'
+                // } else if (url_object.pathname.includes('upload')) {
                 } else if (last_upload_index >= 0) {
                     server += url_object.pathname.substr(0, last_upload_index);
-                    last_index = last_upload_index;
-    
+                    is_upload = true;
                 } else {
                     // protocol match, but path is invalid URL not handled
-                    throw_new_error('Invalid Path', `Requested URL: ${url} \ncontains invalid path with neither '/upload/' nor '/download/' segments.`);
+                    throw_new_error('Invalid Path', `Requested URL: ${url_object.pathname.replace('\?.*','')} \ncontains invalid path with neither '/upload' nor '/download' segments.`);
                 }
                 
 
@@ -219,7 +218,7 @@ async function protocol_request(e, url) {
                 let url_params = {};
                 for (let i = 0; i < search_items.length; i++) {
                     search_segments = search_items[i].split('=');
-                    url_params[search_segments[0]] = search_segments[1]
+                    url_params[search_segments[0]] = decodeURIComponent(search_segments[1])
                 }
 
                 if (!url_params.hasOwnProperty('a') || !url_params.hasOwnProperty('s')) {
@@ -255,9 +254,10 @@ async function protocol_request(e, url) {
                     HOST: url_object.host,
                     SERVER: server,
                     USERNAME: real_username,
-                    REST_XML: server + '/xapi/archive' + url_object.pathname.substr(last_index, url_object.pathname.length - last_index - 4) + '/xml',
+                    REST_XML: rest_xml,
                     ALIAS: url_params.a,
-                    SECRET: url_params.s
+                    SECRET: url_params.s,
+                    PARAMS: url_params
                 };
 
                 console_log(url_data);
@@ -281,7 +281,12 @@ async function protocol_request(e, url) {
                 }
 
                 // add ipc send (to home) + plus redirect
-                ipc.send('launch_download_modal', url_data);
+                if (is_upload) {
+                    ipc.send('launch_upload', url_data);
+                } else {
+                    // add ipc send (to home) + plus redirect
+                    ipc.send('launch_download_modal', url_data);
+                }
 
             } catch (err) {
                 var error_obj = parse_error_message(err);
@@ -577,6 +582,8 @@ ipc.on('force_reauthenticate', (e, login_data) => {
 })
 
 ipc.on('handle_protocol_request', protocol_request)
+
+ipc.on('custom_error_with_details', ipcEventHandlers.customErrorWithDetails);
 
 
 window.onerror = function (errorMsg, url, lineNumber) {

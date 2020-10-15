@@ -189,6 +189,51 @@
                                     </div>
 
 
+                                    <!--  -->
+                                    <div class="project-subject-visits-holder">
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <h2 class="section-title search-inline">Select Visit</h2>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="filter-control title-inline">
+                                                    <input type="text" id="visit-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <ul id="visit" class="choose-list"></ul>
+                                    
+                                        <div class="datatypes-holder">
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <h2 class="section-title search-inline">Select datatype</h2>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="filter-control title-inline">
+                                                        <input type="text" id="datatype-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <ul id="datatype" class="choose-list"></ul>
+                                        </div>
+                                    
+                                        <div class="subtypes-holder">
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <h2 class="section-title search-inline">Select subtype</h2>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="filter-control title-inline">
+                                                        <input type="text" id="subtype-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <ul id="subtype" class="choose-list"></ul>
+                                        </div>
+                                    </div>
+                                    <!--  -->
+
+
 
                                     <div class="form-group row" id="experiment_label_container">
                                         <label for="experiment_label" class="col-sm-2 col-form-label">
@@ -484,6 +529,23 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+
+        <!-- REQUIRED FOR... -->
+        <input type="hidden" id="var_visit" value="">
+        <input type="hidden" id="var_datatype" value="">
+        <input type="hidden" id="var_subtype" value="">
+        <input type="hidden" id="image_session_date" value="">
+
+
+        <!-- Params passed through from webapp -->
+        <div class="hidden">
+            <input type="hidden" id="project_prm" value="">
+            <input type="hidden" id="subject_prm" value="">
+            <input type="hidden" id="visit_prm" value="">
+            <input type="hidden" id="datatype_prm" value="">
+            <input type="hidden" id="subtype_prm" value="">
         </div>
 
 
