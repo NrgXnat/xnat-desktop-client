@@ -64,7 +64,7 @@
     "is-retry-allowed": "^1.2.0",
     "is-symlink": "^1.0.0",
     "java": "^0.12.1",
-    "jquery": "^3.3.1",
+    "jquery": "^3.5.0",
     "jquery.scrollintoview": "^1.9.4",
     "lodash": "^4.17.5",
     "lokijs": "^1.5.3",
