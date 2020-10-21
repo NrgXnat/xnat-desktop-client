@@ -1710,11 +1710,6 @@ function select_session_id(_session) {
     $('#nav-verify').data('upload_method', 'custom_upload');
 }
 
-$(document).on('click', 'button[data-session_id]', function(e){
-    select_session_id($(this).data('session_id'));
-    $('#session-selection').modal('hide');
-});
-
 function get_form_value(field, data) {
     let $field = $(`a[data-${field}].selected`);
     return $field.length ? $field.data(data) : '';
@@ -2407,7 +2402,7 @@ function select_link_for_item(ulid, attrs, targetid) {
 // =======================================================================
 
 // single - helper
-function selected_modality_string(selected_series) {
+function __selected_modality_string(selected_series) {
 	// CALCULATED
 	return selected_series.reduce((agg, item) => {
 	  if (!agg.includes(item.modality)) {
@@ -2420,9 +2415,9 @@ function selected_modality_string(selected_series) {
 
 
 // single
-async function experiment_label_api(project_id, subject_id, visit_id, subtype, session_date, selected_modality, selected_series, xnat_api) {
+async function __experiment_label_api(project_id, subject_id, visit_id, subtype, session_date, selected_modality, selected_series, xnat_api) {
 	// CALCULATED
-	const full_modality = selected_modality_string(selected_series)
+	const full_modality = __selected_modality_string(selected_series)
 
 	// validation - Mismatched modality
 	if (selected_modality && selected_modality != full_modality && selected_series.length) {
@@ -2444,9 +2439,9 @@ async function experiment_label_api(project_id, subject_id, visit_id, subtype, s
 }
 
 // single
-async function generate_experiment_label_api() {
+async function __generate_experiment_label_api() {
 	const project_id = $('#var_project').val();
-	const subject_id = $('#var_project option:selected').eq(0).data('subject_id');
+	const subject_id = $('#var_subject option:selected').eq(0).data('subject_id');
 	const visit_id = $('#var_visit').val();
 	const subtype = $('#var_subtype').val();
 	const session_date = $('#image_session_date').val();
@@ -2456,14 +2451,14 @@ async function generate_experiment_label_api() {
 	const xnat_api = new XNATAPI(xnat_server, user_auth)
 	
 	try {
-		const exp_label = await experiment_label_api(project_id, subject_id, visit_id, subtype, session_date, selected_modality, selected_series, xnat_api)
+		const exp_label = await __experiment_label_api(project_id, subject_id, visit_id, subtype, session_date, selected_modality, selected_series, xnat_api)
 		
-		return exp_label === false ? generate_experiment_label_single() : exp_label
+		return exp_label === false ? __generate_experiment_label_single() : exp_label
 		
 	} catch(err) {
 		if (err.message === 'ModalityMismatch') {
 			// CALCULATED
-			const full_modality = selected_modality_string(selected_series)
+			const full_modality = __selected_modality_string(selected_series)
 			
 			swal({
 				title: "Mismatched modality",
@@ -2485,7 +2480,7 @@ async function generate_experiment_label_api() {
 				dangerMode: true
 			})
 			
-			return generate_experiment_label_single()
+			return __generate_experiment_label_single()
 		} else {
 			throw err
 		}
@@ -2494,7 +2489,7 @@ async function generate_experiment_label_api() {
 }
 
 // single
-function generate_experiment_label_single() {
+function __generate_experiment_label_single() {
 	const subject_label = $('#var_subject').val()
     const selected_series = $('#image_session').bootstrapTable('getSelections')
     const pet_tracer = $('#pet_tracer').length ? $('#pet_tracer').val() : ''
@@ -2519,27 +2514,42 @@ function generate_experiment_label(_subject_label, _selected_series, _pet_tracer
 
 // single
 async function experiment_label_with_api() {
-	const expt_label = await generate_experiment_label_api()
+    try {
+        const expt_label = await __generate_experiment_label_api()
 	
-	if (expt_label) {
-		console.log('EXPT_LABEL_NEW_1', expt_label);
-		
-		// project_settings.computed.experiment_labels.push(expt_label)
-		
-        $('#experiment_label').val(expt_label);
-	}
+        if (expt_label) {
+            console.log('EXPT_LABEL_NEW_1', expt_label);
+            
+            // project_settings.computed.experiment_labels.push(expt_label)
+            
+            $('#experiment_label').val(expt_label);
+        }
+    } catch (err) {
+        const msg = err.response && err.response.data ? err.response.data : err.message
+        swal({
+			title: `Experiment Label Error (API)`,
+			text: msg,
+			icon: "error",
+			dangerMode: true
+		})
+    }
+	
 }
 
 // bulk
-function experiment_label() {
+function experiment_label(store_locally = false) {
 	try {
-		const expt_label = generate_experiment_label_single()
+		const expt_label = __generate_experiment_label_single()
 		console.log('EXPT_LABEL_NEW_2', expt_label);
-		
-		project_settings.computed.experiment_labels.push(expt_label)
+        
+        if (store_locally) {
+            project_settings.computed.experiment_labels.push(expt_label)
+        }
 		
 		return expt_label
 	} catch(err) {
+        console.log(`Experiment Label Error: ${err.message}`);
+        return
 		swal({
 			title: `Experiment Label Error`,
 			text: err.message,
@@ -2548,3 +2558,10 @@ function experiment_label() {
 		})
 	}
 }
+
+$(document).on('click', '#label_generate_api', async function() {
+    await experiment_label_with_api()
+})
+$(document).on('click', '#label_generate_local', function() {
+    $('#experiment_label').val(experiment_label());
+})

@@ -396,7 +396,7 @@ async function doUpload(transfer, series_id) {
     .then(scripts => {
         console_log(scripts);
 
-        let pixel_anon_series = transfer.pixel_anon.find(sd => series_id === sd.series_id)
+        let pixel_anon_series = transfer.pixel_anon ? transfer.pixel_anon.find(sd => series_id === sd.series_id) : false
         if (pixel_anon_series) {
             let series_script = mizer.generateAlterPixelCode(pixel_anon_series.rectangles);
             if (series_script.length) {
