@@ -196,8 +196,8 @@ progress[value] {
     width: 100%;
     margin-bottom: 15px;
 }
-.project-subjects-holder, .project-subject-visits-holder, .datatypes-holder, .subtypes-holder {
-    display: none;
+.project-subjects-holder, .visits-holder, .datatypes-holder, .subtypes-holder {
+    //display: none;
 }
 
 #found_sessions {

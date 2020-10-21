@@ -178,6 +178,10 @@ async function _init_variables() {
         $('#upload_overwrite_method').prop('selectedIndex', 0);
     })
 
+    FlowReset.add('hide-visits-datatype-subtype-selection', () => {
+        $('.visits-holder, .datatypes-holder, .subtypes-holder').addClass('hidden');
+    })
+
 
     // RESETTING FLOW
     FlowReset.execAll()
@@ -280,7 +284,7 @@ function _init_img_sessions_table(table_rows) {
         data: table_rows
     });
 
-    $img_session_tbl.on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table', function (e) {
+    $img_session_tbl.on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table', async function (e) {
         let selected = $img_session_tbl.bootstrapTable('getSelections');
 
         let has_pt_scan = selected.reduce((total, row) => row.modality === 'PT' ? true : total, false);
@@ -294,7 +298,8 @@ function _init_img_sessions_table(table_rows) {
         if (has_pt_scan) {
             $('#pet_tracer').trigger('change');
         } else {
-            $('#experiment_label').val(experiment_label());
+            //$('#experiment_label').val(experiment_label());
+            await experiment_label_with_api()
         }
     })
 
@@ -682,10 +687,9 @@ $(document).on('change', '#var_subject', async function(e){
         return
     }
 
-
-    $('.project-subject-visits-holder').hide()
-    $('.datatypes-holder').hide()
-    $('.subtypes-holder').hide()
+    $('.visits-holder').addClass('hidden')
+    $('.datatypes-holder').addClass('hidden')
+    $('.subtypes-holder').addClass('hidden')
 
     try {
         const xnat_api = new XNATAPI(xnat_server, user_auth)
@@ -698,12 +702,13 @@ $(document).on('change', '#var_subject', async function(e){
         $('#var_visit_label').val('');
 
         if (sorted_visits.length === 0) {
-            $('.project-subject-visits-holder').hide();
+            
+            $('.visits-holder').addClass('hidden')
         } else {
 
             sorted_visits.forEach(append_visit_row);
 
-            $('.project-subject-visits-holder').show();
+            $('.visits-holder').removeClass('hidden')
             select_link_for_item('visit', ['visit_id'], 'visit_prm');
         }
         
@@ -724,8 +729,8 @@ $(document).on('click', 'a[data-visit_id]', async function(e){
     $('#var_visit_label').val(get_form_value('visit_id', 'visit_label'));
     $('#var_visit').val(visit_id);
 
-    $('.datatypes-holder').hide()
-    $('.subtypes-holder').hide()
+    $('.datatypes-holder').addClass('hidden')
+    $('.subtypes-holder').addClass('hidden')
 
     try {
         const xnat_api = new XNATAPI(xnat_server, user_auth)
@@ -736,7 +741,7 @@ $(document).on('click', 'a[data-visit_id]', async function(e){
         $('#var_datatype').val('');
 
         if (sorted_types.length === 0) {
-            $('.datatypes-holder').hide();
+            $('.datatypes-holder').addClass('hidden');
 
             swal({
                 title: `Error`,
@@ -746,7 +751,7 @@ $(document).on('click', 'a[data-visit_id]', async function(e){
             })
         } else {
             sorted_types.forEach(append_datatype_row);
-            $('.datatypes-holder').show();
+            $('.datatypes-holder').removeClass('hidden');
 
             select_link_for_item('datatype', ['datatype'], 'datatype_prm');
         }
@@ -767,7 +772,7 @@ $(document).on('click', 'a[data-datatype]', async function(e){
 
     $('#var_datatype').val(datatype);
 
-    $('.subtypes-holder').hide()
+    $('.subtypes-holder').addClass('hidden')
 
     try {
         const xnat_api = new XNATAPI(xnat_server, user_auth)
@@ -778,10 +783,12 @@ $(document).on('click', 'a[data-datatype]', async function(e){
         $('#var_subtype').val('');
 
         if (subtypes.length === 0) {
-            $('.subtypes-holder').hide();
+            $('.subtypes-holder').addClass('hidden');
+
+            await experiment_label_with_api()
         } else {
             subtypes.forEach(append_subtype_row);
-            $('.subtypes-holder').show();
+            $('.subtypes-holder').removeClass('hidden');
             select_link_for_item('subtype', ['subtype'], 'subtype_prm');
         }
         
@@ -1179,7 +1186,7 @@ $(document).on('input propertychange change', '#form_new_subject input[type=text
     }
 });
 
-$(document).on('change', '#pet_tracer', function(e) {
+$(document).on('change', '#pet_tracer', async function(e) {
     let custom_pt_required = $(this).val() === 'OTHER';
     
     $('#custom_pet_tracer').prop('required', custom_pt_required).prop('disabled', !custom_pt_required).toggleClass('hidden', !custom_pt_required);
@@ -1188,11 +1195,13 @@ $(document).on('change', '#pet_tracer', function(e) {
         $('#custom_pet_tracer').focus();
     }
 
-    $('#experiment_label').val(experiment_label());
+    //$('#experiment_label').val(experiment_label());
+    await experiment_label_with_api()
 })
 
-$(document).on('keyup', '#custom_pet_tracer', function(e) {
-    $('#experiment_label').val(experiment_label());
+$(document).on('keyup', '#custom_pet_tracer', async function(e) {
+    //$('#experiment_label').val(experiment_label());
+    await experiment_label_with_api()
 })
 
 $(document).on('submit', '#form_new_subject', async function(e) {
@@ -1315,8 +1324,9 @@ function generate_subject_dropdown(selected_id = false) {
         .trigger('change')
 }
 
-$(document).on('change', '#var_subject', function() {
-    $('#experiment_label').val(experiment_label());
+$(document).on('change', '#var_subject', async function() {
+    //$('#experiment_label').val(experiment_label());
+    await experiment_label_with_api()
 })
 
 function generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject_ids) {
@@ -2526,6 +2536,9 @@ async function experiment_label_with_api() {
         }
     } catch (err) {
         const msg = err.response && err.response.data ? err.response.data : err.message
+
+        console.log(`Experiment Label Error (API): ${msg}`);
+        return
         swal({
 			title: `Experiment Label Error (API)`,
 			text: msg,

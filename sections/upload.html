@@ -190,46 +190,43 @@
 
 
                                     <!--  -->
+                                    
                                     <div class="project-subject-visits-holder">
-                                        <div class="row">
-                                            <div class="col-6">
-                                                <h2 class="section-title search-inline">Select Visit</h2>
-                                            </div>
-                                            <div class="col-6">
-                                                <div class="filter-control title-inline">
-                                                    <input type="text" id="visit-filter" onkeyup="" placeholder="Filter" class="form-control">
-                                                </div>
+
+                                        <div class="visits-holder form-group row hidden">
+                                            <label class="col-sm-2 col-form-label">
+                                                <b>Select Visit</b>:
+                                            </label>
+                                            <div class="input-group col-sm-6">
+                                                <ul id="visit" class="choose-list"></ul>
+
+                                                <input type="hidden" id="var_visit" value="">
                                             </div>
                                         </div>
-                                        <ul id="visit" class="choose-list"></ul>
-                                    
-                                        <div class="datatypes-holder">
-                                            <div class="row">
-                                                <div class="col-6">
-                                                    <h2 class="section-title search-inline">Select datatype</h2>
-                                                </div>
-                                                <div class="col-6">
-                                                    <div class="filter-control title-inline">
-                                                        <input type="text" id="datatype-filter" onkeyup="" placeholder="Filter" class="form-control">
-                                                    </div>
-                                                </div>
+
+                                        <div class="datatypes-holder form-group row hidden">
+                                            <label class="col-sm-2 col-form-label">
+                                                <b>Select Datatype</b>:
+                                            </label>
+                                            <div class="input-group col-sm-6">
+                                                <ul id="datatype" class="choose-list"></ul>
+
+                                                <input type="hidden" id="var_datatype" value="">
                                             </div>
-                                            <ul id="datatype" class="choose-list"></ul>
                                         </div>
-                                    
-                                        <div class="subtypes-holder">
-                                            <div class="row">
-                                                <div class="col-6">
-                                                    <h2 class="section-title search-inline">Select subtype</h2>
-                                                </div>
-                                                <div class="col-6">
-                                                    <div class="filter-control title-inline">
-                                                        <input type="text" id="subtype-filter" onkeyup="" placeholder="Filter" class="form-control">
-                                                    </div>
-                                                </div>
+
+                                        
+                                        <div class="subtypes-holder form-group row hidden">
+                                            <label class="col-sm-2 col-form-label">
+                                                <b>Select Subtype</b>:
+                                            </label>
+                                            <div class="input-group col-sm-6">
+                                                <ul id="subtype" class="choose-list"></ul>
+
+                                                <input type="hidden" id="var_subtype" value="">
                                             </div>
-                                            <ul id="subtype" class="choose-list"></ul>
                                         </div>
+                                        
                                     </div>
                                     <!--  -->
 
@@ -541,9 +538,7 @@
 
 
         <!-- REQUIRED FOR... -->
-        <input type="hidden" id="var_visit" value="">
-        <input type="hidden" id="var_datatype" value="">
-        <input type="hidden" id="var_subtype" value="">
+        
         <input type="hidden" id="image_session_date" value="">
 
 
