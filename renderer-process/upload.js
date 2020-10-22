@@ -1,12 +1,12 @@
 const {
     DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT, 
     MAX_RECENT_UPLOAD_PROJECTS_STORED,
+    ALLOW_VISUAL_PHI_CHECK,
     PRIMARY_MODALITIES,
     CSV_UPLOAD_FIELDS
 } = require('../services/constants')
 const fs = require('fs');
 const path = require('path');
-const dicomParser = require('dicom-parser');
 const getSize = require('get-folder-size');
 require('promise.prototype.finally').shim();
 const auth = require('../services/auth');
@@ -44,6 +44,47 @@ let show_unable_to_set_session_label_warning = 0
 // ===================
 // ADD cornerstone INIT
 // ===================
+// ===================
+const dicomParser = require('dicom-parser');
+const cornerstone = require('cornerstone-core-with-bg');
+
+const cornerstoneWADOImageLoader = require('cornerstone-wado-image-loader');
+let WADOImageLoaderPath = path.dirname(require.resolve('cornerstone-wado-image-loader'));
+let WADOImageLoaderWebWorkerPath = path.join(WADOImageLoaderPath, 'cornerstoneWADOImageLoaderWebWorker.js');
+let WADOImageLoaderCodecsPath = path.join(WADOImageLoaderPath, 'cornerstoneWADOImageLoaderCodecs.js');
+
+cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+
+let WADOWebWorkerConfig = {
+    webWorkerPath : WADOImageLoaderWebWorkerPath,
+    taskConfiguration: {
+        'decodeTask' : {
+            codecsPath: WADOImageLoaderCodecsPath
+        }
+    }
+};
+cornerstoneWADOImageLoader.webWorkerManager.initialize(WADOWebWorkerConfig);
+
+const cornerstoneMath = require('cornerstone-math');
+const cornerstoneTools = require('cstools-overlay');
+
+const scrollToIndex = cornerstoneTools.import('util/scrollToIndex');
+
+const Hammer = require('hammerjs');
+
+cornerstoneTools.external.cornerstone = cornerstone;
+cornerstoneTools.external.cornerstoneMath = cornerstoneMath;
+cornerstoneTools.external.Hammer = Hammer;
+// ===================
+let resizing_tm;
+let rectangle_state_registry = [];
+let event_timeout;
+
+let anno2;
+// ===================
+
+
 
 
 
@@ -186,6 +227,9 @@ async function _init_variables() {
     // RESETTING FLOW
     FlowReset.execAll()
 
+    cornerston_initialize_main()
+    initAnno();
+
     _UI();
 }
 
@@ -300,6 +344,7 @@ function _init_img_sessions_table(table_rows) {
         } else {
             //$('#experiment_label').val(experiment_label());
             await experiment_label_with_api()
+            validate_upload_form()
         }
     })
 
@@ -476,6 +521,625 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
     return;
 }
 
+function validate_upload_form() {
+    let required_input_error = false;
+
+    let selected = $('#image_session').bootstrapTable('getSelections');
+    let $required_inputs = $('#anon_variables').find(':input[required]');
+
+    if ($('#experiment_label').hasClass('is-invalid')) {
+        $('#experiment_label').focus();
+        required_input_error = true;
+    }
+
+    $required_inputs.each(function(){
+        if ($(this).val().trim() === '') {
+            $(this).addClass('is-invalid');
+            required_input_error = true;
+        }
+    });
+
+    if (selected.length === 0) {
+        required_input_error = true;
+    }
+
+    $('#nav-verify .js_next, #upload-section .js_upload').toggleClass('disabled', required_input_error);
+    $('#upload-section .js_upload').prop('disabled', required_input_error);
+
+    return required_input_error;
+}
+
+function valid_pixel_anon() {
+    let is_valid = true
+    rectangle_state_registry.forEach(state => {
+        if (state.rectangles.length && !state.saved) {
+            is_valid = false
+            $(`#LI_${state.series_id}`).find('.yellow_mark').show()
+        }
+    })
+
+    return is_valid;
+}
+
+// CORNERSTONE
+
+// triggered when selected tab (#nav-verify) is displayed
+$(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]', function(){
+    validate_upload_form();
+});
+
+
+let image_thumbnails = [];
+// triggered when selected tab (#nav-visual) is displayed
+$(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]', function(){
+    $('.main-title').focus()
+
+    window.dispatchEvent(new Event('resize'));// HACK TO recalculate canvas size for main cornerstone image
+
+    set_image_thumbnails()
+
+
+    // reset
+    $('#series_thumbs').html('');
+    image_thumbnails.map(el => {
+        $('#series_thumbs').append(`<li id="LI_${el.series_id}">`);
+    });
+
+    console.log({image_thumbnails});
+    
+    image_thumbnails.forEach((series, index) => {
+        display_series_thumb(series, index, cornerstone)
+    });
+
+    // Load first image
+    load_dicom_image(image_thumbnails[0].series_id);
+    
+    $('#series_thumbs li').eq(0).addClass('highlite-outline');
+
+    $("html, body").stop().animate({scrollTop:0}, 50);
+
+
+    if(!store.has('dicom_viewer_tour_shown')) {
+        store.set('dicom_viewer_tour_shown',  true);
+        anno2.show();
+    }
+
+
+});
+
+function get_selected_series_ids() {
+    let selected_series = $('#image_session').bootstrapTable('getSelections');
+    return selected_series.map(item => item.series_id)
+}
+
+
+function set_image_thumbnails() {
+    image_thumbnails = [];
+
+    let selected_series_ids = get_selected_series_ids()
+
+    //console.log({selected_session_id, session_map})
+    session_map.get(selected_session_id).scans.forEach(function(scan, key) {
+        if (selected_series_ids.includes(key)) {
+            image_thumbnails.push({
+                series_id: key,
+                series_description: scan[0].seriesDescription,
+                series_number: parseInt(scan[0].seriesNumber),
+                thumb_path: scan[0].filepath,
+                scans: scan.length
+            })
+        }
+    })
+
+    image_thumbnails.sort((a,b) => (a.series_number > b.series_number) ? 1 : ((b.series_number > a.series_number) ? -1 : 0));
+}
+
+
+function cornerston_initialize_main() {
+    cornerstoneTools.init({
+        touchEnabled: false
+    });
+
+    const element = $('#dicom_image_container').get(0);
+
+    cornerstone_enable_main_element(element); // before first load_dicom_image()
+}
+
+function cornerstone_enable_main_element(element) {
+    if (ALLOW_VISUAL_PHI_CHECK) {
+        cornerstone.enable(element);
+
+        cornerstoneTools.addToolForElement(element, cornerstoneTools.ZoomTool);
+        //cornerstoneTools.setToolActiveForElement(element, "Zoom", {mouseButtonMask: 1});
+        
+        cornerstoneTools.addToolForElement(element, cornerstoneTools.PanTool);
+        
+        cornerstoneTools.addToolForElement(element, cornerstoneTools.RectangleOverlayTool);
+        //cornerstoneTools.setToolActiveForElement(element, "RectangleOverlay", {mouseButtonMask: 1});
+
+        cornerstoneTools.addToolForElement(element, cornerstoneTools.StackScrollMouseWheelTool)
+        cornerstoneTools.setToolActiveForElement(element, 'StackScrollMouseWheel', {});
+
+
+        //element.addEventListener("cornerstonetoolsmeasurementadded", handle_measurement_update);
+        element.addEventListener("cornerstonetoolsmeasurementmodified", handle_measurement_update);
+        element.addEventListener("cornerstonetoolsmeasurementcompleted", handle_measurement_update);
+        element.addEventListener("cornerstonetoolsmeasurementremoved", handle_measurement_update);
+        element.addEventListener("cornerstonetoolskeypress", handle_measurement_update);
+
+        element.addEventListener("cornerstonetoolsmousewheel", redraw_rectangles);
+        element.addEventListener("cornerstonetoolsstackscroll", stack_scroll_handler);
+    }
+}
+
+function cornerstone_is_enabled(element) {
+    try {
+        cornerstone.getEnabledElement(element);
+        return true;
+    } catch(e) {
+        console.log({e});
+        return false
+    }
+    
+}
+
+function cornerstone_disable_element(element) {
+    if (cornerstone_is_enabled(element)) {
+        cornerstone.disable(element)
+    }
+}
+
+$(document).on('click', '#save-scan-btn', function(e) {
+    e.preventDefault()
+    let series_id = get_current_series_id();
+    let rectangle_state = find_registry_state(series_id);
+
+    if (rectangle_state !== undefined) {
+        rectangle_state.saved = true;
+    }
+    
+
+    let index = $('li.highlite-outline').index();
+    display_series_thumb(image_thumbnails[index], index, cornerstone)
+
+    
+    $('#stack-scroll-btn').trigger('click');
+
+    console.log({rectangle_state_registry});
+})
+
+
+$(document).on('click', '#reset-scan-btn', function(e) {
+    e.preventDefault()
+    const element = $('#dicom_image_container').get(0);
+
+    let toolState = cornerstoneTools.getToolState(element, 'RectangleOverlay')
+
+    cornerstoneTools.clearToolState(element, 'RectangleOverlay')
+
+    //cornerstone.updateImage(element)
+    registry_remove_series_state(get_current_series_id());
+    
+    redraw_rectangles({
+        srcElement: element
+    })
+
+    let index = $('li.highlite-outline').index();
+    display_series_thumb(image_thumbnails[index], index, cornerstone)
+
+})
+
+
+function cornerstone_enable_thumb_element() {
+    let element = document.createElement('div');
+
+    element.style.cssText = "width: 150px; height: 150px; position: absolute; left: -300px; top: 0;";
+    document.body.appendChild(element);
+
+    cornerstone.enable(element);
+
+    cornerstoneTools.addToolForElement(element, cornerstoneTools.RectangleOverlayTool);
+    cornerstoneTools.setToolActiveForElement(element, "RectangleOverlay", {mouseButtonMask: 1});
+
+    return element;
+}
+
+// go through all series, display them, and clearToolState for that imageId
+function clear_all_states() {
+    //cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+
+    image_thumbnails.forEach((series) => {
+        clear_main_tool_state(series.thumb_path)
+    });
+
+}
+
+function clear_main_tool_state(image_path) {
+    const element = $('#dicom_image_container').get(0);
+
+    const imageId = `wadouri:http://localhost:7714/?path=${image_path}`;
+
+    cornerstone.loadAndCacheImage(imageId)
+    .then((image) => {
+        cornerstone.displayImage(element, image);
+        cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+    })
+    .catch(err => {
+        console.log({clear_main_tool_state_ERR: err});
+    });
+}
+
+function display_series_thumb(series, index, cornerstone) {
+    let element = cornerstone_enable_thumb_element();
+
+    let imageId = `wadouri:http://localhost:7714/?path=${series.thumb_path}`;
+
+
+    // load image
+    cornerstone.loadAndCacheImage(imageId)
+    .then((image) => {
+
+        let viewport = cornerstone.getDefaultViewportForImage(element, image);
+        cornerstone.displayImage(element, image, viewport);
+
+        // Update first image in case rectangles are not painted on first scan in series
+        setTimeout((series_id, element) => {
+            let rectangle_state = find_registry_state(series_id);
+    
+            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+        
+            if (rectangle_state !== undefined) {
+                rectangle_state.data.forEach(state => {
+                    add_tool_state(element, 'RectangleOverlay', state)
+                });
+            }
+    
+            cornerstone.updateImage(element)
+        }, 20, series.series_id, element)
+
+        setTimeout(function() {
+            let $img = $('<img>');
+            let img_data_src = $(element).find("canvas").get(0).toDataURL();
+            $img.attr('src', img_data_src);
+            $img.attr('id', 'ID_' + series.series_id.replace(/\./g, '_'));
+            $img.attr('data-series_id', series.series_id);
+            $img.attr('data-order', index);
+            $img.attr('data-path', series.thumb_path);
+
+            $img.attr('draggable', true);
+
+            $img.on('dragstart', function (event) {
+                dragstart_dicom(event.originalEvent)
+            });
+
+            let $div = $('<div>');
+            $div.append($img);
+
+            
+            //$div.append(`<p style="text-align: center">S:${series.series_number}  (F:${series.scans})</p>`)
+            $div.append(`<div style="text-align: center; font-size: 12px; color: #9ccef9; margin: 3px 0 35px; position: relative;">
+                <div style="float: left;">S:${series.series_number} </div>
+                <div style="float: right;">F:${series.scans}</div>
+                <div style="position: absolute; top: -30px; right: 1px; display: none;" class="green_mark">
+                    <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24" 
+                    style="opacity: 1; mix-blend-mode: normal; fill: rgb(23, 209, 6); width: 24px; height: 24px;
+                    "><g><path xmlns:default="http://www.w3.org/2000/svg" 
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
+                    style="fill: rgb(23, 209, 6);"></path></g></svg>
+                </div>
+                <div style="position: absolute; top: -30px; right: 1px; display: none;" class="yellow_mark">
+                    <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24"
+                    style="opacity: 1; mix-blend-mode: normal; fill: rgb(247, 227, 46); width: 24px; height: 24px;
+                    "><g><path xmlns:default="http://www.w3.org/2000/svg" 
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
+                    style="fill: rgb(247, 227, 46);"></path></g></svg>
+                </div>
+            </div>`);
+
+            $('#series_thumbs li').eq(index).html($div);
+
+            let rectangle_state = find_registry_state(series.series_id);
+            
+            if (rectangle_state && rectangle_state.rectangles.length) {
+                $div.find('.green_mark').toggle(rectangle_state.saved) 
+                $div.find('.yellow_mark').toggle(!rectangle_state.saved) 
+            }
+
+            cornerstone.disable(element);
+
+            document.body.removeChild(element);
+            element = null
+        }, 100);
+        
+    })
+    .catch(err => {
+        Helper.pnotify('Thumbnail Load Error', `${err.error.message}\n[${imageId}]`, 'warning');
+        console.log({display_series_thumb_ERR: err});
+    });
+}
+
+function get_tool_state(element, tool) {
+    const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
+    return toolStateManager.get(element, tool);
+}
+
+function add_tool_state(element, tool, state) {
+    const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
+    toolStateManager.add(element, tool, state);
+
+    // OR JUST
+    // cornerstoneTools.addToolState(element, tool, state)
+}
+
+
+
+
+
+$(document).on('dragover', '#dicom_image_container', function(event) {
+    dragover_dicom(event.originalEvent)
+})
+$(document).on('drop', '#dicom_image_container', function(event) {
+    drop_dicom(event.originalEvent)
+})
+
+$(document).on('click', '#series_thumbs img', function() {
+    console.log(this.id);
+});
+
+function dragstart_dicom(ev) {
+	// Add the target element's id to the data transfer object
+	console.log(ev.target.id, $(ev.target).attr('data-path'), $(ev.target).data('path'))
+
+	ev.dataTransfer.setData("dicomimg/id", ev.target.id);
+	ev.dataTransfer.setData("dicomimg/path", $(ev.target).attr('data-path'));
+	ev.dataTransfer.setData("dicomimg/series_id", $(ev.target).attr('data-series_id'));
+	ev.dataTransfer.dropEffect = "link";
+}
+
+function dragover_dicom(ev) {
+	ev.preventDefault();
+	ev.dataTransfer.dropEffect = "link";
+}
+
+function drop_dicom(ev) {
+	ev.preventDefault();
+	// Get the id of the target and add the moved element to the target's DOM
+
+	console.log(ev.dataTransfer.getData("dicomimg/id"))
+    console.log(ev.dataTransfer.getData("dicomimg/path"))
+    console.log(ev.dataTransfer.getData("dicomimg/series_id"))
+    
+    let id = "#" + ev.dataTransfer.getData("dicomimg/id");
+    $(id).closest('li').addClass('highlite-outline').siblings().removeClass('highlite-outline');
+
+	load_dicom_image(ev.dataTransfer.getData("dicomimg/series_id"))
+}
+
+$(document).on('click', '#dicom_image_tools a', function(e){
+    e.preventDefault();
+
+    const element = $('#dicom_image_container').get(0);
+
+    // disable current tool(s)
+    $('#dicom_image_tools a.active').each(function() {
+        cornerstoneTools.setToolEnabledForElement(element, $(this).data('tool'));
+    })
+
+    
+    // enable selected tool
+    let tool_name = $(this).data('tool');
+
+    if (tool_name === 'StackScrollMouseWheel') {
+        cornerstoneTools.setToolActiveForElement(element, tool_name, {});
+    } else {
+        cornerstoneTools.setToolActiveForElement(element, tool_name, {mouseButtonMask: 1});
+    }
+
+    // update UI
+    $('#dicom_image_tools a').removeClass('active');
+    $(this).addClass('active');
+})
+
+
+
+function get_series_files(series_id) {
+    let files = [];
+    let series_scans = session_map.get(selected_session_id).scans.get(series_id);
+    console.log({series_scans});
+
+    if (Array.isArray(series_scans) && series_scans.length > 0) {
+        // backward compatibility TOOLS-524 (sort by x00200013 ...)
+        if (series_scans[0].hasOwnProperty('order')) {
+            series_scans.sort((a,b) => a.order > b.order ? 1 : b.order > a.order ? -1 : 0);
+        } else {
+            series_scans.sort((a,b) => a.filepath.localeCompare(b.filepath));
+        }
+
+        series_scans.forEach((scan) => {
+            files.push({
+                filepath: scan.filepath,
+                frames: scan.frames ? scan.frames : 0
+            });
+        });
+    }
+
+    console.log({files});
+    return files;
+}
+
+function load_dicom_image(series_id) {
+    const element = $('#dicom_image_container').get(0);
+
+    const _files = get_series_files(series_id);
+
+    
+    let imageIds = [];
+    let frames = 0;
+    _files.forEach(file => {
+        const imageIdRoot = `wadouri:http://localhost:7714/?path=${file.filepath}`;
+        
+        if (file.frames > 1) {
+            for (let i = 0; i < file.frames; i++) {
+                imageIds.push(imageIdRoot + `&frame=${i}`);
+            }
+            frames = file.frames
+        } else {
+            imageIds.push(imageIdRoot);
+        }
+    })
+
+    if (frames) {
+        $('#frame_input_container').html(`
+            <div id="input_range_container" class="range-slider">
+                <input type="range" id="image_frame_counter" name="image_frame_counter" min="0" max="${frames - 1}" value="0">
+                <span class="range-slider__value">0</span>
+            </div>
+        `)
+
+        let default_image_frame_counter = 0
+        $('#image_frame_counter').off('input').on('input', function(e){
+            const new_frame_index = parseInt(this.value)
+
+            if (default_image_frame_counter != new_frame_index) {
+                scrollToIndex(element, new_frame_index); // triggers "cornerstonetoolsstackscroll" event
+                default_image_frame_counter = new_frame_index
+            }
+            
+        })
+    } else {
+        $('#frame_input_container').html('')
+    }
+
+    //define the stack
+    const stack = {
+        currentImageIdIndex: 0,
+        imageIds
+    };
+
+    console.log({_files, stack});
+
+    cornerstone.loadAndCacheImage(imageIds[0])
+    .then((image) => {
+        console.log({image})
+
+        let viewport = cornerstone.getDefaultViewportForImage(element, image);
+        cornerstone.displayImage(element, image, viewport);
+
+        
+    })
+    .catch(err => {
+        swal({
+            title: `Error`,
+            text: `${err.error.message}\n[${imageIds[0]}]`,
+            icon: "error",
+            dangerMode: true
+        })
+        console.log({load_dicom_image_ERR: err});
+    });
+}
+
+
+function stack_scroll_handler(e) {
+    const frame = e.detail.newImageIdIndex
+    $('#image_frame_counter').val(frame).next('.range-slider__value').html(frame);
+
+    redraw_rectangles(e)
+}
+
+function redraw_rectangles(e) {
+    const series_id = get_current_series_id();
+    const element = e.srcElement;
+    
+    setTimeout((series_id, element) => {
+        const rectangle_state = find_registry_state(series_id);
+
+        cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+    
+        if (rectangle_state !== undefined) {
+            rectangle_state.data.forEach(state => {
+                // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
+                add_tool_state(element, 'RectangleOverlay', state)
+            });
+        }
+
+        cornerstone.updateImage(element)
+    }, 20, series_id, element)
+}
+
+function handle_measurement_update(e) {
+    clearTimeout(event_timeout);
+    event_timeout = setTimeout(() => {
+        console.log(`EVENT DATA:`, e);
+        console.log(`TYPE: ${e.type}`);
+        console.log('DATA:', e.detail.measurementData);
+
+
+        let series_id = get_current_series_id();
+        let element = e.srcElement;
+        
+        let toolState = get_tool_state(element, 'RectangleOverlay');
+
+        if (toolState !== undefined) {
+            let state_data = {
+                series_id: series_id,
+                data: toolState.data,
+                rectangles: toolStateDataToRect(toolState.data),
+                saved: false
+            };
+
+            let rectangle_state = find_registry_state(series_id);
+            
+            if (rectangle_state !== undefined) { // if defined -> update
+                rectangle_state.data = state_data.data
+                rectangle_state.rectangles = state_data.rectangles
+                rectangle_state.saved = state_data.saved
+                // rectangle_state = {...rectangle_state, ...state_data} // merge
+            } else { // if not defined -> insert
+                rectangle_state_registry.push(state_data)
+            }
+
+            console.log({rectangles: state_data});
+
+            
+            $('#series_thumbs li.highlite-outline').find('.green_mark').toggle(state_data.saved && state_data.rectangles > 0);
+            $('#series_thumbs li.highlite-outline').find('.yellow_mark').toggle(!state_data.saved);
+        }
+        
+        //const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
+        //toolStateManager.clearToolState(element, 'RectangleOverlay')
+        //cornerstoneTools.addToolState(element, 'RectangleOverlay', new_data)
+    }, 100);
+}
+
+function toolStateDataToRect(toolStateData) {
+    return toolStateData.map(data => {
+        let x_1 = Math.min(data.handles.start.x, data.handles.end.x)
+        let y_1 = Math.min(data.handles.start.y, data.handles.end.y)
+        let x_2 = Math.max(data.handles.start.x, data.handles.end.x)
+        let y_2 = Math.max(data.handles.start.y, data.handles.end.y)
+        return [x_1, y_1, x_2, y_2]
+    })
+
+}
+
+
+function find_registry_state(series_id) {
+    return rectangle_state_registry.find((el) => el.series_id === series_id)
+}
+
+function registry_remove_series_state(series_id) {
+    let series_index = rectangle_state_registry.findIndex((el) => el.series_id === series_id)
+
+    if (series_index >= 0) {
+        rectangle_state_registry.splice(series_index, 1);
+    }
+}
+
+function get_current_series_id() {
+    return $('#series_thumbs li.highlite-outline').find('img[data-series_id]').data('series_id');
+}
+
+
 
 $(document).on('page:load', '#upload-section', async function(e){
     console.log('Upload page:load triggered');
@@ -483,8 +1147,54 @@ $(document).on('page:load', '#upload-section', async function(e){
     $.blockUI({
         message: '<h1>Processing...</h1>'
     });
+
+    rectangle_state_registry = [];
+
+    //Modal
+    $('#closeBtn').on('click', function (e) {
+        $('#fullscreenModal').modal('hide')
+    });
+    $('#fullscreenModal').on('show.bs.modal', function (e) {
+        $('body').addClass('dicomImageViewerFS');
+        let contentCut = $("#fullscreenContent").detach()
+        contentCut.appendTo("#fullscreenModal .modal-body");
+        $('#series_thumbs').css('max-height', `${($(window).height() - 41 - 70 - 20)}px`);
+        $('#dicom_image_container').css('height', `${($(window).height() - 41 - 70)}px`);
+    })
+
+    $('#fullscreenModal').on('hide.bs.modal', function (e) {
+        let contentCutAgain = $(".modal-body #fullscreenContent").detach()
+        contentCutAgain.appendTo("#fullscreenMode .container .row")
+        $('body').removeClass('dicomImageViewerFS');
+
+        $('#series_thumbs').css('max-height', '480px');
+        $('#dicom_image_container').css('height', `500px`);
+    })
+
+    $('#fullscreenModal').on('hidden.bs.modal shown.bs.modal', function (e) {
+        window.dispatchEvent(new Event('resize'))
+    })
+
+    
+    $(window).on('resize', function() {
+        clearTimeout(resizing_tm);
+        resizing_tm = setTimeout(() => {
+            $('.dicomImageViewerFS #series_thumbs').css('max-height', `${($(window).height() - 41 - 70 - 20)}px`);
+            $('.dicomImageViewerFS #dicom_image_container').css('height', `${($(window).height() - 41 - 70)}px`);
+        }, 20);
+    });
+
+    // TODO - check if this is needed
+    $('#upload_session_date')
+        .attr('min', '1990-01-01')
+        .attr('max', new Date().toISOString().split('T')[0])
+
     
     await _init_variables();
+
+    $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', !ALLOW_VISUAL_PHI_CHECK);
+    $('#nav-verify .js_next').toggleClass('hidden', !ALLOW_VISUAL_PHI_CHECK);
+    $('#nav-verify .js_upload').toggleClass('hidden', ALLOW_VISUAL_PHI_CHECK);
     
     $('#upload-project').html('')
     $('button[data-target="#new-subject"]').prop('disabled', !site_wide_settings.allow_create_subject);
@@ -786,6 +1496,7 @@ $(document).on('click', 'a[data-datatype]', async function(e){
             $('.subtypes-holder').addClass('hidden');
 
             await experiment_label_with_api()
+            validate_upload_form()
         } else {
             subtypes.forEach(append_subtype_row);
             $('.subtypes-holder').removeClass('hidden');
@@ -805,7 +1516,8 @@ $(document).on('click', 'a[data-subtype]', async function(e){
     // set Review data
     $('#var_subtype').val(get_form_value('subtype', 'subtype'));
 
-    const label = await experiment_label_with_api()
+    await experiment_label_with_api()
+    validate_upload_form()
 });
 
 // ====================================================================================================
@@ -1197,11 +1909,13 @@ $(document).on('change', '#pet_tracer', async function(e) {
 
     //$('#experiment_label').val(experiment_label());
     await experiment_label_with_api()
+    validate_upload_form()
 })
 
 $(document).on('keyup', '#custom_pet_tracer', async function(e) {
     //$('#experiment_label').val(experiment_label());
     await experiment_label_with_api()
+    validate_upload_form()
 })
 
 $(document).on('submit', '#form_new_subject', async function(e) {
@@ -1327,6 +2041,7 @@ function generate_subject_dropdown(selected_id = false) {
 $(document).on('change', '#var_subject', async function() {
     //$('#experiment_label').val(experiment_label());
     await experiment_label_with_api()
+    validate_upload_form()
 })
 
 function generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject_ids) {

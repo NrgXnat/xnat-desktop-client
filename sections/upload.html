@@ -12,6 +12,7 @@
                         <div class="nav nav-tabs" id="nav-tab" role="tablist">
                             <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Data Selection</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Confirm Details</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-visual" role="tab" aria-controls="nav-visual" aria-selected="false">Inspect Images</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Upload to XNAT</a>
                         </div>
                     </nav>
@@ -282,6 +283,9 @@
                                             <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
                                             <button type="button" class="btn btn-gray js_prev" type="button">
                                             <i class="fas fa-angle-left"></i> Prev</button>
+                                            <button type="button" class="btn btn-blue js_next disabled">Next
+                                                <i class="fas fa-angle-right"></i>
+                                            </button>
                                             <button type="button" class="btn btn-blue js_upload">Upload</button>
                                         </div>
                                     </div>
@@ -398,6 +402,149 @@
                             </div><!-- #custom_upload_multiple -->
 
                         </div>
+
+
+                        <div class="tab-pane fade" id="nav-visual" role="tabpanel" aria-labelledby="nav-visual-tab">
+                            <h2 class="section-title">Required Visual Check for Burned-in PHI</h2>
+                            
+
+                            <p>This optional step allows you to visually review scans for PHI that may have been burned into the pixel data. 
+                                For help using this feature, view our <a href="javascript:;" id="show_div_tour">PHI Inspection Tutorial</a>. 
+                                You can skip the review step by immediately clicking on the Finish and Upload bottom at the bottom right.</p>
+                            
+                            
+
+                            <section id="fullscreenMode">
+                                <div class="container">
+                                    <div class="row">
+                                        <div id="fullscreenContent">
+                                            <section id="topBarCustom">
+                                                <nav class="navbar bg-black">
+                                                    <ul class="nav" id="dicom_image_tools">
+                                                        <li class="nav-item">
+                                                            <a id="stack-scroll-btn" class="nav-link active" 
+                                                                data-tool="StackScrollMouseWheel" href="#">
+                                                                <svg version="1.2" preserveAspectRatio="none"
+                                                                    viewBox="0 0 24 24">
+                                                                    <g>
+                                                                        <path xmlns:default="http://www.w3.org/2000/svg"
+                                                                            d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z">
+                                                                        </path>
+                                                                    </g>
+                                                                </svg>
+                                                                <p>Stack Scroll</p>
+                                                            </a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a id="zoom-btn" class="nav-link" 
+                                                                data-tool="Zoom" href="#">
+                                                                <svg id="icon-tools-zoom">
+                                                                    <use href="assets/images/icons.svg#icon-tools-zoom"></use>
+                                                                </svg>
+                                                                <p>Zoom</p>
+                                                            </a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a id="pan-btn" class="nav-link"
+                                                                data-tool="Pan" href="#">
+                                                                <svg id="icon-tools-zoom">
+                                                                    <use href="assets/images/icons.svg#icon-tools-pan"></use>
+                                                                </svg>
+                                                                <p>Pan</p>
+                                                            </a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a id="select-area-btn" class="nav-link" 
+                                                                data-tool="RectangleOverlay" href="#">
+                                                                <div class="el-group"
+                                                                    style="opacity: 1; mix-blend-mode: normal;">
+                                                                    <svg id="select-area-plus" viewBox="0 0 24 24"
+                                                                        style="width: 17px; height: 17px; transform: rotate(0deg) translate(5px, -6px);">
+                                                                        <use href="assets/images/icons.svg#select-area-plus">
+                                                                        </use>
+                                                                    </svg>
+                                                                    <svg id="select-area-body" viewBox="0 0 30 20"
+                                                                        style="overflow: visible; width: 30px; height: 20px; transform: translate(-10px,0);">
+                                                                        <use href="assets/images/icons.svg#select-area-body">
+                                                                        </use>
+                                                                    </svg>
+                                                                </div>
+                                                                <p>Select Area</p>
+                                                            </a>
+                                                        </li>
+                                                    </ul>
+                                                    <ul class="nav" id="scans_save_toolbar">
+                                                        <li class="nav-item">
+                                                            <a id="reset-scan-btn" class="nav-link" href="#">
+                                                                <svg id="reset-scan" viewBox="0 0 24 24"
+                                                                    style="transform: rotate(0deg) rotate(315deg);">
+                                                                    <use href="assets/images/icons.svg#reset-scan"></use>
+                                                                </svg>
+                                                                <p>Reset Scan</p>
+                                                            </a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a id="save-scan-btn" class="nav-link" href="#">
+                                                                <svg id="save-scan" viewBox="0 0 24 24"
+                                                                    style="transform: rotate(0deg);">
+                                                                    <use href="assets/images/icons.svg#save-scan"></use>
+                                                                </svg>
+                                                                <p>Save scan</p>
+                                                            </a>
+                                                        </li>
+                                                        <ul class="modal-nav">
+                                                            <li class="nav-item full-mod-btn">
+                                                                <a id="fullscreenBtn" class="btn btn-sm"
+                                                                    data-toggle="modal" data-target="#fullscreenModal" href="#">
+                                                                    <svg id="fullscreen" viewBox="0 0 24 24"
+                                                                        style="width: 20px; height: 20px; transform: rotate(0deg) translate(-5px, -1px);">
+                                                                        <use href="assets/images/icons.svg#fullscreen"></use>
+                                                                    </svg>
+                                                                </a>
+                                                            </li>
+                                                            <li class="nav-item close-mod-btn">
+                                                                <button type="button" id="closeBtn" aria-hidden="true">
+                                                                </button>
+                                                            </li>
+                                                        </ul>
+                                                    </ul>
+                                                </nav>
+                                            </section>
+                                            <section id="imgGalleryPreview">
+                                                <div class="container">
+                                                    <div class="row">
+                                                        <div class="col-sm-3" id="series_thumbs_holder">
+                                                            <ul id="series_thumbs"></ul>
+                                                        </div>
+                                                        <div class="col-sm-9" style="max-width: calc(100% - 194px); flex: 0 1 auto;">
+                                                            <div id="frame_input_container"></div>
+                                                            <div id="dicom_image_container" style="width: 100%; height: 500px;"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </section>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+
+
+
+                            <div class="row action-button-row">
+                                <div class="col-12">
+                                    <div class="text-right button-row">
+                                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                        <button type="button" class="btn btn-gray js_prev" type="button">
+                                            <i class="fas fa-angle-left"></i> Prev</button>
+                                        <button type="button" class="btn btn-blue js_upload">Finish and Upload</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+
                         <div class="tab-pane fade" id="nav-summary" role="tabpanel" aria-labelledby="nav-profile-tab">
                             <h2 class="section-title">Summary</h2>
 
@@ -532,6 +679,15 @@
                             <button type="button" class="btn btn-blue js_quick_upload" type="button" disabled>Quick Upload</button>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Modal -->
+            <div class="modal fade" id="fullscreenModal" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-scrollable" role="document">
+                <div class="modal-content">
+                    <div class="modal-body"></div>
+                </div>
                 </div>
             </div>
         </div>
