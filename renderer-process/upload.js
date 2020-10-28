@@ -170,7 +170,6 @@ async function _init_variables() {
     session_map = new Map();
     selected_session_id = null;
 
-
     try {
         site_wide_settings = await fetch_site_wide_settings(xnat_server, user_auth)
         console.log({site_wide_settings});
@@ -178,6 +177,15 @@ async function _init_variables() {
         handle_error(err)
     }
 
+    init_flow_reset()
+
+    cornerston_initialize_main()
+    initAnno();
+
+    _UI();
+}
+
+function init_flow_reset() {
     FlowReset.clear()
     
     FlowReset.add('project_selection', () => {
@@ -206,32 +214,64 @@ async function _init_variables() {
         selected_session_id = null;
     })
 
-    FlowReset.add('next_tab_disable_1', () => {
+    FlowReset.add('disable_next_tabs', () => {
         let current_key = $('#upload-section #nav-tab .nav-link.active').index()
         $(`#upload-section #nav-tab .nav-link:gt(${current_key})`).addClass('disabled');
+    })
+    FlowReset.add('disable_next_button', () => {
+        $('#upload-section .tab-pane.active .js_next').addClass('disabled');
+    })
 
-        $('.tab-pane.active .js_next').addClass('disabled');
-
+    FlowReset.add('reset_upload_method', () => {
         $('#nav-verify').removeData('upload_method')
+    })
+
+    FlowReset.add('clear_visits', () => {
+        // containers
+        $('.visits-holder').addClass('hidden')
+            
+        // lists
+        $('#visit').html('');
+
+        // values
+        $('#var_visit').val('');
+    })
+
+    FlowReset.add('clear_datatypes', () => {
+        // containers
+        $('.datatypes-holder').addClass('hidden')
+        
+        // lists
+        $('#datatype').html('');
+        
+        // values
+        $('#var_datatype').val('');
+    })
+
+    FlowReset.add('clear_subtypes', () => {
+        // containers
+        $('.subtypes-holder').addClass('hidden')
+        
+        // lists
+        $('#subtype').html('');
+        
+        // values
+        $('#var_subtype').val('');
+    })
+
+    FlowReset.add('clear_experiment_label', () => {
+        $('#experiment_label').val('')
     })
 
     FlowReset.add('reset_overwrite_selection', () => {
         $('#upload_overwrite_method').prop('selectedIndex', 0);
     })
 
-    FlowReset.add('hide-visits-datatype-subtype-selection', () => {
-        $('.visits-holder, .datatypes-holder, .subtypes-holder').addClass('hidden');
-    })
-
 
     // RESETTING FLOW
     FlowReset.execAll()
-
-    cornerston_initialize_main()
-    initAnno();
-
-    _UI();
 }
+
 
 function initAnno() {
     anno2 = new Anno([{
@@ -343,6 +383,7 @@ function _init_img_sessions_table(table_rows) {
             $('#pet_tracer').trigger('change');
         } else {
             //$('#experiment_label').val(experiment_label());
+            console.log('bstbl#$img_session_tbl');
             await experiment_label_with_api()
             validate_upload_form()
         }
@@ -356,6 +397,10 @@ function _init_img_sessions_table(table_rows) {
 
 $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]', function(){
     let upload_method = $('#nav-verify').data('upload_method')
+
+    const HIDE_PHI_TAB = !ALLOW_VISUAL_PHI_CHECK || upload_method !== 'custom_upload'
+
+    $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', HIDE_PHI_TAB);
 
     switch (upload_method) {
         case 'quick_upload':
@@ -453,7 +498,7 @@ function _init_session_selection_table(tbl_data) {
             },
             {
                 field: 'label',
-                title: 'Study Description',
+                title: 'Study Description (studyId)',
                 sortable: true,
                 class: 'break-all'
             },
@@ -527,17 +572,28 @@ function validate_upload_form() {
     let selected = $('#image_session').bootstrapTable('getSelections');
     let $required_inputs = $('#anon_variables').find(':input[required]');
 
-    if ($('#experiment_label').hasClass('is-invalid')) {
-        $('#experiment_label').focus();
-        required_input_error = true;
-    }
+    required_input_error = !valid_experiment_label_syntax()
 
     $required_inputs.each(function(){
-        if ($(this).val().trim() === '') {
-            $(this).addClass('is-invalid');
+        // TODO - should be improved
+        const is_invalid = $(this).val() && $(this).val().trim() === ''
+        $(this).toggleClass('is-invalid', is_invalid);
+        if (is_invalid) {
             required_input_error = true;
         }
     });
+
+    // validate visits and protocols
+    $('#visit, #datatype, #subtype').each(function() {
+        if ($(this).is(':visible')) {
+            console.log(this.id, $(this).find('a.selected').length)
+            if ($(this).find('a.selected').length === 0) {
+                required_input_error = true;
+            } else {
+                console.log(this.id, 'Valid')
+            }
+        }
+    })
 
     if (selected.length === 0) {
         required_input_error = true;
@@ -1193,8 +1249,8 @@ $(document).on('page:load', '#upload-section', async function(e){
     await _init_variables();
 
     $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', !ALLOW_VISUAL_PHI_CHECK);
-    $('#nav-verify .js_next').toggleClass('hidden', !ALLOW_VISUAL_PHI_CHECK);
-    $('#nav-verify .js_upload').toggleClass('hidden', ALLOW_VISUAL_PHI_CHECK);
+    $('#nav-verify #custom_upload .js_next').toggleClass('hidden', !ALLOW_VISUAL_PHI_CHECK);
+    $('#nav-verify #custom_upload .js_upload').toggleClass('hidden', ALLOW_VISUAL_PHI_CHECK);
     
     $('#upload-project').html('')
     $('button[data-target="#new-subject"]').prop('disabled', !site_wide_settings.allow_create_subject);
@@ -1263,13 +1319,13 @@ function generate_project_list(projects) {
         `)
         
     }
+
+    select_link_for_item('upload-project', ['project_id'], 'project_prm');
 }
 
 $(document).on('click', '#upload-section a[data-project_id]', async function(e){
-    $('.tab-pane.active .js_next').addClass('disabled');
-    
+    FlowReset.execFrom('project_selection');
 
-    $(this).closest('ul').find('a').removeClass('selected');
     $(this).addClass('selected');
 
     // set Review data
@@ -1288,7 +1344,6 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
             experiment_labels: project_settings.sessions.map(item => item.label),
             pet_tracers: get_pet_tracers(project_settings.pet_tracers, site_wide_settings.pet_tracers, user_defined_pet_tracers(settings))
         }
-
 
         console.log({PROJECT_SETTINGS: project_settings});
 
@@ -1387,19 +1442,21 @@ function generate_anon_script_warning(xnat_server, project_id, user_settings) {
 
 // ====================================================================================================
 // ====================================================================================================
+
+
 $(document).on('change', '#var_subject', async function(e){
+    console.log('change#var_subject');
+
     let project_id = $('#var_project').val();
     let subject_id = $(this).find('option:selected').eq(0).data('subject_id');
 
     console.log({project_id, subject_id});
 
+    FlowReset.execFrom('clear_visits')
+
     if (!subject_id) {
         return
     }
-
-    $('.visits-holder').addClass('hidden')
-    $('.datatypes-holder').addClass('hidden')
-    $('.subtypes-holder').addClass('hidden')
 
     try {
         const xnat_api = new XNATAPI(xnat_server, user_auth)
@@ -1407,24 +1464,22 @@ $(document).on('change', '#var_subject', async function(e){
 
         console.log({sorted_visits});
 
-        $('#visit').html('');
-        $('#var_visit').val('');
-        $('#var_visit_label').val('');
-
-        if (sorted_visits.length === 0) {
-            
-            $('.visits-holder').addClass('hidden')
-        } else {
-
+        if (sorted_visits.length !== 0) {
             sorted_visits.forEach(append_visit_row);
 
             $('.visits-holder').removeClass('hidden')
             select_link_for_item('visit', ['visit_id'], 'visit_prm');
+        } else {
+            await experiment_label_with_api()
+            validate_upload_form()
         }
-        
+
     } catch(err) {
         handle_error(err)
     }
+
+    // await experiment_label_with_api()
+    // validate_upload_form()
 
 });
 
@@ -1436,19 +1491,14 @@ $(document).on('click', 'a[data-visit_id]', async function(e){
     let visit_id = $(this).data('visit_id');
 
     // set Review data
-    $('#var_visit_label').val(get_form_value('visit_id', 'visit_label'));
     $('#var_visit').val(visit_id);
 
-    $('.datatypes-holder').addClass('hidden')
-    $('.subtypes-holder').addClass('hidden')
+    FlowReset.execFrom('clear_datatypes')
 
     try {
         const xnat_api = new XNATAPI(xnat_server, user_auth)
         const sorted_types = await xnat_api.project_visit_datatypes(project_id, visit_id)
         console.log({sorted_types});
-
-        $('#datatype').html('');
-        $('#var_datatype').val('');
 
         if (sorted_types.length === 0) {
             $('.datatypes-holder').addClass('hidden');
@@ -1482,26 +1532,24 @@ $(document).on('click', 'a[data-datatype]', async function(e){
 
     $('#var_datatype').val(datatype);
 
-    $('.subtypes-holder').addClass('hidden')
+    FlowReset.execFrom('clear_subtypes')
 
     try {
         const xnat_api = new XNATAPI(xnat_server, user_auth)
         const subtypes = await xnat_api.project_visit_subtypes(project_id, visit_id, datatype)
         console.log({subtypes});
 
-        $('#subtype').html('');
-        $('#var_subtype').val('');
-
         if (subtypes.length === 0) {
             $('.subtypes-holder').addClass('hidden');
-
-            await experiment_label_with_api()
-            validate_upload_form()
         } else {
             subtypes.forEach(append_subtype_row);
             $('.subtypes-holder').removeClass('hidden');
+
             select_link_for_item('subtype', ['subtype'], 'subtype_prm');
         }
+
+        await experiment_label_with_api()
+        validate_upload_form()
         
     } catch(err) {
         handle_error(err)
@@ -1515,6 +1563,8 @@ $(document).on('click', 'a[data-subtype]', async function(e){
 
     // set Review data
     $('#var_subtype').val(get_form_value('subtype', 'subtype'));
+
+    FlowReset.execFrom('clear_experiment_label')
 
     await experiment_label_with_api()
     validate_upload_form()
@@ -1654,6 +1704,7 @@ $(document).on('click', '.js_upload', async function() {
     let upload_method = $('#nav-verify').data('upload_method')
 
     if (upload_method === 'quick_upload') {
+        // TODO - disable Inspect images tab
         if (validate_required_inputs($('#quick_upload'))) {
             const _sessions = $('#selected_session_tbl').bootstrapTable('getData');
             const overwrite = $('#upload_overwrite_method', '#quick_upload').val()
@@ -1670,6 +1721,7 @@ $(document).on('click', '.js_upload', async function() {
     } else if (upload_method === 'custom_upload') {
         await handle_custom_upload()
     } else if (upload_method === 'custom_upload_multiple') {
+        // TODO - disable Inspect images tab
         const _sessions = $('#custom_upload_multiple_tbl').bootstrapTable('getSelections');
 
         if (_sessions.length && validate_required_inputs($('#custom_upload_multiple'))) {
@@ -1782,6 +1834,7 @@ async function handle_upload(_sessions, project_settings, overwrite) {
     }
 }
 
+// TODO - refactor validation (use existing method)
 async function handle_custom_upload() {
     let selected = $('#image_session').bootstrapTable('getSelections');
 
@@ -1834,6 +1887,16 @@ async function handle_custom_upload() {
             }
         }
 
+        if (!valid_pixel_anon()) {
+            swal({
+                title: `Area Selection Error`,
+                text: `All selected areas must be confirmed using "Save Scan" button.`,
+                icon: "warning",
+                dangerMode: true
+            })
+
+            return;
+        }
 
         console.log({url_data, selected_session_id, selected_series, my_anon_variables});
 
@@ -1887,16 +1950,22 @@ $(document).on('show.bs.modal', '#new-subject', function(e) {
 
 // new subject for field validation
 $(document).on('input propertychange change', '#form_new_subject input[type=text], #experiment_label', function(e){
-    let $el = $(this);
+    valid_experiment_label_syntax()
+});
+
+function valid_experiment_label_syntax() {
+    let $el = $('#experiment_label');
     let val = $el.val();
 
     // allow only alphanumeric, space, dash, underscore
     if (val.match(/[^a-z0-9_-]/i) !== null) {
         $el.addClass('is-invalid');
+        return false
     } else {
         $el.removeClass('is-invalid');
+        return true
     }
-});
+}
 
 $(document).on('change', '#pet_tracer', async function(e) {
     let custom_pt_required = $(this).val() === 'OTHER';
@@ -1908,6 +1977,7 @@ $(document).on('change', '#pet_tracer', async function(e) {
     }
 
     //$('#experiment_label').val(experiment_label());
+    console.log('change#pet_tracer');
     await experiment_label_with_api()
     validate_upload_form()
 })
@@ -2036,13 +2106,9 @@ function generate_subject_dropdown(selected_id = false) {
     $('#var_subject')
         .html(subject_options.join("\n"))
         .trigger('change')
-}
 
-$(document).on('change', '#var_subject', async function() {
-    //$('#experiment_label').val(experiment_label());
-    await experiment_label_with_api()
-    validate_upload_form()
-})
+    select_link_for_item('upload-project', ['project_id'], 'project_prm');
+}
 
 function generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject_ids) {
     let subject_id;
@@ -2382,7 +2448,7 @@ function select_session_id(_session) {
     console.log(selected_session.studyInstanceUid);
 
     if (selected_session.date) {
-        $('#image_session_date').val(selected_session.date);
+        $('#image_session_date').val(normalizeDateString(selected_session.date));
     }
 
     let expt_label = experiment_label();
@@ -3292,4 +3358,7 @@ $(document).on('click', '#label_generate_api', async function() {
 })
 $(document).on('click', '#label_generate_local', function() {
     $('#experiment_label').val(experiment_label());
+})
+$(document).on('click', '#validate_form', function() {
+    console.log('upload form errors: ' + validate_upload_form())
 })

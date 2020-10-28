@@ -311,7 +311,7 @@ class XNATAPI {
         params.append('modality', modality);
         params.append('subtype', subtype);
         params.append('date', session_date);
-        params.append('dateFormat', 'yyyyMMdd');
+        params.append('dateFormat', 'yyyy-MM-dd');
 
         const res = await this.axios_post(`/xapi/protocols/generate_label`, params)
 
