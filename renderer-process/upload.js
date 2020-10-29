@@ -1702,7 +1702,7 @@ $(document).on('change', '#file_upload_folder', function(e) {
 
 $(document).on('click', '.js_upload', async function() {
     let upload_method = $('#nav-verify').data('upload_method')
-
+    console.log({upload_method});
     if (upload_method === 'quick_upload') {
         // TODO - disable Inspect images tab
         if (validate_required_inputs($('#quick_upload'))) {
@@ -1897,8 +1897,6 @@ async function handle_custom_upload() {
 
             return;
         }
-
-        console.log({url_data, selected_session_id, selected_series, my_anon_variables});
 
         await storeUpload(url_data, selected_session_id, selected_series, my_anon_variables);
 
@@ -2883,6 +2881,7 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
     let project_id = url_data.project_id;
 
     const selected_session = session_map.get(session_id);
+    
 
     // -----------------------------------------------------
     let _files = [];
@@ -2938,6 +2937,14 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
     let studyDate = normalizeDateString(selected_session.date) || '';
     let studyTime = normalizeTimeString(selected_session.time) || '';
 
+    let pixel_anon_data = []
+    rectangle_state_registry.forEach((state) => {
+        pixel_anon_data.push({
+            series_id: state.series_id,
+            rectangles: state.rectangles
+        })
+    })
+
 
     let upload_digest = {
         id: Helper.uuidv4(),
@@ -2956,6 +2963,7 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
         series_ids: series_ids,
         series: series,
         //_files: _files,
+        pixel_anon: pixel_anon_data,
         total_size: total_size,
         //user_auth: user_auth,
         xnat_server: xnat_server,
@@ -2965,6 +2973,7 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
         status: 0,
         canceled: false
     };
+
     console.log({upload_digest});
 
     try {
