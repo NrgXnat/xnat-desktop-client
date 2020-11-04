@@ -107,6 +107,7 @@ jobs:
               cp -R /Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk /Applications/XNAT-Desktop-Client.app
               cp -R /Applications/XNAT-Desktop-Client.app/Contents/Home /Applications/XNAT-Desktop-Client.app/Contents/Resources
             }
+            [[ -f /Applications/XNAT-Desktop-Client.app/Contents/Resources/jre/lib/jli/libjli.dylib ]] || { echo "Tried to install libjli.dylib but something went wrong"; }
       - run:
           name: Download and expand JRE for Mac
           command: |
