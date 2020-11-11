@@ -19,136 +19,166 @@
                     <div class="tab-content" id="nav-tabContent">
                         <div class="tab-pane fade show active" id="nav-project" role="tabpanel" aria-labelledby="nav-home-tab">
                             <div class="row">
-                                <div class="col-6">
-                                    <h2 class="section-title search-inline">Select Project</h2>
-                                </div>
-                                <div class="col-6">
-                                    <div class="filter-control title-inline">
-                                        <input type="text" id="upload-project-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                <div class="col-6"> 
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <h2 class="section-title search-inline">Select Project</h2>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="filter-control title-inline">
+                                                <input type="text" id="upload-project-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <ul id="upload-project" class="choose-list"></ul>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        
                                     </div>
                                 </div>
 
-                                <div class="col-12">
-                                    <ul id="upload-project" class="choose-list"></ul>
+                                
+                                <div class="col-6">
+                                    <h2 class="section-title">Project Settings</h2>
+
+                                    <div id="project_settings_tbl_wrap"><p>Select a project to view settings</p></div>
+
+                                    <script type="text/html" id="project_settings_tbl_tpl">
+                                        <table id="project_settings_tbl" class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">Project</th>
+                                                    <th scope="col" class="text-right"><%project_settings.project.name%></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>Project ID</th>
+                                                    <td class="text-right"><%project_settings.project.ID%></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Subjects</th>
+                                                    <td class="text-right"><%project_settings.subjects.length%></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Image Sessions</th>
+                                                    <td class="text-right"><%project_settings.sessions.length%></td>
+                                                </tr>
+
+                                                <tr>
+                                                    <td>Site-wide Anon Script</th>
+                                                    <td class="text-right">
+                                                        <%if(site_wide_settings.anon_script !== false) {%>
+                                                            <span title="<%site_wide_settings.anon_script.replace(/"/g, '&quot;')%>">✔</span>
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Project Anon Script</th>
+                                                    <td class="text-right">
+                                                        <%if(project_settings.anon_script !== false) {%>
+                                                            <span title="<%project_settings.anon_script.replace(/"/g, '&quot;')%>">✔</span>
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Site-wide Allow Subject Creation</th>
+                                                    <td class="text-right">
+                                                        <%if(site_wide_settings.allow_create_subject) {%>
+                                                            ✔
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Project Allow Subject Creation</th>
+                                                    <td class="text-right">
+                                                        <%if(project_settings.allow_create_subject) {%>
+                                                            ✔
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Site-wide Series Import Filter</th>
+                                                    <td class="text-right">
+                                                        <%if(site_wide_settings.series_import_filter !== false) {%>
+                                                            <span title="<%site_wide_settings.series_import_filter.replace(/"/g, '&quot;')%>">✔</span>
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Project Series Import Filter</th>
+                                                    <td class="text-right">
+                                                        <%if(project_settings.series_import_filter !== false) {%>
+                                                            <span title="<% (JSON.stringify(project_settings.series_import_filter)).replace(/"/g, '&quot;') %>">✔</span>
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Upload destination</th>
+                                                    <td class="text-right"><%project_settings.upload_destination%></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Date Verification Required</th>
+                                                    <td class="text-right">
+                                                        <%if(site_wide_settings.require_date || project_settings.require_date) {%>
+                                                            ✔
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </script>
+
+                                    
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <h2 class="section-title">Select Data To Upload (Choose a Folder)</h2>
+                                    <p>Selected folder must contain one or more sets of uncompressed DICOM image files. 
+                                        Selected folder can contain files in a flat directory structure or in subfolders. 
+                                    </p>
+
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <input type="text" id="upload_folder" value="" class="form-control col-9 settings-input" readonly>
+                                            <div class="col-3">
+                                                <label class="input-group-btn">
+                                                    <span class="btn btn-blue">
+                                                        Browse
+                                                        <input type="file" id="file_upload_folder" style="display: none" webkitdirectory
+                                                            directory>
+                                                    </span>
+                                                </label>
+                                            </div>
+        
+                                        </div>
+                                    </div>
+        
+        
+                                    <!--<button class="btn btn-blue" id="test-upload" type="button">Test upload</button>-->
+        
+                                    <progress id="dicom_parse_progress" class="hidden" value="0" max="100"></progress>
                                 </div>
                             </div>
                             
+                            
 
-                            <div class="">
-                                <div class="row">
-                                    <div class="col-5">
-                                        <h2 class="section-title">Project Settings</h2>
-
-                                        <div id="project_settings_tbl_wrap"><p>Select a project to view settings</p></div>
-
-                                        <script type="text/html" id="project_settings_tbl_tpl">
-                                            <table id="project_settings_tbl" class="table table-sm">
-                                                <thead>
-                                                    <tr>
-                                                        <th scope="col">Project</th>
-                                                        <th scope="col" class="text-right"><%project_settings.project.name%></th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <tr>
-                                                        <td>Subjects</th>
-                                                        <td class="text-right"><%project_settings.subjects.length%></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Image Sessions</th>
-                                                        <td class="text-right"><%project_settings.sessions.length%></td>
-                                                    </tr>
-
-                                                    <tr>
-                                                        <td>Site-wide Anon Script</th>
-                                                        <td class="text-right">
-                                                            <%if(site_wide_settings.anon_script !== false) {%>
-                                                                <span title="<%site_wide_settings.anon_script.replace(/"/g, '&quot;')%>">✔</span>
-                                                            <%} else {%>
-                                                                N/A
-                                                            <%}%>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Project Anon Script</th>
-                                                        <td class="text-right">
-                                                            <%if(project_settings.anon_script !== false) {%>
-                                                                <span title="<%project_settings.anon_script.replace(/"/g, '&quot;')%>">✔</span>
-                                                            <%} else {%>
-                                                                N/A
-                                                            <%}%>
-                                                        </td>
-                                                    </tr>
-                                                    
-                                                    <tr>
-                                                        <td>Site-wide Series Import Filter</th>
-                                                        <td class="text-right">
-                                                            <%if(site_wide_settings.series_import_filter !== false) {%>
-                                                                <span title="<%site_wide_settings.series_import_filter.replace(/"/g, '&quot;')%>">✔</span>
-                                                            <%} else {%>
-                                                                N/A
-                                                            <%}%>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Project Series Import Filter</th>
-                                                        <td class="text-right">
-                                                            <%if(project_settings.series_import_filter !== false) {%>
-                                                                <span title="<% (JSON.stringify(project_settings.series_import_filter)).replace(/"/g, '&quot;') %>">✔</span>
-                                                            <%} else {%>
-                                                                N/A
-                                                            <%}%>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Upload destination</th>
-                                                        <td class="text-right"><%project_settings.upload_destination%></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Date Verification Required</th>
-                                                        <td class="text-right">
-                                                            <%if(site_wide_settings.require_date || project_settings.require_date) {%>
-                                                                ✔
-                                                            <%} else {%>
-                                                                ✖
-                                                            <%}%>
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </script>
-
-                                        
-                                    </div>
-                                    <div class="col-6 offset-1">
-                                        <h2 class="section-title">Select Data To Upload (Choose a Folder)</h2>
-                                        <p>Selected folder must contain one or more sets of uncompressed DICOM image files. 
-                                            Selected folder can contain files in a flat directory structure or in subfolders. 
-                                        </p>
-
-                                        <div class="form-group">
-                                            <div class="input-group">
-                                                <input type="text" id="upload_folder" value="" class="form-control col-9 settings-input" readonly>
-                                                <div class="col-3">
-                                                    <label class="input-group-btn">
-                                                        <span class="btn btn-blue">
-                                                            Browse
-                                                            <input type="file" id="file_upload_folder" style="display: none" webkitdirectory
-                                                                directory>
-                                                        </span>
-                                                    </label>
-                                                </div>
-            
-                                            </div>
-                                        </div>
-            
-            
-                                        <!--<button class="btn btn-blue" id="test-upload" type="button">Test upload</button>-->
-            
-                                        <progress id="dicom_parse_progress" class="hidden" value="0" max="100"></progress>
-                                    </div>
-                                </div>
-                            </div>
 
                             <div class="row action-button-row">
                                 <div class="col-12">
@@ -348,13 +378,40 @@
                                         <div class="row">
                                             <div class="col-7">
                                                 <h3>Relabeling Instructions</h3>
-    
+                                                <!--
                                                 <p>This table shows both the DICOM values for patient, study, and date
                                                     that were found in your sessions, and the current values for XNAT's
                                                     Subject ID and Session Label fields that have been generated by your
                                                     site and project anonymization scripts. You can edit these values in
                                                     place, or download a CSV file and assign values there.
                                                 </p>
+                                                -->
+
+                                                
+                                                <div class="form-inline" style="margin: 10px 0">
+                                                    <div class="form-group">
+                                                        <label for="subject_labeling_pattern">Subject Labeling Pattern:</label>
+                                                        <select class="form-control form-control-sm" id="subject_labeling_pattern">
+                                                            <option value="manual">Manual Entry</option>
+                                                            <option value="auto">Auto-generate Labels</option>
+                                                            <option value="dicom_patient_name">Use DICOM Patient Name (0010,0010)</option>
+                                                            <option value="dicom_patient_id">Use DICOM Patient ID (0010,0020)</option>
+                                                            <option value="hash_patient_name">Hash DICOM Patient Name</option>
+                                                            <option value="hash_patient_id">Hash DICOM Patient ID</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <div class="form-inline" style="margin: 10px 0">
+                                                    <div class="form-group">
+                                                        <label for="session_labeling_pattern">Session Labeling Pattern::</label>
+                                                        <select class="form-control form-control-sm" id="session_labeling_pattern">
+                                                            <option value="manual">Manual Entry</option>
+                                                            <option value="auto">Auto-generate From Subject Label</option>
+                                                            <option value="dicom_accession_num">Use DICOM Accession Num (0008,0050)</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
                                             </div>
     
                                             <div class="col-4 offset-1">

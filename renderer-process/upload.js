@@ -200,6 +200,10 @@ function init_flow_reset() {
         $('#file_upload_folder').prop('disabled', true).closest('.btn').addClass('disabled')
     })
 
+    FlowReset.add('update_add_subject_button_state', () => {
+        $('button[data-target="#new-subject"]').prop('disabled', !project_settings.allow_create_subject);
+    })
+
     FlowReset.add('session_selection', () => {
         $('#upload_folder, #file_upload_folder').val('');
 
@@ -2112,7 +2116,7 @@ function generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject
     let subject_id;
     let all_subjects = [...existing_project_subjects, ...xnat_subject_ids]
     do {
-        subject_id = random_string(8)
+        subject_id = random_string(2) + random_string(3, 'NUMERIC')
     } while(all_subjects.includes(subject_id))
 
     return subject_id;

@@ -102,11 +102,32 @@ exports.uuidv4_crypto = () => {
 }
 
 
-exports.random_string = (length, include_lowercase = false) => {
-    let rand_str = "";
-    let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    if (include_lowercase) {
-        chars += "abcdefghijklmnopqrstuvwxyz";
+exports.random_string = (length, charset = 'ALPHA', include_lowercase = false) => {
+    let chars = ''
+    let rand_str = ''
+
+    switch (charset) {
+        case 'ALNUM':
+        case 'ALPHANUM':
+        case 'ALPHANUMERIC':
+            chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+            if (include_lowercase) {
+                chars += chars.replace(/[0-9]/g, '').toLowerCase()
+            }
+            break
+        
+        case 'NUM':
+        case 'NUMERIC':
+            chars = "0123456789"
+            break
+
+        case 'ALPHA':
+        default:
+            chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            if (include_lowercase) {
+                chars += chars.toLowerCase()
+            }
+            break
     }
 
     for (let i = 0; i < length; i++) {
