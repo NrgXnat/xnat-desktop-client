@@ -448,6 +448,14 @@ function toggle_upload_buttons() {
 $(document).on('change', '#skip_session_date_validation', toggle_upload_buttons)
 
 
+$(document).on('change', '#subject_labeling_pattern', function() {
+    
+})
+
+$(document).on('change', '#session_labeling_pattern', function() {
+
+})
+
 function _init_session_selection_table(tbl_data) {
     let $found_sessions_tbl = $('#found_sessions');
 

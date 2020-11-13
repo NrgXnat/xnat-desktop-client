@@ -33,6 +33,20 @@
 	font-size: 1rem;
 }
 
+#relabeling_info {
+	.form-inline .form-group {
+		flex-grow: 1;
+
+		label {
+			width: 35%;
+			justify-content: flex-start;
+		}
+		select {
+			width: 65%;
+		}
+	}
+}
+
 
 ////FORMS
 .btn {
