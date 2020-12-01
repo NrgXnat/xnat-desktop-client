@@ -142,7 +142,10 @@ async function fetch_project_settings(project_id, xnat_server, user_auth) {
             xnat_api.project_series_import_filter(project_id),
             xnat_api.project_upload_destination(project_id),
             xnat_api.project_data(project_id),
-            xnat_api.project_pet_tracers(project_id)
+            xnat_api.project_pet_tracers(project_id),
+            xnat_api.project_allow_bulk_upload(project_id),
+            xnat_api.project_default_subject_labeling_scheme(project_id),
+            xnat_api.project_default_session_labeling_scheme(project_id)
         ])
 
         return {
@@ -154,7 +157,10 @@ async function fetch_project_settings(project_id, xnat_server, user_auth) {
             series_import_filter: res[5],
             upload_destination: res[6],
             project: res[7],
-            pet_tracers: res[8]
+            pet_tracers: res[8],
+            allow_bulk_upload: res[9],
+            subject_labeling_scheme: res[10],
+            session_labeling_scheme: res[11]
         }
     } catch (err) {
         throw err
@@ -412,6 +418,8 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]'
             break
         case 'custom_upload_multiple':
             $('#custom_upload_multiple').show().siblings().hide()
+            $('#subject_labeling_pattern').val(project_settings.subject_labeling_scheme).trigger('change')
+            $('#session_labeling_pattern').val(project_settings.session_labeling_scheme).trigger('change')
             break
         case 'custom_upload':
         default:
@@ -419,7 +427,6 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]'
             break
     }
 })
-
 
 function toggle_upload_buttons() {
     let selected = $('#found_sessions').bootstrapTable('getSelections');
@@ -449,17 +456,99 @@ $(document).on('change', '#skip_session_date_validation', toggle_upload_buttons)
 
 
 $(document).on('change', '#subject_labeling_pattern', function() {
-    
+    let subject_pattern = $(this).val()
+    let session_pattern = $('#session_labeling_pattern').val()
+
+    switch (subject_pattern) {
+        case 'auto':
+            generate_field_pattern('xnat_subject_id', 'subject_auto')
+            break;
+        
+        case 'dicom_patient_name':
+            generate_field_pattern('xnat_subject_id', 'subject_dicom_patient_name')
+            break;
+
+        case 'dicom_patient_id':
+            generate_field_pattern('xnat_subject_id', 'subject_dicom_patient_id')
+            break;
+
+        default:
+
+            break;
+
+    }
+
+    if (session_pattern === 'auto') {
+        generate_session_auto()
+    }
 })
+
 
 $(document).on('change', '#session_labeling_pattern', function() {
+    let session_pattern = $(this).val()
 
+    switch (session_pattern) {
+        case 'auto':
+            generate_session_auto()
+            break;
+        
+        case 'dicom_accession_num':
+            generate_field_pattern('experiment_label', 'session_accession')
+            break;
+
+        default:
+
+            break;
+
+    }
 })
+
+function generate_field_pattern(target_field, source_field) {
+    let $tbl = $('#custom_upload_multiple_tbl')
+    let tbl_data = $tbl.bootstrapTable('getData')
+
+    for (let i = 0; i < tbl_data.length; i++) {
+        let row = tbl_data[i]
+        let reinit_val = i === tbl_data.length - 1
+
+        console.log({field: source_field, value: row[source_field]});
+
+        let row_value = row[source_field] === undefined ? '' : row[source_field]
+
+        $tbl.bootstrapTable("updateCellByUniqueId", {
+            id: row.id,
+            field: target_field,
+            value: row_value,
+            reinit: reinit_val
+        });
+    }
+}
+
+function generate_session_auto() {
+    let $tbl = $('#custom_upload_multiple_tbl')
+    let tbl_data = $tbl.bootstrapTable('getData')
+
+    // if ...
+
+    for (let i = 0; i < tbl_data.length; i++) {
+        let row = tbl_data[i]
+        let reinit_val = i === tbl_data.length - 1
+
+        $tbl.bootstrapTable("updateCellByUniqueId", {
+            id: row.id,
+            field: 'experiment_label',
+            value: row.xnat_subject_id + row.label_suffix,
+            reinit: reinit_val
+        });
+    }
+}
+
 
 function _init_session_selection_table(tbl_data) {
     let $found_sessions_tbl = $('#found_sessions');
 
     let date_required = site_wide_settings.require_date || project_settings.require_date;
+    let single_select = !project_settings.allow_bulk_upload;
 
     destroyBootstrapTable($found_sessions_tbl);
 
@@ -482,7 +571,8 @@ function _init_session_selection_table(tbl_data) {
         classes: 'table-sm',
         theadClasses: 'thead-light',
         maintainMetaData: true,
-        //singleSelect: true,
+        singleSelect: single_select,
+        // clickToSelect: true,
         uniqueId: 'id',
         columns: [
             {
@@ -2094,8 +2184,10 @@ $(document).on('show.bs.modal', '#session-selection', function(e) {
     let tbl_data = $(this).data('tbl_data')
     let title = tbl_data.length == 1 ? `Found 1 session` : `Found ${tbl_data.length} sessions`;
 
+    let msg = project_settings.allow_bulk_upload ? 'Select one or more sessions to upload:' : 'Select a session to upload:'
 
     $('.modal-header .modal-title', $(this)).html(title);
+    $('#select-sessions-message', $(this)).html(msg);
 
 });
 
@@ -2155,9 +2247,16 @@ function get_session_series(session) {
     return series_data;
 }
 
+
+$(document).on('click', '#switch_to_quick_upload', function() {
+    let selected = $('#custom_upload_multiple_tbl').bootstrapTable('getData');
+    quick_upload_selection(selected)
+    $('#quick_upload').show().siblings().hide()
+})
+
 function quick_upload_selection(_sessions) {
     const session_ids = _sessions.map(sess => sess.id)
-    const tbl_data = selected_sessions_display_data(session_map, session_ids, project_settings.subjects)
+    const tbl_data = selected_sessions_display_data(session_map, session_ids, project_settings.subjects, true)
 
     console.log({session_ids, tbl_data});
 
@@ -2326,7 +2425,7 @@ $(document).on('change', '#upload-section [data-csv-file-upload]', async functio
 
 })
 
-function selected_sessions_display_data(session_map, session_ids, project_subjects) {
+function selected_sessions_display_data(session_map, session_ids, project_subjects, automatic_labeling = false) {
     let tbl_data = []
     let xnat_subject_ids = []
 
@@ -2340,8 +2439,10 @@ function selected_sessions_display_data(session_map, session_ids, project_subjec
             return
         }
 
-        let new_xnat_subject_id = generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject_ids);
-        xnat_subject_ids.push(new_xnat_subject_id)
+        let new_xnat_subject_id = automatic_labeling ? generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject_ids) : ''
+        if (new_xnat_subject_id) {
+            xnat_subject_ids.push(new_xnat_subject_id)
+        }
 
         
         /************************** */
@@ -2357,9 +2458,14 @@ function selected_sessions_display_data(session_map, session_ids, project_subjec
             id: key,
             patient_name: cur_session.patient.name,
             patient_id: cur_session.patient.id,
+            subject_auto: generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject_ids),
+            subject_dicom_patient_name: cur_session.patient.name,
+            subject_dicom_patient_id: cur_session.patient.id,
             xnat_subject_id: new_xnat_subject_id,
             label: session_label,
-            experiment_label: generate_experiment_label(new_xnat_subject_id, series_data, 'PT', 'YYY'), // TODO replace PT and YYY values with dicom data
+            session_accession: cur_session.accession,
+            label_suffix: generate_experiment_label('', series_data, 'PT', 'YYY'), // TODO replace PT and YYY values with dicom data
+            experiment_label: new_xnat_subject_id ? generate_experiment_label(new_xnat_subject_id, series_data, 'PT', 'YYY') : '', //, // TODO replace PT and YYY values with dicom data
             modality: cur_session.modality.join(", "),
             scan_count: cur_session.scans.size,
             tracer: null,

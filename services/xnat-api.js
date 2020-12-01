@@ -170,27 +170,58 @@ class XNATAPI {
     }
 
     async project_allow_create_subject(project_id) {
-        const res = await this.axios_get(`/data/config/projects/${project_id}/applet/allow-create-subject?contents=true&accept-not-found=true`)
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/allow-create-subject?contents=true&accept-not-found=true`)
         
         return typeof res.data === 'boolean' ? res.data : (res.data === '' || res.data.toLowerCase() === 'true')
     }
 
     /*
     async project_require_date(project_id) {
-        const res = await this.axios_get(`/data/config/projects/${project_id}/applet/require-date?contents=true&accept-not-found=true`)
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/require-date?contents=true&accept-not-found=true`)
 
         return typeof res.data === 'boolean' ? res.data : (res.data.toLowerCase() !== 'false' && res.data !== '')
     }
     */
 
     async project_require_date(project_id) {
-        const res = await this.axios_get(`/data/config/projects/${project_id}/applet/require-date?contents=true&accept-not-found=true`)
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/require-date?contents=true&accept-not-found=true`)
 
         if (res.data === '') {
             // return null;
             return await this.sitewide_require_date(); // use sitewide
         } else {
             return typeof res.data === 'boolean' ? res.data : (res.data.toLowerCase() !== 'false');
+        }
+    }
+
+    async project_allow_bulk_upload(project_id) {
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/allow-bulk-upload?contents=true&accept-not-found=true`)
+
+        if (res.data === '') {
+            return true
+            // return await this.sitewide_require_date(); // use sitewide
+        } else {
+            return typeof res.data === 'boolean' ? res.data : (res.data.toLowerCase() !== 'false');
+        }
+    }
+
+    async project_default_subject_labeling_scheme(project_id) {
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/default-subject-labeling-scheme?contents=true&accept-not-found=true`)
+
+        if (res.data === '') {
+            return 'manual' // default
+        } else {
+            return res.data.toLowerCase()
+        }
+    }
+
+    async project_default_session_labeling_scheme(project_id) {
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/default-session-labeling-scheme?contents=true&accept-not-found=true`)
+
+        if (res.data === '') {
+            return 'auto' // default
+        } else {
+            return res.data.toLowerCase()
         }
     }
 

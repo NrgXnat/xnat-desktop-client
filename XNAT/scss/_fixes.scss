@@ -338,3 +338,20 @@ body>.ui-pnotify {
         overflow-y: auto;
     }
 }
+/**********************/
+h3 > span[data-toggle="popover"] {
+    font-size: 0.9rem;
+    display: inline-block;
+    margin-left: 9px;
+    text-transform: uppercase;
+}
+
+span[data-toggle="popover"] {
+    cursor: pointer;
+}
+.fa-question-circle {
+    color: #1A75BB;
+}
+.popover-header, .popover-body {
+    font-family: "Roboto", sans-serif;
+}

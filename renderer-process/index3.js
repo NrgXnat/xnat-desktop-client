@@ -475,6 +475,9 @@ $(document).on('click', '#download_and_install', function(e) {
     ipc.send('download_and_install');
 })
 
+// initialize popovers
+$('[data-toggle="popover"]').popover()
+
 // ===============
 
 ipc.on('load:page',function(e, item){

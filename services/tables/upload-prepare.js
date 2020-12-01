@@ -92,13 +92,19 @@ function custom_upload_multiple_table($tbl, tbl_data) {
     window.customMultipleUploadSubjectChange = {
         'input .subject-field': function (e, value, row, index) {
             row.xnat_subject_id = $(e.target).val()
-            ipcRenderer.send('custom_upload_multiple:generate_exp_label', row)
+            if ($('#subject_labeling_pattern').val() === 'auto') {
+                ipcRenderer.send('custom_upload_multiple:generate_exp_label', row)
+            }
+
+            $('#subject_labeling_pattern').val('manual')
         }
     }
 
     window.customMultipleUploadLabelChange = {
         'input .label-field': function (e, value, row, index) {
             row.experiment_label = $(e.target).val()
+
+            $('#session_labeling_pattern').val('manual')
         }
     }
 
@@ -155,6 +161,21 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 visible: false
             },
             {
+                field: 'subject_auto',
+                title: 'Sub Auto',
+                visible: false
+            },
+            {
+                field: 'subject_dicom_patient_name',
+                title: 'Sub P.Name',
+                visible: false
+            },
+            {
+                field: 'subject_dicom_patient_id',
+                title: 'Sub P.ID',
+                visible: false
+            },
+            {
                 field: 'xnat_subject_id',
                 title: 'XNAT SUBJECT ID',
                 events: 'customMultipleUploadSubjectChange',
@@ -203,6 +224,16 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 title: 'Scans',
                 sortable: true,
                 class: 'right-aligned'
+            },
+            {
+                field: 'session_accession',
+                title: 'Sess Acc',
+                visible: false
+            },
+            {
+                field: 'label_suffix',
+                title: 'Label Suffix',
+                visible: false
             },
             {
                 field: 'experiment_label',
