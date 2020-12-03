@@ -609,7 +609,7 @@ ipcMain.on('global_pause_status', (e, new_status) => {
 
   if (new_status === true) {
     uploadWindow.webContents.send('start_upload', new_status);
-    uploadWindow.webContents.send('start_download', new_status);
+    downloadWindow.webContents.send('start_download', new_status);
   }
 })
 
