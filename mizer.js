@@ -45,7 +45,7 @@ console.log(jarDir);
     "log4j-1.2.17.jar",
     "mizer-1.1.2.jar",
     "dicom-edit6-1.1.1.jar",
-    "pixelEditor-1.1.1.jar",
+    "pixelEditor-1.2.1-SNAPSHOT.jar",
     "pixelmed-nrg-20200327.jar",
     "pixelmed-codec-20200328.jar",
     "pixelmed-imageio-20200328.jar",

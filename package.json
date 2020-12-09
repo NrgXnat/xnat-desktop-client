@@ -1,6 +1,6 @@
 {
   "name": "xnat-desktop-client",
-  "version": "3.0.0",
+  "version": "3.0.0-beta.2",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "extraMetadata": {
@@ -109,6 +109,7 @@
   "build": {
     "appId": "com.xnatapp.app",
     "productName": "XNAT-Desktop-Client",
+    "generateUpdatesFilesForAllChannels": true,
     "afterSign": "scripts/notarize.js",
     "asarUnpack": [
       "node_modules/java/**/*",
