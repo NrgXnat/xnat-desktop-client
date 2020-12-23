@@ -2,6 +2,7 @@ const {
     DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT, 
     MAX_RECENT_UPLOAD_PROJECTS_STORED,
     ALLOW_VISUAL_PHI_CHECK,
+    UPLOAD_SELECTION_WARNING_SIZE,
     PRIMARY_MODALITIES,
     CSV_UPLOAD_FIELDS
 } = require('../services/constants')
@@ -1757,11 +1758,11 @@ $(document).on('change', '#file_upload_folder', function(e) {
             .then(function(response){
                 console.log(response);
 
-                if (response > 1000) {
+                if (response > UPLOAD_SELECTION_WARNING_SIZE) {
                     swal({
-                        title: `Are you sure?`,
-                        text: `This folder is ${response} MB in size! Continue?`,
-                        icon: "warning",
+                        title: `Selected folder size: ${prettyBytes(response)}`,
+                        text: `It may take a while to process this much data. Are you sure you want to continue?`,
+                        icon: "info",
                         buttons: ['Cancel', 'Continue'],
                         dangerMode: true
                     })
@@ -2663,9 +2664,7 @@ function getSizeAsPromised(pth) {
             if (err) { 
                 reject(err);
             } else {
-                let folder_size = (size / 1024 / 1024).toFixed(2);
-                console.log('--->', pth, folder_size + ' MB');
-                resolve(Math.round(size / 1024 / 1024));
+                resolve(size);
             }
         });
     });
