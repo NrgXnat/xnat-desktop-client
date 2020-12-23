@@ -515,13 +515,36 @@ function _UI() {
 }
 
 
-function _init_variables() {
+async function _init_variables() {
     xnat_server = settings.get('xnat_server');
     user_auth = settings.get('user_auth');
 
     _init_download_progress_table();
     _init_upload_progress_table();
+    
+    // find newest transfer type and display corresponding tab
+    const newest_item_type = await getNewestTransfer()
+    $(`#nav-${newest_item_type}-tab`).trigger('click')
+
     _UI();
+}
+
+async function getNewestTransfer() {
+    try {
+        const all_uploads = await db_uploads._listAll()
+        const all_downloads = await db_downloads._listAll()
+
+        const my_uploads = all_uploads.filter(transfer => transfer.xnat_server === xnat_server && transfer.user === user_auth.username)
+        const my_downloads = all_downloads.filter(transfer => transfer.server === xnat_server && transfer.user === user_auth.username)
+
+        const max_upload = my_uploads.length ? my_uploads.reduce((a,b) => a.transfer_start > b.transfer_start ? a : b).transfer_start : 0
+        const max_download = my_downloads.length ? my_downloads.reduce((a,b) => a.transfer_start > b.transfer_start ? a : b).transfer_start : 0
+
+        return max_upload > max_download ? 'upload' : 'download'
+
+    } catch (err) {
+        throw err
+    }
 }
 
 
@@ -531,10 +554,10 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
 }
 
 
-$(document).on('page:load', '#progress-section', function(e){
+$(document).on('page:load', '#progress-section', async function(e){
     console.log('PROGRESS page:load triggered');
     
-    _init_variables();
+    await _init_variables();
 });
 
 const csv_export_buttons = [
