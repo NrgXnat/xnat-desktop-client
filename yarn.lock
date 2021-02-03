@@ -1146,10 +1146,10 @@ dicomedit-uuid@^8.3.2:
   resolved "https://registry.yarnpkg.com/dicomedit-uuid/-/dicomedit-uuid-8.3.2.tgz#5ccb340ddd1b6db37ae27caf635b3237f15d7bca"
   integrity sha512-45aYYHOHY6gQEKrO/DnOgAWeo8Mvy1GdUO2DhHbBpA+Qm9WQ4wfqAxilIpSsgT5V3NbrVZwJ+nFWGtdehFFCJA==
 
-dicomedit@^0.0.20:
-  version "0.0.20"
-  resolved "https://registry.yarnpkg.com/dicomedit/-/dicomedit-0.0.20.tgz#76f7fe0d59c912ca6abe4373ec35eaf4bad4cd8f"
-  integrity sha512-kxxQKDAmnzislYTjLtFMy+lbCO9CuNB9DpdvzxsGq3/raDjUIB1r7EzKk/jQkkCd68KQilAtHjXV7ICHjp+UjA==
+dicomedit@^0.0.21:
+  version "0.0.21"
+  resolved "https://registry.yarnpkg.com/dicomedit/-/dicomedit-0.0.21.tgz#65e40ba07a242854e7d992feb16a381cd3a10f3e"
+  integrity sha512-iK6N2qJ9JuCVlstM+DF3Ve+QD8LFuOR3nvUwpItD8k0Un+/H46ZPK/9Mw0Iin5wVGxTeqr0+Pa3V3rpvXhB3CQ==
   dependencies:
     antlr4 "^4.9.1"
     big-integer "^1.6.48"

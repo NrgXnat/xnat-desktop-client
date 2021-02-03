@@ -47,12 +47,13 @@ let startupExternalUrl;
 if (isSecondInstance()){
   app.quit()
 } else {
-  if (is_usr_local_lib_writable()) {
-    fix_java_path();
+//   if (is_usr_local_lib_writable()) {
+//     fix_java_path();
+//     initialize();
+//   } else {
+//     initialize_usr_local_lib_app()
+//   }
     initialize();
-  } else {
-    initialize_usr_local_lib_app()
-  }
 }
 
 

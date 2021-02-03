@@ -1445,7 +1445,7 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
         project_settings.computed = {
             scripts: scripts,
             // anon_variables: mizer.get_scripts_anon_vars(scripts),
-            anon_variables: {},
+            anon_variables: {session:'session'},
             experiment_labels: project_settings.sessions.map(item => item.label),
             pet_tracers: get_pet_tracers(project_settings.pet_tracers, site_wide_settings.pet_tracers, user_defined_pet_tracers(settings))
         }
