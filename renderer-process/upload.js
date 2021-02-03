@@ -30,7 +30,8 @@ const FlowReset = new ResetManager();
 const ExperimentLabel = require('../services/experiment_label')
 
 const remote = require('electron').remote;
-const mizer = remote.require('./mizer');
+// change to Js dicomedit library
+// const mizer = remote.require('./mizer');
 
 const db_uploads = remote.require('./services/db/uploads')
 
@@ -1443,7 +1444,8 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
 
         project_settings.computed = {
             scripts: scripts,
-            anon_variables: mizer.get_scripts_anon_vars(scripts),
+            // anon_variables: mizer.get_scripts_anon_vars(scripts),
+            anon_variables: {},
             experiment_labels: project_settings.sessions.map(item => item.label),
             pet_tracers: get_pet_tracers(project_settings.pet_tracers, site_wide_settings.pet_tracers, user_defined_pet_tracers(settings))
         }

@@ -28,18 +28,18 @@ electron.crashReporter.start({
 
 
 
-try {
-    let mizer = remote.require('./mizer');
-} catch(e) {
-    if (process.platform === "win32" && e.message.includes('nodejavabridge_bindings.node')) {
-        $('#win_install_cpp').modal({
-            keyboard: false,
-            backdrop: 'static'
-        })
-    } else {
-        throw e;
-    }
-}
+// try {
+//     let mizer = remote.require('./mizer');
+// } catch(e) {
+//     if (process.platform === "win32" && e.message.includes('nodejavabridge_bindings.node')) {
+//         $('#win_install_cpp').modal({
+//             keyboard: false,
+//             backdrop: 'static'
+//         })
+//     } else {
+//         throw e;
+//     }
+// }
 
 
 

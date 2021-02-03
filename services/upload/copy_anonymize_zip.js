@@ -94,19 +94,39 @@ const copy_file = (file, target_dir) => {
     })
 }
 
-const anonymize_copy = (copy_path, contexts, variables) => {
-    return new Promise((resolve, reject) => {
-        try {
-            mizer.anonymize(copy_path, contexts, variables);
-            console.count('anonymized')
-
-            resolve(copy_path)
-        } catch(err) {
-            console.log(`ERROR: anonymize_copy(${path.basename(copy_path)})`)
-            reject({err, copy: copy_path})
+const anonymize_copy = async (source, target_dir, contexts, variables) => {
+    try {
+        let target = get_unique_copy_path(file, target_dir)
+        let buffer = fs.readFileSync(source);
+        for (let i = 0; i < contexts.length; ++i) {
+            const script = contexts[i];
+            const anonymizer = new Anonymizer(script, {identifiers: variables});
+            anonymizer.loadDcm(buffer);
+            await anonymizer.applyRules();
+            buffer = anonymizer.write();
         }
-    })
+        fs.writeFileSync(target, new Uint8Array(buffer));
+        return target;
+    } catch(error) {
+        console.log(`ERROR: anonymize_copy(${path.basename(copy_path)})`)
+        reject({err, copy: copy_path})
+    } 
 }
+
+// const anonymize_copy = (copy_path, contexts, variables) => {
+//     return new Promise((resolve, reject) => {
+//         try {
+//             mizer.anonymize(copy_path, contexts, variables);
+//             console.count('anonymized')
+
+//             resolve(copy_path)
+//         } catch(err) {
+//             console.log(`ERROR: anonymize_copy(${path.basename(copy_path)})`)
+//             reject({err, copy: copy_path})
+//         }
+//     })
+    
+// }
 
 const calculate_checksum = async (copy_path, file_path, anon_file_checksums) => {
     const anon_checksum = await file_checksum(copy_path)
@@ -138,10 +158,12 @@ const add_to_archive = (file_path, original, archive) => {
 const all_file_tasks = (file_path, target_dir, archive, contexts, variables, anon_file_checksums) => {
     return () => {
         return new Promise((resolve, reject) => {
-            copy_file(file_path, target_dir)
-                .then(copy_path => {
-                    return anonymize_copy(copy_path, contexts, variables) // promise (anonymize)
-                })
+
+            // copy_file(file_path, target_dir)
+            //     .then(copy_path => {
+            //         return anonymize_copy(copy_path, contexts, variables) // promise (anonymize)
+            //     })
+            anonymize_copy(file_path, target_dir, contexts, variables)
                 .then(async (copy_path) => {
                     return calculate_checksum(copy_path, file_path, anon_file_checksums)
                 })

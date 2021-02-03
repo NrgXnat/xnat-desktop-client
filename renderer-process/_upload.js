@@ -20,7 +20,10 @@ const tempDir = require('temp-dir');
 
 const auth = require('../services/auth');
 
-const mizer = remote.require('./mizer');
+// change to Js dicomedit library
+// const mizer = remote.require('./mizer');
+const { Anonymizer } = require('dicomedit');
+
 const XNATAPI = require('../services/xnat-api')
 
 const db_uploads = remote.require('./services/db/uploads')
@@ -33,7 +36,7 @@ const user_settings = require('../services/user_settings');
 
 const nedb_logger = remote.require('./services/db/nedb_logger')
 
-const { copy_anonymize_zip } = require('../services/upload/copy_anonymize_zip');
+// const { copy_anonymize_zip } = require('../services/upload/copy_anonymize_zip');
 const { isEmptyObject, promiseSerial } = require('../services/app_utils')
 const { MizerError } = require('../services/errors');
 
@@ -396,29 +399,32 @@ async function doUpload(transfer, series_id) {
     .then(scripts => {
         console_log(scripts);
 
-        let pixel_anon_series = transfer.pixel_anon ? transfer.pixel_anon.find(sd => series_id === sd.series_id) : false
-        if (pixel_anon_series) {
-            let series_script = mizer.generateAlterPixelCode(pixel_anon_series.rectangles);
-            if (series_script.length) {
-                scripts.push(series_script)
-                console.log('************** AFTER ======');
-                scripts.forEach(scr => {
-                    console.log(scr);
-                })
+        // let pixel_anon_series = transfer.pixel_anon ? transfer.pixel_anon.find(sd => series_id === sd.series_id) : false
+        // if (pixel_anon_series) {
+        //     let series_script = mizer.generateAlterPixelCode(pixel_anon_series.rectangles);
+        //     if (series_script.length) {
+        //         scripts.push(series_script)
+        //         console.log('************** AFTER ======');
+        //         scripts.forEach(scr => {
+        //             console.log(scr);
+        //         })
                 
-            }
-        }
+        //     }
+        // }
 
-        contexts = mizer.getScriptContexts(scripts);
+        // contexts = mizer.getScriptContexts(scripts);
 
         // Convert the JS map anonValues into a Java Properties object.
-        variables = mizer.getVariables(transfer.anon_variables);
+        // variables = mizer.getVariables(transfer.anon_variables);
+        variables = transfer.anon_variables;
         console_log(variables);
 
         if (user_settings.get('zip_upload_mode') === true) {
-            copy_and_anonymize_zip(transfer, series_id, _files, contexts, variables, csrfToken)
+            // copy_and_anonymize_zip(transfer, series_id, _files, contexts, variables, csrfToken)
+            copy_and_anonymize_zip(transfer, series_id, _files, scripts, variables, csrfToken)
         } else {
-            copy_and_anonymize(transfer, series_id, _files, contexts, variables, csrfToken)
+            // copy_and_anonymize(transfer, series_id, _files, contexts, variables, csrfToken)
+            copy_and_anonymize(transfer, series_id, _files, scripts, variables, csrfToken)
         }
 
         
@@ -787,81 +793,117 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
     const funcs = filePaths.map(copyAnonArchive);
 
-
     function copyAnonArchive(source) {
-        return function() {
-            return new Promise((resolve, reject) => {
-                let target = path.join(new_dirpath, uuidv4());
+        return async function() {
+            const orig_target = path.join(new_dirpath, path.basename(source));
+            let target = orig_target;
 
-                while (fs.existsSync(target)) {
-                    target = path.join(new_dirpath, uuidv4());
+            let counter = 1;
+            while (fs.existsSync(target)) {
+                target = orig_target + '-' + counter;
+                counter++;
+            }
+            
+            try {
+                let buffer = fs.readFileSync(source);
+                for (let i = 0; i < contexts.length; ++i) {
+                    const script = contexts[i];
+                    const anonymizer = new Anonymizer(script, {identifiers: variables});
+                    anonymizer.loadDcm(buffer);
+                    await anonymizer.applyRules();
+                    buffer = anonymizer.write();
                 }
-
-                let readStream = fs.createReadStream(source);
+                fs.writeFileSync(target, new Uint8Array(buffer));
+                archive.file(target, { name: path.basename(target) });
+            } catch(error) {
+                console_red('copy/anonymization ERROR', {source, target})
+                console.log({error});
+                console.log(error.message);
                 
-                
-                // TODO - handle source read error
-                readStream.once('error', (error) => {
-                    console_red(`Read error:`, {source, target, targetDir, error});
-                });
-                
-        
-                let writeStream = fs.createWriteStream(target);
-                writeStream.on('drain', () => {
-                    //console_red('writeStream__drain')
-                })
-        
-                writeStream.on('error', (err) => {
-                    console_red('writeStream ERROR', err)
-                    reject(`Anonimization failed XXX. File: ${source}`)
-                })
-        
-                writeStream.on('finish', async () => {
-                    try {
-                        // if file wasn't copied for whatever reason
-                        if (!fs.existsSync(target)) {
-                            console_red('COPY ERROR', {source, target})
-                            //fs.copyFileSync(source, target, fs.constants.COPYFILE_EXCL);
-                            fs.writeFileSync(target, fs.readFileSync(source), 'wx')
-                        }
-        
-                        mizer.anonymize(target, contexts, variables);
-                        console.count('anonymized')
-                        
-                        const anon_checksum = await file_checksum(target)
-                        checksum_index.add(source, upload_id, anon_checksum)
+                electron_log.error(error)
+                electron_log.error(error.message)
 
-                        archive.file(target, { name: path.basename(target) });
-
-                        resolve(false)
-        
-                    } catch (error) {
-                        console_red('copy/anonymization ERROR', {source, target})
-                        console.log({error});
-                        console.log(error.message);
-                        electron_log.error(error)
-                        electron_log.error(error.message)
-    
-                        if (mizer.isMizerError(error.message)) {
-                            console_red('MizerError')
-                            reject(new MizerError(error.message, source));
-                        } else {
-                            resolve(source)
-                        }
-                        /*
-                        response.copy_error.push({
-                            file: source,
-                            error: error
-                        });
-                        */
-                    }
-        
-                });
-        
-                readStream.pipe(writeStream);
-            })
+                console_red('MizerError')
+                throw new MizerError(error.message, source);
+            } 
+            return false;
         }
     }
+
+    // function copyAnonArchive(source) {
+    //     return function() {
+    //         return new Promise((resolve, reject) => {
+    //             let target = path.join(new_dirpath, uuidv4());
+
+    //             while (fs.existsSync(target)) {
+    //                 target = path.join(new_dirpath, uuidv4());
+    //             }
+
+    //             let readStream = fs.createReadStream(source);
+                
+                
+    //             // TODO - handle source read error
+    //             readStream.once('error', (error) => {
+    //                 console_red(`Read error:`, {source, target, targetDir, error});
+    //             });
+                
+        
+    //             let writeStream = fs.createWriteStream(target);
+    //             writeStream.on('drain', () => {
+    //                 //console_red('writeStream__drain')
+    //             })
+        
+    //             writeStream.on('error', (err) => {
+    //                 console_red('writeStream ERROR', err)
+    //                 reject(`Anonimization failed XXX. File: ${source}`)
+    //             })
+        
+    //             writeStream.on('finish', async () => {
+    //                 try {
+    //                     // if file wasn't copied for whatever reason
+    //                     if (!fs.existsSync(target)) {
+    //                         console_red('COPY ERROR', {source, target})
+    //                         //fs.copyFileSync(source, target, fs.constants.COPYFILE_EXCL);
+    //                         fs.writeFileSync(target, fs.readFileSync(source), 'wx')
+    //                     }
+        
+    //                     mizer.anonymize(target, contexts, variables);
+    //                     console.count('anonymized')
+                        
+    //                     const anon_checksum = await file_checksum(target)
+    //                     checksum_index.add(source, upload_id, anon_checksum)
+
+    //                     archive.file(target, { name: path.basename(target) });
+
+    //                     resolve(false)
+        
+    //                 } catch (error) {
+    //                     console_red('copy/anonymization ERROR', {source, target})
+    //                     console.log({error});
+    //                     console.log(error.message);
+    //                     electron_log.error(error)
+    //                     electron_log.error(error.message)
+    
+    //                     if (mizer.isMizerError(error.message)) {
+    //                         console_red('MizerError')
+    //                         reject(new MizerError(error.message, source));
+    //                     } else {
+    //                         resolve(source)
+    //                     }
+    //                     /*
+    //                     response.copy_error.push({
+    //                         file: source,
+    //                         error: error
+    //                     });
+    //                     */
+    //                 }
+        
+    //             });
+        
+    //             readStream.pipe(writeStream);
+    //         })
+    //     }
+    // }
 
     function promiseSerialErrorHandler(err) {
         console_red('anon failed', err)
