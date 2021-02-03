@@ -6,7 +6,7 @@ const remote = require('electron').remote;
 
 const { file_checksum } = remote.require('./services/app_utils');
 const { MizerError } = require('../errors');
-const mizer = remote.require('./mizer');
+// const mizer = remote.require('./mizer');
 
 const { uuidv4 } = require('./../app_utils');
 
