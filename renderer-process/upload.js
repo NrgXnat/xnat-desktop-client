@@ -405,7 +405,7 @@ function _init_img_sessions_table(table_rows) {
 }
 
 
-
+// triggered when selected tab (#nav-verify) is displayed
 $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]', function(){
     let upload_method = $('#nav-verify').data('upload_method')
 
@@ -425,8 +425,17 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]'
         case 'custom_upload':
         default:
             $('#custom_upload').show().siblings().hide()
+            
+            // TODO - refactor handling of the passed parameters from custom protocol URL (select_link_for_item() METHOD)
+            $('#var_subject').val($('#subject_prm').val()).trigger('change')
+            $('#subject_prm').val('')// reset #subject_prm
+            $('#var_visit').val($('#visit_prm').val()).trigger('change')
+            $('#var_datatype').val($('#datatype_prm').val()).trigger('change')
+            $('#var_subtype').val($('#subtype_prm').val()).trigger('change')
             break
     }
+
+    validate_upload_form();
 })
 
 function toggle_upload_buttons() {
@@ -721,12 +730,6 @@ function valid_pixel_anon() {
 }
 
 // CORNERSTONE
-
-// triggered when selected tab (#nav-verify) is displayed
-$(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]', function(){
-    validate_upload_form();
-});
-
 
 let image_thumbnails = [];
 // triggered when selected tab (#nav-visual) is displayed
@@ -2735,6 +2738,11 @@ function dicomParse(_files, root_path) {
                             const seriesDescription = dicom.string('x0008103e');
                             const seriesInstanceUid = dicom.string('x0020000e');
                             const seriesNumber = dicom.string('x00200011');
+
+                            // ----------------------------------------------------
+                            const SOPClassUID = dicom.string('x00080016');
+                            const TransferSyntaxUID = dicom.string('x00020010');
+                            // ----------------------------------------------------
 
                             const SOPInstanceUID = dicom.string('x00080018');
                             

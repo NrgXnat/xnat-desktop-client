@@ -236,8 +236,9 @@ textarea
     padding: 0;
     margin: 0;
     border: 1px solid $list-border;
-    margin-bottom: 30px;
-    height: 345px;
+	margin-bottom: 30px;
+	min-height: 120px;
+    max-height: 345px;
 	overflow-y: scroll;
 	width: 100%;
 	

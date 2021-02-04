@@ -53,6 +53,7 @@ $(document).on('show.bs.modal', '#login', function(e) {
 
     let allow_insecure_ssl = $button.data('allow_insecure_ssl');
     $form.find('input[name="allow_insecure_ssl"]').prop('checked', allow_insecure_ssl);
+    $('.form-check', $form).toggleClass('hidden', !allow_insecure_ssl)
 
     let focused_field = server && username ? '#password' : '#server';
     setTimeout(function(){
@@ -209,5 +210,4 @@ function handleLoginSuccess(xnat_server, user_auth) {
     ipc.send('redirect', 'home.html');
 
 }
-
 

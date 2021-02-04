@@ -418,6 +418,7 @@ $(document).on('show.bs.modal', '#user_connection', function(e) {
 
     let allow_insecure_ssl = $button.data('allow_insecure_ssl');
     $form.find('input[name="allow_insecure_ssl"]').prop('checked', allow_insecure_ssl);
+    $('.form-check', $form).toggleClass('hidden', !allow_insecure_ssl)
 
 
     let focused_field = server && username ? '#password' : '#server';

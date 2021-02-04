@@ -183,7 +183,7 @@ async function protocol_request(e, url) {
         if (url.indexOf(app_protocol + '://') === 0) {
             try {
                 let url_object = new URL(url);
-                console_log(url_object);
+                console_log({url, url_object});
                 
                 let safe_protocol = '';
                 if (app_protocol === app.app_protocol + 's') {
@@ -193,7 +193,8 @@ async function protocol_request(e, url) {
                 let server = 'http' + safe_protocol + '://' + url_object.host
     
                 let last_download_index = url_object.pathname.lastIndexOf('/download/');
-                let last_upload_index = url_object.pathname.lastIndexOf('/upload/');
+                let upload_slash_index = url_object.pathname.lastIndexOf('/upload/')
+                let last_upload_index = upload_slash_index === -1 ? url_object.pathname.lastIndexOf('/upload') : upload_slash_index 
                 let is_upload;
                 let rest_xml = '';
     
@@ -230,7 +231,7 @@ async function protocol_request(e, url) {
                     password: url_params.s
                 };
 
-                console_log(server, my_user_auth);
+                console_log({server, my_user_auth});
                 
                 let real_username;
                 try {
@@ -246,7 +247,7 @@ async function protocol_request(e, url) {
                     throw_new_error('Connection Error', Helper.errorMessage(err));
                 }
 
-                console_log(url_object);
+                console_log({url_object});
 
                 let url_data = {
                     title: 'External URL trigger',
@@ -260,7 +261,7 @@ async function protocol_request(e, url) {
                     PARAMS: url_params
                 };
 
-                console_log(url_data);
+                console_log({url_data});
 
                 
 
@@ -587,6 +588,10 @@ ipc.on('force_reauthenticate', (e, login_data) => {
 ipc.on('handle_protocol_request', protocol_request)
 
 ipc.on('custom_error_with_details', ipcEventHandlers.customErrorWithDetails);
+
+ipc.on('display_allow_unverified_ssl', function(e) {
+    $('.form-check').removeClass('hidden')
+})
 
 
 window.onerror = function (errorMsg, url, lineNumber) {

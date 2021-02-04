@@ -340,6 +340,7 @@ function initialize () {
 
       You can allow this by checking the "Allow unverified certificates" option on the server definition. Note that this may expose sensitive information if the connection has been compromised. Please check with your system administrator if you're unsure how to proceed.`
       post_message('custom_error', 'Certificate Error', msg);
+      post_message('display_allow_unverified_ssl');
 
       //callback(false);
     }
