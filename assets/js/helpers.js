@@ -4,7 +4,7 @@ const settings = new ElectronStore();
 const path = require('path');
 const auth = require('./../../services/auth');
 
-const stack_bar_bottom = {"dir1": "up", "dir2": "right", "spacing1": 5, "spacing2": 0};
+const stack_bar_bottom = {"dir1": "up", "dir2": "right", "spacing1": 0, "spacing2": 0};
 
 let Helper = {
     blockModal: (modal_id) => {
@@ -199,7 +199,7 @@ let Helper = {
             type: "success",
             addclass: "stack-bar-bottom",
             cornerclass: "",
-            width: "70%",
+            width: "50%",
             stack: stack_bar_bottom,
             buttons: {
                 closer_hover: false,
@@ -217,7 +217,14 @@ let Helper = {
         };
 
         options.title = title;
+        if (!title) {
+            delete options.title
+        }
+        
         options.text = text;
+        if (!text) {
+            delete options.text
+        }
         options.type = type;
         options.delay = delay
 

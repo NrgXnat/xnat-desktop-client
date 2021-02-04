@@ -218,8 +218,20 @@ progress[value] {
     
 }
 
+.brighttheme.ui-pnotify-container {
+    padding: 8px 18px;
+}
+.brighttheme .ui-pnotify-icon {
+    margin-top: 0.13em;
+}
+.brighttheme .ui-pnotify-title {
+    margin-bottom: 4px;
+    font-size: 1.3rem;
+}
+
 .ui-pnotify.stack-bar-bottom {
-    margin-left: 15%;
+    margin-left: 25%;
+    margin-bottom: 0px;
     right: auto;
     bottom: 0;
     top: auto;
@@ -229,9 +241,6 @@ progress[value] {
     font-size: 80%;
     margin-right: 10px;
     line-height: 200%;
-}
-.ui-pnotify-icon {
-    margin-top: .3em;
 }
 .brighttheme-icon-error:after {
     left: -3px;
@@ -319,6 +328,33 @@ body>.ui-pnotify {
     &:before {
       border-radius: 0px;
       background-color: white;
+    }
+}
+
+
+/* MAGIC-CHECK */
+
+.magic-checkbox {
+    + label {
+        &:before {
+          border-radius: 0px;
+          background-color: white;
+        }
+    }
+    &.magic-checkbox--small + label {
+        padding-left: 20px; 
+        display: inline-block;
+        &:before {
+            width: 14px;
+            height: 14px;
+            top: 2px;
+        }
+        &:after {
+            top: 4px;
+            left: 5px;
+            width: 5px;
+            height: 8px;
+        }
     }
 }
 
