@@ -1188,6 +1188,13 @@ function load_dicom_image(series_id) {
         cornerstone.displayImage(element, image, viewport);
 
         
+        cornerstoneTools.addStackStateManager(element, ['stack'])
+		cornerstoneTools.addToolState(element, 'stack', stack);
+
+		// HACK: force display of existing rectangles
+		cornerstoneTools.setToolActiveForElement(element, "RectangleOverlay", {mouseButtonMask: 1});
+		cornerstone.updateImage(element)
+		cornerstoneTools.setToolEnabledForElement(element, "RectangleOverlay");
     })
     .catch(err => {
         swal({
