@@ -13,6 +13,7 @@
                             <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Data Selection</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Confirm Details</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-visual" role="tab" aria-controls="nav-visual" aria-selected="false">Inspect Images</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-visual-bulk" role="tab" aria-controls="nav-visual-bulk" aria-selected="false">Inspect Bulk Images</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Upload to XNAT</a>
                         </div>
                     </nav>
@@ -356,6 +357,9 @@
                                                 class="btn btn-gray">Cancel</button>
                                             <button type="button" class="btn btn-gray js_prev" type="button">
                                                 <i class="fas fa-angle-left"></i> Prev</button>
+                                                <button type="button" class="btn btn-blue js_next">Next
+                                                    <i class="fas fa-angle-right"></i>
+                                                </button>
                                             <button type="button" class="btn btn-blue js_upload">Upload</button>
                                         </div>
                                     </div>
@@ -621,6 +625,35 @@
                         </div>
 
 
+                        <!-- #nav-visual-bulk -->
+                        <div class="tab-pane fade" id="nav-visual-bulk" role="tabpanel" aria-labelledby="nav-visual-bulk-tab">
+                            <h2 class="section-title">Required Visual Check for Burned-in PHI. Apply bulk image anonymization</h2>
+                            
+
+                            <div class="container">
+                                <div class="row">
+                                    <div class="col-sm-12">
+                                        <div style="width: 97vw; transform: translate(-50%); margin-left: 50%;">
+                                            <table class="table table-bordered" id="selected_scans"></table>
+                                        </div> 
+                                    </div>
+                                </div>
+                            </div>
+
+
+                            <div class="row action-button-row">
+                                <div class="col-12">
+                                    <div class="text-right button-row">
+                                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                        <button type="button" class="btn btn-gray js_prev" type="button">
+                                            <i class="fas fa-angle-left"></i> Prev</button>
+                                        <button type="button" class="btn btn-blue js_upload">Finish and Upload</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
 
                         <div class="tab-pane fade" id="nav-summary" role="tabpanel" aria-labelledby="nav-profile-tab">
                             <h2 class="section-title">Summary</h2>
@@ -761,6 +794,15 @@
 
             <!-- Modal -->
             <div class="modal fade" id="fullscreenModal" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-scrollable" role="document">
+                <div class="modal-content">
+                    <div class="modal-body"></div>
+                </div>
+                </div>
+            </div>
+
+            <!-- Modal -->
+            <div class="modal fade fullscreenModal" id="review-series-images" tabindex="-1" role="dialog" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-scrollable" role="document">
                 <div class="modal-content">
                     <div class="modal-body"></div>

@@ -1089,11 +1089,7 @@ devtron@^1.4.0:
     highlight.js "^9.3.0"
     humanize-plus "^1.8.1"
 
-dicom-parser@^1.7.6:
-  version "1.7.6"
-  resolved "https://registry.yarnpkg.com/dicom-parser/-/dicom-parser-1.7.6.tgz#ab14534c10965ebede6d80bc68a7b73742e48a10"
-
-dicom-parser@^1.8.1:
+dicom-parser@^1.8.1, dicom-parser@^1.8.4:
   version "1.8.7"
   resolved "https://registry.yarnpkg.com/dicom-parser/-/dicom-parser-1.8.7.tgz#36df15f8b4250e56f164d8a50484c45e0a5668de"
   integrity sha512-JRh6ciXii1JiDFxd3yUiteNZbOd4Ebmq9HBJlxEJ4Gd1CC5tMIs8zoztK69Ih0UeT96ixbmanb4M2mjaaYT8sg==

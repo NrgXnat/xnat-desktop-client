@@ -2,6 +2,7 @@ const {
     DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT, 
     MAX_RECENT_UPLOAD_PROJECTS_STORED,
     ALLOW_VISUAL_PHI_CHECK,
+    BULK_IMAGE_ANONYMIZATION,
     UPLOAD_SELECTION_WARNING_SIZE,
     PRIMARY_MODALITIES,
     CSV_UPLOAD_FIELDS
@@ -38,7 +39,7 @@ const electron_log = remote.require('./services/electron_log');
 
 const XNATAPI = require('../services/xnat-api')
 const { random_string, saveAsCSV, normalizeDateString, normalizeTimeString, normalizeDateTimeString } = require('../services/app_utils');
-const { selected_sessions_table, custom_upload_multiple_table } = require('../services/tables/upload-prepare');
+const { selected_sessions_table, custom_upload_multiple_table, selected_scans_table } = require('../services/tables/upload-prepare');
 
 let show_unable_to_set_session_label_warning = 0
 
@@ -85,7 +86,8 @@ let event_timeout;
 let anno2;
 // ===================
 
-
+const dom_context = '#upload-section';
+const { $$, $on } = require('./../services/selector_factory')(dom_context)
 
 
 
@@ -105,6 +107,22 @@ let site_wide_settings = {};
 let project_settings = {};
 
 
+let masking_template_registry = [
+    {
+        data: {
+            modality: "MR",
+            Columns: 256,
+            Rows: 256,
+            SOPClassUID: "1.2.840.10008.5.1.4.1.1.4",
+            TransferSyntaxUID: "1.2.840.10008.1.2",
+            accession: "Flith",
+        },
+        rectangles: [
+            [20, 30, 80, 90], // [x1,y1,   x2,y2]
+            [130, 20, 160, 50], // [x1,y1,   x2,y2]
+        ]
+    }
+];
 
 async function fetch_site_wide_settings(xnat_server, user_auth) {
     const xnat_api = new XNATAPI(xnat_server, user_auth)
@@ -410,8 +428,10 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]'
     let upload_method = $('#nav-verify').data('upload_method')
 
     const HIDE_PHI_TAB = !ALLOW_VISUAL_PHI_CHECK || upload_method !== 'custom_upload'
+    const HIDE_PHI_MULTI_TAB = !BULK_IMAGE_ANONYMIZATION || upload_method === 'custom_upload'
 
     $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', HIDE_PHI_TAB);
+    $('#upload-section a[href="#nav-visual-bulk"]').toggleClass('hidden', HIDE_PHI_MULTI_TAB);
 
     switch (upload_method) {
         case 'quick_upload':
@@ -765,9 +785,199 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]'
         store.set('dicom_viewer_tour_shown',  true);
         anno2.show();
     }
-
-
 });
+
+
+let bulk_image_thumbnails = [];
+// triggered when selected tab (#nav-visual-bulk) is displayed
+$on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
+    $.blockUI()
+    let selected_session_ids = get_quick_selected_session_ids()
+
+    let my_scans = []
+
+    for (const selected_session_id of selected_session_ids) {
+        const session = session_map.get(selected_session_id)
+
+        
+        session.scans.forEach(async (file, seriesInstanceUid) => {
+            const selected_image_index = Math.floor(file.length / 2)
+            const sel_img = file[selected_image_index]
+
+            const filepath_frame = sel_img.filepath + (sel_img.frames && sel_img.frames > 1 ? `&frame=${Math.floor(sel_img.frames / 2)}` : '')
+
+            console.log({sel_img__frames: sel_img.frames});
+            const tbl_row = {
+                // from study
+                studyId: session.studyId,
+                studyInstanceUid: session.studyInstanceUid,
+                studyDescription: session.studyDescription,
+                accession: session.accession,
+                studyDate: session.date,
+                studyTime: session.time,
+                patientName: session.patient.name,
+                patientId: session.patient.id,
+
+                // from series (scan)
+                seriesInstanceUid,
+
+                seriesDescription: sel_img.seriesDescription,
+                seriesNumber: parseInt(sel_img.seriesNumber),
+                thumbPath: filepath_frame,
+                filesCount: file.length,
+
+                SOPClassUID: sel_img.SOPClassUID,
+                TransferSyntaxUID: sel_img.TransferSyntaxUID,
+                PhotometricInterpretation: sel_img.PhotometricInterpretation,
+                Rows: parseInt(sel_img.Rows),
+                Columns: parseInt(sel_img.Columns),
+
+
+                frames: sel_img.frames,
+                modality: sel_img.modality,
+                imgDataUrl: await dicomFileToDataURL(filepath_frame, cornerstone)
+            }
+
+            my_scans.push(tbl_row)
+
+        })
+        
+    }
+
+    setTimeout(function() {
+        my_scans.map(row => {
+            let mask = masking_template_registry.find(item => {
+                for (const prop in item.data) {
+                    console.log({row, mask_data: item.data, prop})
+                    // match = match && item[prop] === row[prop]
+                    if (item.data[prop] !== row[prop]) {
+                        return false
+                    }
+                }
+
+                return true
+            })
+
+            console.log({mask});
+
+            row.matchingMask = mask ? mask.rectangles : false
+
+            return row
+        })
+        
+        console.log({my_scans, session_map, selected_session_ids});
+        selected_scans_table($('#selected_scans'), my_scans)
+
+        $.unblockUI()
+    }, 2000)
+
+    
+
+    
+
+    /*
+    bulk_image_thumbnails = set_bulk_image_thumbnails()
+
+    console.log({bulk_image_thumbnails});
+
+    
+    // reset
+    $('#series_thumbs').html('');
+    bulk_image_thumbnails.map(el => {
+        $('#series_thumbs').append(`<li id="LI_${el.series_id}">`);
+    });
+
+    bulk_image_thumbnails.forEach((series, index) => {
+        display_series_thumb(series, index, cornerstone)
+    });
+
+    // Load first image
+    load_dicom_image(bulk_image_thumbnails[0].series_id);
+    
+    $('#series_thumbs li').eq(0).addClass('highlite-outline');
+
+    $("html, body").stop().animate({scrollTop:0}, 50);
+
+
+    if(!store.has('dicom_viewer_tour_shown')) {
+        store.set('dicom_viewer_tour_shown',  true);
+        anno2.show();
+    }
+    */
+});
+
+
+function cornerstone_enable_small_thumb_element() {
+    let element = document.createElement('div');
+
+    element.style.cssText = "width: 70px; height: 70px; position: absolute; left: -300px; top: 0;";
+    document.body.appendChild(element);
+
+    cornerstone.enable(element);
+
+    //cornerstoneTools.addToolForElement(element, cornerstoneTools.RectangleOverlayTool);
+    //cornerstoneTools.setToolActiveForElement(element, "RectangleOverlay", {mouseButtonMask: 1});
+
+    return element;
+}
+
+function dicomFileToDataURL(thumb_path, cornerstone) {
+    let element = cornerstone_enable_small_thumb_element();
+    let imageId = `wadouri:http://localhost:7714/?path=${thumb_path}`;
+
+    console.log({imageId});
+    return new Promise((resolve, reject) => {
+        // load image
+        cornerstone.loadAndCacheImage(imageId)
+            .then((image) => {
+                let viewport = cornerstone.getDefaultViewportForImage(element, image);
+                cornerstone.displayImage(element, image, viewport);
+
+                setTimeout(function() {
+                    let img_data_src = $(element).find("canvas").get(0).toDataURL();
+                    cornerstone.disable(element);
+                    document.body.removeChild(element);
+                    element = null
+
+                    resolve(img_data_src)
+                }, 100)
+                
+            })
+            .catch(err => {
+                reject(`Thumbnail Load Error: ${err.error.message}\n[${imageId}]`)
+            });
+    })
+    
+}
+
+
+function set_bulk_image_thumbnails() {
+    let bulk_image_thumbnails = [];
+
+    let selected_series_ids = get_quick_selected_session_ids()
+
+    console.log({selected_series_ids});
+
+    //console.log({selected_session_id, session_map})
+    session_map.get(selected_session_id).scans.forEach(function(scan, key) {
+        if (selected_series_ids.includes(key)) {
+            bulk_image_thumbnails.push({
+                series_id: key,
+                series_description: scan[0].seriesDescription,
+                series_number: parseInt(scan[0].seriesNumber),
+                thumb_path: scan[0].filepath,
+                scans: scan.length
+            })
+        }
+    })
+
+    return bulk_image_thumbnails.sort((a,b) => (a.series_number > b.series_number) ? 1 : ((b.series_number > a.series_number) ? -1 : 0));
+}
+
+function get_quick_selected_session_ids() {
+    let selected_series = $('#selected_session_tbl').bootstrapTable('getData');
+    return selected_series.map(item => item.id)
+}
 
 function get_selected_series_ids() {
     let selected_series = $('#image_session').bootstrapTable('getSelections');
@@ -1364,6 +1574,10 @@ $(document).on('page:load', '#upload-section', async function(e){
     $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', !ALLOW_VISUAL_PHI_CHECK);
     $('#nav-verify #custom_upload .js_next').toggleClass('hidden', !ALLOW_VISUAL_PHI_CHECK);
     $('#nav-verify #custom_upload .js_upload').toggleClass('hidden', ALLOW_VISUAL_PHI_CHECK);
+
+    
+    $$('#nav-verify #quick_upload .js_next').toggleClass('hidden', !BULK_IMAGE_ANONYMIZATION);
+    $('#nav-verify #quick_upload .js_upload').toggleClass('hidden', BULK_IMAGE_ANONYMIZATION);
     
     $('#upload-project').html('')
     $('button[data-target="#new-subject"]').prop('disabled', !site_wide_settings.allow_create_subject);
@@ -2734,9 +2948,27 @@ function dicomParse(_files, root_path) {
                 if (mime.lookup(file) === false || mime.lookup(file) === 'application/dicom') {
                     try {
                         const dicomFile = fs.readFileSync(file);
-                        const dicom = dicomParser.parseDicom(dicomFile, { untilTag: '0x00324000' });           
-                        
+
+                        // Here we have the file data as an ArrayBuffer.  dicomParser requires as input a
+                        // Uint8Array so we create that here
+                        const byteArray = new Uint8Array(dicomFile);
+
+                        const dicom = dicomParser.parseDicom(byteArray, { untilTag: 'x00324000' });           
+                        console.log({dicomFile, byteArray, dicom});
                         const studyInstanceUid = dicom.string('x0020000d');
+
+
+                        // http://dicom.nema.org/medical/dicom/current/output/chtml/part05/sect_6.2.html
+                        // the DataSet object has functions to support every VR type:
+                        // All string types - string()
+                        // US: unsigned short - uint16()
+                        // SS - int16()
+                        // UL - uint32()
+                        // SL - int32()
+                        // FL - float()
+                        // FD - double()
+                        // DS - floatString()
+                        // IS - intString()
                         
                         if (typeof studyInstanceUid !== 'undefined') {
                             const studyDescription = dicom.string('x00081030');
@@ -2749,6 +2981,10 @@ function dicomParse(_files, root_path) {
                             // ----------------------------------------------------
                             const SOPClassUID = dicom.string('x00080016');
                             const TransferSyntaxUID = dicom.string('x00020010');
+                            const PhotometricInterpretation = dicom.string('x00280004');
+                            const Rows = dicom.uint16('x00280010');
+                            const Columns = dicom.uint16('x00280011');
+                            console.log({Rows, Columns});
                             // ----------------------------------------------------
 
                             const SOPInstanceUID = dicom.string('x00080018');
@@ -2762,8 +2998,8 @@ function dicomParse(_files, root_path) {
                             // ++++
 
                             // ***********
-                            const NumberOfFrames = parseInt(dicom.string('x00280008'));
-                            const InstanceNumber = parseInt(dicom.string('x00200013'));
+                            const NumberOfFrames = dicom.intString('x00280008');
+                            const InstanceNumber = dicom.intString('x00200013');
                             // ***********
                             const PatientName = dicom.string('x00100010'); // PatientName
                             const PatientID = dicom.string('x00100020'); // PatientID
@@ -2819,7 +3055,13 @@ function dicomParse(_files, root_path) {
                                     seriesInstanceUid: seriesInstanceUid,
                                     seriesNumber: seriesNumber,
                                     modality: modality ? modality.toUpperCase() : '',
-                                    SOPInstanceUID: SOPInstanceUID
+                                    SOPInstanceUID: SOPInstanceUID,
+
+                                    SOPClassUID,
+                                    TransferSyntaxUID,
+                                    PhotometricInterpretation,
+                                    Rows,
+                                    Columns,
                                 }); 
                             }
                                        
