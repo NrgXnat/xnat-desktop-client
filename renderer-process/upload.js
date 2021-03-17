@@ -3743,10 +3743,6 @@ $(document).on('click', '#validate_form', function() {
 
 
 $on('click', '[data-action="bulk-action-review"]', function() {
-    $$('#review-series-images').modal('show')
-})
-
-$on('show.bs.modal', '#review-series-images', function() {
     const $scans_tbl = $$('#selected_scans')
     const selected_scans = $scans_tbl.bootstrapTable('getSelections');
 
@@ -3756,8 +3752,6 @@ $on('show.bs.modal', '#review-series-images', function() {
 
     const default_cols = selected_scans[0].Columns
     const default_rows = selected_scans[0].Rows
-
-    console.log({selected_scans});
 
     for (let i = 0; i < selected_scans.length; i++) {
         if (selected_scans[i].Columns != default_cols || selected_scans[i].Rows != default_rows) {
@@ -3772,13 +3766,32 @@ $on('show.bs.modal', '#review-series-images', function() {
         }
     }
 
+    $$('#review-series-images').modal('show')
+})
+
+$on('show.bs.modal', '#review-series-images', function() {
+    const $scans_tbl = $$('#selected_scans')
+    const selected_scans = $scans_tbl.bootstrapTable('getSelections');
 
     let scan_images = [];
     for (const selected_scan of selected_scans) {
         const session = session_map.get(selected_scan.sessionId)
-        const files = session.scans.get(selected_scan.seriesInstanceUid)
+        const all_files = session.scans.get(selected_scan.seriesInstanceUid)
+
+        const selected_image_index = Math.floor(all_files.length / 2)
+        const file = all_files[selected_image_index]
+
+        let filepath_frame = file.filepath
+            
+        if (file.frames > 1) {
+            const selected_frame = Math.floor(file.frames / 2)
+            scan_images.push(filepath_frame + `&frame=${selected_frame}`);
+        } else {
+            scan_images.push(filepath_frame)
+        }
         
-        for (const file of files) {
+        /*
+        for (const file of all_files) {
             let filepath_frame = file.filepath
             
             if (file.frames > 1) {
@@ -3789,17 +3802,34 @@ $on('show.bs.modal', '#review-series-images', function() {
                 scan_images.push(filepath_frame)
             }
         }
+        */
     }
 
+    console.log({scan_images, selected_scans});
+    
     const scan_image_promises = scan_images.map(async imagePath => {
-        return await dicomFileToDataURL(imagePath, cornerstone, 200, 200)
+        return await dicomFileToDataURL(imagePath, cornerstone, 360, 300)
     })
 
     Promise.all(scan_image_promises)
         .then(imgDataImages => {
-            console.log({imgDataImages});
             $$('#scan_images').html('');
-            imgDataImages.forEach(generateScanImage)
+            for(let i = 0; i < selected_scans.length; i++) {
+                const row = selected_scans[i]
+                const imgSrc = imgDataImages[i]
+                
+                $$('#scan_images').append(`
+                    <div style="width: 50%; border: 1px solid #eee; padding: 15px; float: left;">
+                        <h3>Series: <b>${row.seriesNumber}</b>: [${row.seriesDescription}]</h3>
+                        <h4>Study: ${row.studyId} - ${row.studyDescription}</h4>
+                        <div style="display: inline-block; padding: 20px;"><img src="${imgSrc}"></div>
+                    </div>
+                `)
+
+            }
+            //console.log({imgDataImages});
+            
+            //imgDataImages.forEach(generateScanImage)
         })
 
 })
@@ -3808,7 +3838,12 @@ function generateScanImage(imgSrc) {
     $$('#scan_images').append(`<div style="display: inline-block; padding: 20px;"><img src="${imgSrc}"></div>`)
 }
 
-$on('click', '[data-clear-filter-control]', function(e) {
+$on('click', 'button[data-clear-filter-control]', function(e) {
     let tbl_id = $(this).data('clear-filter-control');
     $(tbl_id).bootstrapTable('clearFilterControl').bootstrapTable('triggerSearch');
+})
+
+
+$on('post-body.bs.table refresh.bs.table pre-body.bs.table reset-view.bs.table search.bs.table column-search.bs.table', '#selected_scans', function (e) {
+    console.log(`***************** ${e.type}::${e.namespace} *******************`);
 })

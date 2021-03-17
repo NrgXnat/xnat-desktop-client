@@ -421,12 +421,16 @@ span[data-toggle="popover"] {
     float: right;
     margin-top: -2.1em;
     button {
-        padding-left: 8px; padding-right: 10px;
+        padding: 2px 9px 2px 6px;
     }
     .filter-clear {
         height: 1em; line-height: 1; width: 1em; left: -2px;
         i:last-child {
             color: tomato; font-size: 10px; left: 10px;top: 6px;
         }
+    }
+    .filters-active {
+        margin-left: 8px;
+        font-weight: 100;
     }
 }

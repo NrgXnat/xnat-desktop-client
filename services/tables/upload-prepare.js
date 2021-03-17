@@ -255,6 +255,8 @@ function custom_upload_multiple_table($tbl, tbl_data) {
 }
 
 function selected_scans_table($tbl, tbl_data) {
+    const tbl_id = $tbl.attr('id');
+
     destroyBootstrapTable($tbl);
 
     const event_list = 'check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table';
@@ -264,8 +266,6 @@ function selected_scans_table($tbl, tbl_data) {
         console.log({ev});
         let selected = $tbl.bootstrapTable('getSelections');
 
-        console.log(selected)
-
         $('[data-action^=bulk-action]').prop('disabled', selected.length === 0)
 
         $('[data-action^=bulk-action]').each(function() {
@@ -274,7 +274,6 @@ function selected_scans_table($tbl, tbl_data) {
         })
     }
     
-
     $tbl.bootstrapTable({
         //height: tbl_data.length > 8 ? 400 : 0,
         sortName: 'patient_name',
@@ -286,6 +285,22 @@ function selected_scans_table($tbl, tbl_data) {
         maintainMetaData: true,
         uniqueId: 'id',
         multipleSelectRow: true,
+        onSearch: function () {
+            const $clearFilterButton = $(`button[data-clear-filter-control="#${tbl_id}"]`)
+            const totalRows = $tbl.bootstrapTable('getData').length;
+
+            let activeFilters = 0;
+            $tbl.find('.filter-control :input').each(function(e) {
+                if ($(this).val() !== '') {
+                    activeFilters++
+                }
+            })
+
+            $clearFilterButton
+                .prop('disabled', activeFilters === 0)
+                .parent().find('.displayed-items').text(`Rows: ${totalRows}/${tbl_data.length}`);
+            
+        },
         columns: [
             {
                 field: 'id',
