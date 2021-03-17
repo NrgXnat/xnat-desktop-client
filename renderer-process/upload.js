@@ -788,19 +788,22 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]'
 });
 
 
+
+
 let bulk_image_thumbnails = [];
 // triggered when selected tab (#nav-visual-bulk) is displayed
 $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
+    console.time('scan_table')
     $.blockUI()
+
     let selected_session_ids = get_quick_selected_session_ids()
 
     let my_scans = []
 
     for (const selected_session_id of selected_session_ids) {
         const session = session_map.get(selected_session_id)
-
         
-        session.scans.forEach(async (file, seriesInstanceUid) => {
+        session.scans.forEach((file, seriesInstanceUid) => {
             const selected_image_index = Math.floor(file.length / 2)
             const sel_img = file[selected_image_index]
 
@@ -809,6 +812,7 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
             console.log({sel_img__frames: sel_img.frames});
             const tbl_row = {
                 // from study
+                sessionId: selected_session_id,
                 studyId: session.studyId,
                 studyInstanceUid: session.studyInstanceUid,
                 studyDescription: session.studyDescription,
@@ -835,82 +839,60 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
 
                 frames: sel_img.frames,
                 modality: sel_img.modality,
-                imgDataUrl: await dicomFileToDataURL(filepath_frame, cornerstone)
+                imgDataUrl: ''
             }
 
-            my_scans.push(tbl_row)
-
-        })
-        
+            my_scans.push(tbl_row);
+        });
     }
 
-    setTimeout(function() {
-        my_scans.map(row => {
-            let mask = masking_template_registry.find(item => {
-                for (const prop in item.data) {
-                    console.log({row, mask_data: item.data, prop})
-                    // match = match && item[prop] === row[prop]
-                    if (item.data[prop] !== row[prop]) {
-                        return false
-                    }
+    // find the matchingMask
+    my_scans.map(row => {
+        let mask = masking_template_registry.find(item => {
+            for (const prop in item.data) {
+                // console.log({row, mask_data: item.data, prop})
+                // match = match && item[prop] === row[prop]
+                if (item.data[prop] !== row[prop]) {
+                    return false
                 }
+            }
+            return true
+        })
 
-                return true
+        console.log({mask});
+
+        row.matchingMask = mask ? mask.rectangles : false
+
+        // not really needed
+        // return row 
+    });
+
+    console.log({my_scans_FIRST: Object.assign({}, my_scans)});
+
+    const img_promises = my_scans.map(async scan_data => {
+        return await dicomFileToDataURL(scan_data.thumbPath, cornerstone, 120, 100)
+    })
+
+    Promise.all(img_promises)
+        .then(imgDataImages => {
+            console.log({imgDataImages});
+            imgDataImages.forEach((imgDataImage, index) => {
+                my_scans[index].imgDataUrl = imgDataImage
             })
 
-            console.log({mask});
-
-            row.matchingMask = mask ? mask.rectangles : false
-
-            return row
+            selected_scans_table($$('#selected_scans'), my_scans)
         })
-        
-        console.log({my_scans, session_map, selected_session_ids});
-        selected_scans_table($('#selected_scans'), my_scans)
-
-        $.unblockUI()
-    }, 2000)
-
-    
-
-    
-
-    /*
-    bulk_image_thumbnails = set_bulk_image_thumbnails()
-
-    console.log({bulk_image_thumbnails});
-
-    
-    // reset
-    $('#series_thumbs').html('');
-    bulk_image_thumbnails.map(el => {
-        $('#series_thumbs').append(`<li id="LI_${el.series_id}">`);
-    });
-
-    bulk_image_thumbnails.forEach((series, index) => {
-        display_series_thumb(series, index, cornerstone)
-    });
-
-    // Load first image
-    load_dicom_image(bulk_image_thumbnails[0].series_id);
-    
-    $('#series_thumbs li').eq(0).addClass('highlite-outline');
-
-    $("html, body").stop().animate({scrollTop:0}, 50);
-
-
-    if(!store.has('dicom_viewer_tour_shown')) {
-        store.set('dicom_viewer_tour_shown',  true);
-        anno2.show();
-    }
-    */
+        .catch(error => console.log(`Error in executing ${error}`))
+        .finally(() => {
+            console.timeEnd('scan_table');
+            $.unblockUI()
+        })
 });
 
-
-function cornerstone_enable_small_thumb_element() {
+function cornerstone_enable_small_thumb_element(width = 70, height = 70) {
     let element = document.createElement('div');
 
-    element.style.cssText = "width: 70px; height: 70px; position: absolute; left: -300px; top: 0;";
+    element.style.cssText = `width: ${width}px; height: ${height}px; position: absolute; left: -3000px; top: 0;`;
     document.body.appendChild(element);
 
     cornerstone.enable(element);
@@ -921,27 +903,40 @@ function cornerstone_enable_small_thumb_element() {
     return element;
 }
 
-function dicomFileToDataURL(thumb_path, cornerstone) {
-    let element = cornerstone_enable_small_thumb_element();
-    let imageId = `wadouri:http://localhost:7714/?path=${thumb_path}`;
 
-    console.log({imageId});
+
+function dicomFileToDataURL(thumb_path, cornerstone, width, height) {
     return new Promise((resolve, reject) => {
+        // validate thumb_path
+        if (!thumb_path) {
+            reject('Error - dicomFileToDataURL > "thumb_path" is not set')
+            return
+        }
+
+        let element = cornerstone_enable_small_thumb_element(width, height);
+        let imageId = `wadouri:http://localhost:7714/?path=${thumb_path}`;
+
+        console.log({imageId});
+
+        // this should trigger after "cornerstone.displayImage()" method
+        element.addEventListener('cornerstoneimagerendered', function() {
+            const img_data_src = $(element).find("canvas").get(0).toDataURL();
+            cornerstone.disable(element);
+            document.body.removeChild(element);
+            element = null
+
+            resolve(img_data_src)
+        })
+
+        element.addEventListener('cornerstoneimageloadfailed', function() {
+            reject(`Error - cornerstoneimageloadfailed > [path: ${thumb_path}]`)
+        })
+
         // load image
         cornerstone.loadAndCacheImage(imageId)
             .then((image) => {
                 let viewport = cornerstone.getDefaultViewportForImage(element, image);
                 cornerstone.displayImage(element, image, viewport);
-
-                setTimeout(function() {
-                    let img_data_src = $(element).find("canvas").get(0).toDataURL();
-                    cornerstone.disable(element);
-                    document.body.removeChild(element);
-                    element = null
-
-                    resolve(img_data_src)
-                }, 100)
-                
             })
             .catch(err => {
                 reject(`Thumbnail Load Error: ${err.error.message}\n[${imageId}]`)
@@ -3744,4 +3739,76 @@ $(document).on('click', '#label_generate_local', function() {
 })
 $(document).on('click', '#validate_form', function() {
     console.log('upload form errors: ' + validate_upload_form())
+})
+
+
+$on('click', '[data-action="bulk-action-review"]', function() {
+    $$('#review-series-images').modal('show')
+})
+
+$on('show.bs.modal', '#review-series-images', function() {
+    const $scans_tbl = $$('#selected_scans')
+    const selected_scans = $scans_tbl.bootstrapTable('getSelections');
+
+    if (selected_scans.length === 0) {
+        return
+    }
+
+    const default_cols = selected_scans[0].Columns
+    const default_rows = selected_scans[0].Rows
+
+    console.log({selected_scans});
+
+    for (let i = 0; i < selected_scans.length; i++) {
+        if (selected_scans[i].Columns != default_cols || selected_scans[i].Rows != default_rows) {
+            swal({
+                title: `Image Size Error`,
+                text: `All images must be the same size!`,
+                icon: "error",
+                dangerMode: true
+            })
+
+            return
+        }
+    }
+
+
+    let scan_images = [];
+    for (const selected_scan of selected_scans) {
+        const session = session_map.get(selected_scan.sessionId)
+        const files = session.scans.get(selected_scan.seriesInstanceUid)
+        
+        for (const file of files) {
+            let filepath_frame = file.filepath
+            
+            if (file.frames > 1) {
+                for (let i = 0; i < file.frames; i++) {
+                    scan_images.push(filepath_frame + `&frame=${i}`);
+                }
+            } else {
+                scan_images.push(filepath_frame)
+            }
+        }
+    }
+
+    const scan_image_promises = scan_images.map(async imagePath => {
+        return await dicomFileToDataURL(imagePath, cornerstone, 200, 200)
+    })
+
+    Promise.all(scan_image_promises)
+        .then(imgDataImages => {
+            console.log({imgDataImages});
+            $$('#scan_images').html('');
+            imgDataImages.forEach(generateScanImage)
+        })
+
+})
+
+function generateScanImage(imgSrc) {
+    $$('#scan_images').append(`<div style="display: inline-block; padding: 20px;"><img src="${imgSrc}"></div>`)
+}
+
+$on('click', '[data-clear-filter-control]', function(e) {
+    let tbl_id = $(this).data('clear-filter-control');
+    $(tbl_id).bootstrapTable('clearFilterControl').bootstrapTable('triggerSearch');
 })

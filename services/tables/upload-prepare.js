@@ -257,15 +257,35 @@ function custom_upload_multiple_table($tbl, tbl_data) {
 function selected_scans_table($tbl, tbl_data) {
     destroyBootstrapTable($tbl);
 
+    const event_list = 'check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table';
+    $tbl.off(event_list).on(event_list, toggle_bulk_buttons)
+
+    function toggle_bulk_buttons(ev) {
+        console.log({ev});
+        let selected = $tbl.bootstrapTable('getSelections');
+
+        console.log(selected)
+
+        $('[data-action^=bulk-action]').prop('disabled', selected.length === 0)
+
+        $('[data-action^=bulk-action]').each(function() {
+            const suffix = selected.length ? ` (${selected.length})` : '';
+            $(this).text($(this).data('text') + suffix)
+        })
+    }
+    
+
     $tbl.bootstrapTable({
         //height: tbl_data.length > 8 ? 400 : 0,
         sortName: 'patient_name',
         classes: 'table-sm',
         theadClasses: 'thead-light',
         filterControl: true,
+        showSearchClearButton: true,
         hideUnusedSelectOptions: true,
         maintainMetaData: true,
         uniqueId: 'id',
+        multipleSelectRow: true,
         columns: [
             {
                 field: 'id',
@@ -286,6 +306,14 @@ function selected_scans_table($tbl, tbl_data) {
                 formatter: function(value, row, index, field) {
                     return `<img src="${value}" alt="${row.thumbPath}" title="${row.thumbPath}">`
                 }
+            },
+            {
+                field: 'sessionId',
+                title: 'sessionId',
+                filterControl: 'select',
+                sortable: true,
+                class: 'break-all',
+                width: 180
             },
             {
                 field: 'studyInstanceUid',
@@ -375,6 +403,7 @@ function selected_scans_table($tbl, tbl_data) {
             {
                 field: 'series_data',
                 title: 'Series Data',
+                filterControl: 'input',
                 sortable: true,
                 formatter: function(value, row, index, field) {
                     return `<b>${row.seriesNumber}</b>: [${row.seriesDescription}]`
@@ -385,9 +414,14 @@ function selected_scans_table($tbl, tbl_data) {
                 field: 'matchingMask',
                 title: 'Mask',
                 sortable: true,
+                filterControl: 'select',
+                filterDataCollector: (value) => Array.isArray(value) ? 'Yes' : 'No',
                 class: 'highlight',
+                align: 'center',
                 formatter: function(value, row, index, field) {
-                    return value ? value.join('<br>') : ''
+                    return Array.isArray(value) ? 
+                        `<i class="fas fa-check" title="${value.join("\n")}"><span class="sr-only">Yes</span></i>` : 
+                        '<span class="sr-only">No</span>'
                 }
             },
 
@@ -469,6 +503,8 @@ function selected_scans_table($tbl, tbl_data) {
     });
 
     $tbl.bootstrapTable('resetView');
+
+    toggle_bulk_buttons()
 }
 
 

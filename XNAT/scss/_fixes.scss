@@ -27,6 +27,7 @@ td.highlight {
     }
     .container-fluid {
         margin-bottom: 0;
+        max-width: 100%;
     }
 
     .action-button-row {
@@ -47,7 +48,7 @@ td.highlight {
             }
             background: #f4f4f4;
             padding: 10px;
-            max-width: 1110px;
+            max-width: calc(100% - 30px);
             width: 100%;
             
             border-top: 1px solid #ccc;
@@ -184,6 +185,30 @@ progress[value] {
     }
 	
 }
+#selected_scans {
+    .filter-control {
+        &::before {
+            display: none;
+        }
+        input {
+            padding-left: 10px;
+        }
+        select {
+            padding-left: 0;
+            height: 1.875rem;
+        }
+    }
+
+    tbody .btn {
+        padding-left: 7px;
+        padding-right: 7px;
+    }
+
+    .bootstrap-table .fixed-table-container .table thead th .sortable {
+        padding-right: 16px!important;
+    }
+}
+
 .log-text {
     overflow: auto;
     height: auto;
@@ -390,4 +415,18 @@ span[data-toggle="popover"] {
 }
 .popover-header, .popover-body {
     font-family: "Roboto", sans-serif;
+}
+/*****************************************/
+.filter-clear-container {
+    float: right;
+    margin-top: -2.1em;
+    button {
+        padding-left: 8px; padding-right: 10px;
+    }
+    .filter-clear {
+        height: 1em; line-height: 1; width: 1em; left: -2px;
+        i:last-child {
+            color: tomato; font-size: 10px; left: 10px;top: 6px;
+        }
+    }
 }

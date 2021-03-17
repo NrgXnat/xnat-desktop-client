@@ -310,6 +310,20 @@ body.dicomImageViewerFS #header_menu {
         max-width: 100%;
     }
 }
+#review-series-images.fullscreenModal {
+    top: 0;
+    
+    .modal-dialog {
+        height: 100vh !important;
+
+        .modal-content {
+            min-height: 100vh !important;
+            height: auto !important;
+            max-height: none !important;
+        }
+    }
+
+}
 
 
 .footer {

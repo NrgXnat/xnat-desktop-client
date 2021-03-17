@@ -630,20 +630,33 @@
                             <h2 class="section-title">Required Visual Check for Burned-in PHI. Apply bulk image anonymization</h2>
                             
 
-                            <div class="container">
-                                <div class="row">
-                                    <div class="col-sm-12">
-                                        <div style="width: 97vw; transform: translate(-50%); margin-left: 50%;">
-                                            <table class="table table-bordered" id="selected_scans"></table>
-                                        </div> 
+                            <div class="row">
+                                <div class="col-sm-12">
+                                    <div class="filter-clear-container" data-clear-filter-control="#selected_scans">
+                                        <button class="btn btn-gray btn-sm btn-xs">
+                                            <span class="fa-stack fa-1x filter-clear">
+                                                <i class="fas fa-filter fa-stack-1x"></i>
+                                                <i class="far fa-times-circle fa-stack-1x"></i>
+                                         </span>
+                                        </button>
                                     </div>
+                                    <div style="width: 97vw; transform: translate(-50%); margin-left: 50%;">
+                                        <table class="table table-bordered" id="selected_scans"></table>
+                                    </div> 
                                 </div>
                             </div>
 
 
                             <div class="row action-button-row">
-                                <div class="col-12">
-                                    <div class="text-right button-row">
+                                <div class="col-12 row_items">
+                                    <div class="button-row">
+                                        <span style="transform: rotate(90deg);display: inline-block;font-size: 25px;line-height: 1;margin-right: 3px;">&#8629;</span>
+                                        <span class="mr-auto">Bulk actions:</span>
+                                        <button type="button" data-action="bulk-action-review" data-text="Review" class="btn btn-gray" disabled>Review</button>
+                                        <button type="button" data-action="bulk-action-apply-mask" data-text="Apply Selected Mask" class="btn btn-gray" disabled>Apply Selected Mask</button>
+                                    </div>
+
+                                    <div class="text-right button-row ">
                                         <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
                                         <button type="button" class="btn btn-gray js_prev" type="button">
                                             <i class="fas fa-angle-left"></i> Prev</button>
@@ -795,18 +808,93 @@
             <!-- Modal -->
             <div class="modal fade" id="fullscreenModal" tabindex="-1" role="dialog" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-scrollable" role="document">
-                <div class="modal-content">
-                    <div class="modal-body"></div>
-                </div>
+                    <div class="modal-content">
+                        <div class="modal-body"></div>
+                    </div>
                 </div>
             </div>
 
             <!-- Modal -->
             <div class="modal fade fullscreenModal" id="review-series-images" tabindex="-1" role="dialog" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-scrollable" role="document">
-                <div class="modal-content">
-                    <div class="modal-body"></div>
-                </div>
+                    <!--
+                    <div class="modal-header">
+                        <h5 class="modal-title">Modal title</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    -->
+                    <div class="modal-content">
+                        <div class="modal-body">
+                            <div class="container-fluid">
+                                <nav style="margin: 0 -15px;" class="navbar navbar-expand-lg navbar-dark bg-dark">
+                                    <span class="navbar-brand">Scan images</span>
+                                    <button class="navbar-toggler" type="button" data-toggle="collapse"
+                                        data-target="#navbarText" aria-controls="navbarText" aria-expanded="false"
+                                        aria-label="Toggle navigation">
+                                        <span class="navbar-toggler-icon"></span>
+                                    </button>
+                                    <div class="collapse navbar-collapse" id="navbarText">
+
+                                        <span class="navbar-text  mr-auto">
+                                            <select class="form-control">
+                                                <option value="">Filter images by scan</option>
+                                                <option value="1">Scan ID 1</option>
+                                                <option value="2">Scan ID 1</option>
+                                                <option value="3">Scan ID 1</option>
+                                            </select>
+                                        </span>
+
+
+                                        <div class="dropdown  mr-auto">
+                                            <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                              Group Actions
+                                            </button>
+                                            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                              <a class="dropdown-item" href="#">Modify Image Masking</a>
+                                              <!-- <a class="dropdown-item" href="#">Another action</a>
+                                              <a class="dropdown-item" href="#">Something else here</a> -->
+                                            </div>
+                                        </div>
+
+                                        <!--
+                                        <ul class="navbar-nav mr-auto">
+                                            <li class="nav-item active">
+                                                <a class="nav-link" href="#">Home <span
+                                                        class="sr-only">(current)</span></a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a class="nav-link" href="#">Features</a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a class="nav-link" href="#">Pricing</a>
+                                            </li>
+                                        </ul>
+                                        -->
+
+                                        <span class="navbar-text">
+                                            <select class="form-control">
+                                                <option value="">Apply masking template</option>
+                                                <option value="1">Masking Template 1 (best match)</option>
+                                                <option value="2">Masking Template 2</option>
+                                                <option value="3">Masking Template 3</option>
+                                            </select>
+                                        </span>
+                                    </div>
+                                </nav>
+
+                                <div id="scan_images"></div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                    <!--
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary">Save changes</button>
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    </div>
+                    -->
                 </div>
             </div>
         </div>
