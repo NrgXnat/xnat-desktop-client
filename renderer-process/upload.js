@@ -109,16 +109,31 @@ let project_settings = {};
 
 let masking_template_registry = [
     {
+        name: "Magnetic resonance spectroscopy of the occipital cortex",
+        alias: "MR Occipital",
         data: {
             modality: "MR",
             Columns: 256,
             Rows: 256,
             SOPClassUID: "1.2.840.10008.5.1.4.1.1.4",
-            TransferSyntaxUID: "1.2.840.10008.1.2",
             accession: "Flith",
         },
         rectangles: [
             [20, 30, 80, 90], // [x1,y1,   x2,y2]
+            [130, 20, 160, 50], // [x1,y1,   x2,y2]
+        ]
+    },
+    {
+        name: "X-Ray Angiography (full mask name)",
+        alias: "XA_1_alias",
+        data: {
+            modality: "XA",
+            Columns: 512,
+            Rows: 512,
+            SOPClassUID: "1.2.840.10008.5.1.4.1.1.12.1",
+        },
+        rectangles: [
+            [10, 15, 50, 65], // [x1,y1,   x2,y2]
             [130, 20, 160, 50], // [x1,y1,   x2,y2]
         ]
     }
@@ -811,6 +826,9 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
 
             console.log({sel_img__frames: sel_img.frames});
             const tbl_row = {
+                // from series (scan)
+                id: seriesInstanceUid,
+
                 // from study
                 sessionId: selected_session_id,
                 studyId: session.studyId,
@@ -821,9 +839,6 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
                 studyTime: session.time,
                 patientName: session.patient.name,
                 patientId: session.patient.id,
-
-                // from series (scan)
-                seriesInstanceUid,
 
                 seriesDescription: sel_img.seriesDescription,
                 seriesNumber: parseInt(sel_img.seriesNumber),
@@ -839,7 +854,8 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
 
                 frames: sel_img.frames,
                 modality: sel_img.modality,
-                imgDataUrl: ''
+                imgDataUrl: '',
+                status: 0
             }
 
             my_scans.push(tbl_row);
@@ -861,7 +877,7 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
 
         console.log({mask});
 
-        row.matchingMask = mask ? mask.rectangles : false
+        row.matchingMask = mask ? mask : false
 
         // not really needed
         // return row 
@@ -2967,7 +2983,7 @@ function dicomParse(_files, root_path) {
                         
                         if (typeof studyInstanceUid !== 'undefined') {
                             const studyDescription = dicom.string('x00081030');
-                            const studyId = dicom.string('x00200010');
+                            const studyId = dicom.string('x00200010') || '-';
                             
                             const seriesDescription = dicom.string('x0008103e');
                             const seriesInstanceUid = dicom.string('x0020000e');
@@ -3769,14 +3785,18 @@ $on('click', '[data-action="bulk-action-review"]', function() {
     $$('#review-series-images').modal('show')
 })
 
-$on('show.bs.modal', '#review-series-images', function() {
+$on('show.bs.modal', '#review-series-images', function(e) {
     const $scans_tbl = $$('#selected_scans')
-    const selected_scans = $scans_tbl.bootstrapTable('getSelections');
+
+    const button_id = $(e.relatedTarget).data('id')
+    const button_series = $scans_tbl.bootstrapTable('getData').filter(series => series.id === button_id)
+
+    const selected_scans = button_id ? button_series : $scans_tbl.bootstrapTable('getSelections')
 
     let scan_images = [];
     for (const selected_scan of selected_scans) {
         const session = session_map.get(selected_scan.sessionId)
-        const all_files = session.scans.get(selected_scan.seriesInstanceUid)
+        const all_files = session.scans.get(selected_scan.id)
 
         const selected_image_index = Math.floor(all_files.length / 2)
         const file = all_files[selected_image_index]
@@ -3813,26 +3833,78 @@ $on('show.bs.modal', '#review-series-images', function() {
 
     Promise.all(scan_image_promises)
         .then(imgDataImages => {
-            $$('#scan_images').html('');
-            for(let i = 0; i < selected_scans.length; i++) {
-                const row = selected_scans[i]
-                const imgSrc = imgDataImages[i]
-                
-                $$('#scan_images').append(`
-                    <div style="width: 50%; border: 1px solid #eee; padding: 15px; float: left;">
-                        <h3>Series: <b>${row.seriesNumber}</b>: [${row.seriesDescription}]</h3>
-                        <h4>Study: ${row.studyId} - ${row.studyDescription}</h4>
-                        <div style="display: inline-block; padding: 20px;"><img src="${imgSrc}"></div>
-                    </div>
-                `)
-
-            }
+            generateBulkImageReview(selected_scans, imgDataImages)
             //console.log({imgDataImages});
             
             //imgDataImages.forEach(generateScanImage)
         })
 
 })
+
+function generateBulkImageReview(selected_scans, imgDataImages) {
+    $$('#scan_images').html('');
+    for(let i = 0; i < selected_scans.length; i++) {
+        const row = selected_scans[i]
+        const imgSrc = imgDataImages[i]
+
+        $$('#scan_images').append(`
+            <div class="item-row">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="img-data"><img src="${imgSrc}"></div>
+                        <dl>
+                            <dt>Study:</dt>
+                            <dd>${row.studyId} - ${row.studyDescription}</dd>
+                            
+                            <dt>Series:</dt>
+                            <dd><b>${row.seriesNumber}</b>: [${row.seriesDescription}]</dd>
+                            
+                            <dt>Modality:</dt>
+                            <dd>${row.modality}</dd>
+
+                            <dt>Frames:</dt>
+                            <dd>${row.frames}</dd>
+
+                            <dt>Date:</dt>
+                            <dd>${row.studyDate} ${row.studyTime}</dd>
+                        </dl>
+                        <div class="scan-links">
+                            <a href="">Edit</a>
+                        </div>
+                    </div>
+                </div>  
+                
+            </div>
+        `)
+    }
+}
+
+$on('change', '#apply_masking_template', function(e) {
+    console.log($(this).val())
+    if ($(this).val() == "1") {
+        
+    }
+})
+
+function generateBulkImageReviewRow(row, imgSrc) {
+
+}
+
+function generateBulkImageReview__OLD(selected_scans, imgDataImages) {
+    $$('#scan_images').html('');
+    for(let i = 0; i < selected_scans.length; i++) {
+        const row = selected_scans[i]
+        const imgSrc = imgDataImages[i]
+        
+        $$('#scan_images').append(`
+            <div style="width: 50%; border: 1px solid #eee; padding: 15px; float: left;">
+                <h3>Series: <b>${row.seriesNumber}</b>: [${row.seriesDescription}]</h3>
+                <h4>Study: ${row.studyId} - ${row.studyDescription}</h4>
+                <div style="display: inline-block; padding: 20px;"><img src="${imgSrc}"></div>
+            </div>
+        `)
+    }
+}
 
 function generateScanImage(imgSrc) {
     $$('#scan_images').append(`<div style="display: inline-block; padding: 20px;"><img src="${imgSrc}"></div>`)

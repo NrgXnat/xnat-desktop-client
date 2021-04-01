@@ -281,7 +281,7 @@ function selected_scans_table($tbl, tbl_data) {
         theadClasses: 'thead-light',
         filterControl: true,
         showSearchClearButton: true,
-        hideUnusedSelectOptions: true,
+        hideUnusedSelectOptions: false,
         maintainMetaData: true,
         uniqueId: 'id',
         multipleSelectRow: true,
@@ -327,6 +327,7 @@ function selected_scans_table($tbl, tbl_data) {
                 title: 'sessionId',
                 filterControl: 'select',
                 sortable: true,
+                visible: false,
                 class: 'break-all',
                 width: 180
             },
@@ -430,13 +431,26 @@ function selected_scans_table($tbl, tbl_data) {
                 title: 'Mask',
                 sortable: true,
                 filterControl: 'select',
-                filterDataCollector: (value) => Array.isArray(value) ? 'Yes' : 'No',
+                filterDataCollector: (value) => value == false ? '-' : value.alias,
                 class: 'highlight',
                 align: 'center',
                 formatter: function(value, row, index, field) {
+                    return value === false ? '-' : `<span title="${value.rectangles.join("\n")}">${value.alias}</span>`
+
                     return Array.isArray(value) ? 
                         `<i class="fas fa-check" title="${value.join("\n")}"><span class="sr-only">Yes</span></i>` : 
                         '<span class="sr-only">No</span>'
+                }
+            },
+
+            {
+                field: 'status',
+                title: 'Status',
+                filterControl: 'select',
+                filterDataCollector: (value) => value ? 'Done' : 'Pending',
+                sortable: true,
+                formatter: function(value, row, index, field) {
+                    return value ? 'Done' : 'Pending'
                 }
             },
 

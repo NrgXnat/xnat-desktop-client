@@ -400,6 +400,49 @@ body>.ui-pnotify {
     }
 }
 /**********************/
+#review-series-images {
+    .modal-body{
+        color: #ddd;
+        background-color: #2f2f2f;
+    }
+    .item-row {
+        border-bottom: 1px solid #5f5f5f; 
+        padding: 5px 0; 
+
+        .img-data {
+            float: left;
+    padding: 10px 10px 10px 0;
+        }
+
+        img {
+            width: 125px;
+            cursor: zoom-in;
+        }
+
+        dl {
+            margin-bottom: 5px;
+            dt {
+                display: block;
+                float: left;
+                min-width: 80px;
+            }
+            dd {
+                display: block;
+                margin: 0;
+            }
+        }
+
+        .scan-links {
+            a {
+                color: #fff;
+                text-decoration: underline;
+            }
+        }
+
+        
+    }
+}
+/**********************/
 h3 > span[data-toggle="popover"] {
     font-size: 0.9rem;
     display: inline-block;
