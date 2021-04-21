@@ -18,8 +18,9 @@ let user_auth = {
 
 let allow_insecure_ssl;
 
+const ejs_template = require('../services/ejs_template')
 
-$(document).on('page:load', '#login-section', function(e){
+$(document).on('page:load', '#login-section', async function(e){
     let logins = settings.get('logins') || [];
     
     if (logins.length) {
@@ -37,6 +38,32 @@ $(document).on('page:load', '#login-section', function(e){
             `)
         })
     }
+
+    const users = [
+        {
+            user: {
+                name: 'Vlada Mandic'
+            }
+        },
+        {
+            user: {
+                name: 'Darko Ljubic'
+            }
+        },
+        {
+            user: {
+                last_name: 'Ilic'
+            }
+        }
+    ]
+
+    for (data of users) {
+        let tpl_html = await ejs_template('test', data)
+        $('#test-users').append(tpl_html)
+    }
+
+    
+    
 
 });
 
