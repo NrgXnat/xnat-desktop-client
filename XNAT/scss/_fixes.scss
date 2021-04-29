@@ -400,23 +400,48 @@ body>.ui-pnotify {
     }
 }
 /**********************/
+.popover-body {
+    ul.scan-review-tooltip {
+        padding: 0 0 0 13px;
+        margin-bottom: 0;
+    }
+}
 #review-series-images {
     .modal-body{
         color: #ddd;
         background-color: #2f2f2f;
+
+        position: absolute;
+        padding-bottom: 100px;
+
+        min-width: 100%;
+        min-height: 90vh;
     }
-    .item-row {
-        border-bottom: 1px solid #5f5f5f; 
-        padding: 5px 0; 
+    .scan-review-item {
+        padding: 2px 0;
+        width: 33%;
+        display: block;
+        float: left;
+        position: relative;
+        border: 3px solid transparent;
+        margin: 2px;
+
+        &:hover {
+            cursor: pointer;
+        }
+
+        .has-popover {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
 
         .img-data {
-            float: left;
-    padding: 10px 10px 10px 0;
+        
         }
 
         img {
-            width: 125px;
-            cursor: zoom-in;
+            width: 100%;
         }
 
         dl {
@@ -438,8 +463,14 @@ body>.ui-pnotify {
                 text-decoration: underline;
             }
         }
+    }
 
-        
+    .scan_checkbox {
+        display: none;
+    }
+
+    .scan_checkbox:checked + .scan-review-item {
+        border-color:green;
     }
 }
 /**********************/
@@ -475,5 +506,24 @@ span[data-toggle="popover"] {
     .filters-active {
         margin-left: 8px;
         font-weight: 100;
+    }
+}
+/*****************************************/
+
+.mask-group-row {
+    border: 1px solid #ccc;
+    background-color: #f4f4f4;
+    margin-top: 10px;
+
+    td {
+        width: 100px;
+        height: 100px;
+        text-align: center;
+        vertical-align: center;
+    }
+
+    img {
+        width: 100px;
+        height: 100px;
     }
 }

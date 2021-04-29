@@ -41,6 +41,9 @@ const XNATAPI = require('../services/xnat-api')
 const { random_string, saveAsCSV, normalizeDateString, normalizeTimeString, normalizeDateTimeString } = require('../services/app_utils');
 const { selected_sessions_table, custom_upload_multiple_table, selected_scans_table } = require('../services/tables/upload-prepare');
 
+const { findSOPClassUID } = require('../services/upload/sop_class_uids')
+const ejs_template = require('../services/ejs_template')
+
 let show_unable_to_set_session_label_warning = 0
 
 // ===================
@@ -106,21 +109,36 @@ let xnat_server, user_auth, session_map, selected_session_id;
 let site_wide_settings = {};
 let project_settings = {};
 
+let _masking_groups = {}
+
 
 let masking_template_registry = [
     {
-        name: "Magnetic resonance spectroscopy of the occipital cortex",
+        name: "1. Magnetic resonance spectroscopy of the occipital cortex",
         alias: "MR Occipital",
         data: {
             modality: "MR",
             Columns: 256,
             Rows: 256,
-            SOPClassUID: "1.2.840.10008.5.1.4.1.1.4",
-            accession: "Flith",
+            SOPClassUID: "1.2.840.10008.5.1.4.1.1.4"
         },
         rectangles: [
             [20, 30, 80, 90], // [x1,y1,   x2,y2]
             [130, 20, 160, 50], // [x1,y1,   x2,y2]
+        ]
+    },
+    {
+        name: "2. Magnetic resonance spectroscopy of the occipital cortex",
+        alias: "MR Occipital",
+        data: {
+            modality: "MR",
+            Columns: 256,
+            Rows: 256,
+            SOPClassUID: "1.2.840.10008.5.1.4.1.1.4"
+        },
+        rectangles: [
+            [22, 32, 82, 92], // [x1,y1,   x2,y2]
+            [132, 22, 162, 52], // [x1,y1,   x2,y2]
         ]
     },
     {
@@ -862,9 +880,9 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
         });
     }
 
-    // find the matchingMask
-    my_scans.map(row => {
-        let mask = masking_template_registry.find(item => {
+    // find the matchingMasks
+    my_scans.forEach(row => {
+        let masks = masking_template_registry.filter(item => {
             for (const prop in item.data) {
                 // console.log({row, mask_data: item.data, prop})
                 // match = match && item[prop] === row[prop]
@@ -874,29 +892,41 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
             }
             return true
         })
-
-        console.log({mask});
-
-        row.matchingMask = mask ? mask : false
-
-        // not really needed
-        // return row 
+        row.matchingMasks = masks
     });
 
-    console.log({my_scans_FIRST: Object.assign({}, my_scans)});
+    let my_scans_grouped = {}
+    my_scans.forEach(scan => {
+        const rand = Math.random()
+        
+        const is_supported_scan = rand < 0.8
+        const group_identifier = is_supported_scan ? `${scan.modality}|${scan.Rows}x${scan.Columns}|${scan.SOPClassUID}` : '_UNSUPPORTED_'
+        if (my_scans_grouped[group_identifier] === undefined) {
+            my_scans_grouped[group_identifier] = []
+        }
+        my_scans_grouped[group_identifier].push(scan)
+    })
+
+    console.log({my_scans_grouped, my_scans_FIRST: Object.assign({}, my_scans)});
 
     const img_promises = my_scans.map(async scan_data => {
-        return await dicomFileToDataURL(scan_data.thumbPath, cornerstone, 120, 100)
+        return await dicomFileToDataURL(scan_data.thumbPath, cornerstone, 100, 100)
     })
 
     Promise.all(img_promises)
-        .then(imgDataImages => {
-            console.log({imgDataImages});
+        .then(async imgDataImages => {
+            
             imgDataImages.forEach((imgDataImage, index) => {
                 my_scans[index].imgDataUrl = imgDataImage
             })
 
-            selected_scans_table($$('#selected_scans'), my_scans)
+            _masking_groups = my_scans_grouped
+
+            console.log({my_scans, _masking_groups});
+
+            display_masking_groups('supported')
+            
+            //selected_scans_table($$('#selected_scans'), my_scans)
         })
         .catch(error => console.log(`Error in executing ${error}`))
         .finally(() => {
@@ -904,6 +934,52 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
             $.unblockUI()
         })
 });
+
+async function display_masking_groups(mask_type) {
+    let tpl_html = await ejs_template('upload/list', {masking_groups: _masking_groups, show: mask_type})
+    $('#masking-groups').html(tpl_html)
+}
+
+$on('click', '.btn-link[data-mask-type]', function() {
+    display_masking_groups($(this).data('mask-type'))
+});
+
+$on('click', '[data-review-mask-alias]', function() {
+    const mask_alias = $(this).data('review-mask-alias')
+
+    const scan_images = _masking_groups[mask_alias].map(scan => {
+        return scan.thumbPath
+    })
+
+    const scan_image_promises = scan_images.map(async imagePath => {
+        return await dicomFileToDataURL(imagePath, cornerstone, 540, 300)
+    })
+
+    Promise.all(scan_image_promises)
+        .then(imgDataImages => {
+            generateBulkImageReview(_masking_groups[mask_alias], imgDataImages)
+
+            $('#modal_mask_alias').text(mask_alias)
+        
+            $$('#review-series-images').modal('show')
+        })
+});
+
+$on('click', '#scan_images .has-popover', function(e) {
+    console.log('Popover clicked')
+    e.preventDefault();
+})
+
+$on('change', '#review-scans-select-all', function(e) {
+    if ($(this).is(':checked')) {
+        console.log('CHECKED')
+    } else {
+        console.log('not checked');
+    }
+
+    $$('#scan_images .scan_checkbox').prop("checked", $(this).is(':checked'));
+})
+
 
 function cornerstone_enable_small_thumb_element(width = 70, height = 70) {
     let element = document.createElement('div');
@@ -932,7 +1008,7 @@ function dicomFileToDataURL(thumb_path, cornerstone, width, height) {
         let element = cornerstone_enable_small_thumb_element(width, height);
         let imageId = `wadouri:http://localhost:7714/?path=${thumb_path}`;
 
-        console.log({imageId});
+        // console.log({imageId});
 
         // this should trigger after "cornerstone.displayImage()" method
         element.addEventListener('cornerstoneimagerendered', function() {
@@ -3785,7 +3861,7 @@ $on('click', '[data-action="bulk-action-review"]', function() {
     $$('#review-series-images').modal('show')
 })
 
-$on('show.bs.modal', '#review-series-images', function(e) {
+$on('show.bs.modal', '#review-series-images--OLD', function(e) {
     const $scans_tbl = $$('#selected_scans')
 
     const button_id = $(e.relatedTarget).data('id')
@@ -3841,42 +3917,9 @@ $on('show.bs.modal', '#review-series-images', function(e) {
 
 })
 
-function generateBulkImageReview(selected_scans, imgDataImages) {
-    $$('#scan_images').html('');
-    for(let i = 0; i < selected_scans.length; i++) {
-        const row = selected_scans[i]
-        const imgSrc = imgDataImages[i]
-
-        $$('#scan_images').append(`
-            <div class="item-row">
-                <div class="row">
-                    <div class="col-12">
-                        <div class="img-data"><img src="${imgSrc}"></div>
-                        <dl>
-                            <dt>Study:</dt>
-                            <dd>${row.studyId} - ${row.studyDescription}</dd>
-                            
-                            <dt>Series:</dt>
-                            <dd><b>${row.seriesNumber}</b>: [${row.seriesDescription}]</dd>
-                            
-                            <dt>Modality:</dt>
-                            <dd>${row.modality}</dd>
-
-                            <dt>Frames:</dt>
-                            <dd>${row.frames}</dd>
-
-                            <dt>Date:</dt>
-                            <dd>${row.studyDate} ${row.studyTime}</dd>
-                        </dl>
-                        <div class="scan-links">
-                            <a href="">Edit</a>
-                        </div>
-                    </div>
-                </div>  
-                
-            </div>
-        `)
-    }
+async function generateBulkImageReview(selected_scans, imgDataImages) {
+    let tpl_html = await ejs_template('upload/scan_review_list', {selected_scans, imgDataImages})
+    $('#scan_images').html(tpl_html)
 }
 
 $on('change', '#apply_masking_template', function(e) {
@@ -3917,5 +3960,5 @@ $on('click', 'button[data-clear-filter-control]', function(e) {
 
 
 $on('post-body.bs.table refresh.bs.table pre-body.bs.table reset-view.bs.table search.bs.table column-search.bs.table', '#selected_scans', function (e) {
-    console.log(`***************** ${e.type}::${e.namespace} *******************`);
+    // console.log(`***************** ${e.type}::${e.namespace} *******************`);
 })

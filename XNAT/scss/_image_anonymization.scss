@@ -321,6 +321,12 @@ body.dicomImageViewerFS #header_menu {
             height: auto !important;
             max-height: none !important;
         }
+
+        .modal-header {
+            color: #fff;
+            background-color: #2f2f2f;
+            border-radius: 0;
+        }
     }
 
 }

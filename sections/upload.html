@@ -627,11 +627,23 @@
 
                         <!-- #nav-visual-bulk -->
                         <div class="tab-pane fade" id="nav-visual-bulk" role="tabpanel" aria-labelledby="nav-visual-bulk-tab">
-                            <h2 class="section-title">Required Visual Check for Burned-in PHI. Apply bulk image anonymization</h2>
-                            
+                            <h2 class="section-title">Grouped Scans for Visual PHI Removal.
+
+                                <span style="font-size: 16px"
+                                    data-toggle="popover" 
+                                    title="Visual PHI Removal Instructions" 
+                                    data-content="Lorem ipsum dolor, sit amet consectetur adipisicing elit. Culpa cum similique, excepturi maiores quisquam ex at consequatur est nemo ea!">
+                                    <i class="fas fa-question-circle"></i>
+                                    Help
+                                </span>
+                            </h2>
 
                             <div class="row">
                                 <div class="col-sm-12">
+
+                                    <div id="masking-groups"></div>
+
+                                    <!--
                                     <div class="filter-clear-container">
                                         <span class="displayed-items badge badge-pill">Rows: 0</span>
                                         <button class="btn btn-gray btn-sm btn-xs" data-clear-filter-control="#selected_scans" title="Clear All Filters">
@@ -644,6 +656,8 @@
                                     <div style="width: 97vw; transform: translate(-50%); margin-left: 50%;">
                                         <table class="table table-bordered" id="selected_scans"></table>
                                     </div> 
+
+                                    -->
                                 </div>
                             </div>
 
@@ -818,26 +832,31 @@
             <!-- Modal -->
             <div class="modal fade fullscreenModal" id="review-series-images" tabindex="-1" role="dialog" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-scrollable" role="document">
-                    <!--
+                    
                     <div class="modal-header">
-                        <h5 class="modal-title">Modal title</h5>
+                        <h5 class="modal-title">Review Scans in <span id="modal_mask_alias"></span></h5>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
                     </div>
-                    -->
+                    
                     <div class="modal-content">
                         <div class="modal-body">
                             <div class="container-fluid">
                                 <nav style="margin: 0 -15px;" class="navbar navbar-expand-lg navbar-dark bg-dark">
-                                    <span class="navbar-brand">Scan images</span>
+                                    <!-- <span class="navbar-brand">Scan images</span> -->
                                     <button class="navbar-toggler" type="button" data-toggle="collapse"
                                         data-target="#navbarText" aria-controls="navbarText" aria-expanded="false"
                                         aria-label="Toggle navigation">
                                         <span class="navbar-toggler-icon"></span>
                                     </button>
                                     <div class="collapse navbar-collapse" id="navbarText">
+                                        <label for="review-scans-select-all">
+                                            <input type="checkbox" id="review-scans-select-all">
+                                            Select all</label>
 
+
+                                        <!--
                                         <span class="navbar-text  mr-auto">
                                             <select class="form-control">
                                                 <option value="">Filter images by scan</option>
@@ -854,12 +873,12 @@
                                             </button>
                                             <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                                               <a class="dropdown-item" href="#">Modify Image Masking</a>
-                                              <!-- <a class="dropdown-item" href="#">Another action</a>
-                                              <a class="dropdown-item" href="#">Something else here</a> -->
+                                              <a class="dropdown-item" href="#">Another action</a>
+                                              <a class="dropdown-item" href="#">Something else here</a>
                                             </div>
                                         </div>
 
-                                        <!--
+                                        
                                         <ul class="navbar-nav mr-auto">
                                             <li class="nav-item active">
                                                 <a class="nav-link" href="#">Home <span
@@ -872,7 +891,7 @@
                                                 <a class="nav-link" href="#">Pricing</a>
                                             </li>
                                         </ul>
-                                        -->
+                                        
 
                                         <span class="navbar-text">
                                             <select class="form-control" id="apply_masking_template">
@@ -882,10 +901,25 @@
                                                 <option value="3">Masking Template 3</option>
                                             </select>
                                         </span>
+                                        -->
                                     </div>
                                 </nav>
 
                                 <div id="scan_images"></div>
+
+
+
+                            </div>
+
+                            <div class="row action-button-row">
+                                <div class="col-12">
+                                    <div class="text-right button-row">
+                                        <button class="btn btn-gray float-left hidden" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
+
+                                        <button type="button" class="btn btn-gray" data-href="home.html" type="button">Cancel</button>
+                                        <button type="button" class="btn btn-blue js_next disabled">Next <i class="fas fa-angle-right"></i></button>
+                                    </div>
+                                </div>
                             </div>
                             
                         </div>

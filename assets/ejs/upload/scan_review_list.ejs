@@ -1,0 +1,26 @@
+<% for(let i = 0; i < selected_scans.length; i++) { %>
+    <%
+    const row = selected_scans[i]
+    const imgSrc = imgDataImages[i]
+    %>
+
+    <input type="checkbox" 
+        id="scan_<%= row.id%>" 
+        class="scan_checkbox" 
+        name="selected_scan[]" 
+        value="<%= row.studyId%>">
+    <label class="scan-review-item" for="scan_<%= row.id%>">
+        <div class="img-data"><img src="<%= imgSrc %> "></div>
+        
+        <span 
+        data-toggle="popover" 
+        class="has-popover"
+        title="Scan ID: <%= row.studyId%>" 
+        data-content="<%- include('scan_review_tooltip', {row}); %>"
+        data-html="true"
+        >
+        <i class="fas fa-info-circle"></i>
+        </span>
+    </label>
+
+<% } %>
