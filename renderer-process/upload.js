@@ -43,6 +43,7 @@ const { selected_sessions_table, custom_upload_multiple_table, selected_scans_ta
 
 const { findSOPClassUID } = require('../services/upload/sop_class_uids')
 const ejs_template = require('../services/ejs_template')
+const moment = require('moment');
 
 let show_unable_to_set_session_label_warning = 0
 
@@ -116,6 +117,8 @@ let masking_template_registry = [
     {
         name: "1. Magnetic resonance spectroscopy of the occipital cortex",
         alias: "MR Occipital",
+        created: 1554216555411,
+        author: 'Darko L',
         data: {
             modality: "MR",
             Columns: 256,
@@ -129,7 +132,9 @@ let masking_template_registry = [
     },
     {
         name: "2. Magnetic resonance spectroscopy of the occipital cortex",
-        alias: "MR Occipital",
+        alias: "MR Occipital 2",
+        created: 1554716555411,
+        author: 'Darko L',
         data: {
             modality: "MR",
             Columns: 256,
@@ -137,13 +142,15 @@ let masking_template_registry = [
             SOPClassUID: "1.2.840.10008.5.1.4.1.1.4"
         },
         rectangles: [
-            [22, 32, 82, 92], // [x1,y1,   x2,y2]
-            [132, 22, 162, 52], // [x1,y1,   x2,y2]
+            [32, 42, 92, 102], // [x1,y1,   x2,y2]
+            [142, 32, 172, 62], // [x1,y1,   x2,y2]
         ]
     },
     {
         name: "X-Ray Angiography (full mask name)",
         alias: "XA_1_alias",
+        created: 1551216555411,
+        author: 'Darko L',
         data: {
             modality: "XA",
             Columns: 512,
@@ -151,8 +158,9 @@ let masking_template_registry = [
             SOPClassUID: "1.2.840.10008.5.1.4.1.1.12.1",
         },
         rectangles: [
-            [10, 15, 50, 65], // [x1,y1,   x2,y2]
+            [10, 15, 50, 95], // [x1,y1,   x2,y2]
             [130, 20, 160, 50], // [x1,y1,   x2,y2]
+            [400, 420, 480, 480], // [x1,y1,   x2,y2]
         ]
     }
 ];
@@ -936,8 +944,44 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
 });
 
 async function display_masking_groups(mask_type) {
-    let tpl_html = await ejs_template('upload/list', {masking_groups: _masking_groups, show: mask_type})
+    console.log({_masking_groups});
+    let tpl_html = await ejs_template('upload/list', {findSOPClassUID, masking_groups: _masking_groups, show: mask_type})
     $('#masking-groups').html(tpl_html)
+}
+
+$on('shown.bs.modal', '#exampleModal', async function(){
+    let tpl_html = await ejs_template('upload/template-list-item', {
+        templates: masking_template_registry,
+        moment
+    })
+    $('#template-listing').html(tpl_html)
+})
+
+$on('click', '[data-apply-canvas-id]', function() {
+    let canvas_id = $(this).data('apply-canvas-id')
+    let old_canvas = document.getElementById(canvas_id)
+    console.log({old_canvas});
+    console.log({img_data_length: $('.scan_checkbox:checked + .scan-review-item > .img_data').length});
+    $('.scan_checkbox:checked + .scan-review-item > .img-data').each(function() {
+        $(this).prepend(cloneCanvas(old_canvas))
+    })
+})
+
+function cloneCanvas(oldCanvas) {
+
+    //create a new canvas
+    var newCanvas = document.createElement('canvas');
+    var context = newCanvas.getContext('2d');
+
+    //set dimensions
+    newCanvas.width = oldCanvas.width;
+    newCanvas.height = oldCanvas.height;
+
+    //apply the old canvas to the new one
+    context.drawImage(oldCanvas, 0, 0);
+
+    //return the new canvas
+    return newCanvas;
 }
 
 $on('click', '.btn-link[data-mask-type]', function() {

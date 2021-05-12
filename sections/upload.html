@@ -663,20 +663,23 @@
 
 
                             <div class="row action-button-row">
+                                <!--
                                 <div class="col-12 row_items">
+                                    
                                     <div class="button-row">
                                         <span style="transform: rotate(90deg);display: inline-block;font-size: 25px;line-height: 1;margin-right: 3px;">&#8629;</span>
                                         <span class="mr-auto">Bulk actions:</span>
                                         <button type="button" data-action="bulk-action-review" data-text="Review" class="btn btn-gray" disabled>Review</button>
                                         <button type="button" data-action="bulk-action-apply-mask" data-text="Apply Selected Mask" class="btn btn-gray" disabled>Apply Selected Mask</button>
                                     </div>
+                                </div>
+                                -->
 
-                                    <div class="text-right button-row ">
-                                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                                        <button type="button" class="btn btn-gray js_prev" type="button">
-                                            <i class="fas fa-angle-left"></i> Prev</button>
-                                        <button type="button" class="btn btn-blue js_upload">Finish and Upload</button>
-                                    </div>
+                                <div class="text-right button-row ">
+                                    <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                    <button type="button" class="btn btn-gray js_prev" type="button">
+                                        <i class="fas fa-angle-left"></i> Prev</button>
+                                    <button type="button" class="btn btn-blue js_upload">Finish and Upload</button>
                                 </div>
                             </div>
                         </div>
@@ -831,7 +834,7 @@
 
             <!-- Modal -->
             <div class="modal fade fullscreenModal" id="review-series-images" tabindex="-1" role="dialog" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-scrollable" role="document">
+                <div class="modal-dialog" role="document">
                     
                     <div class="modal-header">
                         <h5 class="modal-title">Review Scans in <span id="modal_mask_alias"></span></h5>
@@ -906,31 +909,117 @@
                                 </nav>
 
                                 <div id="scan_images"></div>
-
-
-
                             </div>
-
-                            <div class="row action-button-row">
-                                <div class="col-12">
-                                    <div class="text-right button-row">
-                                        <button class="btn btn-gray float-left hidden" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
-
-                                        <button type="button" class="btn btn-gray" data-href="home.html" type="button">Cancel</button>
-                                        <button type="button" class="btn btn-blue js_next disabled">Next <i class="fas fa-angle-right"></i></button>
-                                    </div>
-                                </div>
-                            </div>
-                            
                         </div>
                     </div>
-                    <!--
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-primary">Save changes</button>
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <div class="row action-button-row">
+                            <div class="col-12">
+                                <div class="text-right button-row">
+                                    <span class="float-left" style="margin-top: 5px;">With selected:</span>
+
+                                    <button disabled type="button" class="btn btn-gray" data-js-review-reset type="button">Reset</button>
+                                    <button data-toggle="modal" data-target="#exampleModal" type="button" class="btn btn-gray" data-js-review-set-template type="button">Set Template</button>
+                                    <button disabled type="button" class="btn btn-gray" data-js-review-approve type="button">Approve For Upload</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    -->
                 </div>
+            </div>
+        </div>
+
+
+
+        <!-- Modal -->
+        <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Templates Found</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                </div>
+                <div class="modal-body">
+                    <div id="template-listing">
+                        <!--
+                        <div class="row">
+                            <div class="col-5">
+                                <canvas id="myCanvas" width="200" height="200" style="border:1px solid #d3d3d3;">
+                                    Your browser does not support the HTML5 canvas tag.</canvas>
+
+                                <script>
+                                    var c = document.getElementById("myCanvas");
+
+                                    var ctx = c.getContext("2d");
+                                    ctx.beginPath();
+                                    ctx.fillStyle = "red";
+                                    ctx.rect(20, 20, 40, 60);
+                                    ctx.fill();
+                                    
+                                    var ctx1 = c.getContext("2d");
+                                    ctx1.beginPath();
+                                    ctx1.fillStyle = "blue";
+                                    ctx1.rect(80, 25, 40, 60);
+                                    ctx1.fill();
+                                </script> 
+                            </div>
+                            <div class="col-7">
+                                <h4>CT Anon Patern 526</h4>
+                                <p>Created 4/1/2021</p>
+                                <p>by Darko L</p>
+
+                                <div class="d-flex justify-content-between bd-highlight mt-3">
+                                    <button class="btn btn-gray">Apply</button>
+                                    <button class="btn btn-gray">Edit</button>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="row">
+                            <div class="col-5">
+                                <canvas id="myCanvas1" width="200" height="200" style="border:1px solid #d3d3d3;">
+                                    Your browser does not support the HTML5 canvas tag.</canvas>
+
+                                <script>
+                                    var c = document.getElementById("myCanvas1");
+                                    
+                                    var ctx = c.getContext("2d");
+                                    ctx.beginPath();
+                                    ctx.fillStyle = "green";
+                                    ctx.rect(10, 20, 40, 60);
+                                    ctx.fill();
+                                    
+                                    var ctx1 = c.getContext("2d");
+                                    ctx1.beginPath();
+                                    ctx1.fillStyle = "black";
+                                    ctx1.rect(100, 25, 60, 40);
+                                    ctx1.fill();
+                                </script> 
+                            </div>
+                            <div class="col-7">
+                                <h4>CT Anon Patern 615</h4>
+                                <p>Created 3/28/2021</p>
+                                <p>by Steve M</p>
+
+                                <div class="d-flex justify-content-between bd-highlight mt-3">
+                                    <button class="btn btn-gray">Apply</button>
+                                    <button class="btn btn-gray">Edit</button>
+                                </div>
+                            </div>
+                        </div>
+                        -->
+
+                    </div>
+                    
+                </div>
+                <div class="modal-footer">
+                <button type="button" class="btn btn-link mr-auto">Create New Template</button>
+                <button type="button" class="btn btn-blue" data-dismiss="modal">Okay</button>
+                </div>
+            </div>
             </div>
         </div>
 

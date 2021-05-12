@@ -437,7 +437,18 @@ body>.ui-pnotify {
         }
 
         .img-data {
-        
+            position: relative;
+
+            canvas {
+                border: 1px solid #d3d3d3;
+                position: absolute;
+                z-index: 5;
+                height: 100%;
+                background-color: transparent;
+                transform: translateX(-50%);
+                margin-left: 50%;
+                width: auto;
+            }
         }
 
         img {
