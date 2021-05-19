@@ -1,19 +1,14 @@
-const ElectronStore = require('electron-store');
-const settings = new ElectronStore();
-const path = require('path');
-const axios = require('axios');
-require('promise.prototype.finally').shim();
-const store = require('store2');
-const sha1 = require('sha1');
-const ipc = require('electron').ipcRenderer
+const ElectronStore = require('electron-store')
+const settings = new ElectronStore()
+const axios = require('axios')
+const store = require('store2')
+const sha1 = require('sha1')
+const { ipcRenderer, remote } = require('electron')
+const { URL } = require('url')
+const lodashClonedeep = require('lodash/cloneDeep')
+const isPlainObject = require('lodash/isPlainObject')
 
 const XNATAPI = require('./xnat-api')
-
-const {URL} = require('url');
-const remote = require('electron').remote;
-
-const lodashClonedeep = require('lodash/cloneDeep');
-const isPlainObject = require('lodash/isPlainObject');
 
 const auth = {
     login_promise: (xnat_server, user_auth) => {
@@ -120,22 +115,22 @@ const auth = {
 
     set_user_auth: (user_auth) => {
         // update globals only in main.js process!
-        ipc.send('update_global_variable', 'user_auth', {
+        ipcRenderer.send('update_global_variable', 'user_auth', {
             username: user_auth.username,
             password: user_auth.password
         })
 
-        ipc.send('log', 'set_user_auth', {user_auth__SET: remote.getGlobal('user_auth')})
+        ipcRenderer.send('log', 'set_user_auth', {user_auth__SET: remote.getGlobal('user_auth')})
     },
 
     remove_user_auth: () => {
         // update globals only in main.js process!
-        ipc.send('update_global_variable', 'user_auth', {
+        ipcRenderer.send('update_global_variable', 'user_auth', {
             username: null,
             password: null
         })
 
-        ipc.send('log', 'remove_user_auth', {user_auth__REMOVE: remote.getGlobal('user_auth')})
+        ipcRenderer.send('log', 'remove_user_auth', {user_auth__REMOVE: remote.getGlobal('user_auth')})
     },
 
     set_allow_insecure_ssl: (new_status) => {
@@ -287,7 +282,5 @@ const auth = {
         return data
     }
 }
-
-
 
 module.exports = auth;

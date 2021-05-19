@@ -1,7 +1,7 @@
-const path = require('path');
-const fs = require('fs');
-const checksum = require('checksum');
-const FileSaver = require('file-saver');
+const path = require('path')
+const fs = require('fs')
+const checksum = require('checksum')
+const FileSaver = require('file-saver')
 
 exports.isDevEnv = () => {
     // return process.argv && process.argv.length >= 3 && /--debug/.test(process.argv[2]);
@@ -10,6 +10,19 @@ exports.isDevEnv = () => {
     // console.log(process.mainModule.filename);
     // alternative
     return process.mainModule.filename.indexOf('app.asar') === -1;
+}
+
+exports.objToJsonFile = (jsonObject, target_path) => {
+    if (this.isReallyWritable(path.dirname(target_path))) {
+        const data = JSON.stringify(jsonObject, null, 2)
+        fs.writeFile(target_path, data, function(err) {
+            if (err) {
+                console.log(err)
+            }
+        })
+    } else {
+        console.log(`Not writable: ${path.dirname(target_path)}`)
+    }
 }
 
 

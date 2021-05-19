@@ -268,7 +268,7 @@
                                         <label for="experiment_label" class="col-sm-2 col-form-label">
                                             <b>Experiment Label
                                                 <br>(Session)</b>:</label>
-                                        <div class="input-group col-sm-10">
+                                        <div class="input-group col-sm-6">
                                             <input class="form-control" type="text" name="experiment_label"
                                                 id="experiment_label" value="" required>
                                             <div class="invalid-feedback">
@@ -679,7 +679,7 @@
                                     <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
                                     <button type="button" class="btn btn-gray js_prev" type="button">
                                         <i class="fas fa-angle-left"></i> Prev</button>
-                                    <button type="button" class="btn btn-blue js_upload">Finish and Upload</button>
+                                    <button type="button" class="btn btn-blue" data-js-visual-bulk-upload>Finish and Upload</button>
                                 </div>
                             </div>
                         </div>
@@ -832,7 +832,7 @@
                 </div>
             </div>
 
-            <!-- Modal -->
+            <!-- Review Series Images Modal -->
             <div class="modal fade fullscreenModal" id="review-series-images" tabindex="-1" role="dialog" aria-hidden="true">
                 <div class="modal-dialog" role="document">
                     
@@ -916,113 +916,162 @@
                         <div class="row action-button-row">
                             <div class="col-12">
                                 <div class="text-right button-row">
-                                    <span class="float-left" style="margin-top: 5px;">With selected:</span>
+                                    <span class="float-left" style="margin-top: 5px;">With selected (<span id="review-series-images--selected">0</span>):</span>
 
-                                    <button disabled type="button" class="btn btn-gray" data-js-review-reset type="button">Reset</button>
-                                    <button data-toggle="modal" data-target="#exampleModal" type="button" class="btn btn-gray" data-js-review-set-template type="button">Set Template</button>
-                                    <button disabled type="button" class="btn btn-gray" data-js-review-approve type="button">Approve For Upload</button>
+                                    <button disabled data-js-review-reset type="button" class="btn btn-gray" type="button">Reset</button>
+                                    <button disabled data-js-review-set-template data-toggle="modal" data-target="#exampleModal" type="button" class="btn btn-gray" type="button">Set Template</button>
+                                    <button disabled data-js-review-approve type="button" class="btn btn-gray" type="button">Approve For Upload</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
 
+            <!-- Modal -->
+            <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Templates Found</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="template-listing">
+                            <!--
+                            <div class="row">
+                                <div class="col-5">
+                                    <canvas id="myCanvas" width="200" height="200" style="border:1px solid #d3d3d3;">
+                                        Your browser does not support the HTML5 canvas tag.</canvas>
 
-        <!-- Modal -->
-        <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
-            <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                <h5 class="modal-title" id="exampleModalLabel">Templates Found</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                                    <script>
+                                        var c = document.getElementById("myCanvas");
+
+                                        var ctx = c.getContext("2d");
+                                        ctx.beginPath();
+                                        ctx.fillStyle = "red";
+                                        ctx.rect(20, 20, 40, 60);
+                                        ctx.fill();
+                                        
+                                        var ctx1 = c.getContext("2d");
+                                        ctx1.beginPath();
+                                        ctx1.fillStyle = "blue";
+                                        ctx1.rect(80, 25, 40, 60);
+                                        ctx1.fill();
+                                    </script> 
+                                </div>
+                                <div class="col-7">
+                                    <h4>CT Anon Patern 526</h4>
+                                    <p>Created 4/1/2021</p>
+                                    <p>by Darko L</p>
+
+                                    <div class="d-flex justify-content-between bd-highlight mt-3">
+                                        <button class="btn btn-gray">Apply</button>
+                                        <button class="btn btn-gray">Edit</button>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="row">
+                                <div class="col-5">
+                                    <canvas id="myCanvas1" width="200" height="200" style="border:1px solid #d3d3d3;">
+                                        Your browser does not support the HTML5 canvas tag.</canvas>
+
+                                    <script>
+                                        var c = document.getElementById("myCanvas1");
+                                        
+                                        var ctx = c.getContext("2d");
+                                        ctx.beginPath();
+                                        ctx.fillStyle = "green";
+                                        ctx.rect(10, 20, 40, 60);
+                                        ctx.fill();
+                                        
+                                        var ctx1 = c.getContext("2d");
+                                        ctx1.beginPath();
+                                        ctx1.fillStyle = "black";
+                                        ctx1.rect(100, 25, 60, 40);
+                                        ctx1.fill();
+                                    </script> 
+                                </div>
+                                <div class="col-7">
+                                    <h4>CT Anon Patern 615</h4>
+                                    <p>Created 3/28/2021</p>
+                                    <p>by Steve M</p>
+
+                                    <div class="d-flex justify-content-between bd-highlight mt-3">
+                                        <button class="btn btn-gray">Apply</button>
+                                        <button class="btn btn-gray">Edit</button>
+                                    </div>
+                                </div>
+                            </div>
+                            -->
+
+                        </div>
+                        
+                    </div>
+                    <div class="modal-footer">
+                    <button data-js-review-create-template type="button" class="btn btn-link mr-auto">Create New Template</button>
+                    <button type="button" class="btn btn-blue" data-dismiss="modal">Okay</button>
+                    </div>
                 </div>
-                <div class="modal-body">
-                    <div id="template-listing">
-                        <!--
-                        <div class="row">
-                            <div class="col-5">
-                                <canvas id="myCanvas" width="200" height="200" style="border:1px solid #d3d3d3;">
-                                    Your browser does not support the HTML5 canvas tag.</canvas>
+                </div>
+            </div>
 
-                                <script>
-                                    var c = document.getElementById("myCanvas");
-
-                                    var ctx = c.getContext("2d");
-                                    ctx.beginPath();
-                                    ctx.fillStyle = "red";
-                                    ctx.rect(20, 20, 40, 60);
-                                    ctx.fill();
-                                    
-                                    var ctx1 = c.getContext("2d");
-                                    ctx1.beginPath();
-                                    ctx1.fillStyle = "blue";
-                                    ctx1.rect(80, 25, 40, 60);
-                                    ctx1.fill();
-                                </script> 
-                            </div>
-                            <div class="col-7">
-                                <h4>CT Anon Patern 526</h4>
-                                <p>Created 4/1/2021</p>
-                                <p>by Darko L</p>
-
-                                <div class="d-flex justify-content-between bd-highlight mt-3">
-                                    <button class="btn btn-gray">Apply</button>
-                                    <button class="btn btn-gray">Edit</button>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        <div class="row">
-                            <div class="col-5">
-                                <canvas id="myCanvas1" width="200" height="200" style="border:1px solid #d3d3d3;">
-                                    Your browser does not support the HTML5 canvas tag.</canvas>
-
-                                <script>
-                                    var c = document.getElementById("myCanvas1");
-                                    
-                                    var ctx = c.getContext("2d");
-                                    ctx.beginPath();
-                                    ctx.fillStyle = "green";
-                                    ctx.rect(10, 20, 40, 60);
-                                    ctx.fill();
-                                    
-                                    var ctx1 = c.getContext("2d");
-                                    ctx1.beginPath();
-                                    ctx1.fillStyle = "black";
-                                    ctx1.rect(100, 25, 60, 40);
-                                    ctx1.fill();
-                                </script> 
-                            </div>
-                            <div class="col-7">
-                                <h4>CT Anon Patern 615</h4>
-                                <p>Created 3/28/2021</p>
-                                <p>by Steve M</p>
-
-                                <div class="d-flex justify-content-between bd-highlight mt-3">
-                                    <button class="btn btn-gray">Apply</button>
-                                    <button class="btn btn-gray">Edit</button>
-                                </div>
-                            </div>
-                        </div>
-                        -->
-
+            <!-- Create Template Cornerstone Modal -->
+            <div class="modal fade fullscreenModal" id="create-masking-template" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    
+                    <div class="modal-header">
+                        <h5 class="modal-title">Create New Masking Template</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
                     </div>
                     
-                </div>
-                <div class="modal-footer">
-                <button type="button" class="btn btn-link mr-auto">Create New Template</button>
-                <button type="button" class="btn btn-blue" data-dismiss="modal">Okay</button>
+                    <div class="modal-content">
+                        <div class="modal-body">
+                            <div class="container-fluid">
+                                <div id="create-masking-template--content"></div>
+
+                                <section id="imgGalleryPreview">
+                                    <div class="container">
+                                        <div class="row">
+                                            <div class="col-sm-3" id="series_thumbs_holder">
+                                                <ul id="series_thumbs"></ul>
+                                            </div>
+                                            <div class="col-sm-9" style="max-width: calc(100% - 194px); flex: 0 1 auto;">
+                                                <div id="frame_input_container"></div>
+                                                <div id="dicom_image_container" style="width: 100%; height: 500px;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="row action-button-row">
+                            <div class="col-12">
+                                <div class="text-right button-row">
+                                    <button  data-dismiss="modal" type="button" class="btn btn-gray" type="button">Cancel</button>
+                                    <button disabled data-js-review-approve type="button" class="btn btn-blue" type="button">Okay</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            </div>
+
+
         </div>
 
+
+
+        
 
         <!-- REQUIRED FOR... -->
         

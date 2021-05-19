@@ -1,3 +1,31 @@
+const { ipcRenderer, remote } = require('electron')
+const fs = require('fs')
+const path = require('path')
+const getSize = require('get-folder-size')
+const prettyBytes = require('pretty-bytes')
+//require('promise.prototype.finally').shim()
+const ElectronStore = require('electron-store')
+const settings = new ElectronStore()
+const swal = require('sweetalert')
+const moment = require('moment')
+const mime = require('mime-types')
+const csvToJson = require('csvtojson')
+
+const auth = require('../services/auth')
+const user_settings = require('../services/user_settings')
+const ResetManager = require('../services/reset-manager')
+const FlowReset = new ResetManager();
+const ExperimentLabel = require('../services/experiment_label')
+const mizer = remote.require('./mizer')
+const db_uploads = remote.require('./services/db/uploads')
+const electron_log = remote.require('./services/electron_log')
+const XNATAPI = require('../services/xnat-api')
+const { random_string, saveAsCSV, objToJsonFile, normalizeDateString, normalizeTimeString, normalizeDateTimeString } = require('../services/app_utils')
+const { selected_sessions_table, custom_upload_multiple_table, selected_scans_table } = require('../services/tables/upload-prepare')
+const { findSOPClassUID } = require('../services/upload/sop_class_uids')
+const templateEngine = require('../services/template_engine')
+const ejs_template = require('../services/ejs_template')
+
 const {
     DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT, 
     MAX_RECENT_UPLOAD_PROJECTS_STORED,
@@ -7,43 +35,7 @@ const {
     PRIMARY_MODALITIES,
     CSV_UPLOAD_FIELDS
 } = require('../services/constants')
-const fs = require('fs');
-const path = require('path');
-const getSize = require('get-folder-size');
-require('promise.prototype.finally').shim();
-const auth = require('../services/auth');
-const ElectronStore = require('electron-store');
-const settings = new ElectronStore();
-const ipc = require('electron').ipcRenderer;
-const swal = require('sweetalert');
-const archiver = require('archiver');
-const mime = require('mime-types');
-const csvToJson = require('csvtojson')
 
-const templateEngine = require('../services/template_engine');
-
-const prettyBytes = require('pretty-bytes');
-
-const user_settings = require('../services/user_settings');
-const ResetManager = require('../services/reset-manager');
-const FlowReset = new ResetManager();
-
-const ExperimentLabel = require('../services/experiment_label')
-
-const remote = require('electron').remote;
-const mizer = remote.require('./mizer');
-
-const db_uploads = remote.require('./services/db/uploads')
-
-const electron_log = remote.require('./services/electron_log');
-
-const XNATAPI = require('../services/xnat-api')
-const { random_string, saveAsCSV, normalizeDateString, normalizeTimeString, normalizeDateTimeString } = require('../services/app_utils');
-const { selected_sessions_table, custom_upload_multiple_table, selected_scans_table } = require('../services/tables/upload-prepare');
-
-const { findSOPClassUID } = require('../services/upload/sop_class_uids')
-const ejs_template = require('../services/ejs_template')
-const moment = require('moment');
 
 let show_unable_to_set_session_label_warning = 0
 
@@ -53,6 +45,7 @@ let show_unable_to_set_session_label_warning = 0
 // ===================
 const dicomParser = require('dicom-parser');
 const cornerstone = require('cornerstone-core-with-bg');
+const Hammer = require('hammerjs');
 
 const cornerstoneWADOImageLoader = require('cornerstone-wado-image-loader');
 let WADOImageLoaderPath = path.dirname(require.resolve('cornerstone-wado-image-loader'));
@@ -76,8 +69,6 @@ const cornerstoneMath = require('cornerstone-math');
 const cornerstoneTools = require('cstools-overlay');
 
 const scrollToIndex = cornerstoneTools.import('util/scrollToIndex');
-
-const Hammer = require('hammerjs');
 
 cornerstoneTools.external.cornerstone = cornerstone;
 cornerstoneTools.external.cornerstoneMath = cornerstoneMath;
@@ -452,8 +443,6 @@ function _init_img_sessions_table(table_rows) {
         if (has_pt_scan) {
             $('#pet_tracer').trigger('change');
         } else {
-            //$('#experiment_label').val(experiment_label());
-            console.log('bstbl#$img_session_tbl');
             await experiment_label_with_api()
             validate_upload_form()
         }
@@ -735,29 +724,31 @@ function _init_session_selection_table(tbl_data) {
 
 
 if (!settings.has('user_auth') || !settings.has('xnat_server')) {
-    ipc.send('redirect', 'login.html');
+    ipcRenderer.send('redirect', 'login.html');
     return;
 }
 
 function validate_upload_form() {
+    console.log('validate_upload_form() TRIGGERED');
     let required_input_error = false;
 
-    let selected = $('#image_session').bootstrapTable('getSelections');
-    let $required_inputs = $('#anon_variables').find(':input[required]');
+    let selected = $$('#image_session').bootstrapTable('getSelections');
+    let $required_inputs = $$('#anon_variables').find(':input[required]');
 
     required_input_error = !valid_experiment_label_syntax()
 
-    $required_inputs.each(function(){
-        // TODO - should be improved
-        const is_invalid = $(this).val() && $(this).val().trim() === ''
+    $required_inputs.each(function(i){
+        const is_invalid = $(this).val() !== undefined && $(this).val().trim() === ''
+
         $(this).toggleClass('is-invalid', is_invalid);
+
         if (is_invalid) {
             required_input_error = true;
         }
     });
 
     // validate visits and protocols
-    $('#visit, #datatype, #subtype').each(function() {
+    $$('#visit, #datatype, #subtype').each(function() {
         if ($(this).is(':visible')) {
             console.log(this.id, $(this).find('a.selected').length)
             if ($(this).find('a.selected').length === 0) {
@@ -772,8 +763,8 @@ function validate_upload_form() {
         required_input_error = true;
     }
 
-    $('#nav-verify .js_next, #upload-section .js_upload').toggleClass('disabled', required_input_error);
-    $('#upload-section .js_upload').prop('disabled', required_input_error);
+    $$('#nav-verify .js_next, .js_upload').toggleClass('disabled', required_input_error);
+    $$('.js_upload').prop('disabled', required_input_error);
 
     return required_input_error;
 }
@@ -903,6 +894,7 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
         row.matchingMasks = masks
     });
 
+    // group scans (by parameters or unsupported)
     let my_scans_grouped = {}
     my_scans.forEach(scan => {
         const rand = Math.random()
@@ -938,6 +930,7 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
         })
         .catch(error => console.log(`Error in executing ${error}`))
         .finally(() => {
+            console.log('FINALLY TRIGGERED!!!')
             console.timeEnd('scan_table');
             $.unblockUI()
         })
@@ -1015,15 +1008,99 @@ $on('click', '#scan_images .has-popover', function(e) {
 })
 
 $on('change', '#review-scans-select-all', function(e) {
-    if ($(this).is(':checked')) {
-        console.log('CHECKED')
-    } else {
-        console.log('not checked');
-    }
-
     $$('#scan_images .scan_checkbox').prop("checked", $(this).is(':checked'));
+    $$('#review-series-images').trigger('scanselectionchange.bulkanon')
 })
 
+$on('change', '#scan_images .scan_checkbox', function(e) {
+    $$('#review-series-images').trigger('scanselectionchange.bulkanon')
+})
+
+$on('scanselectionchange.bulkanon', '#review-series-images', function() {
+    const selected_scans_count = $$('#scan_images .scan_checkbox:checked').length
+
+    $$('#review-series-images--selected').text(selected_scans_count)
+
+    $$('[data-js-review-set-template]').prop('disabled', selected_scans_count === 0)
+    $$('[data-js-review-approve]').prop('disabled', selected_scans_count === 0)
+    $$('[data-js-review-reset]').prop('disabled', selected_scans_count === 0)
+
+
+    console.log({
+        checked_checkboxes: selected_scans_count
+    });
+})
+
+$on('click', '[data-js-review-reset]', function() {
+    $$('#scan_images .scan_checkbox:checked + label > .img-data canvas').remove()
+    $$('#scan_images .scan_checkbox:checked + label').removeClass('approved')
+})
+
+$on('click', '[data-js-review-approve]', function() {
+    $$('#scan_images .scan_checkbox:checked + label').addClass('approved')
+})
+
+$on('click', '[data-js-review-create-template]', function() {
+    $first_selected_scan = $$('#scan_images .scan_checkbox:checked').eq(0)
+
+    $$('#create-masking-template')
+        .data({
+            'session-id': $first_selected_scan.data('session-id'),
+            'series-id': $first_selected_scan.data('series-id'),
+        })
+        .modal('show')
+})
+
+$on('show.bs.modal', '#create-masking-template', function(e) {
+    console.log($(this).data())
+
+    let selected_session_id = $(this).data('session-id')
+    let selected_series_ids = [$(this).data('series-id')]
+
+    $$('#create-masking-template--content')
+        .html('')
+        .append($('<div>').text(`Session ID: ${selected_session_id}`))
+        .append($('<div>').text(`Series ID: ${selected_series_ids[0]}`));
+
+
+    let image_thumbnails = [];
+    
+    session_map.get(selected_session_id).scans.forEach(function(scan, key) {
+        if (selected_series_ids.includes(key)) {
+            image_thumbnails.push({
+                series_id: key,
+                series_description: scan[0].seriesDescription,
+                series_number: parseInt(scan[0].seriesNumber),
+                thumb_path: scan[0].filepath,
+                scans: scan.length
+            })
+        }
+    })
+
+    // reset
+    $$('#create-masking-template #series_thumbs').html('');
+    image_thumbnails.map(el => {
+        $('#create-masking-template #series_thumbs').append(`<li id="LI_${el.series_id}">`);
+    });
+
+    console.log({image_thumbnails});
+    
+    image_thumbnails.forEach((series, index) => {
+        display_series_thumb(series, index, cornerstone)
+    });
+
+    // Load first image
+    load_dicom_image(
+        image_thumbnails[0].series_id, 
+        selected_session_id, 
+        $('#create-masking-template #dicom_image_container').get(0)
+    );
+    
+    $('#create-masking-template #series_thumbs li').eq(0).addClass('highlite-outline');
+
+    $("html, body").stop().animate({scrollTop:0}, 50);
+
+});
 
 function cornerstone_enable_small_thumb_element(width = 70, height = 70) {
     let element = document.createElement('div');
@@ -1143,7 +1220,9 @@ function cornerston_initialize_main() {
         touchEnabled: false
     });
 
-    const element = $('#dicom_image_container').get(0);
+    // TODO: FIX this abomination
+    //const element = $$('#create-masking-template #dicom_image_container').get(0);
+    const element = $$('#dicom_image_container').get(0);
 
     cornerstone_enable_main_element(element); // before first load_dicom_image()
 }
@@ -1192,7 +1271,7 @@ function cornerstone_disable_element(element) {
     }
 }
 
-$(document).on('click', '#save-scan-btn', function(e) {
+$on('click', '#save-scan-btn', function(e) {
     e.preventDefault()
     let series_id = get_current_series_id();
     let rectangle_state = find_registry_state(series_id);
@@ -1212,7 +1291,7 @@ $(document).on('click', '#save-scan-btn', function(e) {
 })
 
 
-$(document).on('click', '#reset-scan-btn', function(e) {
+$on('click', '#reset-scan-btn', function(e) {
     e.preventDefault()
     const element = $('#dicom_image_container').get(0);
 
@@ -1339,7 +1418,9 @@ function display_series_thumb(series, index, cornerstone) {
                 </div>
             </div>`);
 
-            $('#series_thumbs li').eq(index).html($div);
+            // TODO: FIX THIS ABOMINATION
+            //$('#create-masking-template #series_thumbs li').eq(index).html($div);
+            $$('#series_thumbs li').eq(index).html($div);
 
             let rectangle_state = find_registry_state(series.series_id);
             
@@ -1418,13 +1499,13 @@ function drop_dicom(ev) {
 	load_dicom_image(ev.dataTransfer.getData("dicomimg/series_id"))
 }
 
-$(document).on('click', '#dicom_image_tools a', function(e){
+$on('click', '#dicom_image_tools a', function(e){
     e.preventDefault();
 
     const element = $('#dicom_image_container').get(0);
 
     // disable current tool(s)
-    $('#dicom_image_tools a.active').each(function() {
+    $$('#dicom_image_tools a.active').each(function() {
         cornerstoneTools.setToolEnabledForElement(element, $(this).data('tool'));
     })
 
@@ -1445,9 +1526,10 @@ $(document).on('click', '#dicom_image_tools a', function(e){
 
 
 
-function get_series_files(series_id) {
+function get_series_files(series_id, session_id = null) {
+    const _selected_session_id = session_id ? session_id : selected_session_id;
     let files = [];
-    let series_scans = session_map.get(selected_session_id).scans.get(series_id);
+    let series_scans = session_map.get(_selected_session_id).scans.get(series_id);
     console.log({series_scans});
 
     if (Array.isArray(series_scans) && series_scans.length > 0) {
@@ -1470,10 +1552,14 @@ function get_series_files(series_id) {
     return files;
 }
 
-function load_dicom_image(series_id) {
-    const element = $('#dicom_image_container').get(0);
+function load_dicom_image(series_id, session_id, cs_element = false) {
+    const element = cs_element ? cs_element : $('#dicom_image_container').get(0);
 
-    const _files = get_series_files(series_id);
+    console.log({_EL_: element});
+
+    const _session_id = session_id ? session_id : null;
+
+    const _files = get_series_files(series_id, _session_id);
 
     
     let imageIds = [];
@@ -1902,10 +1988,10 @@ function generate_anon_script_warning(xnat_server, project_id, user_settings) {
 // ====================================================================================================
 
 
-$(document).on('change', '#var_subject', async function(e){
+$on('change', '#var_subject', async function(e){
     console.log('change#var_subject');
 
-    let project_id = $('#var_project').val();
+    let project_id = $$('#var_project').val();
     let subject_id = $(this).find('option:selected').eq(0).data('subject_id');
 
     console.log({project_id, subject_id});
@@ -1913,6 +1999,7 @@ $(document).on('change', '#var_subject', async function(e){
     FlowReset.execFrom('clear_visits')
 
     if (!subject_id) {
+        validate_upload_form()
         return
     }
 
@@ -1929,7 +2016,7 @@ $(document).on('change', '#var_subject', async function(e){
             select_link_for_item('visit', ['visit_id'], 'visit_prm');
         } else {
             await experiment_label_with_api()
-            validate_upload_form()
+            //validate_upload_form()
         }
 
     } catch(err) {
@@ -1937,7 +2024,7 @@ $(document).on('change', '#var_subject', async function(e){
     }
 
     // await experiment_label_with_api()
-    // validate_upload_form()
+    validate_upload_form()
 
 });
 
@@ -2158,6 +2245,12 @@ $(document).on('change', '#file_upload_folder', function(e) {
 });
 
 
+$on('click', '[data-js-visual-bulk-upload]', async function() {
+    let upload_method = $('#nav-verify').data('upload_method')
+    console.log({upload_method});
+})
+
+
 $(document).on('click', '.js_upload', async function() {
     let upload_method = $('#nav-verify').data('upload_method')
     console.log({upload_method});
@@ -2357,7 +2450,7 @@ async function handle_custom_upload() {
         }
 
         await storeUpload(url_data, selected_session_id, selected_series, my_anon_variables);
-
+        return;
         start_upload_and_redirect()
 
     } else {
@@ -2415,9 +2508,11 @@ function valid_experiment_label_syntax() {
 
     // allow only alphanumeric, space, dash, underscore
     if (val.match(/[^a-z0-9_-]/i) !== null) {
+        console.log('valid_experiment_label_syntax: INVALID')
         $el.addClass('is-invalid');
         return false
     } else {
+        console.log('valid_experiment_label_syntax: valid')
         $el.removeClass('is-invalid');
         return true
     }
@@ -2956,7 +3051,7 @@ function select_session_id(_session) {
                 <label class="col-sm-2 col-form-label">
                     <b>Set tracer</b>:
                 </label>
-                <div class="input-group col-sm-10">
+                <div class="input-group col-sm-6">
                     <select class="form-control" id="pet_tracer" name="pet_tracer" style="width: 20%" required>
                         ${pet_tracer_options.join("\n")}
                     </select>
@@ -3481,6 +3576,11 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
 
     console.log({upload_digest});
 
+    // todo: remove this
+    const target_path = path.resolve(remote.app.getPath('desktop'), 'upload_digest-1.json')
+    objToJsonFile(upload_digest, target_path);
+    
+    return;
     try {
         const newItem = await db_uploads._insertDoc(upload_digest)
 
@@ -3495,8 +3595,8 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
 }
 
 function start_upload_and_redirect() {
-    ipc.send('start_upload');
-    ipc.send('redirect', 'progress.html');
+    ipcRenderer.send('start_upload');
+    ipcRenderer.send('redirect', 'progress.html');
 
     setTimeout(function(){
         $('#nav-upload-tab').trigger('click');
@@ -3638,7 +3738,7 @@ const VISIT_PARAM = 'visit';
 const DATATYPE_PARAM = 'datatype';
 const SUBTYPE_PARAM = 'protocol';
 
-ipc.on('launch_upload', function(e, data){
+ipcRenderer.on('launch_upload', function(e, data){
     const params = data.PARAMS;
     if (!params.hasOwnProperty(PROJECT_PARAM)) {
         return;
@@ -3662,7 +3762,7 @@ ipc.on('launch_upload', function(e, data){
     $('#subtype_prm').val(params[SUBTYPE_PARAM]);
 });
 
-ipc.on('custom_upload_multiple:generate_exp_label',function(e, row){
+ipcRenderer.on('custom_upload_multiple:generate_exp_label',function(e, row){
     const series_data = get_session_series(session_map.get(row.id))
 
     const tracer_val = row.tracer ? row.tracer : 'PT'
@@ -3962,6 +4062,7 @@ $on('show.bs.modal', '#review-series-images--OLD', function(e) {
 })
 
 async function generateBulkImageReview(selected_scans, imgDataImages) {
+    console.log({selected_scans});
     let tpl_html = await ejs_template('upload/scan_review_list', {selected_scans, imgDataImages})
     $('#scan_images').html(tpl_html)
 }

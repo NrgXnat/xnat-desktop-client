@@ -8,8 +8,12 @@
         id="scan_<%= row.id%>" 
         class="scan_checkbox" 
         name="selected_scan[]" 
+        data-session-id="<%= row.sessionId %>"
+        data-series-id="<%= row.id %>"
+        data-study-instance-uid="<%= row.studyInstanceUid %>"
         value="<%= row.studyId%>">
     <label class="scan-review-item" for="scan_<%= row.id%>">
+        <h3><%= row.seriesNumber%></b>: <%= row.seriesDescription%></h3>
         <div class="img-data"><img src="<%= imgSrc %> "></div>
         
         <span 
@@ -21,6 +25,8 @@
         >
         <i class="fas fa-info-circle"></i>
         </span>
+
+        <i class="mark-approved far fa-check-circle"></i>
     </label>
 
 <% } %>
