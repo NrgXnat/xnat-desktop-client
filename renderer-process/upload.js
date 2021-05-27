@@ -10,6 +10,7 @@ const swal = require('sweetalert')
 const moment = require('moment')
 const mime = require('mime-types')
 const csvToJson = require('csvtojson')
+const store = require('store2')
 
 const auth = require('../services/auth')
 const user_settings = require('../services/user_settings')
@@ -20,7 +21,14 @@ const mizer = remote.require('./mizer')
 const db_uploads = remote.require('./services/db/uploads')
 const electron_log = remote.require('./services/electron_log')
 const XNATAPI = require('../services/xnat-api')
-const { random_string, saveAsCSV, objToJsonFile, normalizeDateString, normalizeTimeString, normalizeDateTimeString } = require('../services/app_utils')
+const { 
+    random_string, 
+    saveAsCSV, 
+    objToJsonFile, 
+    normalizeDateString, 
+    normalizeTimeString, 
+    normalizeDateTimeString
+} = require('../services/app_utils')
 const { selected_sessions_table, custom_upload_multiple_table, selected_scans_table } = require('../services/tables/upload-prepare')
 const { findSOPClassUID } = require('../services/upload/sop_class_uids')
 const templateEngine = require('../services/template_engine')
@@ -85,8 +93,6 @@ const dom_context = '#upload-section';
 const { $$, $on } = require('./../services/selector_factory')(dom_context)
 
 
-
-
 const NProgress = require('nprogress');
 NProgress.configure({ 
     trickle: false,
@@ -104,7 +110,7 @@ let project_settings = {};
 let _masking_groups = {}
 
 
-let masking_template_registry = [
+const _masking_template_registry = [
     {
         name: "1. Magnetic resonance spectroscopy of the occipital cortex",
         alias: "MR Occipital",
@@ -155,6 +161,12 @@ let masking_template_registry = [
         ]
     }
 ];
+
+if(!store.has('masking_template_registry')) {
+    store.set('masking_template_registry',  _masking_template_registry);
+}
+
+let masking_template_registry = store.get('masking_template_registry')
 
 async function fetch_site_wide_settings(xnat_server, user_auth) {
     const xnat_api = new XNATAPI(xnat_server, user_auth)
@@ -732,13 +744,17 @@ function validate_upload_form() {
     console.log('validate_upload_form() TRIGGERED');
     let required_input_error = false;
 
+
     let selected = $$('#image_session').bootstrapTable('getSelections');
-    let $required_inputs = $$('#anon_variables').find(':input[required]');
+
+    // current upload mode - required fields
+    let $required_inputs = $$('#nav-verify > div:visible #anon_variables :input[required]');
 
     required_input_error = !valid_experiment_label_syntax()
 
     $required_inputs.each(function(i){
-        const is_invalid = $(this).val() !== undefined && $(this).val().trim() === ''
+        console.log({required_el: this.id});
+        const is_invalid = $(this).val() !== undefined && $(this).val() !== null && $(this).val().trim() === ''
 
         $(this).toggleClass('is-invalid', is_invalid);
 
@@ -819,7 +835,29 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]'
     }
 });
 
+function scan_has_uniform_size(scan_files) {
+    const unique_sizes = scan_files.reduce(function (sizes, file) {
+        const size = `${file.Rows}x${file.Columns}`
+        if (!sizes.includes(size)) {
+            sizes.push(size)
+        }
+        return sizes
+    }, [])
 
+    return unique_sizes.length <= 1
+}
+
+function scan_has_uniform_SOPClassUID(scan_files) {
+    const unique_values = scan_files.reduce(function (sizes, file) {
+        const label = file.SOPClassUID
+        if (!sizes.includes(label)) {
+            sizes.push(label);
+        }
+        return sizes;
+    }, []);
+
+    return unique_values.length <= 1
+}
 
 
 let bulk_image_thumbnails = [];
@@ -834,10 +872,10 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
 
     for (const selected_session_id of selected_session_ids) {
         const session = session_map.get(selected_session_id)
-        
-        session.scans.forEach((file, seriesInstanceUid) => {
-            const selected_image_index = Math.floor(file.length / 2)
-            const sel_img = file[selected_image_index]
+
+        session.scans.forEach((scan_files, seriesInstanceUid) => {
+            const selected_image_index = Math.floor(scan_files.length / 2)
+            const sel_img = scan_files[selected_image_index]
 
             const filepath_frame = sel_img.filepath + (sel_img.frames && sel_img.frames > 1 ? `&frame=${Math.floor(sel_img.frames / 2)}` : '')
 
@@ -860,7 +898,9 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
                 seriesDescription: sel_img.seriesDescription,
                 seriesNumber: parseInt(sel_img.seriesNumber),
                 thumbPath: filepath_frame,
-                filesCount: file.length,
+                filesCount: scan_files.length,
+                uniformScanSize: scan_has_uniform_size(scan_files),
+                uniformScanSOPClass: scan_has_uniform_SOPClassUID(scan_files),
 
                 SOPClassUID: sel_img.SOPClassUID,
                 TransferSyntaxUID: sel_img.TransferSyntaxUID,
@@ -894,20 +934,22 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
         row.matchingMasks = masks
     });
 
-    // group scans (by parameters or unsupported)
-    let my_scans_grouped = {}
-    my_scans.forEach(scan => {
-        const rand = Math.random()
-        
-        const is_supported_scan = rand < 0.8
-        const group_identifier = is_supported_scan ? `${scan.modality}|${scan.Rows}x${scan.Columns}|${scan.SOPClassUID}` : '_UNSUPPORTED_'
-        if (my_scans_grouped[group_identifier] === undefined) {
-            my_scans_grouped[group_identifier] = []
-        }
-        my_scans_grouped[group_identifier].push(scan)
-    })
+    // reset _masking_groups
+    _masking_groups = {}
 
-    console.log({my_scans_grouped, my_scans_FIRST: Object.assign({}, my_scans)});
+    // group scans (by parameters or unsupported)
+    my_scans.forEach(scan => {
+        // const rand = Math.random()
+        // const is_supported_scan = rand < 0.8
+
+        const is_supported_scan = scan.uniformScanSize && scan.uniformScanSOPClass
+
+        const group_identifier = is_supported_scan ? `${scan.modality}|${scan.Rows}x${scan.Columns}|${scan.SOPClassUID}` : '_UNSUPPORTED_'
+        if (_masking_groups[group_identifier] === undefined) {
+            _masking_groups[group_identifier] = []
+        }
+        _masking_groups[group_identifier].push(scan)
+    })
 
     const img_promises = my_scans.map(async scan_data => {
         return await dicomFileToDataURL(scan_data.thumbPath, cornerstone, 100, 100)
@@ -920,9 +962,7 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
                 my_scans[index].imgDataUrl = imgDataImage
             })
 
-            _masking_groups = my_scans_grouped
-
-            console.log({my_scans, _masking_groups});
+            console.log({_masking_groups, my_scans_FIRST: Object.assign({}, my_scans)});
 
             display_masking_groups('supported')
             
@@ -937,26 +977,199 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
 });
 
 async function display_masking_groups(mask_type) {
-    console.log({_masking_groups});
     let tpl_html = await ejs_template('upload/list', {findSOPClassUID, masking_groups: _masking_groups, show: mask_type})
     $('#masking-groups').html(tpl_html)
 }
 
-$on('shown.bs.modal', '#exampleModal', async function(){
-    let tpl_html = await ejs_template('upload/template-list-item', {
-        templates: masking_template_registry,
-        moment
-    })
-    $('#template-listing').html(tpl_html)
+function approve_scan(session_id, series_id, rectangles) {
+    //_masking_groups
+
+    let found_scan = find_grouped_scan(session_id, series_id)
+
+    if (found_scan) {
+        found_scan.rectangles = rectangles
+        found_scan.approved = true
+    }
+}
+
+function reset_scan(session_id, series_id) {
+    //_masking_groups
+
+    let found_scan = find_grouped_scan(session_id, series_id)
+
+    if (found_scan) {
+        found_scan.rectangles = []
+        found_scan.approved = false
+    }
+}
+
+function find_grouped_scan(session_id, series_id) {
+    let found_scan;
+
+    for (const group in _masking_groups) {
+        
+        found_scan = _masking_groups[group].find(scan => {
+            return scan.sessionId == session_id && scan.id == series_id
+        })
+
+        if (found_scan) {
+            break;
+        }
+    }
+
+    return found_scan
+}
+
+$on('show.bs.modal', '#setTemplateModal', async function(){
+    console.log({modal_data: $(this).data()})
+    refresh_masking_templates()
 })
 
+async function refresh_masking_templates(scroll_to_last = false) {
+    const mask_alias = $$('#review-series-images').data('mask_alias')
+    const all_templates = store.get('masking_template_registry')
+    const appropriate_templates = all_templates.filter(tpl => {
+        return tpl.data.Rows == _masking_groups[mask_alias][0].Rows && tpl.data.Columns == _masking_groups[mask_alias][0].Columns
+    })
+
+    console.log({mask_alias, appropriate_templates});
+
+    let tpl_html = await ejs_template('upload/template-list-item', {
+        templates: appropriate_templates,
+        moment
+    })
+
+    $$('#template-listing').html(tpl_html)
+
+    if (scroll_to_last) {
+        var scrollPos = $$('#template-listing').height()
+        $$('#template-listing').closest('.modal-body').scrollTop(scrollPos)
+    }
+    
+}
+
+function get_session_by_series(_series_id) {
+    let found_session;
+    session_map.forEach(function(cur_session, key) {
+        /************************** */
+        let series_data = get_session_series(cur_session);
+        /************************** */
+
+        let found_series = series_data.find(series => series.series_id == _series_id)
+        
+        if (found_series !== undefined) {
+            found_session = cur_session
+        }
+
+        /*
+
+        let studyDate = normalizeDateString(cur_session.date);
+
+        let session_data = {
+            id: key,
+            patient_name: cur_session.patient.name,
+            patient_id: cur_session.patient.id,
+            subject_auto: generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject_ids),
+            subject_dicom_patient_name: cur_session.patient.name,
+            subject_dicom_patient_id: cur_session.patient.id,
+            xnat_subject_id: new_xnat_subject_id,
+            label: session_label,
+            session_accession: cur_session.accession,
+            label_suffix: generate_experiment_label('', series_data, 'PT', 'YYY'), // TODO replace PT and YYY values with dicom data
+            experiment_label: new_xnat_subject_id ? generate_experiment_label(new_xnat_subject_id, series_data, 'PT', 'YYY') : '', //, // TODO replace PT and YYY values with dicom data
+            modality: cur_session.modality.join(", "),
+            scan_count: cur_session.scans.size,
+            tracer: null,
+            study_date: studyDate
+        }
+        */
+
+    });
+
+    return found_session;
+}
+
+$on('click', '[data-js-create-template]', function() {
+    console.log({rectangle_state_registry});
+
+    let masking_template_registry = store.get('masking_template_registry')
+
+    const { series_id, rectangles } = rectangle_state_registry[0]
+
+
+    let rand, name_value, alias_value, existing_tpl, rand_size = 3
+    do {
+        rand = random_string(rand_size, 'NUM')
+        name_value = `Generic ${rand} template`
+        alias_value = `GEN ${rand}`
+        rand_size ++
+        existing_tpl = masking_template_registry.find(tpl => tpl.alias == alias_value)
+    } while (existing_tpl !== undefined)
+    
+
+    let found_session = get_session_by_series(series_id)
+
+    console.log({series_id, found_session});
+
+
+    const all_files = found_session.scans.get(series_id)
+
+    masking_template_registry.push({
+        name: name_value,
+        alias: alias_value,
+        created: Date.now(),
+        author: auth.get_current_user(),
+        data: {
+            modality: found_session.modality.join(','),
+            Columns: all_files[0].Columns,
+            Rows: all_files[0].Rows,
+            SOPClassUID: all_files[0].SOPClassUID
+        },
+        rectangles: rectangles
+    })
+
+    console.log({masking_template_registry});
+
+    store.set('masking_template_registry', masking_template_registry)
+
+    // reset rectangle_state_registry
+    rectangle_state_registry = []
+
+    $(this).closest('.modal').modal('hide')
+
+    // reload templates found content
+    refresh_masking_templates(true)
+
+    
+
+})
+
+function get_template_rectangles(template_alias) {
+    const masking_template_registry = store.get('masking_template_registry')
+    const tpl = masking_template_registry.find(template => template.alias == template_alias)
+
+    return tpl ? tpl.rectangles : []
+}
+
 $on('click', '[data-apply-canvas-id]', function() {
+    const template_alias = $(this).data('template-alias');
     let canvas_id = $(this).data('apply-canvas-id')
     let old_canvas = document.getElementById(canvas_id)
-    console.log({old_canvas});
-    console.log({img_data_length: $('.scan_checkbox:checked + .scan-review-item > .img_data').length});
+
     $('.scan_checkbox:checked + .scan-review-item > .img-data').each(function() {
-        $(this).prepend(cloneCanvas(old_canvas))
+        const $img_data = $(this)
+        const $label = $(this).closest('.scan-review-item')
+
+        if ($label.hasClass('approved')) {
+            Helper.pnotify(null, `Scan "${$label.find('>h3').text()}" is already approved! Selected template is not applied.`, 'notice');
+        } else {
+            // only if not already applied
+            if ($(`[data-template-alias="${template_alias}"]`, $img_data).length == 0) {
+                let new_canvas = cloneCanvas(old_canvas)
+                new_canvas.setAttribute('data-template-alias', template_alias)
+                $img_data.prepend(new_canvas)
+            }
+        }
     })
 })
 
@@ -984,9 +1197,10 @@ $on('click', '.btn-link[data-mask-type]', function() {
 $on('click', '[data-review-mask-alias]', function() {
     const mask_alias = $(this).data('review-mask-alias')
 
-    const scan_images = _masking_groups[mask_alias].map(scan => {
-        return scan.thumbPath
-    })
+    const scan_images = _masking_groups[mask_alias].map(scan => scan.thumbPath)
+
+    _masking_groups[mask_alias][0].Columns
+    _masking_groups[mask_alias][0].Rows
 
     const scan_image_promises = scan_images.map(async imagePath => {
         return await dicomFileToDataURL(imagePath, cornerstone, 540, 300)
@@ -996,9 +1210,12 @@ $on('click', '[data-review-mask-alias]', function() {
         .then(imgDataImages => {
             generateBulkImageReview(_masking_groups[mask_alias], imgDataImages)
 
-            $('#modal_mask_alias').text(mask_alias)
+            $$('#modal_mask_alias').text(mask_alias)
+
+            $$('#review-series-images').data({
+                mask_alias: mask_alias
+            }).modal('show')
         
-            $$('#review-series-images').modal('show')
         })
 });
 
@@ -1008,7 +1225,21 @@ $on('click', '#scan_images .has-popover', function(e) {
 })
 
 $on('change', '#review-scans-select-all', function(e) {
-    $$('#scan_images .scan_checkbox').prop("checked", $(this).is(':checked'));
+    const select_all = $(this).is(':checked')
+    const hide_approved = $('#review-scans-hide-approved').is(':checked')
+    const $scan_checkboxes = $$('#scan_images .scan_checkbox')
+    const $approved = $$('#scan_images label.approved')
+
+    $scan_checkboxes.prop('checked', select_all)
+
+    if (select_all && hide_approved) {
+        $approved.each(function() {
+            $(this).prev().prop('checked', false)
+        })
+    }
+
+    scan_review_updated_selected_count()
+
     $$('#review-series-images').trigger('scanselectionchange.bulkanon')
 })
 
@@ -1016,10 +1247,23 @@ $on('change', '#scan_images .scan_checkbox', function(e) {
     $$('#review-series-images').trigger('scanselectionchange.bulkanon')
 })
 
+$on('change', '#review-scans-hide-approved', function(e) {
+    // reset all selection if there are approved
+    if ($$('#scan_images label.approved').length) {
+        $$('#review-scans-select-all').prop('checked', false).trigger('change')
+    }
+
+    const hide_approved = $(this).is(':checked')
+    $$('#scan_images').toggleClass('hide-approved', hide_approved)
+
+    // close all popovers
+    $$('[data-toggle="popover"]').popover('hide')
+})
+
 $on('scanselectionchange.bulkanon', '#review-series-images', function() {
     const selected_scans_count = $$('#scan_images .scan_checkbox:checked').length
 
-    $$('#review-series-images--selected').text(selected_scans_count)
+    scan_review_updated_selected_count()
 
     $$('[data-js-review-set-template]').prop('disabled', selected_scans_count === 0)
     $$('[data-js-review-approve]').prop('disabled', selected_scans_count === 0)
@@ -1034,11 +1278,63 @@ $on('scanselectionchange.bulkanon', '#review-series-images', function() {
 $on('click', '[data-js-review-reset]', function() {
     $$('#scan_images .scan_checkbox:checked + label > .img-data canvas').remove()
     $$('#scan_images .scan_checkbox:checked + label').removeClass('approved')
+
+    scan_review_update_approved_count()
+    scan_review_toggle_back_to_groups()
+
+    $$('#scan_images .scan_checkbox:checked + label').each(function() {
+        const data = $(this).prev().data()
+        reset_scan(data.sessionId, data.seriesId)
+    })
 })
 
 $on('click', '[data-js-review-approve]', function() {
     $$('#scan_images .scan_checkbox:checked + label').addClass('approved')
+
+    $$('#scan_images .scan_checkbox:checked + label').each(function() {
+        const data = $(this).prev().data()
+
+        const rectangles = []
+        $(this).find('.img-data canvas').each(function() {
+            const template_rectangles = get_template_rectangles($(this).data('template-alias'))
+
+            template_rectangles.forEach(rect => {
+                rectangles.push(rect)
+            })
+        })
+        approve_scan(data.sessionId, data.seriesId, rectangles)
+    })
+
+    console.log(_masking_groups)
+
+    // deselect checkboxes for approved if "Hide Approved" is checked
+    const hide_approved = $('#review-scans-hide-approved').is(':checked')
+    if (hide_approved) {
+        $$('#scan_images .scan_checkbox:checked').prop('checked', false)
+    }
+    
+    scan_review_updated_selected_count()
+    scan_review_update_approved_count()
+    scan_review_toggle_back_to_groups()
+    
 })
+
+function scan_review_update_approved_count() {
+    const scans_total = $$('#scan_images .scan-review-item').length
+    const approved_scans_total = $$('#scan_images .scan-review-item.approved').length
+
+    $$('#review-series-images--approved').text(`${approved_scans_total}/${scans_total}`)
+}
+
+function scan_review_updated_selected_count() {
+    const selected_scans_count = $$('#scan_images .scan_checkbox:checked').length
+    $$('#review-series-images--selected').text(selected_scans_count)
+}
+
+function scan_review_toggle_back_to_groups() {
+    const unapproved_count = $$('#scan_images .scan-review-item').not('.approved').length
+    $$('#review-series-images-done').toggle(unapproved_count == 0)
+}
 
 $on('click', '[data-js-review-create-template]', function() {
     $first_selected_scan = $$('#scan_images .scan_checkbox:checked').eq(0)
@@ -1049,6 +1345,10 @@ $on('click', '[data-js-review-create-template]', function() {
             'series-id': $first_selected_scan.data('series-id'),
         })
         .modal('show')
+})
+
+$on('shown.bs.modal', '#create-masking-template', function(e) {
+    window.dispatchEvent(new Event('resize'));// HACK TO recalculate canvas size for main cornerstone image
 })
 
 $on('show.bs.modal', '#create-masking-template', function(e) {
@@ -1063,7 +1363,8 @@ $on('show.bs.modal', '#create-masking-template', function(e) {
         .append($('<div>').text(`Series ID: ${selected_series_ids[0]}`));
 
 
-    let image_thumbnails = [];
+    image_thumbnails = [];
+
     
     session_map.get(selected_session_id).scans.forEach(function(scan, key) {
         if (selected_series_ids.includes(key)) {
@@ -1089,15 +1390,21 @@ $on('show.bs.modal', '#create-masking-template', function(e) {
         display_series_thumb(series, index, cornerstone)
     });
 
+    const _el = $('#create-masking-template #dicom_image_container').get(0)
     // Load first image
     load_dicom_image(
         image_thumbnails[0].series_id, 
         selected_session_id, 
-        $('#create-masking-template #dicom_image_container').get(0)
+        _el
     );
+
+    //cornerstoneTools.setToolEnabledForElement(_el, 'RectangleOverlay');
+    //cornerstoneTools.setToolActiveForElement(_el, 'RectangleOverlay', {mouseButtonMask: 1});
+
+    //cornerstoneTools.addToolForElement(_el, cornerstoneTools.RectangleOverlayTool);
+    cornerstoneTools.setToolActiveForElement(_el, "RectangleOverlay", {mouseButtonMask: 1});
     
     $('#create-masking-template #series_thumbs li').eq(0).addClass('highlite-outline');
-
     $("html, body").stop().animate({scrollTop:0}, 50);
 
 });
@@ -1221,8 +1528,8 @@ function cornerston_initialize_main() {
     });
 
     // TODO: FIX this abomination
-    //const element = $$('#create-masking-template #dicom_image_container').get(0);
-    const element = $$('#dicom_image_container').get(0);
+    const element = $$('#create-masking-template #dicom_image_container').get(0);
+    //const element = $$('#dicom_image_container').get(0);
 
     cornerstone_enable_main_element(element); // before first load_dicom_image()
 }
@@ -1293,7 +1600,8 @@ $on('click', '#save-scan-btn', function(e) {
 
 $on('click', '#reset-scan-btn', function(e) {
     e.preventDefault()
-    const element = $('#dicom_image_container').get(0);
+    const $context = $(this).closest('#topBarCustom').closest('div').find('#imgGalleryPreview')
+    const element = $('#dicom_image_container', $context).get(0);
 
     let toolState = cornerstoneTools.getToolState(element, 'RectangleOverlay')
 
@@ -1419,8 +1727,8 @@ function display_series_thumb(series, index, cornerstone) {
             </div>`);
 
             // TODO: FIX THIS ABOMINATION
-            //$('#create-masking-template #series_thumbs li').eq(index).html($div);
-            $$('#series_thumbs li').eq(index).html($div);
+            $('#create-masking-template #series_thumbs li').eq(index).html($div);
+            //$$('#series_thumbs li').eq(index).html($div);
 
             let rectangle_state = find_registry_state(series.series_id);
             
@@ -1502,7 +1810,9 @@ function drop_dicom(ev) {
 $on('click', '#dicom_image_tools a', function(e){
     e.preventDefault();
 
-    const element = $('#dicom_image_container').get(0);
+    const $context = $(this).closest('#topBarCustom').closest('div').find('#imgGalleryPreview')
+
+    const element = $('#dicom_image_container', $context).get(0);
 
     // disable current tool(s)
     $$('#dicom_image_tools a.active').each(function() {
@@ -1553,6 +1863,7 @@ function get_series_files(series_id, session_id = null) {
 }
 
 function load_dicom_image(series_id, session_id, cs_element = false) {
+    console.log({series_id, session_id, cs_element});
     const element = cs_element ? cs_element : $('#dicom_image_container').get(0);
 
     console.log({_EL_: element});
@@ -2248,7 +2559,63 @@ $(document).on('change', '#file_upload_folder', function(e) {
 $on('click', '[data-js-visual-bulk-upload]', async function() {
     let upload_method = $('#nav-verify').data('upload_method')
     console.log({upload_method});
+
+    const _sessions = $('#selected_session_tbl').bootstrapTable('getData');
+    const overwrite = $('#upload_overwrite_method', '#quick_upload').val()
+    await handle_upload_multi(_sessions, project_settings, overwrite)
 })
+
+async function handle_upload_multi(_sessions, project_settings, overwrite) {
+    _sessions.forEach(async session => {
+        const url_data = {
+            expt_label: session.experiment_label,
+            project_id: project_settings.project.ID,
+            subject_id: session.xnat_subject_id,
+            overwrite: overwrite
+        };
+
+        let my_anon_variables = {
+            experiment_label: session.experiment_label
+        };
+
+        // -----------------------------------------------------
+        Object.keys(project_settings.computed.anon_variables).forEach(key => {
+            switch (key) {
+                case 'session':
+                    my_anon_variables[key] = url_data.expt_label;
+                    break;
+                case 'subject':
+                    my_anon_variables[key] = url_data.subject_id;
+                    break;
+                case 'project':
+                    my_anon_variables[key] = url_data.project_id;
+                    break;
+                default:
+                    my_anon_variables[key] = project_settings.computed.anon_variables[key] === '' ? 
+                        '_ANONIMIZED_' : 
+                        project_settings.computed.anon_variables[key];
+            }
+        })
+
+        if (session.hasOwnProperty('tracer') && session.tracer) {
+            my_anon_variables['tracer'] = session.tracer;
+        }
+
+        // -----------------------------------------------------
+        const all_series = get_session_series(session_map.get(session.id))
+        const selected_series = all_series.map(ser => ser.series_id);
+        // -----------------------------------------------------
+
+        console.log({storeUpload: {url_data, selected_session_id: session.id, selected_series, my_anon_variables}});
+        
+        await storeUpload(url_data, session.id, selected_series, my_anon_variables);
+        
+    })
+
+    console.log('=========================DONE')
+    
+    start_upload_and_redirect()
+}
 
 
 $(document).on('click', '.js_upload', async function() {
@@ -3262,8 +3629,8 @@ function dicomParse(_files, root_path) {
                             
                             let file_name = path.basename(file);
                             let file_size = getFilesizeInBytes(file);
-                            let my_scans = studyInstance.scans.get(seriesInstanceUid);
-                            let filtered = my_scans.filter(el => 
+                            let scan_files = studyInstance.scans.get(seriesInstanceUid);
+                            let filtered = scan_files.filter(el => 
                                 el.filename === file_name && 
                                 el.filesize === file_size && 
                                 el.SOPInstanceUID === SOPInstanceUID
@@ -3271,7 +3638,7 @@ function dicomParse(_files, root_path) {
             
                             // only add unique files
                             if (filtered.length === 0) {
-                                my_scans.push({
+                                scan_files.push({
                                     filepath: file,
                                     filename: file_name,
                                     filesize: file_size,
@@ -3538,13 +3905,34 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
     let studyTime = normalizeTimeString(selected_session.time) || '';
 
     let pixel_anon_data = []
-    rectangle_state_registry.forEach((state) => {
-        pixel_anon_data.push({
-            series_id: state.series_id,
-            rectangles: state.rectangles
-        })
-    })
 
+    // if _masking_groups is an empty object
+    if (Object.entries(_masking_groups).length === 0) {
+        // single session anon
+        rectangle_state_registry.forEach((state) => {
+            pixel_anon_data.push({
+                series_id: state.series_id,
+                rectangles: state.rectangles
+            })
+        })
+    } else {
+        // multi session anon
+        for (let i = 0; i < series_ids.length; i++) {
+            const series_id = series_ids[i]
+
+            let found_scan = find_grouped_scan(session_id, series_id)
+
+            if (found_scan) {
+                const rectangles = found_scan.rectangles ? found_scan.rectangles : []
+                pixel_anon_data.push({
+                    series_id: series_id,
+                    rectangles: rectangles
+                })
+
+            }
+        }
+    }
+    
 
     let upload_digest = {
         id: Helper.uuidv4(),
@@ -3577,10 +3965,9 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
     console.log({upload_digest});
 
     // todo: remove this
-    const target_path = path.resolve(remote.app.getPath('desktop'), 'upload_digest-1.json')
-    objToJsonFile(upload_digest, target_path);
+    // const target_path = path.resolve(remote.app.getPath('desktop'), `upload_digest-${Date.now()}.json`)
+    // objToJsonFile(upload_digest, target_path);
     
-    return;
     try {
         const newItem = await db_uploads._insertDoc(upload_digest)
 
@@ -4003,6 +4390,19 @@ $on('click', '[data-action="bulk-action-review"]', function() {
     }
 
     $$('#review-series-images').modal('show')
+})
+
+$on('shown.bs.modal', '#review-series-images', function(e) {
+    // reset checkboxes
+    $$('#review-scans-hide-approved').prop('checked', false)
+    $$('#review-scans-select-all').prop('checked', false)
+
+    // reset selected and approved
+    scan_review_updated_selected_count()
+    scan_review_update_approved_count()
+
+    // reset buttons
+    $$('#review-series-images .button-row button').prop('disabled', true)
 })
 
 $on('show.bs.modal', '#review-series-images--OLD', function(e) {

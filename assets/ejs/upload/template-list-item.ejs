@@ -12,9 +12,7 @@
     
             <%
                 setTimeout((template, counter) => {
-                    console.log("myCanvas_" + counter)
                     let c = document.getElementById("myCanvas_" + counter);
-                    console.log({c})
                     for (rectangle of template.rectangles) {
                         var ctx = c.getContext("2d");
                         ctx.beginPath();
@@ -27,16 +25,26 @@
             %>
         </div>
         <div class="col-8">
-            <h5><%= template.alias %> </h5>
-            <p class="mb-0">Created <%= moment(template.created).format('MM/DD/YY') %> </p>
-            <p class="mb-0">by <%= template.author %> </p>
+            <h5><%= template.alias %></h5>
+            <p class="mb-0">Created <%= moment(template.created).format('MM/DD/YY') %></p>
+            <p class="mb-0">by <%= template.author %></p>
     
             <div class="d-flex justify-content-between bd-highlight mt-3">
-                <button class="btn btn-gray" data-apply-canvas-id="myCanvas_<%= counter %>">Apply</button>
+                <button class="btn btn-gray" 
+                    data-template-alias="<%= template.alias %>" 
+                    data-apply-canvas-id="myCanvas_<%= counter %>">Apply</button>
                 <button class="btn btn-gray">Edit</button>
             </div>
         </div>
     
     </div>
 
+<% } %>
+
+<% if (templates.length === 0) { %>
+    <div class="row mb-3">
+        <div class="col-12">
+            <p style="text-align: center;">No matching templates found!</p>
+        </div>
+    </div>
 <% } %>

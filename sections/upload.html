@@ -833,7 +833,7 @@
             </div>
 
             <!-- Review Series Images Modal -->
-            <div class="modal fade fullscreenModal" id="review-series-images" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal fade fullscreenModal" data-keyboard="false" id="review-series-images" tabindex="-1" role="dialog" aria-hidden="true">
                 <div class="modal-dialog" role="document">
                     
                     <div class="modal-header">
@@ -849,66 +849,24 @@
                                 <nav style="margin: 0 -15px;" class="navbar navbar-expand-lg navbar-dark bg-dark">
                                     <!-- <span class="navbar-brand">Scan images</span> -->
                                     <button class="navbar-toggler" type="button" data-toggle="collapse"
-                                        data-target="#navbarText" aria-controls="navbarText" aria-expanded="false"
+                                        data-target="#scanReviewFilter" aria-controls="scanReviewFilter" aria-expanded="false"
                                         aria-label="Toggle navigation">
                                         <span class="navbar-toggler-icon"></span>
                                     </button>
-                                    <div class="collapse navbar-collapse" id="navbarText">
+                                    <div class="collapse navbar-collapse" id="scanReviewFilter">
                                         <label for="review-scans-select-all">
                                             <input type="checkbox" id="review-scans-select-all">
                                             Select all</label>
-
-
-                                        <!--
-                                        <span class="navbar-text  mr-auto">
-                                            <select class="form-control">
-                                                <option value="">Filter images by scan</option>
-                                                <option value="1">Scan ID 1</option>
-                                                <option value="2">Scan ID 2</option>
-                                                <option value="3">Scan ID 3</option>
-                                            </select>
-                                        </span>
-
-
-                                        <div class="dropdown  mr-auto">
-                                            <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                              Group Actions
-                                            </button>
-                                            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                                              <a class="dropdown-item" href="#">Modify Image Masking</a>
-                                              <a class="dropdown-item" href="#">Another action</a>
-                                              <a class="dropdown-item" href="#">Something else here</a>
-                                            </div>
-                                        </div>
+                                            &nbsp;&nbsp;&nbsp;
+                                        <label for="review-scans-hide-approved">
+                                            <input type="checkbox" id="review-scans-hide-approved">
+                                            Hide Approved</label>
 
                                         
-                                        <ul class="navbar-nav mr-auto">
-                                            <li class="nav-item active">
-                                                <a class="nav-link" href="#">Home <span
-                                                        class="sr-only">(current)</span></a>
-                                            </li>
-                                            <li class="nav-item">
-                                                <a class="nav-link" href="#">Features</a>
-                                            </li>
-                                            <li class="nav-item">
-                                                <a class="nav-link" href="#">Pricing</a>
-                                            </li>
-                                        </ul>
-                                        
-
-                                        <span class="navbar-text">
-                                            <select class="form-control" id="apply_masking_template">
-                                                <option value="">Apply masking template</option>
-                                                <option value="1">Masking Template 1 (best match)</option>
-                                                <option value="2">Masking Template 2</option>
-                                                <option value="3">Masking Template 3</option>
-                                            </select>
-                                        </span>
-                                        -->
                                     </div>
                                 </nav>
 
-                                <div id="scan_images"></div>
+                                <div id="scan_images">EJS TPL!</div>
                             </div>
                         </div>
                     </div>
@@ -916,10 +874,11 @@
                         <div class="row action-button-row">
                             <div class="col-12">
                                 <div class="text-right button-row">
-                                    <span class="float-left" style="margin-top: 5px;">With selected (<span id="review-series-images--selected">0</span>):</span>
+                                    <span class="float-left" style="margin-top: 5px;">Approved (<span id="review-series-images--approved">0/0</span>):</span>
+                                    <span style="margin-top: 5px;">With selected (<span id="review-series-images--selected">0</span>):</span>
 
                                     <button disabled data-js-review-reset type="button" class="btn btn-gray" type="button">Reset</button>
-                                    <button disabled data-js-review-set-template data-toggle="modal" data-target="#exampleModal" type="button" class="btn btn-gray" type="button">Set Template</button>
+                                    <button disabled data-js-review-set-template data-toggle="modal" data-target="#setTemplateModal" type="button" class="btn btn-gray" type="button">Set Template</button>
                                     <button disabled data-js-review-approve type="button" class="btn btn-gray" type="button">Approve For Upload</button>
                                 </div>
                             </div>
@@ -930,92 +889,22 @@
 
 
             <!-- Modal -->
-            <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal fade" id="setTemplateModal" tabindex="-1" data-backdrop="static" 
+                role="dialog" aria-labelledby="setTemplateModalLabel" aria-hidden="true">
                 <div class="modal-dialog" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLabel">Templates Found</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+                        <h5 class="modal-title" id="setTemplateModalLabel">Templates Found</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
                     </div>
                     <div class="modal-body">
-                        <div id="template-listing">
-                            <!--
-                            <div class="row">
-                                <div class="col-5">
-                                    <canvas id="myCanvas" width="200" height="200" style="border:1px solid #d3d3d3;">
-                                        Your browser does not support the HTML5 canvas tag.</canvas>
-
-                                    <script>
-                                        var c = document.getElementById("myCanvas");
-
-                                        var ctx = c.getContext("2d");
-                                        ctx.beginPath();
-                                        ctx.fillStyle = "red";
-                                        ctx.rect(20, 20, 40, 60);
-                                        ctx.fill();
-                                        
-                                        var ctx1 = c.getContext("2d");
-                                        ctx1.beginPath();
-                                        ctx1.fillStyle = "blue";
-                                        ctx1.rect(80, 25, 40, 60);
-                                        ctx1.fill();
-                                    </script> 
-                                </div>
-                                <div class="col-7">
-                                    <h4>CT Anon Patern 526</h4>
-                                    <p>Created 4/1/2021</p>
-                                    <p>by Darko L</p>
-
-                                    <div class="d-flex justify-content-between bd-highlight mt-3">
-                                        <button class="btn btn-gray">Apply</button>
-                                        <button class="btn btn-gray">Edit</button>
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <div class="row">
-                                <div class="col-5">
-                                    <canvas id="myCanvas1" width="200" height="200" style="border:1px solid #d3d3d3;">
-                                        Your browser does not support the HTML5 canvas tag.</canvas>
-
-                                    <script>
-                                        var c = document.getElementById("myCanvas1");
-                                        
-                                        var ctx = c.getContext("2d");
-                                        ctx.beginPath();
-                                        ctx.fillStyle = "green";
-                                        ctx.rect(10, 20, 40, 60);
-                                        ctx.fill();
-                                        
-                                        var ctx1 = c.getContext("2d");
-                                        ctx1.beginPath();
-                                        ctx1.fillStyle = "black";
-                                        ctx1.rect(100, 25, 60, 40);
-                                        ctx1.fill();
-                                    </script> 
-                                </div>
-                                <div class="col-7">
-                                    <h4>CT Anon Patern 615</h4>
-                                    <p>Created 3/28/2021</p>
-                                    <p>by Steve M</p>
-
-                                    <div class="d-flex justify-content-between bd-highlight mt-3">
-                                        <button class="btn btn-gray">Apply</button>
-                                        <button class="btn btn-gray">Edit</button>
-                                    </div>
-                                </div>
-                            </div>
-                            -->
-
-                        </div>
-                        
+                        <div id="template-listing"></div>
                     </div>
                     <div class="modal-footer">
-                    <button data-js-review-create-template type="button" class="btn btn-link mr-auto">Create New Template</button>
-                    <button type="button" class="btn btn-blue" data-dismiss="modal">Okay</button>
+                        <button data-js-review-create-template type="button" class="btn btn-link mr-auto">Create New Template</button>
+                        <button type="button" class="btn btn-blue" data-dismiss="modal">Okay</button>
                     </div>
                 </div>
                 </div>
@@ -1035,7 +924,85 @@
                     <div class="modal-content">
                         <div class="modal-body">
                             <div class="container-fluid">
-                                <div id="create-masking-template--content"></div>
+                                <div id="create-masking-template--content--removed"></div>
+
+                                <section id="topBarCustom">
+                                    <nav class="navbar bg-black">
+                                        <ul class="nav" id="dicom_image_tools">
+                                            <li class="nav-item">
+                                                <a id="stack-scroll-btn" class="nav-link active" 
+                                                    data-tool="StackScrollMouseWheel" href="#">
+                                                    <svg version="1.2" preserveAspectRatio="none"
+                                                        viewBox="0 0 24 24">
+                                                        <g>
+                                                            <path xmlns:default="http://www.w3.org/2000/svg"
+                                                                d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z">
+                                                            </path>
+                                                        </g>
+                                                    </svg>
+                                                    <p>Stack Scroll</p>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a id="zoom-btn" class="nav-link" 
+                                                    data-tool="Zoom" href="#">
+                                                    <svg id="icon-tools-zoom">
+                                                        <use href="assets/images/icons.svg#icon-tools-zoom"></use>
+                                                    </svg>
+                                                    <p>Zoom</p>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a id="pan-btn" class="nav-link"
+                                                    data-tool="Pan" href="#">
+                                                    <svg id="icon-tools-zoom">
+                                                        <use href="assets/images/icons.svg#icon-tools-pan"></use>
+                                                    </svg>
+                                                    <p>Pan</p>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a id="select-area-btn" class="nav-link" 
+                                                    data-tool="RectangleOverlay" href="#">
+                                                    <div class="el-group"
+                                                        style="opacity: 1; mix-blend-mode: normal;">
+                                                        <svg id="select-area-plus" viewBox="0 0 24 24"
+                                                            style="width: 17px; height: 17px; transform: rotate(0deg) translate(5px, -6px);">
+                                                            <use href="assets/images/icons.svg#select-area-plus">
+                                                            </use>
+                                                        </svg>
+                                                        <svg id="select-area-body" viewBox="0 0 30 20"
+                                                            style="overflow: visible; width: 30px; height: 20px; transform: translate(-10px,0);">
+                                                            <use href="assets/images/icons.svg#select-area-body">
+                                                            </use>
+                                                        </svg>
+                                                    </div>
+                                                    <p>Select Area</p>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                        <ul class="nav" id="scans_save_toolbar">
+                                            <li class="nav-item">
+                                                <a id="reset-scan-btn" class="nav-link" href="#">
+                                                    <svg id="reset-scan" viewBox="0 0 24 24"
+                                                        style="transform: rotate(0deg) rotate(315deg);">
+                                                        <use href="assets/images/icons.svg#reset-scan"></use>
+                                                    </svg>
+                                                    <p>Reset Scan</p>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a id="save-scan-btn" class="nav-link" href="#">
+                                                    <svg id="save-scan" viewBox="0 0 24 24"
+                                                        style="transform: rotate(0deg);">
+                                                        <use href="assets/images/icons.svg#save-scan"></use>
+                                                    </svg>
+                                                    <p>Save scan</p>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                </section>
 
                                 <section id="imgGalleryPreview">
                                     <div class="container">
@@ -1043,9 +1010,9 @@
                                             <div class="col-sm-3" id="series_thumbs_holder">
                                                 <ul id="series_thumbs"></ul>
                                             </div>
-                                            <div class="col-sm-9" style="max-width: calc(100% - 194px); flex: 0 1 auto;">
+                                            <div class="col-sm-9" style="max-width: calc(100% - 194px); flex: 0 1 auto; padding-left: 0; padding-right: 0;">
                                                 <div id="frame_input_container"></div>
-                                                <div id="dicom_image_container" style="width: 100%; height: 500px;"></div>
+                                                <div id="dicom_image_container" style="width: 100%; height: calc(100vh - 200px)"></div>
                                             </div>
                                         </div>
                                     </div>
@@ -1058,7 +1025,7 @@
                             <div class="col-12">
                                 <div class="text-right button-row">
                                     <button  data-dismiss="modal" type="button" class="btn btn-gray" type="button">Cancel</button>
-                                    <button disabled data-js-review-approve type="button" class="btn btn-blue" type="button">Okay</button>
+                                    <button data-js-create-template type="button" class="btn btn-blue" type="button">Okay</button>
                                 </div>
                             </div>
                         </div>

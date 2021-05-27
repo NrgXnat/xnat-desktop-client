@@ -345,6 +345,50 @@ body.dicomImageViewerFS #header_menu {
 
 }
 
+#create-masking-template.fullscreenModal {
+    top: 0;
+    overflow: hidden;
+
+    .modal-dialog {
+        height: 100vh !important;
+        pointer-events: all;
+        
+
+        .modal-content {
+            min-height: 100vh !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: auto;
+        }
+
+        .modal-header {
+            color: #fff;
+            background-color: #2f2f2f;
+            border-radius: 0;
+            padding-top: 6px;
+            padding-bottom: 6px;
+
+            .close {
+                color: inherit;
+                padding: 18px 16px 9px;
+            }
+        }
+    }
+
+}
+
+#setTemplateModal {
+    .modal-body {
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+    }
+}
+#scanReviewFilter {
+    label {
+        margin-bottom: 0;
+    }
+}
+
 
 .footer {
     background-color: #333;
