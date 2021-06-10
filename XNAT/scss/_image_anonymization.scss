@@ -382,6 +382,13 @@ body.dicomImageViewerFS #header_menu {
         max-height: calc(100vh - 200px);
         overflow-y: auto;
     }
+    #template-listing {
+        canvas {
+            border:1px solid #d3d3d3;
+            width: 100%;
+            background: #eee;
+        }
+    }
 }
 #scanReviewFilter {
     label {

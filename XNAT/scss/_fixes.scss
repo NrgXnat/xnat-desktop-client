@@ -591,4 +591,10 @@ span[data-toggle="popover"] {
         width: 100px;
         height: 100px;
     }
+
+    &.group_approved {
+        background-color: rgb(212, 255, 212);
+        position: relative;
+
+    }
 }

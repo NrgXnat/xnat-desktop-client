@@ -86,7 +86,7 @@ let resizing_tm;
 let rectangle_state_registry = [];
 let event_timeout;
 
-let anno2;
+let anno2, anno3;
 // ===================
 
 const dom_context = '#upload-section';
@@ -109,7 +109,7 @@ let project_settings = {};
 
 let _masking_groups = {}
 
-
+/*
 const _masking_template_registry = [
     {
         name: "1. Magnetic resonance spectroscopy of the occipital cortex",
@@ -161,7 +161,9 @@ const _masking_template_registry = [
         ]
     }
 ];
+*/
 
+const _masking_template_registry = []
 if(!store.has('masking_template_registry')) {
     store.set('masking_template_registry',  _masking_template_registry);
 }
@@ -250,6 +252,7 @@ async function _init_variables() {
 
     cornerston_initialize_main()
     initAnno();
+    initAnnoMulti();
 
     _UI();
 }
@@ -369,6 +372,40 @@ function initAnno() {
     $('#show_div_tour').on('click', function(e) {
         e.preventDefault();
         anno2.show();
+    })
+}
+
+function initAnnoMulti() {
+    anno3 = new Anno([{
+        target  : '#masking-groups', // second block of code
+        position: 'top',
+        content : 'Scans are grouped... TO-DO',
+        className: 'pera-klasa'
+      }, {
+        target  : '#masking-groups > .row:first-child',
+        position: 'top',
+        content : 'Toggle which scan groups are displayed...',
+      }, {
+        target  : '#masking-groups .mask-group-row:eq(0)',
+        position: 'top',
+        content : 'Single group information...'
+      }, {
+        target  : '#masking-groups .mask-group-row:eq(0)',
+        position: {
+            top: '20px',
+            left: '880px'
+        },
+        arrowPosition: 'center-right',
+        content : 'Review and approve scans...'
+      }, {
+        target  : '#visual-phi-removal-instructions',
+        position: 'bottom',
+        content : 'If you need help again, just click the "Help" button!'
+      }]);
+
+    $$('#visual-phi-removal-instructions').on('click', function(e) {
+        e.preventDefault();
+        anno3.show();
     })
 }
 
@@ -912,7 +949,9 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
                 frames: sel_img.frames,
                 modality: sel_img.modality,
                 imgDataUrl: '',
-                status: 0
+                status: 0,
+                approved: false,
+                rectangles: []
             }
 
             my_scans.push(tbl_row);
@@ -973,6 +1012,11 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
             console.log('FINALLY TRIGGERED!!!')
             console.timeEnd('scan_table');
             $.unblockUI()
+
+            if(!store.has('visual-phi-removal-instructions')) {
+                store.set('visual-phi-removal-instructions',  true);
+                anno3.show();
+            }
         })
 });
 
@@ -990,6 +1034,8 @@ function approve_scan(session_id, series_id, rectangles) {
         found_scan.rectangles = rectangles
         found_scan.approved = true
     }
+
+    console.log({found_scan});
 }
 
 function reset_scan(session_id, series_id) {
@@ -1044,6 +1090,12 @@ async function refresh_masking_templates(scroll_to_last = false) {
     if (scroll_to_last) {
         var scrollPos = $$('#template-listing').height()
         $$('#template-listing').closest('.modal-body').scrollTop(scrollPos)
+
+        // FLASH GREEN
+        $$('#template-listing .row:last-child').css({background: 'lightgreen', transition: 'background 0s'}); 
+        setTimeout(function(){
+            $$('#template-listing .row:last-child').css({background: 'transparent', transition: 'background 2s'})
+        }, 100)
     }
     
 }
@@ -1140,8 +1192,6 @@ $on('click', '[data-js-create-template]', function() {
     // reload templates found content
     refresh_masking_templates(true)
 
-    
-
 })
 
 function get_template_rectangles(template_alias) {
@@ -1171,6 +1221,27 @@ $on('click', '[data-apply-canvas-id]', function() {
             }
         }
     })
+})
+
+$on('click', '[data-template-alias-delete]', async function() {
+    const proceed = await swal({
+        title: `Delete this template?`,
+        text: `Deleting the template will not remove it from the scans that the template is already applied to.
+               If you want to remove the template from the scan - select the scan and click "Reset" button.`,
+        icon: "warning",
+        buttons: ['Cancel', 'Delete Template'],
+        dangerMode: true
+    })
+    
+    if (proceed) {
+        const template_alias = $(this).data('template-alias-delete')
+        let masking_template_registry = store.get('masking_template_registry') || []
+
+        masking_template_registry = masking_template_registry.filter(item => item.alias !== template_alias)
+        store.set('masking_template_registry',  masking_template_registry);
+        
+        $(this).closest('.row').remove()
+    }
 })
 
 function cloneCanvas(oldCanvas) {
@@ -1302,6 +1373,7 @@ $on('click', '[data-js-review-approve]', function() {
                 rectangles.push(rect)
             })
         })
+        console.log({rectangles})
         approve_scan(data.sessionId, data.seriesId, rectangles)
     })
 
@@ -2560,9 +2632,32 @@ $on('click', '[data-js-visual-bulk-upload]', async function() {
     let upload_method = $('#nav-verify').data('upload_method')
     console.log({upload_method});
 
+    let count_unapproved = 0
+    for(const group in _masking_groups) {
+        count_unapproved += _masking_groups[group].filter(_scan => _scan.approved === false).length
+    }
+
+    if (count_unapproved > 0) {
+        const proceed = await swal({
+            title: `Warning: All scans are not approved for the upload!`,
+            text: `Scans pending approval: ${count_unapproved}.\nPlease approve all scans or click "Continue Upload" button.`,
+            icon: "warning",
+            buttons: ['Cancel', 'Continue Upload'],
+            dangerMode: true
+        })
+        
+        if (!proceed) {
+            console.log('BREAK UPLOAD');
+            return
+        }
+    }
+
+    console.log('CONTINUE UPLOAD');
+
     const _sessions = $('#selected_session_tbl').bootstrapTable('getData');
     const overwrite = $('#upload_overwrite_method', '#quick_upload').val()
     await handle_upload_multi(_sessions, project_settings, overwrite)
+
 })
 
 async function handle_upload_multi(_sessions, project_settings, overwrite) {
@@ -2603,13 +2698,19 @@ async function handle_upload_multi(_sessions, project_settings, overwrite) {
 
         // -----------------------------------------------------
         const all_series = get_session_series(session_map.get(session.id))
-        const selected_series = all_series.map(ser => ser.series_id);
+        const selected_series_ids = all_series.map(ser => ser.series_id);
         // -----------------------------------------------------
 
-        console.log({storeUpload: {url_data, selected_session_id: session.id, selected_series, my_anon_variables}});
+        console.log({
+            storeUpload: {
+                _selected_session_id: session.id, 
+                _selected_series_ids: selected_series_ids, 
+                url_data, 
+                my_anon_variables
+            }
+        });
         
-        await storeUpload(url_data, session.id, selected_series, my_anon_variables);
-        
+        await storeUpload(url_data, session.id, selected_series_ids, my_anon_variables);
     })
 
     console.log('=========================DONE')
@@ -4403,6 +4504,11 @@ $on('shown.bs.modal', '#review-series-images', function(e) {
 
     // reset buttons
     $$('#review-series-images .button-row button').prop('disabled', true)
+})
+
+$on('hide.bs.modal', '#review-series-images', function(e) {
+    // TODO - activate based on current active group type (supported or unsupported)
+    display_masking_groups('supported')
 })
 
 $on('show.bs.modal', '#review-series-images--OLD', function(e) {

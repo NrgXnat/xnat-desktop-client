@@ -5,24 +5,14 @@
 
     <div class="row mb-3">
         <div class="col-4">
-            <canvas id="myCanvas_<%= counter %>" 
-                width="<%= template.data.Columns %>" 
-                height="<%= template.data.Rows %>" 
-                style="border:1px solid #d3d3d3;width: 100%; background: #eee;"></canvas>
-    
-            <%
-                setTimeout((template, counter) => {
-                    let c = document.getElementById("myCanvas_" + counter);
-                    for (rectangle of template.rectangles) {
-                        var ctx = c.getContext("2d");
-                        ctx.beginPath();
-                        ctx.fillStyle = "#777";
-                        var w = rectangle[2] - rectangle[0]
-                        var h = rectangle[3] - rectangle[1]
-                        ctx.fillRect(rectangle[0], rectangle[1], w, h);
-                    }
-                }, 0, template, counter);
-            %>
+            <%- include('canvas', { 
+                id: `myCanvas_${counter}`, 
+                columns: template.data.Columns, 
+                rows: template.data.Rows, 
+                rectangles: template.rectangles 
+            }); %>
+
+            
         </div>
         <div class="col-8">
             <h5><%= template.alias %></h5>
@@ -33,7 +23,10 @@
                 <button class="btn btn-gray" 
                     data-template-alias="<%= template.alias %>" 
                     data-apply-canvas-id="myCanvas_<%= counter %>">Apply</button>
-                <button class="btn btn-gray">Edit</button>
+                
+                <button class="btn btn-gray"
+                    title="Delete Template"
+                    data-template-alias-delete="<%= template.alias %>">Delete</button>
             </div>
         </div>
     
@@ -44,7 +37,7 @@
 <% if (templates.length === 0) { %>
     <div class="row mb-3">
         <div class="col-12">
-            <p style="text-align: center;">No matching templates found!</p>
+            <p style="text-align: center;">No matching templates are found!</p>
         </div>
     </div>
 <% } %>

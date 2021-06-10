@@ -41,8 +41,16 @@
                     scans.fill({imgDataUrl: false}, scans_size, target_size)
                 }
             %>
+
+            <%
+            const unapproved = masking_groups[mask_label].filter(_scan => _scan.approved === false)
+            const group_approved_class = unapproved.length > 0 ? '' : 'group_approved'
+            const approved_icon = unapproved.length === 0 
+                ? '<i class="fas fa-check-circle" style="color: green; margin-left: 4px;"></i>' : 
+                '<i class="fas fa-exclamation-circle" style="color: orange; margin-left: 4px;"></i>'
+            %>
             
-            <div class="mask-group-row d-flex flex-row align-items-center">
+            <div class="mask-group-row d-flex flex-row align-items-center <%= group_approved_class %>">
                 <div class="p-2">
                     <table>
                         <tr>
@@ -80,7 +88,10 @@
                     </table>
                 </div>
                 <div class="p-2" style="flex-grow: 1;">
-                    <h4>Group <%- group_counter %> (<%= masking_groups[mask_label].length %> scans)</h4>
+                    <%
+                    let scan_label = masking_groups[mask_label].length === 1 ? 'scan' : 'scans'
+                    %>
+                    <h4>Group <%- group_counter %> (<%= masking_groups[mask_label].length %> <%= scan_label %>)</h4>
                     <ul>
                         <li><span>Modality:</span> 
                             <%= masking_groups[mask_label][0].modality %></li>
@@ -98,8 +109,17 @@
                         <li><span>Templates: <%= masking_groups[mask_label][0].matchingMasks.length %></span> </li>
                     </ul>
                 </div>
-                <div class="p-2">
-                    <button data-review-mask-alias="<%= mask_label %>" class="btn btn-blue">Review <i class="fas fa-search"></i></button>
+                <div class="p-2" style="height: 220px; position: relative;">
+                    <div style="margin-top: 5px; font-size: 20px;">Approved for upload: 
+                        <%= masking_groups[mask_label].length - unapproved.length %> of 
+                        <%= masking_groups[mask_label].length %> 
+                        <%- approved_icon %> 
+                    </div>
+                    <button
+                        style="position: absolute; top: 50%; right: 8px; transform: translateY(-50%);"
+                        data-review-mask-alias="<%= mask_label %>" 
+                        class="btn btn-blue"
+                    >Review <i class="fas fa-search"></i></button>
                 </div>
             </div>
         <% }; %>

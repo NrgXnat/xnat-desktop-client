@@ -629,6 +629,15 @@
                         <div class="tab-pane fade" id="nav-visual-bulk" role="tabpanel" aria-labelledby="nav-visual-bulk-tab">
                             <h2 class="section-title">Grouped Scans for Visual PHI Removal.
 
+                                <span 
+                                    id="visual-phi-removal-instructions"
+                                    style="cursor: pointer; padding: 3px; width: 70px; display: inline-block;"
+                                
+                                >
+                                    <i class="fas fa-question-circle"></i>
+                                    Help
+                                </span>
+                                <!--
                                 <span style="font-size: 16px"
                                     data-toggle="popover" 
                                     title="Visual PHI Removal Instructions" 
@@ -636,6 +645,7 @@
                                     <i class="fas fa-question-circle"></i>
                                     Help
                                 </span>
+                                -->
                             </h2>
 
                             <div class="row">
@@ -679,7 +689,7 @@
                                     <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
                                     <button type="button" class="btn btn-gray js_prev" type="button">
                                         <i class="fas fa-angle-left"></i> Prev</button>
-                                    <button type="button" class="btn btn-blue" data-js-visual-bulk-upload>Finish and Upload</button>
+                                    <button type="button" class="btn btn-blue" id="data-js-visual-bulk-upload" data-js-visual-bulk-upload>Finish and Upload</button>
                                 </div>
                             </div>
                         </div>
