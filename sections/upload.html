@@ -40,7 +40,7 @@
                                 </div>
 
                                 
-                                <div class="col-6">
+                                <div class="col-6" style="min-height: 423px;">
                                     <h2 class="section-title">Project Settings</h2>
 
                                     <div id="project_settings_tbl_wrap"><p>Select a project to view settings</p></div>
@@ -328,6 +328,7 @@
 
                             <div id="quick_upload">
                                 <div class="col">
+                                    <button id="switch_to_custom_upload" type="button" class="float-right btn btn-blue">Switch to the Custom Upload Process</button>
                                     <h2>Quick Upload</h2>
                                     <p>A "quick upload" process assumes that you do not need to make any modifications 
                                         to your session or scan data, including visual PHI inspection or pixel 
@@ -475,6 +476,8 @@
                                                 class="btn btn-gray">Cancel</button>
                                             <button type="button" class="btn btn-gray js_prev" type="button">
                                                 <i class="fas fa-angle-left"></i> Prev</button>
+                                            <button type="button" class="btn btn-blue js_next disabled">
+                                                Next <i class="fas fa-angle-right"></i></button>
                                             <button type="button" class="btn btn-blue js_upload">Upload</button>
                                         </div>
                                     </div>

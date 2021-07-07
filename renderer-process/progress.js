@@ -1368,9 +1368,9 @@ $(document).on('click', '.js_cancel_all_transfers', function(){
         settings.set('global_pause', global_pause);
 
         if (modified_uploads + modified_downloads === 0) {
-            Helper.pnotify('Cancel All Tranfsers', 'No new transfers were canceled.', 'notice');
+            Helper.pnotify('Cancel All Transfers', 'No new transfers were canceled.', 'notice');
         } else {
-            Helper.pnotify('Cancel All Tranfsers - Success', `Downloads canceled: ${modified_downloads}
+            Helper.pnotify('Cancel All Transfers - Success', `Downloads canceled: ${modified_downloads}
                 Uploads canceled: ${modified_uploads}`);
         }
 
@@ -1427,7 +1427,7 @@ function global_pause_status(new_pause_status) {
     let title = new_pause_status ? 'Pause' : 'Resume';
     let body = new_pause_status ? 'Paused' : 'Resumed';
 
-    Helper.pnotify(`${title} All Tranfsers`, `All Transfers Successfully ${body}.`, 'success', 3000);
+    Helper.pnotify(`${title} All Transfers`, `All Transfers Successfully ${body}.`, 'success', 3000);
 }
 
 $(document).on('click', '.js_clear_finished', function(){
@@ -1599,7 +1599,7 @@ function remove_transfers(include_canceled) {
         remove_finished_downloads(include_canceled)
     ]).then(([removed_uploads, removed_download]) => {
         console_red('remove_transfers -> then', {removed_uploads, removed_download})
-        Helper.pnotify(`Clear Completed Tranfsers`,  `Downloads Removed: ${removed_download}
+        Helper.pnotify(`Clear Completed Transfers`,  `Downloads Removed: ${removed_download}
         Uploads Removed: ${removed_uploads}`, 'success');
 
         //_init_download_progress_table();

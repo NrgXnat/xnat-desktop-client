@@ -250,7 +250,9 @@ async function _init_variables() {
 
     init_flow_reset()
 
-    cornerston_initialize_main()
+    cornerston_initialize_main_element($$('#nav-visual #dicom_image_container').get(0))
+    cornerston_initialize_main_element($$('#create-masking-template #dicom_image_container').get(0))
+    
     initAnno();
     initAnnoMulti();
 
@@ -376,19 +378,21 @@ function initAnno() {
 }
 
 function initAnnoMulti() {
-    anno3 = new Anno([{
+    anno3 = new Anno([/*{
         target  : '#masking-groups', // second block of code
         position: 'top',
         content : 'Scans are grouped... TO-DO',
-        className: 'pera-klasa'
-      }, {
+        className: 'anno-width-400'
+      }, */{
         target  : '#masking-groups > .row:first-child',
-        position: 'top',
-        content : 'Toggle which scan groups are displayed...',
+        position: 'bottom',
+        content : 'Some scans cannot support pixel anonymization. For example, scans with multiple resolutions, such as DICOM WSI. These can still be uploaded, but they cannot be modified with this tool. Click here to toggle between groupings of valid and unsupported scans.',
+        className: 'anno-width-400'
       }, {
         target  : '#masking-groups .mask-group-row:eq(0)',
         position: 'top',
-        content : 'Single group information...'
+        content : 'The scans from your selected data have been regrouped by modality, resolution, and SOP Class information, so that we can apply common pixel anonymization templates to them. Each of these scan groups may contain scans from multiple sessions.',
+        className: 'anno-width-400'
       }, {
         target  : '#masking-groups .mask-group-row:eq(0)',
         position: {
@@ -396,11 +400,12 @@ function initAnnoMulti() {
             left: '880px'
         },
         arrowPosition: 'center-right',
-        content : 'Review and approve scans...'
+        content : 'To review each group of scans and draw pixel anonymization templates, click the "Review" button within each scan group. There, you can draw and apply templates, or simply approve scans for upload without modifications.',
+        className: 'anno-width-400'
       }, {
         target  : '#visual-phi-removal-instructions',
         position: 'bottom',
-        content : 'If you need help again, just click the "Help" button!'
+        content : 'For further help, see <a href="https://wiki.xnat.org/xnat-tools/xnat-desktop-client-dxm/uploading-image-sessions/applying-pixel-anonymization-during-the-upload-process">documentation</a> on pixel anonymization. To see these tips again, click the "Help" button.'
       }]);
 
     $$('#visual-phi-removal-instructions').on('click', function(e) {
@@ -903,7 +908,17 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
     console.time('scan_table')
     $.blockUI()
 
-    let selected_session_ids = get_quick_selected_session_ids()
+    const upload_method = $('#nav-verify').data('upload_method')
+
+    let selected_session_ids = []
+
+    if (upload_method === 'quick_upload') {
+        selected_session_ids = get_quick_selected_session_ids()
+    } else if (upload_method === 'custom_upload_multiple') {
+        selected_session_ids = get_custom_selected_session_ids()
+    }
+
+    console.log({selected_session_ids});
 
     let my_scans = []
 
@@ -1420,10 +1435,6 @@ $on('click', '[data-js-review-create-template]', function() {
 })
 
 $on('shown.bs.modal', '#create-masking-template', function(e) {
-    window.dispatchEvent(new Event('resize'));// HACK TO recalculate canvas size for main cornerstone image
-})
-
-$on('show.bs.modal', '#create-masking-template', function(e) {
     console.log($(this).data())
 
     let selected_session_id = $(this).data('session-id')
@@ -1479,6 +1490,7 @@ $on('show.bs.modal', '#create-masking-template', function(e) {
     $('#create-masking-template #series_thumbs li').eq(0).addClass('highlite-outline');
     $("html, body").stop().animate({scrollTop:0}, 50);
 
+    window.dispatchEvent(new Event('resize'));// HACK TO recalculate canvas size for main cornerstone image
 });
 
 function cornerstone_enable_small_thumb_element(width = 70, height = 70) {
@@ -1566,6 +1578,11 @@ function get_quick_selected_session_ids() {
     return selected_series.map(item => item.id)
 }
 
+function get_custom_selected_session_ids() {
+    let selected_series = $('#custom_upload_multiple_tbl').bootstrapTable('getData');
+    return selected_series.map(item => item.id)
+}
+
 function get_selected_series_ids() {
     let selected_series = $('#image_session').bootstrapTable('getSelections');
     return selected_series.map(item => item.series_id)
@@ -1594,14 +1611,10 @@ function set_image_thumbnails() {
 }
 
 
-function cornerston_initialize_main() {
+function cornerston_initialize_main_element(element) {
     cornerstoneTools.init({
         touchEnabled: false
     });
-
-    // TODO: FIX this abomination
-    const element = $$('#create-masking-template #dicom_image_container').get(0);
-    //const element = $$('#dicom_image_container').get(0);
 
     cornerstone_enable_main_element(element); // before first load_dicom_image()
 }
@@ -1732,6 +1745,13 @@ function clear_main_tool_state(image_path) {
 }
 
 function display_series_thumb(series, index, cornerstone) {
+    $$('#series_thumbs').each(function() {
+        console.log({
+            visible: $(this).is(':visible'),
+            el: $(this).get(0)
+        })
+    })
+
     let element = cornerstone_enable_thumb_element();
 
     let imageId = `wadouri:http://localhost:7714/?path=${series.thumb_path}`;
@@ -1798,9 +1818,7 @@ function display_series_thumb(series, index, cornerstone) {
                 </div>
             </div>`);
 
-            // TODO: FIX THIS ABOMINATION
-            $('#create-masking-template #series_thumbs li').eq(index).html($div);
-            //$$('#series_thumbs li').eq(index).html($div);
+            $$('#series_thumbs:visible li').eq(index).html($div);
 
             let rectangle_state = find_registry_state(series.series_id);
             
@@ -2629,7 +2647,7 @@ $(document).on('change', '#file_upload_folder', function(e) {
 
 
 $on('click', '[data-js-visual-bulk-upload]', async function() {
-    let upload_method = $('#nav-verify').data('upload_method')
+    const upload_method = $('#nav-verify').data('upload_method')
     console.log({upload_method});
 
     let count_unapproved = 0
@@ -2654,8 +2672,12 @@ $on('click', '[data-js-visual-bulk-upload]', async function() {
 
     console.log('CONTINUE UPLOAD');
 
-    const _sessions = $('#selected_session_tbl').bootstrapTable('getData');
-    const overwrite = $('#upload_overwrite_method', '#quick_upload').val()
+    const tbl_id = upload_method === 'quick_upload' ? '#selected_session_tbl' : '#custom_upload_multiple_tbl'
+    const _sessions = $(tbl_id).bootstrapTable('getData');
+
+    const overwrite = upload_method === 'quick_upload' 
+        ? $('#upload_overwrite_method', '#quick_upload').val() 
+        : $('#upload_overwrite_method', '#custom_upload_multiple').val()
     await handle_upload_multi(_sessions, project_settings, overwrite)
 
 })
@@ -2918,7 +2940,7 @@ async function handle_custom_upload() {
         }
 
         await storeUpload(url_data, selected_session_id, selected_series, my_anon_variables);
-        return;
+        
         start_upload_and_redirect()
 
     } else {
@@ -3171,6 +3193,22 @@ $(document).on('click', '#switch_to_quick_upload', function() {
     let selected = $('#custom_upload_multiple_tbl').bootstrapTable('getData');
     quick_upload_selection(selected)
     $('#quick_upload').show().siblings().hide()
+})
+
+$(document).on('click', '#switch_to_custom_upload', function() {
+    let selected = $('#selected_session_tbl').bootstrapTable('getData');
+
+    if (selected.length > 1) {
+        custom_upload_multiple_selection(selected)
+        $('#custom_upload_multiple').show().siblings().hide()
+        $('#subject_labeling_pattern').val(project_settings.subject_labeling_scheme).trigger('change')
+        $('#session_labeling_pattern').val(project_settings.session_labeling_scheme).trigger('change')
+    } else {
+        // never happens
+        select_session_id(selected[0])
+        $('#custom_upload').show().siblings().hide()
+    }
+    
 })
 
 function quick_upload_selection(_sessions) {
