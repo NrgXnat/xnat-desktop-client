@@ -676,7 +676,7 @@ function _init_session_selection_table(tbl_data) {
         }
     }
 
-    $('.js_custom_upload, .js_quick_upload').prop('disabled', true);
+    $('.js_custom_upload, .js_quick_upload').prop('disabled', false);
 
 
     $found_sessions_tbl.bootstrapTable({
@@ -1086,14 +1086,28 @@ $on('show.bs.modal', '#setTemplateModal', async function(){
     refresh_masking_templates()
 })
 
-async function refresh_masking_templates(scroll_to_last = false) {
-    const mask_alias = $$('#review-series-images').data('mask_alias')
+$on('hide.bs.modal', '#setTemplateModal', async function(){
+    scan_review_set_template_button_label()
+})
+
+function get_masking_templates_by_alias(_mask_alias = false) {
+    const mask_alias = _mask_alias ? _mask_alias : $$('#review-series-images').data('mask_alias')
     const all_templates = store.get('masking_template_registry')
-    const appropriate_templates = all_templates.filter(tpl => {
+    
+    return all_templates.filter(tpl => {
         return tpl.data.Rows == _masking_groups[mask_alias][0].Rows && tpl.data.Columns == _masking_groups[mask_alias][0].Columns
     })
+}
 
-    console.log({mask_alias, appropriate_templates});
+function get_template_rectangles(template_alias) {
+    const masking_template_registry = store.get('masking_template_registry')
+    const tpl = masking_template_registry.find(template => template.alias == template_alias)
+
+    return tpl ? tpl.rectangles : []
+}
+
+async function refresh_masking_templates(scroll_to_last = false) {
+    const appropriate_templates = get_masking_templates_by_alias()
 
     let tpl_html = await ejs_template('upload/template-list-item', {
         templates: appropriate_templates,
@@ -1208,13 +1222,6 @@ $on('click', '[data-js-create-template]', function() {
     refresh_masking_templates(true)
 
 })
-
-function get_template_rectangles(template_alias) {
-    const masking_template_registry = store.get('masking_template_registry')
-    const tpl = masking_template_registry.find(template => template.alias == template_alias)
-
-    return tpl ? tpl.rectangles : []
-}
 
 $on('click', '[data-apply-canvas-id]', function() {
     const template_alias = $(this).data('template-alias');
@@ -1421,6 +1428,13 @@ function scan_review_updated_selected_count() {
 function scan_review_toggle_back_to_groups() {
     const unapproved_count = $$('#scan_images .scan-review-item').not('.approved').length
     $$('#review-series-images-done').toggle(unapproved_count == 0)
+}
+
+function scan_review_set_template_button_label() {
+    const matching_alias_templates = get_masking_templates_by_alias()
+    const button_label = matching_alias_templates.length ? 'Set Template' : 'Create Template'
+
+    $$('[data-target="#setTemplateModal"]').text(button_label)
 }
 
 $on('click', '[data-js-review-create-template]', function() {
@@ -3947,7 +3961,7 @@ function dicomParse(_files, root_path) {
 
                     let session_data = {
                         id: key,
-                        state: false,
+                        state: true,
                         patient_name: cur_session.patient.name,
                         patient_id: cur_session.patient.id,
                         label: session_label,
@@ -4539,6 +4553,7 @@ $on('shown.bs.modal', '#review-series-images', function(e) {
     // reset selected and approved
     scan_review_updated_selected_count()
     scan_review_update_approved_count()
+    scan_review_set_template_button_label()
 
     // reset buttons
     $$('#review-series-images .button-row button').prop('disabled', true)

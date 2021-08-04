@@ -93,14 +93,16 @@
                     %>
                     <h4>Group <%- group_counter %> (<%= masking_groups[mask_label].length %> <%= scan_label %>)</h4>
                     <ul>
-                        <li><span>Modality:</span> 
+                        <li><span style="color: green; font-weight: bold;">Modality</span>
+                            <i title="Grouping Parameter" style="color: green;" class="far fa-object-group"></i>:
                             <%= masking_groups[mask_label][0].modality %></li>
 
                             
                         <li><span>SOP Class:</span>
                             <%= findSOPClassUID(masking_groups[mask_label][0].SOPClassUID)['label'] %></li>
 
-                        <li><span>Resolution:</span> 
+                        <li><span style="color: green; font-weight: bold;">Resolution</span>
+                            <i title="Grouping Parameter" style="color: green;" class="far fa-object-group"></i>: 
                             <%= masking_groups[mask_label][0].Rows %>x
                             <%= masking_groups[mask_label][0].Columns %></li>
                         
