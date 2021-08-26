@@ -8,11 +8,11 @@ const electron = require('electron')
 
 const auth = require('./services/auth');
 
-const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
+const { app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol } = electron;
 
 const electron_log = require('./services/electron_log')
 
-const { isDevEnv } = require('./services/app_utils');
+const { isDevEnv, getUpdateChannel } = require('./services/app_utils');
 
 const MigrateSettings = require('./services/settings_to_store_migration')
 MigrateSettings(app.getPath('userData'))
@@ -37,7 +37,7 @@ electron.crashReporter.start({
 });
 
 
-const {autoUpdater} = require("electron-updater");
+const { autoUpdater } = require('electron-updater');
 
 // windows
 let mainWindow = null, downloadWindow = null, uploadWindow = null;
@@ -225,6 +225,7 @@ function initialize () {
 
   function prepareAutoUpdate() {
     autoUpdater.autoDownload = false;
+    autoUpdater.channel = getUpdateChannel();
     // debugging with autoUpdater.logger not required but still useful
     autoUpdater.logger = electron_log;
     //autoUpdater.logger.transports.file.level = 'info';

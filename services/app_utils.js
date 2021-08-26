@@ -1,7 +1,11 @@
+const electron = require('electron')
 const path = require('path')
 const fs = require('fs')
 const checksum = require('checksum')
 const FileSaver = require('file-saver')
+
+const ElectronStore = require('electron-store')
+const settings = new ElectronStore()
 
 exports.isDevEnv = () => {
     // return process.argv && process.argv.length >= 3 && /--debug/.test(process.argv[2]);
@@ -10,6 +14,26 @@ exports.isDevEnv = () => {
     // console.log(process.mainModule.filename);
     // alternative
     return process.mainModule.filename.indexOf('app.asar') === -1;
+}
+
+exports.getDefaultUpdateChannel = () => {
+    const app = electron.remote ? electron.remote.app : electron.app
+    const versionString = app.getVersion()
+    
+    return versionString.includes("-beta") ? "beta" : 
+        versionString.includes("-alpha") ? "alpha" :
+        "latest";
+}
+
+exports.getUpdateChannel = () => {
+    return settings.get('electron-updater-channel', this.getDefaultUpdateChannel())
+}
+
+exports.setUpdateChannel = (channel) => {
+    if (!['alpha', 'beta', 'latest'].includes(channel)) {
+        channel = 'latest'
+    }
+    return settings.set('electron-updater-channel', channel)
 }
 
 exports.objToJsonFile = (jsonObject, target_path) => {
@@ -24,7 +48,6 @@ exports.objToJsonFile = (jsonObject, target_path) => {
         console.log(`Not writable: ${path.dirname(target_path)}`)
     }
 }
-
 
 function objArrayToCSV(objArray) {
     function isObject (value) {
@@ -113,7 +136,6 @@ exports.uuidv4_crypto = () => {
         (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
     )
 }
-
 
 exports.random_string = (length, charset = 'ALPHA', include_lowercase = false) => {
     let chars = ''
