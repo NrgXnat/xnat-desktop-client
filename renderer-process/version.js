@@ -18,6 +18,9 @@ $on('change', '#auto_update_channel', function(e) {
     const newAutoUpdateValue = $(this).val()
 
     autoUpdater.channel = newAutoUpdateValue
+    // setting "channel" sets "allowDowngrade" to true, so change allowDowngrade after the channel property is set
+    autoUpdater.allowDowngrade = newAutoUpdateValue === 'latest'
+
     setUpdateChannel(newAutoUpdateValue)
     checkForUpdates()
 })

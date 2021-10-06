@@ -226,6 +226,8 @@ function initialize () {
   function prepareAutoUpdate() {
     autoUpdater.autoDownload = false;
     autoUpdater.channel = getUpdateChannel();
+    // setting "channel" sets "allowDowngrade" to true, so change allowDowngrade after the channel property is set
+    autoUpdater.allowDowngrade = autoUpdater.channel === 'latest'
     // debugging with autoUpdater.logger not required but still useful
     autoUpdater.logger = electron_log;
     //autoUpdater.logger.transports.file.level = 'info';
