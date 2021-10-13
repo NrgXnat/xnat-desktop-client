@@ -43,14 +43,14 @@
             %>
 
             <%
-            const unapproved = masking_groups[mask_label].filter(_scan => _scan.approved === false)
-            const group_approved_class = unapproved.length > 0 ? '' : 'group_approved'
-            const approved_icon = unapproved.length === 0 
-                ? '<i class="fas fa-check-circle" style="color: green; margin-left: 4px;"></i>' : 
+            const included = masking_groups[mask_label].filter(_scan => _scan.excluded === false)
+            const group_excluded_class = included.length > 0 ? '' : 'group_excluded'
+            const excluded_icon = included.length === 0 
+                ? '<i class="fas fa-exclamation-circle" style="color: orange; margin-left: 4px;"></i>' : 
                 '<i class="fas fa-exclamation-circle" style="color: orange; margin-left: 4px;"></i>'
             %>
             
-            <div class="mask-group-row d-flex flex-row align-items-center <%= group_approved_class %>">
+            <div class="mask-group-row d-flex flex-row align-items-center <%= group_excluded_class %>">
                 <div class="p-2">
                     <table>
                         <tr>
@@ -111,12 +111,19 @@
                         <li><span>Templates: <%= masking_groups[mask_label][0].matchingMasks.length %></span> </li>
                     </ul>
                 </div>
+                
+
                 <div class="p-2" style="height: 220px; position: relative;">
-                    <div style="margin-top: 5px; font-size: 20px;">Approved for upload: 
-                        <%= masking_groups[mask_label].length - unapproved.length %> of 
-                        <%= masking_groups[mask_label].length %> 
-                        <%- approved_icon %> 
+                    <div style="margin-top: 5px; font-size: 20px;">
+                    <% if (masking_groups[mask_label].length - included.length) { %>
+                        Scans Excluded: 
+                        <%= masking_groups[mask_label].length - included.length %> 
+                        <%- excluded_icon %> 
+                    <% } else { %>
+                        -
+                    <% } %> 
                     </div>
+                    
                     <button
                         style="position: absolute; top: 50%; right: 8px; transform: translateY(-50%);"
                         data-review-mask-alias="<%= mask_label %>" 

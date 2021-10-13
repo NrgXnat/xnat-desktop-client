@@ -1,5 +1,5 @@
 <div id="review-series-images-done" style="display: none; text-align: center; margin: 10px;">
-    <p>All scans in this group are approved.</p>
+    <p>All scans in this group are processed.</p>
     <button type="button" data-dismiss="modal" class="btn btn-gray">Back to scan groups</button>
 </div>
 
@@ -17,7 +17,7 @@
         data-series-id="<%= row.id %>"
         data-study-instance-uid="<%= row.studyInstanceUid %>"
         value="<%= row.studyId%>">
-    <label class="scan-review-item <%= row.approved ? 'approved' : '' %>" for="scan_<%= row.id%>">
+    <label class="scan-review-item <%= row.excluded ? 'excluded' : '' %>" for="scan_<%= row.id%>">
         <h3><%= row.seriesNumber%></b>: <%= row.seriesDescription%></h3>
 
         <div class="img-data">
@@ -42,7 +42,7 @@
             <i class="fas fa-info-circle"></i>
         </span>
 
-        <i class="mark-approved far fa-check-circle"></i>
+        <i class="mark-excluded fas fa-times-circle"></i>
     </label>
 
 <% } %>

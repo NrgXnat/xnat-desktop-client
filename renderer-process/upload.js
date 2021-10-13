@@ -400,7 +400,7 @@ function initAnnoMulti() {
             left: '880px'
         },
         arrowPosition: 'center-right',
-        content : 'To review each group of scans and draw pixel anonymization templates, click the "Review" button within each scan group. There, you can draw and apply templates, or simply approve scans for upload without modifications.',
+        content : 'To review each group of scans and draw pixel anonymization templates, click the "Review" button within each scan group. There, you can draw and apply anonymization templates, or simply exclude scans from the upload queue.',
         className: 'anno-width-400'
       }, {
         target  : '#visual-phi-removal-instructions',
@@ -965,7 +965,7 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
                 modality: sel_img.modality,
                 imgDataUrl: '',
                 status: 0,
-                approved: false,
+                excluded: false,
                 rectangles: []
             }
 
@@ -1040,27 +1040,33 @@ async function display_masking_groups(mask_type) {
     $('#masking-groups').html(tpl_html)
 }
 
-function approve_scan(session_id, series_id, rectangles) {
-    //_masking_groups
-
+function add_anon_rectangles_to_scan(session_id, series_id, rectangles) {
     let found_scan = find_grouped_scan(session_id, series_id)
 
     if (found_scan) {
         found_scan.rectangles = rectangles
-        found_scan.approved = true
+    }
+
+    console.log({found_scan});
+}
+
+function exclude_scan(session_id, series_id) {
+    let found_scan = find_grouped_scan(session_id, series_id)
+
+    if (found_scan) {
+        found_scan.rectangles = []
+        found_scan.excluded = true
     }
 
     console.log({found_scan});
 }
 
 function reset_scan(session_id, series_id) {
-    //_masking_groups
-
     let found_scan = find_grouped_scan(session_id, series_id)
 
     if (found_scan) {
         found_scan.rectangles = []
-        found_scan.approved = false
+        found_scan.excluded = false
     }
 }
 
@@ -1172,6 +1178,10 @@ function get_session_by_series(_series_id) {
 
 $on('click', '[data-js-create-template]', function() {
     console.log({rectangle_state_registry});
+    if (rectangle_state_registry.length === 0) {
+        $(this).closest('.modal').modal('hide')
+        return
+    }
 
     let masking_template_registry = store.get('masking_template_registry')
 
@@ -1228,12 +1238,13 @@ $on('click', '[data-apply-canvas-id]', function() {
     let canvas_id = $(this).data('apply-canvas-id')
     let old_canvas = document.getElementById(canvas_id)
 
+    // add overlay canvases
     $('.scan_checkbox:checked + .scan-review-item > .img-data').each(function() {
         const $img_data = $(this)
         const $label = $(this).closest('.scan-review-item')
 
-        if ($label.hasClass('approved')) {
-            Helper.pnotify(null, `Scan "${$label.find('>h3').text()}" is already approved! Selected template is not applied.`, 'notice');
+        if ($label.hasClass('excluded')) {
+            Helper.pnotify(null, `Scan "${$label.find('>h3').text()}" is already excluded! Selected template is not applied. You need to reset this scan if you want to apply the anonymization template.`, 'notice');
         } else {
             // only if not already applied
             if ($(`[data-template-alias="${template_alias}"]`, $img_data).length == 0) {
@@ -1243,6 +1254,26 @@ $on('click', '[data-apply-canvas-id]', function() {
             }
         }
     })
+
+    // updated scans rectangle data
+    $$('#scan_images .scan_checkbox:checked + label').each(function() {
+        const data = $(this).prev().data()
+
+        const rectangles = []
+        $(this).find('.img-data canvas').each(function() {
+            const template_rectangles = get_template_rectangles($(this).data('template-alias'))
+
+            template_rectangles.forEach(rect => {
+                rectangles.push(rect)
+            })
+        })
+        console.log({rectangles})
+        add_anon_rectangles_to_scan(data.sessionId, data.seriesId, rectangles)
+    })
+
+    // uncheck all and trigger scanselectionchange
+    $$('#scan_images .scan_checkbox').prop('checked', false)
+    $$('#review-series-images').trigger('scanselectionchange.bulkanon')
 })
 
 $on('click', '[data-template-alias-delete]', async function() {
@@ -1319,19 +1350,17 @@ $on('click', '#scan_images .has-popover', function(e) {
 
 $on('change', '#review-scans-select-all', function(e) {
     const select_all = $(this).is(':checked')
-    const hide_approved = $('#review-scans-hide-approved').is(':checked')
+    const hide_excluded = $('#review-scans-hide-excluded').is(':checked')
     const $scan_checkboxes = $$('#scan_images .scan_checkbox')
-    const $approved = $$('#scan_images label.approved')
+    const $excluded = $$('#scan_images label.excluded')
 
     $scan_checkboxes.prop('checked', select_all)
 
-    if (select_all && hide_approved) {
-        $approved.each(function() {
+    if (select_all && hide_excluded) {
+        $excluded.each(function() {
             $(this).prev().prop('checked', false)
         })
     }
-
-    scan_review_updated_selected_count()
 
     $$('#review-series-images').trigger('scanselectionchange.bulkanon')
 })
@@ -1340,84 +1369,79 @@ $on('change', '#scan_images .scan_checkbox', function(e) {
     $$('#review-series-images').trigger('scanselectionchange.bulkanon')
 })
 
-$on('change', '#review-scans-hide-approved', function(e) {
-    // reset all selection if there are approved
-    if ($$('#scan_images label.approved').length) {
-        $$('#review-scans-select-all').prop('checked', false).trigger('change')
+$on('change', '#review-scans-hide-excluded', function(e) {
+    // reset all selection if there are excluded
+    if ($$('#scan_images label.excluded').length) {
+        $$('#review-scans-select-all').prop('checked', false)
     }
 
-    const hide_approved = $(this).is(':checked')
-    $$('#scan_images').toggleClass('hide-approved', hide_approved)
+    const hide_excluded = $(this).is(':checked')
+    $$('#scan_images').toggleClass('hide-excluded', hide_excluded)
 
-    // close all popovers
-    $$('[data-toggle="popover"]').popover('hide')
+    $$('#review-series-images').trigger('scanselectionchange.bulkanon')
 })
 
 $on('scanselectionchange.bulkanon', '#review-series-images', function() {
     const selected_scans_count = $$('#scan_images .scan_checkbox:checked').length
 
-    scan_review_updated_selected_count()
+    if (selected_scans_count === 0) {
+        $$('#review-scans-select-all').prop('checked', false)
+    } 
 
+    scan_review_updated_selected_count()
+    scan_review_update_excluded_count()
+    scan_review_toggle_back_to_groups()
+
+    // close all popovers
+    $$('[data-toggle="popover"]').popover('hide')
+
+    // buttons disabled status
     $$('[data-js-review-set-template]').prop('disabled', selected_scans_count === 0)
-    $$('[data-js-review-approve]').prop('disabled', selected_scans_count === 0)
+    $$('[data-js-review-exclude]').prop('disabled', selected_scans_count === 0)
     $$('[data-js-review-reset]').prop('disabled', selected_scans_count === 0)
 
-
     console.log({
-        checked_checkboxes: selected_scans_count
+        checked_checkboxes: selected_scans_count,
+        _masking_groups
     });
 })
 
 $on('click', '[data-js-review-reset]', function() {
     $$('#scan_images .scan_checkbox:checked + label > .img-data canvas').remove()
-    $$('#scan_images .scan_checkbox:checked + label').removeClass('approved')
 
-    scan_review_update_approved_count()
-    scan_review_toggle_back_to_groups()
-
-    $$('#scan_images .scan_checkbox:checked + label').each(function() {
-        const data = $(this).prev().data()
-        reset_scan(data.sessionId, data.seriesId)
-    })
-})
-
-$on('click', '[data-js-review-approve]', function() {
-    $$('#scan_images .scan_checkbox:checked + label').addClass('approved')
-
-    $$('#scan_images .scan_checkbox:checked + label').each(function() {
-        const data = $(this).prev().data()
-
-        const rectangles = []
-        $(this).find('.img-data canvas').each(function() {
-            const template_rectangles = get_template_rectangles($(this).data('template-alias'))
-
-            template_rectangles.forEach(rect => {
-                rectangles.push(rect)
-            })
+    $$('#scan_images .scan_checkbox:checked + label')
+        .removeClass('excluded')
+        .each(function() {
+            const data = $(this).prev().data()
+            reset_scan(data.sessionId, data.seriesId)
         })
-        console.log({rectangles})
-        approve_scan(data.sessionId, data.seriesId, rectangles)
-    })
-
-    console.log(_masking_groups)
-
-    // deselect checkboxes for approved if "Hide Approved" is checked
-    const hide_approved = $('#review-scans-hide-approved').is(':checked')
-    if (hide_approved) {
-        $$('#scan_images .scan_checkbox:checked').prop('checked', false)
-    }
     
-    scan_review_updated_selected_count()
-    scan_review_update_approved_count()
-    scan_review_toggle_back_to_groups()
-    
+
+    // uncheck all and trigger scanselectionchange
+    $$('#scan_images .scan_checkbox').prop('checked', false)
+    $$('#review-series-images').trigger('scanselectionchange.bulkanon')
 })
 
-function scan_review_update_approved_count() {
-    const scans_total = $$('#scan_images .scan-review-item').length
-    const approved_scans_total = $$('#scan_images .scan-review-item.approved').length
+$on('click', '[data-js-review-exclude]', function() {
+    $$('#scan_images .scan_checkbox:checked + label > .img-data canvas').remove()
 
-    $$('#review-series-images--approved').text(`${approved_scans_total}/${scans_total}`)
+    $$('#scan_images .scan_checkbox:checked + label')
+        .addClass('excluded')
+        .each(function() {
+            const data = $(this).prev().data()
+            exclude_scan(data.sessionId, data.seriesId)
+        })
+
+    // uncheck all and trigger scanselectionchange
+    $$('#scan_images .scan_checkbox').prop('checked', false)
+    $$('#review-series-images').trigger('scanselectionchange.bulkanon')
+})
+
+function scan_review_update_excluded_count() {
+    const scans_total = $$('#scan_images .scan-review-item').length
+    const excluded_scans_total = $$('#scan_images .scan-review-item.excluded').length
+
+    $$('#review-series-images--excluded').text(`${excluded_scans_total}/${scans_total}`)
 }
 
 function scan_review_updated_selected_count() {
@@ -1426,8 +1450,8 @@ function scan_review_updated_selected_count() {
 }
 
 function scan_review_toggle_back_to_groups() {
-    const unapproved_count = $$('#scan_images .scan-review-item').not('.approved').length
-    $$('#review-series-images-done').toggle(unapproved_count == 0)
+    const included_count = $$('#scan_images .scan-review-item').not('.excluded').length
+    $$('#review-series-images-done').toggle(included_count == 0)
 }
 
 function scan_review_set_template_button_label() {
@@ -2659,29 +2683,41 @@ $(document).on('change', '#file_upload_folder', function(e) {
     }
 });
 
-
 $on('click', '[data-js-visual-bulk-upload]', async function() {
     const upload_method = $('#nav-verify').data('upload_method')
     console.log({upload_method});
 
-    let count_unapproved = 0
+    let total_scans = 0;
+    let count_included = 0
+    let count_user_excluded = 0
+    let count_anonymized = 0
     for(const group in _masking_groups) {
-        count_unapproved += _masking_groups[group].filter(_scan => _scan.approved === false).length
+        total_scans += _masking_groups[group].length
+        count_included += _masking_groups[group].filter(_scan => _scan.excluded === false).length
+        count_user_excluded += _masking_groups[group].filter(_scan => _scan.excluded === true).length
+        count_anonymized += _masking_groups[group].filter(_scan => _scan.rectangles.length > 0).length
     }
 
-    if (count_unapproved > 0) {
-        const proceed = await swal({
-            title: `Warning: All scans are not approved for the upload!`,
-            text: `Scans pending approval: ${count_unapproved}.\nPlease approve all scans or click "Continue Upload" button.`,
-            icon: "warning",
-            buttons: ['Cancel', 'Continue Upload'],
-            dangerMode: true
-        })
-        
-        if (!proceed) {
-            console.log('BREAK UPLOAD');
-            return
-        }
+    /* ---- */
+    const unsupported_size = _masking_groups._UNSUPPORTED_ ? masking_groups._UNSUPPORTED_.length : 0;
+    const supported_size = total_scans - unsupported_size;
+    /* ---- */
+
+    const proceed = await swal({
+        title: `Upload Overview`,
+        text: `From ${total_scans} total scans in original dataset:  
+        * ${count_anonymized} scans to upload with pixel anonymization
+        * ${count_included - count_anonymized} scans to upload without pixel anonymization
+        * ${count_user_excluded} scans excluded by user
+        `,
+        icon: "info",
+        buttons: ['Cancel', 'Continue Upload'],
+        dangerMode: true
+    })
+    
+    if (!proceed) {
+        console.log('BREAK UPLOAD --- cancel');
+        return
     }
 
     console.log('CONTINUE UPLOAD');
@@ -2733,11 +2769,22 @@ async function handle_upload_multi(_sessions, project_settings, overwrite) {
         }
 
         // -----------------------------------------------------
-        const all_series = get_session_series(session_map.get(session.id))
-        const selected_series_ids = all_series.map(ser => ser.series_id);
+        // const all_series = get_session_series(session_map.get(session.id))
+        // const selected_series_ids = all_series.map(ser => ser.series_id);
         // -----------------------------------------------------
 
+        let selected_series_ids = []
+        for(const group in _masking_groups) {
+            let selected_scans = _masking_groups[group]
+                .filter(_scan => _scan.sessionId == session.id && _scan.excluded === false)
+                .map(_scan => _scan.id)
+            if (selected_scans.length) {
+                selected_series_ids.push(...selected_scans)
+            }
+        }
+
         console.log({
+            _masking_groups,
             storeUpload: {
                 _selected_session_id: session.id, 
                 _selected_series_ids: selected_series_ids, 
@@ -2746,7 +2793,9 @@ async function handle_upload_multi(_sessions, project_settings, overwrite) {
             }
         });
         
-        await storeUpload(url_data, session.id, selected_series_ids, my_anon_variables);
+        if (selected_series_ids.length) {
+            await storeUpload(url_data, session.id, selected_series_ids, my_anon_variables);
+        }
     })
 
     console.log('=========================DONE')
@@ -3179,6 +3228,8 @@ function generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject
 
 function get_session_series(session) {
     let series_data = [];
+
+    console.log({session_scans: session.scans});
 
     // Map() traverse
     session.scans.forEach((scan, key) => {
@@ -4546,78 +4597,12 @@ $on('click', '[data-action="bulk-action-review"]', function() {
 })
 
 $on('shown.bs.modal', '#review-series-images', function(e) {
-    // reset checkboxes
-    $$('#review-scans-hide-approved').prop('checked', false)
-    $$('#review-scans-select-all').prop('checked', false)
-
-    // reset selected and approved
-    scan_review_updated_selected_count()
-    scan_review_update_approved_count()
-    scan_review_set_template_button_label()
-
-    // reset buttons
-    $$('#review-series-images .button-row button').prop('disabled', true)
+    $$('#review-scans-hide-excluded').prop('checked', false).trigger('change')
 })
 
 $on('hide.bs.modal', '#review-series-images', function(e) {
     // TODO - activate based on current active group type (supported or unsupported)
     display_masking_groups('supported')
-})
-
-$on('show.bs.modal', '#review-series-images--OLD', function(e) {
-    const $scans_tbl = $$('#selected_scans')
-
-    const button_id = $(e.relatedTarget).data('id')
-    const button_series = $scans_tbl.bootstrapTable('getData').filter(series => series.id === button_id)
-
-    const selected_scans = button_id ? button_series : $scans_tbl.bootstrapTable('getSelections')
-
-    let scan_images = [];
-    for (const selected_scan of selected_scans) {
-        const session = session_map.get(selected_scan.sessionId)
-        const all_files = session.scans.get(selected_scan.id)
-
-        const selected_image_index = Math.floor(all_files.length / 2)
-        const file = all_files[selected_image_index]
-
-        let filepath_frame = file.filepath
-            
-        if (file.frames > 1) {
-            const selected_frame = Math.floor(file.frames / 2)
-            scan_images.push(filepath_frame + `&frame=${selected_frame}`);
-        } else {
-            scan_images.push(filepath_frame)
-        }
-        
-        /*
-        for (const file of all_files) {
-            let filepath_frame = file.filepath
-            
-            if (file.frames > 1) {
-                for (let i = 0; i < file.frames; i++) {
-                    scan_images.push(filepath_frame + `&frame=${i}`);
-                }
-            } else {
-                scan_images.push(filepath_frame)
-            }
-        }
-        */
-    }
-
-    console.log({scan_images, selected_scans});
-    
-    const scan_image_promises = scan_images.map(async imagePath => {
-        return await dicomFileToDataURL(imagePath, cornerstone, 360, 300)
-    })
-
-    Promise.all(scan_image_promises)
-        .then(imgDataImages => {
-            generateBulkImageReview(selected_scans, imgDataImages)
-            //console.log({imgDataImages});
-            
-            //imgDataImages.forEach(generateScanImage)
-        })
-
 })
 
 async function generateBulkImageReview(selected_scans, imgDataImages) {

@@ -485,25 +485,25 @@ body>.ui-pnotify {
             }
         }
 
-        .mark-approved {
+        .mark-excluded {
             display: none;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             font-size: 50px;
-            color: green;
+            color: #a90d0d;
             font-weight: bold;
         }
 
-        &.approved {
-            .mark-approved {
+        &.excluded {
+            .mark-excluded {
                 display: inline-block;
             }
         }
     }
 
-    .hide-approved .approved{
+    .hide-excluded .excluded{
         display: none;
     }
 
@@ -592,8 +592,8 @@ span[data-toggle="popover"] {
         height: 100px;
     }
 
-    &.group_approved {
-        background-color: rgb(212, 255, 212);
+    &.group_excluded {
+        background-color: rgb(255, 212, 212);
         position: relative;
 
     }

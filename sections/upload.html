@@ -851,6 +851,25 @@
                     
                     <div class="modal-header">
                         <h5 class="modal-title">Review Scans in <span id="modal_mask_alias"></span></h5>
+
+                        <div style="flex-grow: 1" class="text-right"  id="scanReviewFilter">
+                            <label for="review-scans-select-all">
+                                <input type="checkbox" id="review-scans-select-all">
+                                Select all</label>
+                                &nbsp;&nbsp;&nbsp;
+                            <label for="review-scans-hide-excluded">
+                                <input type="checkbox" id="review-scans-hide-excluded">
+                                Hide Excluded (<span id="review-series-images--excluded">0/0</span>)</label>
+                        </div>
+                        
+                        <div class="text-right" style="flex-grow: 1">
+                            <span style="margin-top: 5px;">With selected (<span id="review-series-images--selected">0</span>):</span>
+
+                            <button disabled data-js-review-reset type="button" class="btn btn-gray" type="button">Reset</button>
+                            <button disabled data-js-review-set-template data-toggle="modal" data-target="#setTemplateModal" type="button" class="btn btn-gray" type="button">Set Template</button>
+                            <button disabled data-js-review-exclude type="button" class="btn btn-gray" type="button">Exclude</button>
+                        </div>
+                        
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
@@ -859,44 +878,13 @@
                     <div class="modal-content">
                         <div class="modal-body">
                             <div class="container-fluid">
-                                <nav style="margin: 0 -15px;" class="navbar navbar-expand-lg navbar-dark bg-dark">
-                                    <!-- <span class="navbar-brand">Scan images</span> -->
-                                    <button class="navbar-toggler" type="button" data-toggle="collapse"
-                                        data-target="#scanReviewFilter" aria-controls="scanReviewFilter" aria-expanded="false"
-                                        aria-label="Toggle navigation">
-                                        <span class="navbar-toggler-icon"></span>
-                                    </button>
-                                    <div class="collapse navbar-collapse" id="scanReviewFilter">
-                                        <label for="review-scans-select-all">
-                                            <input type="checkbox" id="review-scans-select-all">
-                                            Select all</label>
-                                            &nbsp;&nbsp;&nbsp;
-                                        <label for="review-scans-hide-approved">
-                                            <input type="checkbox" id="review-scans-hide-approved">
-                                            Hide Approved</label>
-
-                                        
-                                    </div>
-                                </nav>
+                                
 
                                 <div id="scan_images">EJS TPL!</div>
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <div class="row action-button-row">
-                            <div class="col-12">
-                                <div class="text-right button-row">
-                                    <span class="float-left" style="margin-top: 5px;">Approved (<span id="review-series-images--approved">0/0</span>):</span>
-                                    <span style="margin-top: 5px;">With selected (<span id="review-series-images--selected">0</span>):</span>
-
-                                    <button disabled data-js-review-reset type="button" class="btn btn-gray" type="button">Reset</button>
-                                    <button disabled data-js-review-set-template data-toggle="modal" data-target="#setTemplateModal" type="button" class="btn btn-gray" type="button">Set Template</button>
-                                    <button disabled data-js-review-approve type="button" class="btn btn-gray" type="button">Approve For Upload</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    
                 </div>
             </div>
 
