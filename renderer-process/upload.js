@@ -621,7 +621,7 @@ function generate_field_pattern(target_field, source_field) {
     let $tbl = $('#custom_upload_multiple_tbl')
     let tbl_data = $tbl.bootstrapTable('getData')
 
-    let existing_labels = []
+    let existing_labels = project_settings.computed.experiment_labels
 
     for (let i = 0; i < tbl_data.length; i++) {
         let row = tbl_data[i]
@@ -646,7 +646,7 @@ function generate_session_auto() {
     let $tbl = $('#custom_upload_multiple_tbl')
     let tbl_data = $tbl.bootstrapTable('getData')
 
-    let existing_labels = []
+    let existing_labels = project_settings.computed.experiment_labels
 
     for (let i = 0; i < tbl_data.length; i++) {
         let row = tbl_data[i]
