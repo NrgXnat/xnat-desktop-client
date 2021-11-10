@@ -621,13 +621,17 @@ function generate_field_pattern(target_field, source_field) {
     let $tbl = $('#custom_upload_multiple_tbl')
     let tbl_data = $tbl.bootstrapTable('getData')
 
+    let existing_labels = []
+
     for (let i = 0; i < tbl_data.length; i++) {
         let row = tbl_data[i]
         let reinit_val = i === tbl_data.length - 1
 
-        console.log({field: source_field, value: row[source_field]});
-
         let row_value = row[source_field] === undefined ? '' : row[source_field]
+        if (target_field === 'experiment_label') {
+            row_value = generate_unique_session_label(row_value, existing_labels)
+            existing_labels.push(row_value)
+        }
 
         $tbl.bootstrapTable("updateCellByUniqueId", {
             id: row.id,
@@ -642,18 +646,53 @@ function generate_session_auto() {
     let $tbl = $('#custom_upload_multiple_tbl')
     let tbl_data = $tbl.bootstrapTable('getData')
 
-    // if ...
+    let existing_labels = []
 
     for (let i = 0; i < tbl_data.length; i++) {
         let row = tbl_data[i]
         let reinit_val = i === tbl_data.length - 1
 
+        const new_session_label = generate_unique_session_label(row.xnat_subject_id + row.label_suffix, existing_labels)
+        existing_labels.push(new_session_label)
+
         $tbl.bootstrapTable("updateCellByUniqueId", {
             id: row.id,
             field: 'experiment_label',
-            value: row.xnat_subject_id + row.label_suffix,
+            value: new_session_label,
             reinit: reinit_val
         });
+    }
+}
+
+function generate_unique_session_label(proposedLabel, existing_labels) {
+    if (existing_labels.includes(proposedLabel)) {
+        const regex_test = /.*_(\d+)$/gm;
+        if (regex_test.test(proposedLabel)) {
+            const regex = /(.*_)(\d+)$/gm;
+            let matched = regex.exec(proposedLabel);
+
+            let currentIndex = parseInt(matched[2])
+            let prefix = matched[1]
+            let newLabel
+            do {
+                currentIndex++
+                newLabel = prefix + currentIndex
+            } while (existing_labels.includes(newLabel))
+
+            return newLabel
+        } else {
+            let currentIndex = 0
+            let prefix = proposedLabel + '_'
+            let newLabel
+            do {
+                currentIndex++
+                newLabel = prefix + currentIndex
+            } while (existing_labels.includes(newLabel))
+
+            return newLabel
+        }
+    } else {
+        return proposedLabel
     }
 }
 
@@ -4504,7 +4543,7 @@ function generate_experiment_label(_subject_label, _selected_series, _pet_tracer
 	};
 	
 	const exp_label = new ExperimentLabel(data, project_settings.computed.experiment_labels);
-
+    
 	return exp_label.generateLabel()
 }
 
