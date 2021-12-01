@@ -3,6 +3,8 @@ const ipcRenderer = require('electron').ipcRenderer;
 const { findSOPClassUID } = require('../upload/sop_class_uids')
 const { findTransferSyntaxUID } = require('../upload/transfer_syntax_uids')
 
+const { alNumDashUnderscore } = require('../../services/app_utils')
+
 function selected_sessions_table($tbl, tbl_data) {
     destroyBootstrapTable($tbl);
 
@@ -87,15 +89,20 @@ function custom_upload_multiple_table($tbl, tbl_data) {
 
     window.customMultipleUploadTracerChange = {
         'input .tracer-field': function (e, value, row, index) {
+            let new_value = alNumDashUnderscore(e.target.value)
             row.tracer = $(e.target).val()
             ipcRenderer.send('custom_upload_multiple:generate_exp_label', row)
         }
     }
 
     window.customMultipleUploadSubjectChange = {
-        'input .subject-field': function (e, value, row, index) {
-            row.xnat_subject_id = $(e.target).val()
-            if ($('#subject_labeling_pattern').val() === 'auto') {
+        'input .subject-field': function (e, old_value, row, index) {
+            let new_value = alNumDashUnderscore(e.target.value)
+
+            e.target.value = new_value
+            row.xnat_subject_id = new_value
+
+            if ($('#session_labeling_pattern').val() === 'auto') {
                 ipcRenderer.send('custom_upload_multiple:generate_exp_label', row)
             }
 

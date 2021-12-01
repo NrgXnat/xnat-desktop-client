@@ -12,6 +12,8 @@ const mime = require('mime-types')
 const csvToJson = require('csvtojson')
 const store = require('store2')
 
+const debounce = require('debounce')
+
 const auth = require('../services/auth')
 const user_settings = require('../services/user_settings')
 const ResetManager = require('../services/reset-manager')
@@ -561,7 +563,7 @@ function toggle_upload_buttons() {
         })
     }
 
-    $('.js_quick_upload').prop('disabled', invalid_days || selected.length < 2); // TODO < 2
+    $('.js_quick_upload').prop('disabled', invalid_days || selected.length < 2 || project_settings.anon_script !== false); // TODO < 2
     //$('.js_custom_upload').prop('disabled', invalid_days || selected.length != 1)
     $('.js_custom_upload').prop('disabled', invalid_days || selected.length === 0)
 }
@@ -621,13 +623,17 @@ function generate_field_pattern(target_field, source_field) {
     let $tbl = $('#custom_upload_multiple_tbl')
     let tbl_data = $tbl.bootstrapTable('getData')
 
-    let existing_labels = project_settings.computed.experiment_labels
+    let existing_labels = [...project_settings.computed.experiment_labels]
 
     for (let i = 0; i < tbl_data.length; i++) {
         let row = tbl_data[i]
         let reinit_val = i === tbl_data.length - 1
 
         let row_value = row[source_field] === undefined ? '' : row[source_field]
+
+        // replace everything but alphanum and _- with _
+        row_value = row_value.replace(/[^A-Z0-9_-]+/img, '_')
+
         if (target_field === 'experiment_label') {
             row_value = generate_unique_session_label(row_value, existing_labels)
             existing_labels.push(row_value)
@@ -646,7 +652,7 @@ function generate_session_auto() {
     let $tbl = $('#custom_upload_multiple_tbl')
     let tbl_data = $tbl.bootstrapTable('getData')
 
-    let existing_labels = project_settings.computed.experiment_labels
+    let existing_labels = [...project_settings.computed.experiment_labels]
 
     for (let i = 0; i < tbl_data.length; i++) {
         let row = tbl_data[i]
@@ -701,13 +707,20 @@ function _init_session_selection_table(tbl_data) {
     let $found_sessions_tbl = $('#found_sessions');
 
     let date_required = site_wide_settings.require_date || project_settings.require_date;
-    let single_select = !project_settings.allow_bulk_upload;
+    let single_select = !project_settings.allow_bulk_upload || project_settings.anon_script !== false;
+
+    if (single_select) {
+        tbl_data = tbl_data.map(row => {
+            row.state = false
+            return row
+        })
+    }
 
     destroyBootstrapTable($found_sessions_tbl);
 
     const event_list = 'check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table';
     $found_sessions_tbl.off(event_list).on(event_list, toggle_upload_buttons)
-
+    
     window.foundSessionsEvents = {
         'input .day-validation': function (e, value, row, index) {
             row.entered_day = $(e.target).val()
@@ -716,7 +729,6 @@ function _init_session_selection_table(tbl_data) {
     }
 
     $('.js_custom_upload, .js_quick_upload').prop('disabled', false);
-
 
     $found_sessions_tbl.bootstrapTable({
         height: tbl_data.length > 8 ? 400 : 0,
@@ -811,6 +823,8 @@ function _init_session_selection_table(tbl_data) {
     });
 
     $found_sessions_tbl.bootstrapTable('resetView');
+
+    toggle_upload_buttons()
 }
 
 
@@ -2272,7 +2286,10 @@ $(document).on('page:load', '#upload-section', async function(e){
 
     
     $$('#nav-verify #quick_upload .js_next').toggleClass('hidden', !BULK_IMAGE_ANONYMIZATION);
-    $('#nav-verify #quick_upload .js_upload').toggleClass('hidden', BULK_IMAGE_ANONYMIZATION);
+    $$('#nav-verify #quick_upload .js_upload').toggleClass('hidden', BULK_IMAGE_ANONYMIZATION);
+    
+    $$('#nav-verify #custom_upload_multiple .js_next').toggleClass('hidden', !BULK_IMAGE_ANONYMIZATION);
+    $$('#nav-verify #custom_upload_multiple .js_upload').toggleClass('hidden', BULK_IMAGE_ANONYMIZATION);
     
     $('#upload-project').html('')
     $('button[data-target="#new-subject"]').prop('disabled', !site_wide_settings.allow_create_subject);
@@ -2377,6 +2394,18 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
             site_wide_settings: site_wide_settings,
             site_wide_anon_script: site_wide_settings.anon_script !== false
         })
+
+        // toggle #upload_restrictions information
+        let show_restrictions = true
+        let restrictions_content = ''
+        if (!project_settings.allow_bulk_upload) {
+            restrictions_content = 'This project does not allow bulk uploading.'
+        } else if (project_settings.anon_script !== false) {
+            restrictions_content = 'Project anonymization script contains variables - Only single session upload is available.'
+        } else {
+            show_restrictions = false
+        }
+        $$('#upload_restrictions').text(restrictions_content).toggle(show_restrictions)
 
 
         $('#project_settings_tbl_wrap').html(tbl)
@@ -2593,6 +2622,8 @@ $(document).on('click', 'a[data-subtype]', async function(e){
     validate_upload_form()
 });
 
+$on('input', '#additional-upload-fields input', debounce(validate_upload_form, 300))
+
 // ====================================================================================================
 function append_visit_row(visit){
     let vt = visit.type ? visit.type : 'ad hoc';
@@ -2637,6 +2668,7 @@ function append_subtype_row(subtype){
 
 
 $(document).on('click', '.js_next:not(.disabled)', function() {
+    console.log({session_map});
     let active_tab_index = $('.nav-item').index($('.nav-item.active'));
     if ($('.nav-item').eq(active_tab_index + 1).hasClass('hidden')) {
         active_tab_index++;
@@ -2673,7 +2705,8 @@ $(document).on('change', '#file_upload_folder', function(e) {
 
         let pth = this.files[0].path;
 
-
+        // todo - ADD "Processing here instead in dicomParse() method"
+        // to fix large folder traverse "freeze" the interface (also add async traverse)
         getSizeAsPromised(pth)
             .then(function(response){
                 console.log(response);
@@ -2761,12 +2794,14 @@ $on('click', '[data-js-visual-bulk-upload]', async function() {
 
     console.log('CONTINUE UPLOAD');
 
-    const tbl_id = upload_method === 'quick_upload' ? '#selected_session_tbl' : '#custom_upload_multiple_tbl'
-    const _sessions = $(tbl_id).bootstrapTable('getData');
+    const _sessions = upload_method === 'quick_upload' 
+        ? $$('#selected_session_tbl').bootstrapTable('getData')
+        : $$('#custom_upload_multiple_tbl').bootstrapTable('getSelections')
 
     const overwrite = upload_method === 'quick_upload' 
         ? $('#upload_overwrite_method', '#quick_upload').val() 
         : $('#upload_overwrite_method', '#custom_upload_multiple').val()
+    
     await handle_upload_multi(_sessions, project_settings, overwrite)
 
 })
@@ -3190,13 +3225,21 @@ $(document).on('click', '.js_cancel_session_selection', function(){
     FlowReset.execAfter('disable_session_upload')
 });
 
-$(document).on('click', '.js_custom_upload', function(){
+$(document).on('click', '.js_custom_upload', async function(){
     let selected = $('#found_sessions').bootstrapTable('getSelections');
 
-    console.log({selected});
-
     if (selected.length > 1) {
-        custom_upload_multiple_selection(selected)
+        if (project_settings.anon_script === false) {
+            custom_upload_multiple_selection(selected)
+        } else {
+            await swal({
+                title: `Project Restriction - Single Session Upload`,
+                text: `Custom variables are defined for this project. Please select a single session and continue with the Custom Upload.`,
+                icon: "info",
+                dangerMode: true
+            })
+            return
+        }
     } else {
         select_session_id(selected[0])
     }

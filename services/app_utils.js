@@ -5,6 +5,7 @@ const checksum = require('checksum')
 const FileSaver = require('file-saver')
 
 const ElectronStore = require('electron-store')
+const { replace } = require('lodash')
 const settings = new ElectronStore()
 
 exports.isDevEnv = () => {
@@ -232,3 +233,34 @@ function normalizeTimeString(only_numbers) {
     }
 }
 exports.normalizeTimeString = normalizeTimeString
+
+
+// INFO: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#escaping
+const escapeRegExp = (str) => {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") // $& means the whole matched string
+}
+
+const multiLetterRegExp = (char) =>
+    char !== "" ? new RegExp(`${escapeRegExp(char)}+`, "g") : ""
+
+exports.replaceFactory = (allowRegExp, input, replacedBy = "") => {
+    return input
+        .replace(allowRegExp, replacedBy)
+        .replace(multiLetterRegExp(replacedBy), replacedBy)
+}
+
+exports.alNum = (input, replacedBy = "") => {
+    const allowRegExp = /[^A-Z0-9]+/gim
+    return exports.replaceFactory(allowRegExp, input, replacedBy)
+}
+
+exports.alNumDash = (input, replacedBy = "-") => {
+    const allowRegExp = /[^A-Z0-9-]+/gim
+    return exports.replaceFactory(allowRegExp, input, replacedBy)
+}
+
+exports.alNumDashUnderscore = (input, replacedBy = "_") => {
+    const allowRegExp = /[^A-Z0-9_-]+/gim
+    return exports.replaceFactory(allowRegExp, input, replacedBy)
+}
+
