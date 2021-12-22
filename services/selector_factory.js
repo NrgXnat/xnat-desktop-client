@@ -1,3 +1,4 @@
+// TODO: import improvements from MSBASE 
 module.exports = (dom_context) => {
     return {
         $on(event, selector, handler) {

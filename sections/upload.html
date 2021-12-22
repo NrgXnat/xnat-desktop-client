@@ -383,7 +383,7 @@
 
                             <div id="custom_upload_multiple">
                                 <div class="col">
-                                    <button id="switch_to_quick_upload" type="button" class="float-right btn btn-blue">Switch to the Quick Upload Process</button>
+                                    <!-- <button id="switch_to_quick_upload" type="button" class="float-right btn btn-blue">Switch to the Quick Upload Process</button> -->
                                     <h2>Custom Upload</h2>
                                     <p>A "custom upload" process allows you to modify session metadata and add parameters, 
                                         and also includes visual PHI inspection and pixel anonymization, before uploading 
@@ -611,7 +611,7 @@
                                                 <div class="container">
                                                     <div class="row">
                                                         <div class="col-sm-3" id="series_thumbs_holder">
-                                                            <ul id="series_thumbs"></ul>
+                                                            <ul id="series_thumbs" class="series_thumbs"></ul>
                                                         </div>
                                                         <div class="col-sm-9" style="max-width: calc(100% - 194px); flex: 0 1 auto;">
                                                             <div id="frame_input_container"></div>
@@ -653,54 +653,16 @@
                                     <i class="fas fa-question-circle"></i>
                                     Help
                                 </span>
-                                <!--
-                                <span style="font-size: 16px"
-                                    data-toggle="popover" 
-                                    title="Visual PHI Removal Instructions" 
-                                    data-content="Lorem ipsum dolor, sit amet consectetur adipisicing elit. Culpa cum similique, excepturi maiores quisquam ex at consequatur est nemo ea!">
-                                    <i class="fas fa-question-circle"></i>
-                                    Help
-                                </span>
-                                -->
                             </h2>
 
                             <div class="row">
                                 <div class="col-sm-12">
-
                                     <div id="masking-groups"></div>
-
-                                    <!--
-                                    <div class="filter-clear-container">
-                                        <span class="displayed-items badge badge-pill">Rows: 0</span>
-                                        <button class="btn btn-gray btn-sm btn-xs" data-clear-filter-control="#selected_scans" title="Clear All Filters">
-                                            <span class="fa-stack fa-1x filter-clear">
-                                                <i class="fas fa-filter fa-stack-1x"></i>
-                                                <i class="far fa-times-circle fa-stack-1x"></i>
-                                            </span>
-                                        </button>
-                                    </div>
-                                    <div style="width: 97vw; transform: translate(-50%); margin-left: 50%;">
-                                        <table class="table table-bordered" id="selected_scans"></table>
-                                    </div> 
-
-                                    -->
                                 </div>
                             </div>
 
 
                             <div class="row action-button-row">
-                                <!--
-                                <div class="col-12 row_items">
-                                    
-                                    <div class="button-row">
-                                        <span style="transform: rotate(90deg);display: inline-block;font-size: 25px;line-height: 1;margin-right: 3px;">&#8629;</span>
-                                        <span class="mr-auto">Bulk actions:</span>
-                                        <button type="button" data-action="bulk-action-review" data-text="Review" class="btn btn-gray" disabled>Review</button>
-                                        <button type="button" data-action="bulk-action-apply-mask" data-text="Apply Selected Mask" class="btn btn-gray" disabled>Apply Selected Mask</button>
-                                    </div>
-                                </div>
-                                -->
-
                                 <div class="text-right button-row ">
                                     <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
                                     <button type="button" class="btn btn-gray js_prev" type="button">
@@ -938,8 +900,6 @@
                     <div class="modal-content">
                         <div class="modal-body">
                             <div class="container-fluid">
-                                <div id="create-masking-template--content--removed"></div>
-
                                 <section id="topBarCustom">
                                     <nav class="navbar bg-black">
                                         <ul class="nav" id="dicom_image_tools">
@@ -1022,7 +982,7 @@
                                     <div class="container">
                                         <div class="row">
                                             <div class="col-sm-3" id="series_thumbs_holder">
-                                                <ul id="series_thumbs"></ul>
+                                                <ul id="series_thumbs" class="series_thumbs"></ul>
                                             </div>
                                             <div class="col-sm-9" style="max-width: calc(100% - 194px); flex: 0 1 auto; padding-left: 0; padding-right: 0;">
                                                 <div id="frame_input_container"></div>

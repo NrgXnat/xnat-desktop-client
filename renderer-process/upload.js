@@ -1,4 +1,5 @@
 const { ipcRenderer, remote } = require('electron')
+const app = remote.app
 const fs = require('fs')
 const path = require('path')
 const getSize = require('get-folder-size')
@@ -29,12 +30,14 @@ const {
     objToJsonFile, 
     normalizeDateString, 
     normalizeTimeString, 
-    normalizeDateTimeString
+    normalizeDateTimeString,
+    alNum
 } = require('../services/app_utils')
-const { selected_sessions_table, custom_upload_multiple_table, selected_scans_table } = require('../services/tables/upload-prepare')
+const { selected_sessions_table, custom_upload_multiple_table, validate_custom_upload_multiple_details, selected_scans_table } = require('../services/tables/upload-prepare')
 const { findSOPClassUID } = require('../services/upload/sop_class_uids')
 const templateEngine = require('../services/template_engine')
 const ejs_template = require('../services/ejs_template')
+
 
 const {
     DEFAULT_RECENT_UPLOAD_PROJECTS_COUNT, 
@@ -212,7 +215,8 @@ async function fetch_project_settings(project_id, xnat_server, user_auth) {
             xnat_api.project_pet_tracers(project_id),
             xnat_api.project_allow_bulk_upload(project_id),
             xnat_api.project_default_subject_labeling_scheme(project_id),
-            xnat_api.project_default_session_labeling_scheme(project_id)
+            xnat_api.project_default_session_labeling_scheme(project_id),
+            xnat_api.project_prearchived_sessions(project_id)
         ])
 
         return {
@@ -227,7 +231,8 @@ async function fetch_project_settings(project_id, xnat_server, user_auth) {
             pet_tracers: res[8],
             allow_bulk_upload: res[9],
             subject_labeling_scheme: res[10],
-            session_labeling_scheme: res[11]
+            session_labeling_scheme: res[11],
+            sessions_prearchived: res[12]
         }
     } catch (err) {
         throw err
@@ -355,7 +360,7 @@ function init_flow_reset() {
 
 function initAnno() {
     anno2 = new Anno([{
-        target  : '#series_thumbs', // second block of code
+        target  : '#series_thumbs:visible', // second block of code
         position: 'top',
         content : 'This pane shows scan thumbnails. Drag a thumbnail into the viewer pane to view it. ',
         className: 'pera-klasa'
@@ -508,9 +513,8 @@ function _init_img_sessions_table(table_rows) {
     $img_session_tbl.bootstrapTable('resetView');
 }
 
-
 // triggered when selected tab (#nav-verify) is displayed
-$(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]', function(){
+$on('shown.bs.tab', '.nav-tabs a[href="#nav-verify"]', function(){
     let upload_method = $('#nav-verify').data('upload_method')
 
     const HIDE_PHI_TAB = !ALLOW_VISUAL_PHI_CHECK || upload_method !== 'custom_upload'
@@ -527,6 +531,8 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]'
             $('#custom_upload_multiple').show().siblings().hide()
             $('#subject_labeling_pattern').val(project_settings.subject_labeling_scheme).trigger('change')
             $('#session_labeling_pattern').val(project_settings.session_labeling_scheme).trigger('change')
+
+            // initial validation is performed implicitly, after triggering select change
             break
         case 'custom_upload':
         default:
@@ -538,10 +544,14 @@ $(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-verify"]'
             $('#var_visit').val($('#visit_prm').val()).trigger('change')
             $('#var_datatype').val($('#datatype_prm').val()).trigger('change')
             $('#var_subtype').val($('#subtype_prm').val()).trigger('change')
+
+            validate_upload_form();
             break
     }
+})
 
-    validate_upload_form();
+$on('input change', '#custom_upload_multiple :input', function (e) {
+    setTimeout(validate_custom_upload_multiple_details, 0)
 })
 
 function toggle_upload_buttons() {
@@ -563,7 +573,7 @@ function toggle_upload_buttons() {
         })
     }
 
-    $('.js_quick_upload').prop('disabled', invalid_days || selected.length < 2 || project_settings.anon_script !== false); // TODO < 2
+    $('.js_quick_upload').prop('disabled', invalid_days || selected.length < 2 || project_settings.anon_script !== false)
     //$('.js_custom_upload').prop('disabled', invalid_days || selected.length != 1)
     $('.js_custom_upload').prop('disabled', invalid_days || selected.length === 0)
 }
@@ -874,8 +884,9 @@ function validate_upload_form() {
         required_input_error = true;
     }
 
-    $$('#nav-verify .js_next, .js_upload').toggleClass('disabled', required_input_error);
-    $$('.js_upload').prop('disabled', required_input_error);
+    $('#nav-verify .js_next, #nav-verify .js_upload')
+        .toggleClass('disabled', required_input_error)
+        .prop('disabled', required_input_error);
 
     return required_input_error;
 }
@@ -896,33 +907,40 @@ function valid_pixel_anon() {
 
 let image_thumbnails = [];
 // triggered when selected tab (#nav-visual) is displayed
-$(document).on('shown.bs.tab', '#upload-section .nav-tabs a[href="#nav-visual"]', function(){
+$on('shown.bs.tab', '.nav-tabs a[href="#nav-visual"]', async function() {
     $('.main-title').focus()
 
     window.dispatchEvent(new Event('resize'));// HACK TO recalculate canvas size for main cornerstone image
 
-    set_image_thumbnails()
-
+    set_image_thumbnails();
 
     // reset
-    $('#series_thumbs').html('');
-    image_thumbnails.map(el => {
-        $('#series_thumbs').append(`<li id="LI_${el.series_id}">`);
-    });
+    $('#series_thumbs:visible').html('');
 
-    console.log({image_thumbnails});
-    
-    image_thumbnails.forEach((series, index) => {
-        display_series_thumb(series, index, cornerstone)
-    });
+    let loadedImageCnt = 0
 
-    // Load first image
-    load_dicom_image(image_thumbnails[0].series_id);
-    
-    $('#series_thumbs li').eq(0).addClass('highlite-outline');
+    for (let i = 0; i < image_thumbnails.length; i++) {
+        let series = image_thumbnails[i]
+        let imgLoaded = await display_series_thumb(series, loadedImageCnt, cornerstone)
 
-    $("html, body").stop().animate({scrollTop:0}, 50);
+        if (imgLoaded) {
+            if (loadedImageCnt === 0) {
+                // Load first image
+                load_dicom_image(series.series_id);
+            }
+            loadedImageCnt++
+        }
+    }
 
+    if (image_thumbnails.length > loadedImageCnt) {
+        Helper.pnotify(null, `Some series (${image_thumbnails.length - loadedImageCnt}) do not contain image data!`, 'info');
+    }
+
+    // we have to use timeout, because display_series_thumb uses 100ms timeout
+    setTimeout(function() {
+        $('#series_thumbs:visible li').eq(0).addClass('highlite-outline');
+        $("html, body").stop().animate({scrollTop:0}, 50);
+    }, 150)
 
     if(!store.has('dicom_viewer_tour_shown')) {
         store.set('dicom_viewer_tour_shown',  true);
@@ -1006,12 +1024,13 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
                 filesCount: scan_files.length,
                 uniformScanSize: scan_has_uniform_size(scan_files),
                 uniformScanSOPClass: scan_has_uniform_SOPClassUID(scan_files),
+                containsImageData: !!sel_img.Rows, // simply chech if the image Rows value is defined
 
                 SOPClassUID: sel_img.SOPClassUID,
                 TransferSyntaxUID: sel_img.TransferSyntaxUID,
                 PhotometricInterpretation: sel_img.PhotometricInterpretation,
-                Rows: parseInt(sel_img.Rows),
-                Columns: parseInt(sel_img.Columns),
+                Rows: sel_img.Rows ? parseInt(sel_img.Rows) : null,
+                Columns: sel_img.Columns ? parseInt(sel_img.Columns): null,
 
 
                 frames: sel_img.frames,
@@ -1049,7 +1068,7 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
         // const rand = Math.random()
         // const is_supported_scan = rand < 0.8
 
-        const is_supported_scan = scan.uniformScanSize && scan.uniformScanSOPClass
+        const is_supported_scan = scan.uniformScanSize && scan.uniformScanSOPClass && scan.containsImageData
 
         const group_identifier = is_supported_scan ? `${scan.modality}|${scan.Rows}x${scan.Columns}|${scan.SOPClassUID}` : '_UNSUPPORTED_'
         if (_masking_groups[group_identifier] === undefined) {
@@ -1058,8 +1077,16 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
         _masking_groups[group_identifier].push(scan)
     })
 
-    const img_promises = my_scans.map(async scan_data => {
-        return await dicomFileToDataURL(scan_data.thumbPath, cornerstone, 100, 100)
+
+    let image_path = path.resolve(app.getAppPath(), 'assets', 'images', 'no-image-available.png')
+    let imgData = await canvasImage2Data(image_path, 100, 100, '#fff')
+
+    const img_promises = my_scans.map(async (scan_data) => {
+        try {
+            return await dicomFileToDataURL(scan_data.thumbPath, cornerstone, 100, 100)
+        } catch (err) {
+            return imgData
+        }
     })
 
     Promise.all(img_promises)
@@ -1350,6 +1377,47 @@ $on('click', '[data-template-alias-delete]', async function() {
     }
 })
 
+async function canvasImage2Data(_path, canvas_width = null, canvas_height = null, bgColor = null) {
+    let img = await loadImage(_path)
+
+    let newCanvas = document.createElement('canvas')
+    newCanvas.width = canvas_width ? canvas_width : img.width
+    newCanvas.height = canvas_height ? canvas_height : img.height
+
+    let context = newCanvas.getContext('2d')
+    context.clearRect(0,0,newCanvas.width, newCanvas.height)
+
+    // TODO - implement better image smoothing using createImageBitmap
+    // https://stackoverflow.com/questions/19262141/resize-image-with-javascript-canvas-smoothly
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+
+    // add bg color
+    if (bgColor) {
+        context.fillStyle = bgColor
+        context.fillRect(0, 0, newCanvas.width, newCanvas.height)
+    }
+
+    // scale and center
+    let hRatio = newCanvas.width  / img.width
+    let vRatio = newCanvas.height / img.height
+    let ratio  = Math.min(hRatio, vRatio)
+    let centerShift_x = (newCanvas.width - img.width*ratio) / 2
+    let centerShift_y = (newCanvas.height - img.height*ratio) / 2
+    context.drawImage(img, 0,0, img.width, img.height, centerShift_x, centerShift_y, img.width*ratio, img.height*ratio);
+    
+    const img_data_src = newCanvas.toDataURL()
+    return img_data_src
+    
+    function loadImage(_path) {
+        return new Promise(r => { 
+            let i = new Image()
+            i.onload = (() => r(i))
+            i.src = _path
+        })
+    }
+}
+
 function cloneCanvas(oldCanvas) {
 
     //create a new canvas
@@ -1371,7 +1439,7 @@ $on('click', '.btn-link[data-mask-type]', function() {
     display_masking_groups($(this).data('mask-type'))
 });
 
-$on('click', '[data-review-mask-alias]', function() {
+$on('click', '[data-review-mask-alias]', async function() {
     const mask_alias = $(this).data('review-mask-alias')
 
     const scan_images = _masking_groups[mask_alias].map(scan => scan.thumbPath)
@@ -1379,8 +1447,15 @@ $on('click', '[data-review-mask-alias]', function() {
     _masking_groups[mask_alias][0].Columns
     _masking_groups[mask_alias][0].Rows
 
+    let image_path = path.resolve(app.getAppPath(), 'assets', 'images', 'no-image-available-big.png')
+    let imgData = await canvasImage2Data(image_path, 540, 300, '#fff')
+
     const scan_image_promises = scan_images.map(async imagePath => {
-        return await dicomFileToDataURL(imagePath, cornerstone, 540, 300)
+        try {
+            return await dicomFileToDataURL(imagePath, cornerstone, 540, 300)
+        } catch (err) {
+            return imgData
+        }
     })
 
     Promise.all(scan_image_promises)
@@ -1392,7 +1467,6 @@ $on('click', '[data-review-mask-alias]', function() {
             $$('#review-series-images').data({
                 mask_alias: mask_alias
             }).modal('show')
-        
         })
 });
 
@@ -1525,20 +1599,14 @@ $on('click', '[data-js-review-create-template]', function() {
         .modal('show')
 })
 
-$on('shown.bs.modal', '#create-masking-template', function(e) {
+// TODO - fix display_series_thumb
+$on('shown.bs.modal', '#create-masking-template', async function(e) {
     console.log($(this).data())
 
     let selected_session_id = $(this).data('session-id')
     let selected_series_ids = [$(this).data('series-id')]
 
-    $$('#create-masking-template--content')
-        .html('')
-        .append($('<div>').text(`Session ID: ${selected_session_id}`))
-        .append($('<div>').text(`Series ID: ${selected_series_ids[0]}`));
-
-
     image_thumbnails = [];
-
     
     session_map.get(selected_session_id).scans.forEach(function(scan, key) {
         if (selected_series_ids.includes(key)) {
@@ -1552,25 +1620,40 @@ $on('shown.bs.modal', '#create-masking-template', function(e) {
         }
     })
 
+    // ==================================
     // reset
     $$('#create-masking-template #series_thumbs').html('');
-    image_thumbnails.map(el => {
-        $('#create-masking-template #series_thumbs').append(`<li id="LI_${el.series_id}">`);
-    });
-
-    console.log({image_thumbnails});
-    
-    image_thumbnails.forEach((series, index) => {
-        display_series_thumb(series, index, cornerstone)
-    });
 
     const _el = $('#create-masking-template #dicom_image_container').get(0)
-    // Load first image
-    load_dicom_image(
-        image_thumbnails[0].series_id, 
-        selected_session_id, 
-        _el
-    );
+    let loadedImageCnt = 0
+
+    for (let i = 0; i < image_thumbnails.length; i++) {
+        let series = image_thumbnails[i]
+        let imgLoaded = await display_series_thumb(series, loadedImageCnt, cornerstone)
+
+        if (imgLoaded) {
+            if (loadedImageCnt === 0) {
+                // Load first image
+                load_dicom_image(
+                    series.series_id, 
+                    selected_session_id, 
+                    _el
+                );
+            }
+            loadedImageCnt++
+        }
+    }
+
+    if (image_thumbnails.length > loadedImageCnt) {
+        Helper.pnotify(null, `Some series (${image_thumbnails.length - loadedImageCnt}) do not contain image data!`, 'info');
+    }
+
+    // we have to use timeout, because display_series_thumb uses 100ms timeout
+    setTimeout(function() {
+        $('#series_thumbs:visible li').eq(0).addClass('highlite-outline');
+        $("html, body").stop().animate({scrollTop:0}, 50);
+    }, 150)
+    // ==================================
 
     //cornerstoneTools.setToolEnabledForElement(_el, 'RectangleOverlay');
     //cornerstoneTools.setToolActiveForElement(_el, 'RectangleOverlay', {mouseButtonMask: 1});
@@ -1578,9 +1661,6 @@ $on('shown.bs.modal', '#create-masking-template', function(e) {
     //cornerstoneTools.addToolForElement(_el, cornerstoneTools.RectangleOverlayTool);
     cornerstoneTools.setToolActiveForElement(_el, "RectangleOverlay", {mouseButtonMask: 1});
     
-    $('#create-masking-template #series_thumbs li').eq(0).addClass('highlite-outline');
-    $("html, body").stop().animate({scrollTop:0}, 50);
-
     window.dispatchEvent(new Event('resize'));// HACK TO recalculate canvas size for main cornerstone image
 });
 
@@ -1634,7 +1714,9 @@ function dicomFileToDataURL(thumb_path, cornerstone, width, height) {
                 cornerstone.displayImage(element, image, viewport);
             })
             .catch(err => {
-                reject(`Thumbnail Load Error: ${err.error.message}\n[${imageId}]`)
+                // cached image and loaded image return differen error objects
+                const error = err.error ? err.error : err
+                reject(`Thumbnail Load Error: ${error.message}\n[${imageId}]`)
             });
     })
     
@@ -1670,7 +1752,7 @@ function get_quick_selected_session_ids() {
 }
 
 function get_custom_selected_session_ids() {
-    let selected_series = $('#custom_upload_multiple_tbl').bootstrapTable('getData');
+    let selected_series = $('#custom_upload_multiple_tbl').bootstrapTable('getSelections');
     return selected_series.map(item => item.id)
 }
 
@@ -1754,7 +1836,7 @@ function cornerstone_disable_element(element) {
     }
 }
 
-$on('click', '#save-scan-btn', function(e) {
+$on('click', '#save-scan-btn', async function(e) {
     e.preventDefault()
     let series_id = get_current_series_id();
     let rectangle_state = find_registry_state(series_id);
@@ -1762,24 +1844,22 @@ $on('click', '#save-scan-btn', function(e) {
     if (rectangle_state !== undefined) {
         rectangle_state.saved = true;
     }
-    
 
-    let index = $('li.highlite-outline').index();
-    display_series_thumb(image_thumbnails[index], index, cornerstone)
+    let index = image_thumbnails.findIndex(series => series.series_id == series_id)
+    await display_series_thumb(image_thumbnails[index], index, cornerstone)
 
-    
     $('#stack-scroll-btn').trigger('click');
 
     console.log({rectangle_state_registry});
 })
 
 
-$on('click', '#reset-scan-btn', function(e) {
+$on('click', '#reset-scan-btn', async function(e) {
     e.preventDefault()
     const $context = $(this).closest('#topBarCustom').closest('div').find('#imgGalleryPreview')
     const element = $('#dicom_image_container', $context).get(0);
 
-    let toolState = cornerstoneTools.getToolState(element, 'RectangleOverlay')
+    // let toolState = cornerstoneTools.getToolState(element, 'RectangleOverlay')
 
     cornerstoneTools.clearToolState(element, 'RectangleOverlay')
 
@@ -1790,9 +1870,9 @@ $on('click', '#reset-scan-btn', function(e) {
         srcElement: element
     })
 
-    let index = $('li.highlite-outline').index();
-    display_series_thumb(image_thumbnails[index], index, cornerstone)
-
+    let series_id = get_current_series_id();
+    let index = image_thumbnails.findIndex(series => series.series_id == series_id)
+    await display_series_thumb(image_thumbnails[index], index, cornerstone)
 })
 
 
@@ -1835,100 +1915,112 @@ function clear_main_tool_state(image_path) {
     });
 }
 
-function display_series_thumb(series, index, cornerstone) {
-    $$('#series_thumbs').each(function() {
-        console.log({
-            visible: $(this).is(':visible'),
-            el: $(this).get(0)
+async function display_series_thumb(series, index, cornerstone) {
+    return new Promise((resolve, reject) => {
+        $$('#series_thumbs').each(function() {
+            console.log({
+                visible: $(this).is(':visible'),
+                el: $(this).get(0)
+            })
         })
-    })
-
-    let element = cornerstone_enable_thumb_element();
-
-    let imageId = `wadouri:http://localhost:7714/?path=${series.thumb_path}`;
-
-
-    // load image
-    cornerstone.loadAndCacheImage(imageId)
-    .then((image) => {
-
-        let viewport = cornerstone.getDefaultViewportForImage(element, image);
-        cornerstone.displayImage(element, image, viewport);
-
-        // Update first image in case rectangles are not painted on first scan in series
-        setTimeout((series_id, element) => {
-            let rectangle_state = find_registry_state(series_id);
     
-            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+        let element = cornerstone_enable_thumb_element();
+    
+        let imageId = `wadouri:http://localhost:7714/?path=${series.thumb_path}`;
+    
+        let imageIsLoaded = true
+        // load image
+        cornerstone.loadAndCacheImage(imageId)
+        .then((image) => {
+            let viewport = cornerstone.getDefaultViewportForImage(element, image);
+            cornerstone.displayImage(element, image, viewport);
+    
+            // Update first image in case rectangles are not painted on first scan in series
+            setTimeout((series_id, element) => {
+                let rectangle_state = find_registry_state(series_id);
         
-            if (rectangle_state !== undefined) {
-                rectangle_state.data.forEach(state => {
-                    add_tool_state(element, 'RectangleOverlay', state)
+                cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+            
+                if (rectangle_state !== undefined) {
+                    rectangle_state.data.forEach(state => {
+                        add_tool_state(element, 'RectangleOverlay', state)
+                    });
+                }
+        
+                cornerstone.updateImage(element)
+            }, 20, series.series_id, element)
+    
+            setTimeout(function() {
+                let $img = $('<img>');
+                let img_data_src = $(element).find("canvas").get(0).toDataURL();
+                $img.attr('src', img_data_src);
+                
+                $img.attr('id', 'ID_' + alNum(series.series_id, '_'));
+                $img.attr('data-series_id', series.series_id);
+                //$img.attr('data-order', index);
+                $img.attr('data-path', series.thumb_path);
+    
+                $img.attr('draggable', true);
+    
+                $img.on('dragstart', function (event) {
+                    dragstart_dicom(event.originalEvent)
                 });
-            }
     
-            cornerstone.updateImage(element)
-        }, 20, series.series_id, element)
+                let $div = $('<div>');
+                $div.append($img);
+    
+                
+                //$div.append(`<p style="text-align: center">S:${series.series_number}  (F:${series.scans})</p>`)
+                $div.append(`<div style="text-align: center; font-size: 12px; color: #9ccef9; margin: 3px 0 35px; position: relative;">
+                    <div style="float: left;">S:${series.series_number} </div>
+                    <div style="float: right;">F:${series.scans}</div>
+                    <div style="position: absolute; top: -30px; right: 1px; display: none;" class="green_mark">
+                        <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24" 
+                        style="opacity: 1; mix-blend-mode: normal; fill: rgb(23, 209, 6); width: 24px; height: 24px;
+                        "><g><path xmlns:default="http://www.w3.org/2000/svg" 
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
+                        style="fill: rgb(23, 209, 6);"></path></g></svg>
+                    </div>
+                    <div style="position: absolute; top: -30px; right: 1px; display: none;" class="yellow_mark">
+                        <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24"
+                        style="opacity: 1; mix-blend-mode: normal; fill: rgb(247, 227, 46); width: 24px; height: 24px;
+                        "><g><path xmlns:default="http://www.w3.org/2000/svg" 
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
+                        style="fill: rgb(247, 227, 46);"></path></g></svg>
+                    </div>
+                </div>`);
 
-        setTimeout(function() {
-            let $img = $('<img>');
-            let img_data_src = $(element).find("canvas").get(0).toDataURL();
-            $img.attr('src', img_data_src);
-            $img.attr('id', 'ID_' + series.series_id.replace(/\./g, '_'));
-            $img.attr('data-series_id', series.series_id);
-            $img.attr('data-order', index);
-            $img.attr('data-path', series.thumb_path);
+                let li_id = `LI_${alNum(series.series_id, '_')}`
+                let $li_existing = $(`#${li_id}`)
 
-            $img.attr('draggable', true);
-
-            $img.on('dragstart', function (event) {
-                dragstart_dicom(event.originalEvent)
-            });
-
-            let $div = $('<div>');
-            $div.append($img);
-
-            
-            //$div.append(`<p style="text-align: center">S:${series.series_number}  (F:${series.scans})</p>`)
-            $div.append(`<div style="text-align: center; font-size: 12px; color: #9ccef9; margin: 3px 0 35px; position: relative;">
-                <div style="float: left;">S:${series.series_number} </div>
-                <div style="float: right;">F:${series.scans}</div>
-                <div style="position: absolute; top: -30px; right: 1px; display: none;" class="green_mark">
-                    <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24" 
-                    style="opacity: 1; mix-blend-mode: normal; fill: rgb(23, 209, 6); width: 24px; height: 24px;
-                    "><g><path xmlns:default="http://www.w3.org/2000/svg" 
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
-                    style="fill: rgb(23, 209, 6);"></path></g></svg>
-                </div>
-                <div style="position: absolute; top: -30px; right: 1px; display: none;" class="yellow_mark">
-                    <svg version="1.2" preserveAspectRatio="none" viewBox="0 0 24 24"
-                    style="opacity: 1; mix-blend-mode: normal; fill: rgb(247, 227, 46); width: 24px; height: 24px;
-                    "><g><path xmlns:default="http://www.w3.org/2000/svg" 
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" 
-                    style="fill: rgb(247, 227, 46);"></path></g></svg>
-                </div>
-            </div>`);
-
-            $$('#series_thumbs:visible li').eq(index).html($div);
-
-            let rectangle_state = find_registry_state(series.series_id);
-            
-            if (rectangle_state && rectangle_state.rectangles.length) {
-                $div.find('.green_mark').toggle(rectangle_state.saved) 
-                $div.find('.yellow_mark').toggle(!rectangle_state.saved) 
-            }
-
-            cornerstone.disable(element);
-
-            document.body.removeChild(element);
-            element = null
-        }, 100);
-        
+                if ($li_existing.length) {
+                    $li_existing.html($div)
+                } else {
+                    let $li_new = $(`<li id="${li_id}">`).html($div)
+                    $$('.series_thumbs:visible').append($li_new);
+                }
+                
+                let rectangle_state = find_registry_state(series.series_id);
+                
+                if (rectangle_state && rectangle_state.rectangles.length) {
+                    $div.find('.green_mark').toggle(rectangle_state.saved) 
+                    $div.find('.yellow_mark').toggle(!rectangle_state.saved) 
+                }
+            }, 100);
+        })
+        .catch(err => {
+            imageIsLoaded = false
+        })
+        .finally(() => {
+            setTimeout(function() {
+                cornerstone.disable(element);
+                document.body.removeChild(element);
+                element = null
+            }, 101)
+    
+            resolve(imageIsLoaded)
+        });
     })
-    .catch(err => {
-        Helper.pnotify('Thumbnail Load Error', `${err.error.message}\n[${imageId}]`, 'warning');
-        console.log({display_series_thumb_ERR: err});
-    });
 }
 
 function get_tool_state(element, tool) {
@@ -1955,7 +2047,7 @@ $(document).on('drop', '#dicom_image_container', function(event) {
     drop_dicom(event.originalEvent)
 })
 
-$(document).on('click', '#series_thumbs img', function() {
+$(document).on('click', '#series_thumbs:visible img', function() {
     console.log(this.id);
 });
 
@@ -2101,8 +2193,6 @@ function load_dicom_image(series_id, session_id, cs_element = false) {
 
     cornerstone.loadAndCacheImage(imageIds[0])
     .then((image) => {
-        console.log({image})
-
         let viewport = cornerstone.getDefaultViewportForImage(element, image);
         cornerstone.displayImage(element, image, viewport);
 
@@ -2116,13 +2206,8 @@ function load_dicom_image(series_id, session_id, cs_element = false) {
 		cornerstoneTools.setToolEnabledForElement(element, "RectangleOverlay");
     })
     .catch(err => {
-        swal({
-            title: `Error`,
-            text: `${err.error.message}\n[${imageIds[0]}]`,
-            icon: "error",
-            dangerMode: true
-        })
-        console.log({load_dicom_image_ERR: err});
+        const error = err.error ? err.error : err
+        Helper.pnotify('Load Image Error', `${error.message}\n[${imageIds[0]}]`, 'warning');
     });
 }
 
@@ -2189,8 +2274,8 @@ function handle_measurement_update(e) {
             console.log({rectangles: state_data});
 
             
-            $('#series_thumbs li.highlite-outline').find('.green_mark').toggle(state_data.saved && state_data.rectangles > 0);
-            $('#series_thumbs li.highlite-outline').find('.yellow_mark').toggle(!state_data.saved);
+            $('#series_thumbs:visible li.highlite-outline').find('.green_mark').toggle(state_data.saved && state_data.rectangles > 0);
+            $('#series_thumbs:visible li.highlite-outline').find('.yellow_mark').toggle(!state_data.saved);
         }
         
         //const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
@@ -2224,7 +2309,7 @@ function registry_remove_series_state(series_id) {
 }
 
 function get_current_series_id() {
-    return $('#series_thumbs li.highlite-outline').find('img[data-series_id]').data('series_id');
+    return $('#series_thumbs:visible li.highlite-outline').find('img[data-series_id]').data('series_id');
 }
 
 
@@ -2246,7 +2331,7 @@ $(document).on('page:load', '#upload-section', async function(e){
         $('body').addClass('dicomImageViewerFS');
         let contentCut = $("#fullscreenContent").detach()
         contentCut.appendTo("#fullscreenModal .modal-body");
-        $('#series_thumbs').css('max-height', `${($(window).height() - 41 - 70 - 20)}px`);
+        $('#series_thumbs:visible').css('max-height', `${($(window).height() - 41 - 70 - 20)}px`);
         $('#dicom_image_container').css('height', `${($(window).height() - 41 - 70)}px`);
     })
 
@@ -2255,7 +2340,7 @@ $(document).on('page:load', '#upload-section', async function(e){
         contentCutAgain.appendTo("#fullscreenMode .container .row")
         $('body').removeClass('dicomImageViewerFS');
 
-        $('#series_thumbs').css('max-height', '480px');
+        $('#series_thumbs:visible').css('max-height', '480px');
         $('#dicom_image_container').css('height', `500px`);
     })
 
@@ -2267,7 +2352,7 @@ $(document).on('page:load', '#upload-section', async function(e){
     $(window).on('resize', function() {
         clearTimeout(resizing_tm);
         resizing_tm = setTimeout(() => {
-            $('.dicomImageViewerFS #series_thumbs').css('max-height', `${($(window).height() - 41 - 70 - 20)}px`);
+            $('.dicomImageViewerFS #series_thumbs:visible').css('max-height', `${($(window).height() - 41 - 70 - 20)}px`);
             $('.dicomImageViewerFS #dicom_image_container').css('height', `${($(window).height() - 41 - 70)}px`);
         }, 20);
     });
@@ -2377,10 +2462,13 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
 
         const scripts = XNATAPI._aggregate_script(site_wide_settings.anon_script, project_settings.anon_script)
 
+        const session_labels = project_settings.sessions.map(item => item.label)
+        const prearchived_session_labels = project_settings.sessions_prearchived.map(item => item.name)
+        
         project_settings.computed = {
             scripts: scripts,
             anon_variables: mizer.get_scripts_anon_vars(scripts),
-            experiment_labels: project_settings.sessions.map(item => item.label),
+            experiment_labels: session_labels.concat(prearchived_session_labels),
             pet_tracers: get_pet_tracers(project_settings.pet_tracers, site_wide_settings.pet_tracers, user_defined_pet_tracers(settings))
         }
 
@@ -2667,7 +2755,7 @@ function append_subtype_row(subtype){
 // ====================================================================================================
 
 
-$(document).on('click', '.js_next:not(.disabled)', function() {
+$on('click', '.js_next:not(.disabled)', function() {
     console.log({session_map});
     let active_tab_index = $('.nav-item').index($('.nav-item.active'));
     if ($('.nav-item').eq(active_tab_index + 1).hasClass('hidden')) {
@@ -2680,7 +2768,7 @@ $(document).on('click', '.js_next:not(.disabled)', function() {
     }, 100)
 });
 
-$(document).on('click', '.js_prev', function() {
+$on('click', '.js_prev', function() {
     let active_tab_index = $('.nav-item').index($('.nav-item.active'));
 
     if ($('.nav-item').eq(active_tab_index - 1).hasClass('hidden')) {
@@ -2695,7 +2783,7 @@ $(document).on('click', '.js_prev', function() {
 
 });
 
-$(document).on('change', '#file_upload_folder', function(e) {
+$on('change', '#file_upload_folder', function(e) {
     let _files = [];
     
     console.log(this.files.length);
@@ -2771,7 +2859,7 @@ $on('click', '[data-js-visual-bulk-upload]', async function() {
     }
 
     /* ---- */
-    const unsupported_size = _masking_groups._UNSUPPORTED_ ? masking_groups._UNSUPPORTED_.length : 0;
+    const unsupported_size = _masking_groups._UNSUPPORTED_ ? _masking_groups._UNSUPPORTED_.length : 0;
     const supported_size = total_scans - unsupported_size;
     /* ---- */
 
@@ -3221,11 +3309,11 @@ $(document).on('submit', '#form_new_subject', async function(e) {
     
 });
 
-$(document).on('click', '.js_cancel_session_selection', function(){
+$on('click', '.js_cancel_session_selection', function(){
     FlowReset.execAfter('disable_session_upload')
 });
 
-$(document).on('click', '.js_custom_upload', async function(){
+$on('click', '.js_custom_upload', async function(){
     let selected = $('#found_sessions').bootstrapTable('getSelections');
 
     if (selected.length > 1) {
@@ -3247,7 +3335,7 @@ $(document).on('click', '.js_custom_upload', async function(){
     $('#session-selection').modal('hide');
 })
 
-$(document).on('click', '.js_quick_upload', function(){
+$on('click', '.js_quick_upload', function(){
     let selected = $('#found_sessions').bootstrapTable('getSelections');
 
     quick_upload_selection(selected)
@@ -3255,7 +3343,7 @@ $(document).on('click', '.js_quick_upload', function(){
     $('#session-selection').modal('hide');
 });
 
-$(document).on('hidden.bs.modal', '#session-selection', function(e) {
+$on('hidden.bs.modal', '#session-selection', function(e) {
     console.log(`**** selected_session_id: ${selected_session_id} *****`);
 
     if (selected_session_id) {
@@ -3263,7 +3351,7 @@ $(document).on('hidden.bs.modal', '#session-selection', function(e) {
     }
 });
 
-$(document).on('show.bs.modal', '#session-selection', function(e) {
+$on('show.bs.modal', '#session-selection', function(e) {
     let date_required = site_wide_settings.require_date || project_settings.require_date;
     $('[data-display="require_date"]').toggle(date_required);
 
@@ -3277,7 +3365,7 @@ $(document).on('show.bs.modal', '#session-selection', function(e) {
 
 });
 
-$(document).on('shown.bs.modal', '#session-selection', function(e) {
+$on('shown.bs.modal', '#session-selection', function(e) {
     // NEEDED to reset view (https://examples.bootstrap-table.com/#welcomes/modal-table.html)
     $('#found_sessions').bootstrapTable('resetView');
 });
@@ -4650,41 +4738,19 @@ $(document).on('click', '#validate_form', function() {
     console.log('upload form errors: ' + validate_upload_form())
 })
 
-
-$on('click', '[data-action="bulk-action-review"]', function() {
-    const $scans_tbl = $$('#selected_scans')
-    const selected_scans = $scans_tbl.bootstrapTable('getSelections');
-
-    if (selected_scans.length === 0) {
-        return
-    }
-
-    const default_cols = selected_scans[0].Columns
-    const default_rows = selected_scans[0].Rows
-
-    for (let i = 0; i < selected_scans.length; i++) {
-        if (selected_scans[i].Columns != default_cols || selected_scans[i].Rows != default_rows) {
-            swal({
-                title: `Image Size Error`,
-                text: `All images must be the same size!`,
-                icon: "error",
-                dangerMode: true
-            })
-
-            return
-        }
-    }
-
-    $$('#review-series-images').modal('show')
-})
-
 $on('shown.bs.modal', '#review-series-images', function(e) {
+    const mask_alias = $$('#review-series-images').data('mask_alias')
+    // hide Set Template button if we are reviewing unsupported scans
+    $$('[data-js-review-set-template]').toggle(mask_alias !== '_UNSUPPORTED_')
+
     $$('#review-scans-hide-excluded').prop('checked', false).trigger('change')
 })
 
 $on('hide.bs.modal', '#review-series-images', function(e) {
-    // TODO - activate based on current active group type (supported or unsupported)
-    display_masking_groups('supported')
+    const mask_alias = $$('#review-series-images').data('mask_alias')
+    const show_group = mask_alias === '_UNSUPPORTED_' ? 'unsupported' : 'supported'
+    
+    display_masking_groups(show_group)
 })
 
 async function generateBulkImageReview(selected_scans, imgDataImages) {

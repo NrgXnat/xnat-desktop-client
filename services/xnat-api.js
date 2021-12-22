@@ -231,6 +231,12 @@ class XNATAPI {
         return res.data.ResultSet.Result
     }
 
+    async project_prearchived_sessions(project_id) {
+        const res = await this.axios_get(`/data/prearchive/projects/${project_id}`)
+
+        return res.data.ResultSet.Result
+    }
+
     async project_series_import_filter(project_id) {
         try {
             const res = await this.axios_get(`/data/projects/${project_id}/config/seriesImportFilter/config?format=json`)

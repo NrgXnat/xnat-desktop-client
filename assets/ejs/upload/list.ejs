@@ -20,6 +20,12 @@
 
 <div class="row">
     <div class="col-12">
+        <% if (show === 'unsupported') { %>
+            <div class="alert alert-primary mt-3" role="alert">
+                Image anonymization is not supported for the scans listed below, but the scans can still be uploaded or excluded from the upload.
+            </div>
+        <% } %>
+
         <% for (mask_label in masking_groups) { %>
             <% 
                 if (
@@ -103,7 +109,10 @@
 
                         <li><span style="color: green; font-weight: bold;">Resolution</span>
                             <i title="Grouping Parameter" style="color: green;" class="far fa-object-group"></i>: 
-                            <%= masking_groups[mask_label][0].Rows %>x
+                            <%= masking_groups[mask_label][0].Rows %>
+                                <% if (masking_groups[mask_label][0].Rows) { %>
+                                x
+                                <% } %> 
                             <%= masking_groups[mask_label][0].Columns %></li>
                         
                         <li><span>Color:</span>

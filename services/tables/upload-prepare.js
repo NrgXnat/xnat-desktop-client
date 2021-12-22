@@ -90,7 +90,10 @@ function custom_upload_multiple_table($tbl, tbl_data) {
     window.customMultipleUploadTracerChange = {
         'input .tracer-field': function (e, value, row, index) {
             let new_value = alNumDashUnderscore(e.target.value)
-            row.tracer = $(e.target).val()
+
+            e.target.value = new_value
+            row.tracer = new_value
+
             ipcRenderer.send('custom_upload_multiple:generate_exp_label', row)
         }
     }
@@ -112,7 +115,10 @@ function custom_upload_multiple_table($tbl, tbl_data) {
 
     window.customMultipleUploadLabelChange = {
         'input .label-field': function (e, value, row, index) {
-            row.experiment_label = $(e.target).val()
+            let new_value = alNumDashUnderscore(e.target.value)
+
+            e.target.value = new_value
+            row.experiment_label = new_value
 
             $('#session_labeling_pattern').val('manual')
         }
@@ -192,7 +198,10 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 sortable: true,
                 class: 'break-all highlight',
                 formatter: function(value, row, index, field) {
-                    return `<input required type="text" name="xnat_subject_id--${row.patient_id}" value="${value}" class="subject-field form-control form-control-sm" />`
+                    const required = row.enabled ? 'required' : ''
+                    return `<input ${required} type="text" 
+                        name="xnat_subject_id--${row.patient_id}" value="${value}" 
+                        class="subject-field form-control form-control-sm" />`
                 }
             },
             {
@@ -210,7 +219,11 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 class: 'highlight',
                 formatter: function(value, row, index, field) {
                     const field_val = value ? value : ''
-                    return row.modality === 'PT' ? `<input required type="text" name="tracer--${row.patient_id}" size="4" value="${field_val}" class="tracer-field form-control form-control-sm" />` : '';
+                    const required = row.enabled ? 'required' : ''
+                    return row.modality === 'PT' ? 
+                        `<input ${required} type="text" name="tracer--${row.patient_id}" size="4" 
+                        value="${field_val}" class="tracer-field form-control form-control-sm" />` : 
+                        '';
                 }
             },
             {
@@ -252,8 +265,9 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 sortable: true,
                 class: 'break-all highlight',
                 formatter: function(value, row, index, field) {
-                    return `<input required type="text" name="experiment_label--${row.patient_id}" value="${value}" 
-                    class="label-field form-control form-control-sm" />`
+                    const required = row.enabled ? 'required' : ''
+                    return `<input ${required} type="text" name="experiment_label--${row.patient_id}"
+                    value="${value}" class="label-field form-control form-control-sm" />`
                 }
             }
             
@@ -261,7 +275,54 @@ function custom_upload_multiple_table($tbl, tbl_data) {
         data: tbl_data
     });
 
+    console.log('custom_upload_multiple_table INIT');
+
     $tbl.bootstrapTable('resetView');
+
+    console.log('custom_upload_multiple_table RESET VIEW');
+}
+
+function validate_custom_upload_multiple_details() {
+    console.log('validate_custom_upload_multiple_details TRIGGERED');
+
+    let required_input_error = false;
+
+    let $required_inputs = $('#custom_upload_multiple_tbl input[type=text]')
+    let $upload_overwrite = $('#custom_upload_multiple #upload_overwrite_method')
+
+    // validate table fields
+    $required_inputs.each(function(){
+        const is_invalid = 
+            this.required && 
+            // $(this).closest('tr').hasClass('selected')
+            $(this).val() !== undefined && 
+            $(this).val() !== null && 
+            $(this).val().trim() === ''
+
+        $(this).toggleClass('is-invalid', is_invalid);
+
+        if (is_invalid) {
+            required_input_error = true;
+        }
+    });
+
+    // validate overwriting option
+    let invalid_overwrite = $upload_overwrite.val() === ''
+    $upload_overwrite.toggleClass('is-invalid', invalid_overwrite);
+    if (invalid_overwrite) {
+        required_input_error = true;
+    }
+
+    // select at least one session
+    if ($('#custom_upload_multiple_tbl input[name="btSelectItem"]:checked').length === 0) {
+        required_input_error = true
+    }
+
+    $('#nav-verify .js_next, #nav-verify .js_upload')
+        .toggleClass('disabled', required_input_error)
+        .prop('disabled', required_input_error);
+
+    return required_input_error;
 }
 
 function selected_scans_table($tbl, tbl_data) {
@@ -557,5 +618,6 @@ function destroyBootstrapTable($tbl) {
 module.exports = {
     selected_sessions_table: selected_sessions_table,
     custom_upload_multiple_table: custom_upload_multiple_table,
+    validate_custom_upload_multiple_details,
     selected_scans_table: selected_scans_table
 }
