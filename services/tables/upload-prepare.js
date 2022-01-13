@@ -82,9 +82,9 @@ function selected_sessions_table($tbl, tbl_data) {
 
 function custom_upload_multiple_table($tbl, tbl_data) {
     destroyBootstrapTable($tbl);
-    
+
     const pt_count = tbl_data.reduce((total, item) => {
-        return total += (item.modality === 'PT' ? 1 : 0)
+        return total += (item.modality.includes('PT') ? 1 : 0)
     }, 0)
 
     window.customMultipleUploadTracerChange = {
@@ -193,7 +193,7 @@ function custom_upload_multiple_table($tbl, tbl_data) {
             },
             {
                 field: 'xnat_subject_id',
-                title: 'XNAT SUBJECT ID',
+                title: 'XNAT Subject ID',
                 events: 'customMultipleUploadSubjectChange',
                 sortable: true,
                 class: 'break-all highlight',
@@ -220,7 +220,7 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 formatter: function(value, row, index, field) {
                     const field_val = value ? value : ''
                     const required = row.enabled ? 'required' : ''
-                    return row.modality === 'PT' ? 
+                    return row.modality.includes('PT') ? 
                         `<input ${required} type="text" name="tracer--${row.patient_id}" size="4" 
                         value="${field_val}" class="tracer-field form-control form-control-sm" />` : 
                         '';

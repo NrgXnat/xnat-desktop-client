@@ -11,11 +11,11 @@ let myFileLoader = function (filePath) {
 ejs.fileLoader = myFileLoader;
 */
 
-module.exports = (template_file, data) => {
+const renderFile = (template_file, data) => {
 	const options = {
-		cache: true,
+		cache: true
 	}
-    const filename = path.join(app.getAppPath(), 'assets/ejs', `${template_file}.ejs`)
+	const filename = path.join(app.getAppPath(), 'assets/ejs', `${template_file}.ejs`)
 	
 	return new Promise((resolve, reject) => {
 		ejs.renderFile(
@@ -33,5 +33,21 @@ module.exports = (template_file, data) => {
 			}
 		)
 	})
-    
 }
+
+module.exports = renderFile
+
+module.exports.compile = (template_file) => {
+	const options = {
+		client: true
+	}
+	const filename = path.join(app.getAppPath(), 'assets/ejs', `${template_file}.ejs`)
+
+	const str = fs.readFileSync(filename, {encoding: 'utf8', flag: 'r'})
+	
+	return ejs.compile(
+		str, 
+		options
+	)
+}
+

@@ -16,14 +16,13 @@ const db_downloads_archive = remote.require('./services/db/downloads_archive')
 
 const nedb_log_reader = remote.require('./services/db/nedb_log_reader')
 const moment = require('moment');
+const ejs_template = require('../services/ejs_template')
 
 const path = require('path')
 
 const { objArrayToCSV } = require('../services/app_utils');
 
 const { console_red } = require('../services/logger');
-
-const templateEngine = require('../services/template_engine');
 
 const NProgress = require('nprogress');
 NProgress.configure({ 
@@ -740,18 +739,30 @@ $(document).on('show.bs.modal', '#view-receipt', async function(e) {
     
     let transfer = await db_uploads._getById(id)
 
-    let tpl = $('#view-receipt-tpl').html();
-    
-    //window.moment = moment;
-
-    transfer.computed = {
-        start_upload: moment(transfer.transfer_start * 1000).format('YYYY-MM-DD HH:mm:ss')
+    // trim unused data for performance
+    const _transfer = {
+        session_link: transfer.session_link,
+        user: transfer.user,
+        session_data: transfer.session_data,
+        computed: {
+            start_upload: moment(transfer.transfer_start * 1000).format('YYYY-MM-DD HH:mm:ss')
+        },
+        anon_variables: transfer.anon_variables,
+        series: transfer.series.map(item => {
+            return item.map(single => {
+                return {
+                    seriesInstanceUid: single.seriesInstanceUid,
+                    filename: single.filename,
+                    anon_checksum: single.anon_checksum,
+                }
+            })
+        })
     }
 
-    let parsed_tpl = templateEngine(tpl, transfer)
+    let tpl_function = ejs_template.compile('upload/upload-receipt')
+    let parsed_tpl = tpl_function(_transfer)
 
     $('#receipt-content').html(parsed_tpl)
-
     $('#receipt-to-pdf').data('expt_label', transfer.url_data.expt_label)
 })
 

@@ -658,6 +658,7 @@ function generate_field_pattern(target_field, source_field) {
     }
 }
 
+// TODO: SHOULD BE REFACTORED
 function generate_session_auto() {
     let $tbl = $('#custom_upload_multiple_tbl')
     let tbl_data = $tbl.bootstrapTable('getData')
@@ -668,7 +669,11 @@ function generate_session_auto() {
         let row = tbl_data[i]
         let reinit_val = i === tbl_data.length - 1
 
-        const new_session_label = generate_unique_session_label(row.xnat_subject_id + row.label_suffix, existing_labels)
+        // const new_session_label = generate_unique_session_label(row.xnat_subject_id + row.label_suffix, existing_labels)
+        const series_data = get_session_series(session_map.get(row.id))
+        const tracer_val = row.tracer ? row.tracer : 'PT'
+        const new_session_label = generate_experiment_label(row.xnat_subject_id, series_data, tracer_val, '')
+
         existing_labels.push(new_session_label)
 
         $tbl.bootstrapTable("updateCellByUniqueId", {
@@ -4523,7 +4528,7 @@ ipcRenderer.on('launch_upload', function(e, data){
     $('#subtype_prm').val(params[SUBTYPE_PARAM]);
 });
 
-ipcRenderer.on('custom_upload_multiple:generate_exp_label',function(e, row){
+ipcRenderer.on('custom_upload_multiple:generate_exp_label', function(e, row){
     const series_data = get_session_series(session_map.get(row.id))
 
     const tracer_val = row.tracer ? row.tracer : 'PT'
