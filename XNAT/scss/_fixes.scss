@@ -419,7 +419,7 @@ body>.ui-pnotify {
     }
     .scan-review-item {
         padding: 2px 0;
-        width: 33%;
+        width: calc(33.33% - 4px);
         display: block;
         float: left;
         position: relative;

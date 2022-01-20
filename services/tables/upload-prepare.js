@@ -230,6 +230,7 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 field: 'study_date',
                 title: 'Study Date',
                 class: 'right-aligned',
+                sortable: true,
                 visible: true,
                 formatter: function(value, row, index, field) {
                     return value ? value : 'N/A';

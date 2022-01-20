@@ -150,7 +150,7 @@ function findSOPClassUID(SOPClassUID) {
         return item["SOPClassUID"] === SOPClassUID
     })
 
-    return item ? item : {label: 'N/A'}
+    return item ? item : {label: `[${SOPClassUID}]`}
 }
 
 

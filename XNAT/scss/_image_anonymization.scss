@@ -334,11 +334,36 @@ body.dicomImageViewerFS #header_menu {
             background-color: #2f2f2f;
             border-radius: 0;
             padding-top: 6px;
-            padding-bottom: 6px;
+            flex-direction: column;
+            padding-bottom: 0;
+
+            > div {
+                display: flex;
+                width: 100%;
+
+                &.second-line {
+                    background: #666;
+                    padding: 8px 15px;
+                    margin-left: -15px;
+                    width: calc(100% + 30px);
+                    > div {
+                        flex-grow: 1;
+                        text-align: right;
+                        width: 50%;
+                    }
+
+                    .with-selected {
+                        display: inline-block;
+                        min-width: 138px;
+                        margin-top: 0;
+                    }
+                }
+            }
 
             .close {
                 color: inherit;
-                padding: 18px 16px 9px;
+                padding: 0px 1rem 0px;
+                margin: 0rem -1rem 0rem auto;
             }
         }
     }
@@ -375,6 +400,22 @@ body.dicomImageViewerFS #header_menu {
         }
     }
 
+}
+
+#template-listing {
+    .tpl-alias-delete {
+        cursor: pointer;
+
+        color: #999;
+        font-size: 12px;
+        display: inline-block;
+        padding: 0 0 3px 0;
+        vertical-align: middle;
+        margin-left: 5px;
+        &:hover {
+            color: red;
+        }
+    }
 }
 
 #setTemplateModal {

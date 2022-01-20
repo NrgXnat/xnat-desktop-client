@@ -15,18 +15,27 @@
             
         </div>
         <div class="col-8">
-            <h5><%= template.alias %></h5>
+            <h5><%= template.alias %>
+                <i title="Delete Template" 
+                    class="fas fa-trash-alt tpl-alias-delete" 
+                    data-template-alias-delete="<%= template.alias %>"></i>
+            </h5>
             <p class="mb-0">Created <%= moment(template.created).format('MM/DD/YY') %></p>
             <p class="mb-0">by <%= template.author %></p>
     
             <div class="d-flex justify-content-between bd-highlight mt-3">
                 <button class="btn btn-gray" 
                     data-template-alias="<%= template.alias %>" 
-                    data-apply-canvas-id="myCanvas_<%= counter %>">Apply</button>
+                    data-apply-canvas-id="myCanvas_<%= counter %>">
+                    <i class="fas fa-plus-circle"></i>
+                    Apply</button>
                 
                 <button class="btn btn-gray"
-                    title="Delete Template"
-                    data-template-alias-delete="<%= template.alias %>">Delete</button>
+                    title="Remove Template"
+                    data-template-alias="<%= template.alias %>"
+                    data-remove-canvas-id="myCanvas_<%= counter %>">
+                    <i class="fas fa-minus-circle"></i>
+                    Remove</button>
             </div>
         </div>
     

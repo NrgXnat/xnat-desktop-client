@@ -800,8 +800,11 @@ function _init_session_selection_table(tbl_data) {
                 field: 'study_date',
                 title: 'Study Date',
                 class: 'right-aligned',
-                sortable: false,
-                visible: false
+                sortable: true,
+                visible: !date_required,
+                formatter: function(value, row, index, field) {
+                    return value ? value : 'N/A';
+                }
             },
             {
                 field: 'entered_day',
@@ -809,6 +812,7 @@ function _init_session_selection_table(tbl_data) {
                 events: 'foundSessionsEvents',
                 width: 152,
                 sortable: false,
+                visible: date_required,
                 class: project_settings.require_date ? 'emphasize' : '',
                 formatter: function(value, row, index, field) {
                     //let parsed_value = value ? value : (row.study_date ? row.study_date.substr(8,2) : false)
@@ -1070,9 +1074,6 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
 
     // group scans (by parameters or unsupported)
     my_scans.forEach(scan => {
-        // const rand = Math.random()
-        // const is_supported_scan = rand < 0.8
-
         const is_supported_scan = scan.uniformScanSize && scan.uniformScanSOPClass && scan.containsImageData
 
         const group_identifier = is_supported_scan ? `${scan.modality}|${scan.Rows}x${scan.Columns}|${scan.SOPClassUID}` : '_UNSUPPORTED_'
@@ -1081,7 +1082,6 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
         }
         _masking_groups[group_identifier].push(scan)
     })
-
 
     let image_path = path.resolve(app.getAppPath(), 'assets', 'images', 'no-image-available.png')
     let imgData = await canvasImage2Data(image_path, 100, 100, '#fff')
@@ -1357,8 +1357,46 @@ $on('click', '[data-apply-canvas-id]', function() {
     })
 
     // uncheck all and trigger scanselectionchange
-    $$('#scan_images .scan_checkbox').prop('checked', false)
-    $$('#review-series-images').trigger('scanselectionchange.bulkanon')
+    // $$('#scan_images .scan_checkbox').prop('checked', false)
+    // $$('#review-series-images').trigger('scanselectionchange.bulkanon')
+})
+
+
+$on('click', '[data-remove-canvas-id]', function() {
+    const template_alias = $(this).data('template-alias');
+
+    // add overlay canvases
+    $('.scan_checkbox:checked + .scan-review-item > .img-data').each(function() {
+        const $img_data = $(this)
+        const $label = $(this).closest('.scan-review-item')
+
+        if ($label.hasClass('excluded')) {
+            Helper.pnotify(null, `Scan "${$label.find('>h3').text()}" is already excluded! Selected template is not applied. You need to reset this scan if you want to apply the anonymization template.`, 'notice');
+        } else {
+            const $found_canvas = $(`[data-template-alias="${template_alias}"]`, $img_data)
+            $found_canvas.remove()
+        }
+    })
+
+    // updated scans rectangle data
+    $$('#scan_images .scan_checkbox:checked + label').each(function() {
+        const data = $(this).prev().data()
+
+        const rectangles = []
+        $(this).find('.img-data canvas').each(function() {
+            const template_rectangles = get_template_rectangles($(this).data('template-alias'))
+
+            template_rectangles.forEach(rect => {
+                rectangles.push(rect)
+            })
+        })
+        console.log({rectangles})
+        add_anon_rectangles_to_scan(data.sessionId, data.seriesId, rectangles)
+    })
+
+    // uncheck all and trigger scanselectionchange
+    // $$('#scan_images .scan_checkbox').prop('checked', false)
+    // $$('#review-series-images').trigger('scanselectionchange.bulkanon')
 })
 
 $on('click', '[data-template-alias-delete]', async function() {
@@ -4754,7 +4792,7 @@ $on('shown.bs.modal', '#review-series-images', function(e) {
 $on('hide.bs.modal', '#review-series-images', function(e) {
     const mask_alias = $$('#review-series-images').data('mask_alias')
     const show_group = mask_alias === '_UNSUPPORTED_' ? 'unsupported' : 'supported'
-    
+
     display_masking_groups(show_group)
 })
 
