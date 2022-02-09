@@ -2546,16 +2546,7 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
         })
 
         // toggle #upload_restrictions information
-        let show_restrictions = true
-        let restrictions_content = ''
-        if (!project_settings.allow_bulk_upload || !project_settings.allow_create_subject) {
-            restrictions_content = 'This project does not allow bulk uploading.'
-        } else if (project_settings.anon_script !== false) {
-            restrictions_content = 'Project anonymization script contains variables - Only single session upload is available.'
-        } else {
-            show_restrictions = false
-        }
-        $$('#upload_restrictions').text(restrictions_content).toggle(show_restrictions)
+        $$('#upload_restrictions').text(restrictions_info())
 
 
         $('#project_settings_tbl_wrap').html(tbl)
@@ -2573,6 +2564,18 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
     }
 
 });
+
+function restrictions_info() {
+    if (!project_settings.allow_bulk_upload) {
+        return 'This project does not allow bulk uploading.'
+    } else if (!project_settings.allow_create_subject) {
+        return 'Subject creation is disabled for this project. Only single session upload is available.'
+    } else if (project_settings.anon_script !== false) {
+        return 'Project anonymization script contains variables. Only single session upload is available.'
+    }
+
+    return ''
+}
 
 
 function suppress_anon_script_warning(scripts, xnat_server, project_id, user_settings) {
@@ -3422,14 +3425,7 @@ $on('show.bs.modal', '#session-selection', function(e) {
 
     let msg = project_settings.allow_bulk_upload && project_settings.allow_create_subject ? 'Select one or more sessions to upload:' : 'Select a single session to upload:'
 
-    let restrictions_content = ''
-    if (!project_settings.allow_bulk_upload || !project_settings.allow_create_subject) {
-        restrictions_content = 'This project does not allow bulk uploading.'
-    } else if (project_settings.anon_script !== false) {
-        restrictions_content = 'Project anonymization script contains variables - Only single session upload is available.'
-    }
-
-    $$('#upload_restrictions_modal').text(restrictions_content)
+    $$('#upload_restrictions_modal').text(restrictions_info())
 
     $('.modal-header .modal-title', $(this)).html(title);
     $('#select-sessions-message', $(this)).html(msg);

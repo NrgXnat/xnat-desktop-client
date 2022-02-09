@@ -138,20 +138,26 @@
 
                     <div style="">
                         <% if (masking_groups_reviewed.includes(mask_label)) { %>
-                            <p style="margin-bottom: 0;">
-                                <b><%= _scans_without_anon %> Scan<%= _scans_without_anon !== 1 ? 's' : '' %></b>
-                                Queued Without Pixel Anonymization
-                            </p>
+                            <% if (_scans_without_anon) { %>
+                                <p style="margin-bottom: 0;">
+                                    <b><%= _scans_without_anon %> Scan<%= _scans_without_anon !== 1 ? 's' : '' %></b>
+                                    Queued Without Pixel Anonymization
+                                </p>
+                            <% } %>
 
-                            <p style="margin-bottom: 0;">
-                                <b><%= _scans_with_anon %> Scan<%= _scans_with_anon !== 1 ? 's' : '' %></b>
-                                Queued With Pixel Anonymization
-                            </p>
+                            <% if (_scans_with_anon) { %>
+                                <p style="margin-bottom: 0;">
+                                    <b><%= _scans_with_anon %> Scan<%= _scans_with_anon !== 1 ? 's' : '' %></b>
+                                    Queued With Pixel Anonymization
+                                </p>
+                            <% } %>
 
-                            <p style="margin-bottom: 0; color: red;">
-                                <b><%= _excluded %> Scan<%= _excluded !== 1 ? 's' : '' %></b>
-                                Excluded From Upload
-                            </p>
+                            <% if (_excluded) { %>
+                                <p style="margin-bottom: 0; color: red;">
+                                    <b><%= _excluded %> Scan<%= _excluded !== 1 ? 's' : '' %></b>
+                                    Excluded From Upload
+                                </p>
+                            <% } %>
 
                         <% } else { %>
                             <span class="scans-review-info" style="color: #888">Scans Need Review</span>
