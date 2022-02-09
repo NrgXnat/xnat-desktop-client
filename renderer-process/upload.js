@@ -113,6 +113,7 @@ let site_wide_settings = {};
 let project_settings = {};
 
 let _masking_groups = {}
+let _masking_groups_reviewed = []
 
 /*
 const _masking_template_registry = [
@@ -417,7 +418,14 @@ function initAnnoMulti() {
 
     $$('#visual-phi-removal-instructions').on('click', function(e) {
         e.preventDefault();
-        anno3.show();
+
+        if ($$('#masking-groups .mask-group-row').length === 0) {
+            $$('#masking-groups .btn-link').trigger('click')
+        }
+
+        setTimeout(function() {
+            anno3.show()
+        }, 200)
     })
 }
 
@@ -622,6 +630,10 @@ $(document).on('change', '#session_labeling_pattern', function() {
             generate_field_pattern('experiment_label', 'session_accession')
             break;
 
+        case 'dicom_patient_id':
+            generate_field_pattern('experiment_label', 'subject_dicom_patient_id')
+            break;
+
         default:
 
             break;
@@ -719,10 +731,10 @@ function generate_unique_session_label(proposedLabel, existing_labels) {
 
 
 function _init_session_selection_table(tbl_data) {
-    let $found_sessions_tbl = $('#found_sessions');
+    const $found_sessions_tbl = $('#found_sessions');
 
-    let date_required = site_wide_settings.require_date || project_settings.require_date;
-    let single_select = !project_settings.allow_bulk_upload || project_settings.anon_script !== false;
+    const date_required = site_wide_settings.require_date || project_settings.require_date
+    const single_select = !project_settings.allow_bulk_upload || project_settings.anon_script !== false || !project_settings.allow_create_subject
 
     if (single_select) {
         tbl_data = tbl_data.map(row => {
@@ -759,7 +771,8 @@ function _init_session_selection_table(tbl_data) {
                 field: 'state',
                 checkbox: true,
                 align: 'center',
-                valign: 'middle'
+                valign: 'middle',
+                class: single_select ? 'cb-radio' : 'cb-checkbox'
             },
             {
                 field: 'id',
@@ -1071,6 +1084,7 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
 
     // reset _masking_groups
     _masking_groups = {}
+    _masking_groups_reviewed = []
 
     // group scans (by parameters or unsupported)
     my_scans.forEach(scan => {
@@ -1121,7 +1135,8 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
 });
 
 async function display_masking_groups(mask_type) {
-    let tpl_html = await ejs_template('upload/list', {findSOPClassUID, masking_groups: _masking_groups, show: mask_type})
+    console.log({_masking_groups, _masking_groups_reviewed});
+    let tpl_html = await ejs_template('upload/list', {findSOPClassUID, masking_groups: _masking_groups, show: mask_type, masking_groups_reviewed: _masking_groups_reviewed})
     $('#masking-groups').html(tpl_html)
 }
 
@@ -1484,6 +1499,10 @@ $on('click', '.btn-link[data-mask-type]', function() {
 
 $on('click', '[data-review-mask-alias]', async function() {
     const mask_alias = $(this).data('review-mask-alias')
+
+    if (!_masking_groups_reviewed.includes(mask_alias)) {
+        _masking_groups_reviewed.push(mask_alias)
+    }
 
     const scan_images = _masking_groups[mask_alias].map(scan => scan.thumbPath)
 
@@ -2529,7 +2548,7 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
         // toggle #upload_restrictions information
         let show_restrictions = true
         let restrictions_content = ''
-        if (!project_settings.allow_bulk_upload) {
+        if (!project_settings.allow_bulk_upload || !project_settings.allow_create_subject) {
             restrictions_content = 'This project does not allow bulk uploading.'
         } else if (project_settings.anon_script !== false) {
             restrictions_content = 'Project anonymization script contains variables - Only single session upload is available.'
@@ -3401,7 +3420,16 @@ $on('show.bs.modal', '#session-selection', function(e) {
     let tbl_data = $(this).data('tbl_data')
     let title = tbl_data.length == 1 ? `Found 1 session` : `Found ${tbl_data.length} sessions`;
 
-    let msg = project_settings.allow_bulk_upload ? 'Select one or more sessions to upload:' : 'Select a session to upload:'
+    let msg = project_settings.allow_bulk_upload && project_settings.allow_create_subject ? 'Select one or more sessions to upload:' : 'Select a single session to upload:'
+
+    let restrictions_content = ''
+    if (!project_settings.allow_bulk_upload || !project_settings.allow_create_subject) {
+        restrictions_content = 'This project does not allow bulk uploading.'
+    } else if (project_settings.anon_script !== false) {
+        restrictions_content = 'Project anonymization script contains variables - Only single session upload is available.'
+    }
+
+    $$('#upload_restrictions_modal').text(restrictions_content)
 
     $('.modal-header .modal-title', $(this)).html(title);
     $('#select-sessions-message', $(this)).html(msg);
@@ -4570,7 +4598,9 @@ ipcRenderer.on('custom_upload_multiple:generate_exp_label', function(e, row){
     const series_data = get_session_series(session_map.get(row.id))
 
     const tracer_val = row.tracer ? row.tracer : 'PT'
-    const new_label = generate_experiment_label(row.xnat_subject_id, series_data, tracer_val, '')
+    const subject_value = $$('#session_labeling_pattern').val() === 'dicom_patient_id' ? row.patient_id : row.xnat_subject_id 
+
+    const new_label = generate_experiment_label(subject_value, series_data, tracer_val, '')
     
     $('#custom_upload_multiple_tbl').bootstrapTable("updateCellByUniqueId", {
         id: row.id,

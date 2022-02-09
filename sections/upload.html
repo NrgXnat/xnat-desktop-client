@@ -436,6 +436,7 @@
                                                             <option value="manual">Manual Entry</option>
                                                             <option value="auto">Auto-generate From Subject Label</option>
                                                             <option value="dicom_accession_num">Use DICOM Accession Num (0008,0050)</option>
+                                                            <option value="dicom_patient_id">Use DICOM Patient ID (0010,0020)</option>
                                                         </select>
                                                     </div>
                                                 </div>
@@ -787,6 +788,8 @@
                         <div class="modal-body">
                             <p id="select-sessions-message">Select one or more sessions to upload</p>
 
+                            <p id="upload_restrictions_modal" class="alert alert-warning" role="alert"></p>
+
                             <p class="notice" data-display="require_date"><span>&#x26A0;</span> Project requires Date Verification before upload can continue</p>
                             
                             <form>
@@ -804,7 +807,7 @@
                                 <label for="skip_session_date_validation">I don't know the dates of these sessions</label>
                             </div>
                             <button type="button" class="btn btn-gray js_cancel_session_selection" type="button" data-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-gray js_custom_upload" type="button" disabled>Custom Upload</button>
+                            <button type="button" class="btn btn-gray js_custom_upload" type="button" disabled>Upload</button>
                             <button type="button" class="btn btn-blue js_quick_upload hidden" type="button" disabled>Quick Upload</button>
                         </div>
                     </div>

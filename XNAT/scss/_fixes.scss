@@ -602,3 +602,52 @@ span[data-toggle="popover"] {
 .anno-width-400 {
     width: 460px !important;
 }
+
+.cb-radio {
+    input {
+        -webkit-appearance: none;
+        appearance: none;
+
+        margin: 0;
+      
+        font: inherit;
+        color: currentColor;
+        width: 1.15em;
+        height: 1.15em;
+        border: 0.15em solid currentColor;
+        border-radius: 50%;
+        transform: translateY(-0.075em);
+      
+        display: grid;
+        place-content: center;
+        outline: none;
+    }
+
+    input::before {
+        content: "";
+        width: 0.65em;
+        height: 0.65em;
+        border-radius: 50%;
+        transform: scale(0);
+        transition: 120ms transform ease-in-out;
+        box-shadow: inset 1em 1em #1A75BB;
+        /* Windows High Contrast Mode */
+        background-color: CanvasText;
+    }
+      
+    input:checked::before {
+        transform: scale(1);
+    }
+
+    input:focus {
+        box-shadow: 0px 0 1px 2px #ffc107;
+    }
+    
+}
+
+#upload_restrictions_modal {
+    font-size: 16px;
+    &:empty {
+        display: none;
+    }
+}

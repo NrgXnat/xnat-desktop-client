@@ -55,6 +55,12 @@
                 ? '<i class="fas fa-exclamation-circle" style="color: orange; margin-left: 4px;"></i>' : 
                 '<i class="fas fa-exclamation-circle" style="color: orange; margin-left: 4px;"></i>'
             %>
+
+            <%
+                const _scans_without_anon = masking_groups[mask_label].filter(_scan => _scan.rectangles.length === 0 && _scan.excluded === false).length
+                const _scans_with_anon = masking_groups[mask_label].filter(_scan => _scan.rectangles.length > 0 && _scan.excluded === false).length
+                const _excluded = masking_groups[mask_label].filter(_scan => _scan.excluded === true).length
+            %>
             
             <div class="mask-group-row d-flex flex-row align-items-center <%= group_excluded_class %>">
                 <div class="p-2">
@@ -122,22 +128,35 @@
                 </div>
                 
 
-                <div class="p-2" style="height: 220px; position: relative;">
-                    <div style="margin-top: 5px; font-size: 20px;">
-                    <% if (masking_groups[mask_label].length - included.length) { %>
-                        Scans Excluded: 
-                        <%= masking_groups[mask_label].length - included.length %> 
-                        <%- excluded_icon %> 
-                    <% } else { %>
-                        -
-                    <% } %> 
+                <div class="p-2" style="height: 220px; text-align: right; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <button
+                            data-review-mask-alias="<%= mask_label %>" 
+                            class="btn btn-blue"
+                        >Review <i class="fas fa-search"></i></button>
                     </div>
-                    
-                    <button
-                        style="position: absolute; top: 50%; right: 8px; transform: translateY(-50%);"
-                        data-review-mask-alias="<%= mask_label %>" 
-                        class="btn btn-blue"
-                    >Review <i class="fas fa-search"></i></button>
+
+                    <div style="">
+                        <% if (masking_groups_reviewed.includes(mask_label)) { %>
+                            <p style="margin-bottom: 0;">
+                                <b><%= _scans_without_anon %> Scan<%= _scans_without_anon !== 1 ? 's' : '' %></b>
+                                Queued Without Pixel Anonymization
+                            </p>
+
+                            <p style="margin-bottom: 0;">
+                                <b><%= _scans_with_anon %> Scan<%= _scans_with_anon !== 1 ? 's' : '' %></b>
+                                Queued With Pixel Anonymization
+                            </p>
+
+                            <p style="margin-bottom: 0; color: red;">
+                                <b><%= _excluded %> Scan<%= _excluded !== 1 ? 's' : '' %></b>
+                                Excluded From Upload
+                            </p>
+
+                        <% } else { %>
+                            <span class="scans-review-info" style="color: #888">Scans Need Review</span>
+                        <% } %>
+                    </div>
                 </div>
             </div>
         <% }; %>
