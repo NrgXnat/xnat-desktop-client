@@ -1068,18 +1068,8 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
     }
 
     // find the matchingMasks
-    my_scans.forEach(row => {
-        let masks = masking_template_registry.filter(item => {
-            for (const prop in item.data) {
-                // console.log({row, mask_data: item.data, prop})
-                // match = match && item[prop] === row[prop]
-                if (item.data[prop] !== row[prop]) {
-                    return false
-                }
-            }
-            return true
-        })
-        row.matchingMasks = masks
+    my_scans.forEach(scan => {
+        scan.matchingMasks = matchingMasksForScan(scan)
     });
 
     // reset _masking_groups
@@ -1133,6 +1123,17 @@ $on('shown.bs.tab', '.nav-tabs a[href="#nav-visual-bulk"]', async function(){
             }
         })
 });
+
+function matchingMasksForScan(scan) {
+	return store.get('masking_template_registry').filter(item => {
+		for (const prop in item.data) {
+			if (item.data[prop] !== scan[prop]) {
+				return false
+			}
+		}
+		return true
+	})
+}
 
 async function display_masking_groups(mask_type) {
     console.log({_masking_groups, _masking_groups_reviewed});
@@ -1198,11 +1199,7 @@ $on('hide.bs.modal', '#setTemplateModal', async function(){
 
 function get_masking_templates_by_alias(_mask_alias = false) {
     const mask_alias = _mask_alias ? _mask_alias : $$('#review-series-images').data('mask_alias')
-    const all_templates = store.get('masking_template_registry')
-    
-    return all_templates.filter(tpl => {
-        return tpl.data.Rows == _masking_groups[mask_alias][0].Rows && tpl.data.Columns == _masking_groups[mask_alias][0].Columns
-    })
+	return matchingMasksForScan(_masking_groups[mask_alias][0])
 }
 
 function get_template_rectangles(template_alias) {
@@ -1311,7 +1308,7 @@ $on('click', '[data-js-create-template]', function() {
         created: Date.now(),
         author: auth.get_current_user(),
         data: {
-            modality: found_session.modality.join(','),
+            modality: all_files[0].modality,
             Columns: all_files[0].Columns,
             Rows: all_files[0].Rows,
             SOPClassUID: all_files[0].SOPClassUID
@@ -1319,9 +1316,14 @@ $on('click', '[data-js-create-template]', function() {
         rectangles: rectangles
     })
 
-    console.log({masking_template_registry});
-
     store.set('masking_template_registry', masking_template_registry)
+
+    // update _masking_groups
+    const mask_alias = $$('#review-series-images').data('mask_alias')
+    
+    _masking_groups[mask_alias].forEach(item => {
+        item.matchingMasks = matchingMasksForScan(all_files[0])
+    })
 
     // reset rectangle_state_registry
     rectangle_state_registry = []
@@ -1367,7 +1369,7 @@ $on('click', '[data-apply-canvas-id]', function() {
                 rectangles.push(rect)
             })
         })
-        console.log({rectangles})
+        
         add_anon_rectangles_to_scan(data.sessionId, data.seriesId, rectangles)
     })
 
@@ -1405,7 +1407,7 @@ $on('click', '[data-remove-canvas-id]', function() {
                 rectangles.push(rect)
             })
         })
-        console.log({rectangles})
+        
         add_anon_rectangles_to_scan(data.sessionId, data.seriesId, rectangles)
     })
 
@@ -1588,11 +1590,6 @@ $on('scanselectionchange.bulkanon', '#review-series-images', function() {
     $$('[data-js-review-set-template]').prop('disabled', selected_scans_count === 0)
     $$('[data-js-review-exclude]').prop('disabled', selected_scans_count === 0)
     $$('[data-js-review-reset]').prop('disabled', selected_scans_count === 0)
-
-    console.log({
-        checked_checkboxes: selected_scans_count,
-        _masking_groups
-    });
 })
 
 $on('click', '[data-js-review-reset]', function() {
@@ -1753,8 +1750,6 @@ function dicomFileToDataURL(thumb_path, cornerstone, width, height) {
         let element = cornerstone_enable_small_thumb_element(width, height);
         let imageId = `wadouri:http://localhost:7714/?path=${thumb_path}`;
 
-        // console.log({imageId});
-
         // this should trigger after "cornerstone.displayImage()" method
         element.addEventListener('cornerstoneimagerendered', function() {
             const img_data_src = $(element).find("canvas").get(0).toDataURL();
@@ -1790,9 +1785,6 @@ function set_bulk_image_thumbnails() {
 
     let selected_series_ids = get_quick_selected_session_ids()
 
-    console.log({selected_series_ids});
-
-    //console.log({selected_session_id, session_map})
     session_map.get(selected_session_id).scans.forEach(function(scan, key) {
         if (selected_series_ids.includes(key)) {
             bulk_image_thumbnails.push({
@@ -1829,7 +1821,6 @@ function set_image_thumbnails() {
 
     let selected_series_ids = get_selected_series_ids()
 
-    //console.log({selected_session_id, session_map})
     session_map.get(selected_session_id).scans.forEach(function(scan, key) {
         if (selected_series_ids.includes(key)) {
             image_thumbnails.push({
@@ -1910,9 +1901,7 @@ $on('click', '#save-scan-btn', async function(e) {
     let index = image_thumbnails.findIndex(series => series.series_id == series_id)
     await display_series_thumb(image_thumbnails[index], index, cornerstone)
 
-    $('#stack-scroll-btn').trigger('click');
-
-    console.log({rectangle_state_registry});
+    $('#stack-scroll-btn').trigger('click')
 })
 
 
@@ -2175,7 +2164,6 @@ function get_series_files(series_id, session_id = null) {
     const _selected_session_id = session_id ? session_id : selected_session_id;
     let files = [];
     let series_scans = session_map.get(_selected_session_id).scans.get(series_id);
-    console.log({series_scans});
 
     if (Array.isArray(series_scans) && series_scans.length > 0) {
         // backward compatibility TOOLS-524 (sort by x00200013 ...)
@@ -2193,7 +2181,6 @@ function get_series_files(series_id, session_id = null) {
         });
     }
 
-    console.log({files});
     return files;
 }
 
@@ -2654,8 +2641,6 @@ $on('change', '#var_subject', async function(e){
     let project_id = $$('#var_project').val();
     let subject_id = $(this).find('option:selected').eq(0).data('subject_id');
 
-    console.log({project_id, subject_id});
-
     FlowReset.execFrom('clear_visits')
 
     if (!subject_id) {
@@ -2666,8 +2651,6 @@ $on('change', '#var_subject', async function(e){
     try {
         const xnat_api = new XNATAPI(xnat_server, user_auth)
         const sorted_visits = await xnat_api.project_subject_visits(project_id, subject_id)
-
-        console.log({sorted_visits});
 
         if (sorted_visits.length !== 0) {
             sorted_visits.forEach(append_visit_row);
@@ -2703,7 +2686,6 @@ $(document).on('click', 'a[data-visit_id]', async function(e){
     try {
         const xnat_api = new XNATAPI(xnat_server, user_auth)
         const sorted_types = await xnat_api.project_visit_datatypes(project_id, visit_id)
-        console.log({sorted_types});
 
         if (sorted_types.length === 0) {
             $('.datatypes-holder').addClass('hidden');
@@ -2742,7 +2724,6 @@ $(document).on('click', 'a[data-datatype]', async function(e){
     try {
         const xnat_api = new XNATAPI(xnat_server, user_auth)
         const subtypes = await xnat_api.project_visit_subtypes(project_id, visit_id, datatype)
-        console.log({subtypes});
 
         if (subtypes.length === 0) {
             $('.subtypes-holder').addClass('hidden');
@@ -2821,7 +2802,6 @@ function append_subtype_row(subtype){
 
 
 $on('click', '.js_next:not(.disabled)', function() {
-    console.log({session_map});
     let active_tab_index = $('.nav-item').index($('.nav-item.active'));
     if ($('.nav-item').eq(active_tab_index + 1).hasClass('hidden')) {
         active_tab_index++;
@@ -3466,8 +3446,6 @@ function generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject
 function get_session_series(session) {
     let series_data = [];
 
-    console.log({session_scans: session.scans});
-
     // Map() traverse
     session.scans.forEach((scan, key) => {
         const scan_size = scan.reduce((prevVal, elem) => {
@@ -3516,8 +3494,6 @@ $(document).on('click', '#switch_to_custom_upload', function() {
 function quick_upload_selection(_sessions) {
     const session_ids = _sessions.map(sess => sess.id)
     const tbl_data = selected_sessions_display_data(session_map, session_ids, project_settings.subjects, true)
-
-    console.log({session_ids, tbl_data});
 
     selected_sessions_table($('#selected_session_tbl'), tbl_data)
 
@@ -4018,7 +3994,6 @@ function dicomParse(_files, root_path) {
                             const PhotometricInterpretation = dicom.string('x00280004');
                             const Rows = dicom.uint16('x00280010');
                             const Columns = dicom.uint16('x00280011');
-                            console.log({Rows, Columns});
                             // ----------------------------------------------------
 
                             const SOPInstanceUID = dicom.string('x00080018');
@@ -4223,7 +4198,6 @@ function dicomParse(_files, root_path) {
             default:
                 let tbl_data = [];
                 session_map.forEach(function(cur_session, key) {
-                    console.log({cur_session});
 
                     let paths = [];
                     cur_session.scans.forEach(function (files, scan_id) {                       
@@ -4606,8 +4580,6 @@ ipcRenderer.on('custom_upload_multiple:generate_exp_label', function(e, row){
     });
 
     $('.label-field', `tr[data-uniqueid="${row.id}"]`).val(new_label)
-
-    console.log({row, series_data});
 })
 
 function select_link_for_item(ulid, attrs, targetid) {
@@ -4823,7 +4795,6 @@ $on('hide.bs.modal', '#review-series-images', function(e) {
 })
 
 async function generateBulkImageReview(selected_scans, imgDataImages) {
-    console.log({selected_scans});
     let tpl_html = await ejs_template('upload/scan_review_list', {selected_scans, imgDataImages})
     $('#scan_images').html(tpl_html)
 }
@@ -4835,29 +4806,6 @@ $on('change', '#apply_masking_template', function(e) {
     }
 })
 
-function generateBulkImageReviewRow(row, imgSrc) {
-
-}
-
-function generateBulkImageReview__OLD(selected_scans, imgDataImages) {
-    $$('#scan_images').html('');
-    for(let i = 0; i < selected_scans.length; i++) {
-        const row = selected_scans[i]
-        const imgSrc = imgDataImages[i]
-        
-        $$('#scan_images').append(`
-            <div style="width: 50%; border: 1px solid #eee; padding: 15px; float: left;">
-                <h3>Series: <b>${row.seriesNumber}</b>: [${row.seriesDescription}]</h3>
-                <h4>Study: ${row.studyId} - ${row.studyDescription}</h4>
-                <div style="display: inline-block; padding: 20px;"><img src="${imgSrc}"></div>
-            </div>
-        `)
-    }
-}
-
-function generateScanImage(imgSrc) {
-    $$('#scan_images').append(`<div style="display: inline-block; padding: 20px;"><img src="${imgSrc}"></div>`)
-}
 
 $on('click', 'button[data-clear-filter-control]', function(e) {
     let tbl_id = $(this).data('clear-filter-control');
