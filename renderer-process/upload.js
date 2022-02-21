@@ -391,12 +391,8 @@ function initAnnoMulti() {
         position: 'top',
         content : 'Scans are grouped... TO-DO',
         className: 'anno-width-400'
-      }, */{
-        target  : '#masking-groups > .row:first-child',
-        position: 'bottom',
-        content : 'Some scans cannot support pixel anonymization. For example, scans with multiple resolutions, such as DICOM WSI. These can still be uploaded, but they cannot be modified with this tool. Click here to toggle between groupings of valid and unsupported scans.',
-        className: 'anno-width-400'
-      }, {
+      }, */
+      {
         target  : '#masking-groups .mask-group-row:eq(0)',
         position: 'top',
         content : 'The scans from your selected data have been regrouped by modality, resolution, and SOP Class information, so that we can apply common pixel anonymization templates to them. Each of these scan groups may contain scans from multiple sessions.',
@@ -411,6 +407,11 @@ function initAnnoMulti() {
         content : 'To review each group of scans and draw pixel anonymization templates, click the "Review" button within each scan group. There, you can draw and apply anonymization templates, or simply exclude scans from the upload queue.',
         className: 'anno-width-400'
       }, {
+        target  : '#masking-groups > .row:first-child',
+        position: 'bottom',
+        content : 'Some scans cannot support pixel anonymization. For example, scans with multiple resolutions, such as DICOM WSI. These can still be uploaded, but they cannot be modified with this tool. Click here to toggle between groupings of valid and unsupported scans.',
+        className: 'anno-width-400'
+      }, {
         target  : '#visual-phi-removal-instructions',
         position: 'bottom',
         content : 'For further help, see <a href="https://wiki.xnat.org/xnat-tools/xnat-desktop-client-dxm/uploading-image-sessions/applying-pixel-anonymization-during-the-upload-process">documentation</a> on pixel anonymization. To see these tips again, click the "Help" button.'
@@ -418,6 +419,11 @@ function initAnnoMulti() {
 
     $$('#visual-phi-removal-instructions').on('click', function(e) {
         e.preventDefault();
+
+        // if is already anno initialized ... stop
+        if ($('.anno-overlay').length) {
+            return
+        }
 
         if ($$('#masking-groups .mask-group-row').length === 0) {
             $$('#masking-groups .btn-link').trigger('click')
@@ -1535,7 +1541,6 @@ $on('click', '[data-review-mask-alias]', async function() {
 });
 
 $on('click', '#scan_images .has-popover', function(e) {
-    console.log('Popover clicked')
     e.preventDefault();
 })
 
@@ -3367,7 +3372,7 @@ $on('click', '.js_custom_upload', async function(){
         } else {
             await swal({
                 title: `Project Restriction - Single Session Upload`,
-                text: `Custom variables are defined for this project. Please select a single session and continue with the Custom Upload.`,
+                text: `Custom variables are defined for this project. Please select a single session and continue with the upload.`,
                 icon: "info",
                 dangerMode: true
             })
@@ -3524,9 +3529,9 @@ function custom_upload_multiple_selection(_sessions) {
 }
 
 
-$(document).on('click', '#upload-section [data-csv-tpl-download]', function(e) {
+$on('click', '#upload-section [data-csv-tpl-download]', function(e) {
     const data = $('#custom_upload_multiple_tbl').bootstrapTable('getSelections')
-    
+
     if (data.length === 0) {
         Helper.pnotify('Selection Error', 'You have to select at least 1 session for CSV export.', 'warning', 3000);
     } else {
@@ -3625,7 +3630,7 @@ async function validate_csv_upload(csv_path) {
 
 }
 
-$(document).on('change', '#upload-section [data-csv-file-upload]', async function(e) {
+$on('change', '#upload-section [data-csv-file-upload]', async function(e) {
     if (this.files.length === 1) {
         let jsonArray = await validate_csv_upload(this.files[0].path);
 
@@ -3642,7 +3647,7 @@ $(document).on('change', '#upload-section [data-csv-file-upload]', async functio
                     default_data[item_match_index].enabled = true
                     
                     for (const column in row) {
-                        const selected_field = CSV_UPLOAD_FIELDS.find(field => field.label === column)
+                        const selected_field = CSV_UPLOAD_FIELDS.find(field => field.label === column && field.editable)
 
                         if (selected_field !== undefined) {
                             default_data[item_match_index][selected_field.name] = row[column]

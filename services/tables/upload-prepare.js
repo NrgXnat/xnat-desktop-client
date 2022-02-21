@@ -232,6 +232,7 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 class: 'right-aligned',
                 sortable: true,
                 visible: true,
+                width: 117,
                 formatter: function(value, row, index, field) {
                     return value ? value : 'N/A';
                 }
@@ -241,12 +242,14 @@ function custom_upload_multiple_table($tbl, tbl_data) {
                 title: 'Modality',
                 sortable: true,
                 class: 'break-all',
-                visible: false
+                width: 100,
+                visible: true
             },
             {
                 field: 'scan_count',
                 title: 'Scans',
                 sortable: true,
+                width: 85,
                 class: 'right-aligned'
             },
             {
