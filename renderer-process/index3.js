@@ -476,13 +476,21 @@ $(document).on('click', '#download_and_install', function(e) {
     ipc.send('download_and_install');
 })
 
+// =============== POPOVERS ===============
+
 // initialize popovers
-$('[data-toggle="popover"]').popover()
 $('body').popover({
-    selector: '.has-popover'
+    selector: '[data-toggle="popover"], .has-popover'
 })
 
-// ===============
+// hide popovers when you click outside of them
+$('body').on('click', function (e) {
+    if ($(e.target).data('toggle') !== 'popover' && $(e.target).parents('.popover.show').length === 0 && $(e.target).parents('.has-popover').length === 0) {
+        $('[data-toggle="popover"]').popover('hide')
+    }
+});
+
+// ========================================
 
 ipc.on('load:page',function(e, item){
     console_log('Loading page ... ' + item)
