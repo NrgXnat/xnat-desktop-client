@@ -46,8 +46,14 @@ module.exports = Object.freeze({
             required: false
         },
         {
+            name: "scan_count",
+            label: 'Scans',
+            editable: false,
+            required: false
+        },
+        {
             name: "xnat_subject_id",
-            label: 'Subject Label',
+            label: 'XNAT Subject ID',
             editable: true,
             required: true
         },
@@ -56,12 +62,6 @@ module.exports = Object.freeze({
             label: 'Session Label',
             editable: true,
             required: true
-        },
-        {
-            name: "scan_count",
-            label: 'Scans',
-            editable: false,
-            required: false
         },
         {
             name: "tracer",

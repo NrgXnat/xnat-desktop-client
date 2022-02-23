@@ -480,7 +480,8 @@ $(document).on('click', '#download_and_install', function(e) {
 
 // initialize popovers
 $('body').popover({
-    selector: '[data-toggle="popover"], .has-popover'
+    selector: '[data-toggle="popover"], .has-popover',
+    html: true
 })
 
 // hide popovers when you click outside of them
