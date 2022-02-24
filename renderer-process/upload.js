@@ -799,7 +799,7 @@ function _init_session_selection_table(tbl_data) {
             },
             {
                 field: 'label',
-                title: 'Study Description (studyId)',
+                title: 'Study Description (Study Id)',
                 sortable: true,
                 class: 'break-all'
             },
@@ -3690,7 +3690,9 @@ function selected_sessions_display_data(session_map, session_ids, project_subjec
         /************************** */
 
         
-        let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
+        // let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
+        let session_label = cur_session.studyDescription === undefined ? key : cur_session.studyDescription;
+        if (cur_session.studyId !== undefined && cur_session.studyId !== '-') session_label += ' ('+cur_session.studyId+')';
 
         let studyDate = normalizeDateString(cur_session.date);
 
@@ -4216,9 +4218,12 @@ function dicomParse(_files, root_path) {
                     console.log('=================== COMMON PATH '+ root_path + find_common_path(paths) +'=============================');
                     console.log(paths);
                     console.log('===============================================');
-                    
-                    let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
-                    //let session_label = cur_session.studyDescription === undefined ? key : cur_session.studyDescription;
+
+                    let session_label = cur_session.studyDescription === undefined ? key : cur_session.studyDescription;
+                    if (cur_session.studyId !== undefined && cur_session.studyId !== '-') session_label += ' ('+cur_session.studyId+')';
+
+                    // let session_label = cur_session.studyId === undefined ? key : cur_session.studyId;
+                    // let session_label = cur_session.studyDescription === undefined ? key : cur_session.studyDescription;
                     // let session_label = JSON.stringify({
                     //     stud_desc: cur_session.studyDescription,
                     //     stud_id: cur_session.studyId
