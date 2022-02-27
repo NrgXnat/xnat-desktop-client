@@ -3549,8 +3549,10 @@ $on('click', '#upload-section [data-csv-tpl-download]', function(e) {
     
             return mapped_item
         })
-    
-        saveAsCSV(relevant_data, `Sessions Upload ${Date.now()}.csv`)
+
+        const header_fields = CSV_UPLOAD_FIELDS.map(item => item.label)
+
+        saveAsCSV(relevant_data, `Sessions Upload ${Date.now()}.csv`, header_fields)
     }
 })
 

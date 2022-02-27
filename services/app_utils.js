@@ -50,7 +50,7 @@ exports.objToJsonFile = (jsonObject, target_path) => {
     }
 }
 
-function objArrayToCSV(objArray) {
+function objArrayToCSV(objArray, header_fields = false) {
     function isObject (value) {
         return value && typeof value === 'object' && value.constructor === Object;
     }
@@ -61,7 +61,7 @@ function objArrayToCSV(objArray) {
 
     const replacer = (key, value) => value === null ? '' : value; // handle null values here
 
-    const header = Object.keys(objArray[0]);
+    const header = header_fields ? header_fields : Object.keys(objArray[0]);
 
     // let csv = objArray.map(row => header.map(fieldName => JSON.stringify(row[fieldName], replacer)).join(','));
 
@@ -86,8 +86,8 @@ function objArrayToCSV(objArray) {
 
 exports.objArrayToCSV = objArrayToCSV
 
-exports.saveAsCSV = (data, filename) => {
-    let csv = objArrayToCSV(data);
+exports.saveAsCSV = (data, filename, header_fields = false) => {
+    let csv = objArrayToCSV(data, header_fields);
 
     var file = new File([csv], filename, {type: "text/csv;charset=utf-8"});
     FileSaver.saveAs(file);
