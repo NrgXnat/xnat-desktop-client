@@ -476,6 +476,7 @@
                                 <div class="row action-button-row">
                                     <div class="col-12 row_items">
                                         <div class="button-row">
+                                            <!--
                                             <label for="upload_overwrite_method" style="font-weight: bold; margin: 0 10px 0 0;">How should XNAT handle overwriting existing data?</label>
                                             <select required id="upload_overwrite_method" style="display: inline-block; width: auto;" class="form-control form-control-sm">
                                                 <option value="">Select</option>
@@ -483,6 +484,8 @@
                                                 <option value="delete">Overwrite Existing Data</option>
                                                 <option value="none">Ignore Duplicate Data (Default)</option>
                                             </select>
+                                            -->
+                                            <input type="hidden" id="upload_overwrite_method" name="upload_overwrite_method" value="none" />
                                         </div>
     
                                         <div class="button-row">
