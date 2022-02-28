@@ -2916,9 +2916,10 @@ $on('click', '[data-js-visual-bulk-upload]', async function() {
     const proceed = await swal({
         title: `Upload Overview`,
         text: `From ${total_scans} total scans in original dataset:  
-        * ${count_anonymized} scans to upload with pixel anonymization
-        * ${count_included - count_anonymized} scans to upload without pixel anonymization
-        * ${count_user_excluded} scans excluded by user
+        
+        • ${count_anonymized} scans to upload with pixel anonymization
+        • ${count_included - count_anonymized} scans to upload without pixel anonymization
+        • ${count_user_excluded} scans excluded by user
         `,
         icon: "info",
         buttons: ['Cancel', 'Continue Upload'],
