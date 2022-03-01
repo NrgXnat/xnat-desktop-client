@@ -3673,6 +3673,14 @@ function selected_sessions_display_data(session_map, session_ids, project_subjec
     let xnat_subject_ids = []
 
     let existing_project_subjects = project_subjects.map(item => item.label)
+    let unique_subjects_found = [...session_map.values()].map(item => item.patient.name).filter((v,i,a) => a.indexOf(v) === i)
+    let subject_map = {}
+
+    // only generate new subject IDs for unique subjects
+    unique_subjects_found.forEach(function(subject){
+        let generated_xnat_subject_id = generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject_ids)
+        subject_map[subject] = generated_xnat_subject_id;
+    })
 
     session_map.forEach(function(cur_session, key) {
         console.log({cur_session});
@@ -3686,6 +3694,8 @@ function selected_sessions_display_data(session_map, session_ids, project_subjec
         if (new_xnat_subject_id) {
             xnat_subject_ids.push(new_xnat_subject_id)
         }
+
+        let generated_xnat_subject_id = subject_map[cur_session.patient.name]
 
         
         /************************** */
@@ -3703,7 +3713,7 @@ function selected_sessions_display_data(session_map, session_ids, project_subjec
             id: key,
             patient_name: cur_session.patient.name,
             patient_id: cur_session.patient.id,
-            subject_auto: generate_unique_xnat_subject_id(existing_project_subjects, xnat_subject_ids),
+            subject_auto: generated_xnat_subject_id,
             subject_dicom_patient_name: cur_session.patient.name,
             subject_dicom_patient_id: cur_session.patient.id,
             xnat_subject_id: new_xnat_subject_id,
