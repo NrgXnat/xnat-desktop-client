@@ -8,11 +8,11 @@ const electron = require('electron')
 
 const auth = require('./services/auth');
 
-const {app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol} = electron;
+const { app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol } = electron;
 
 const electron_log = require('./services/electron_log')
 
-const { isDevEnv } = require('./services/app_utils');
+const { isDevEnv, getUpdateChannel } = require('./services/app_utils');
 
 const MigrateSettings = require('./services/settings_to_store_migration')
 MigrateSettings(app.getPath('userData'))
@@ -37,7 +37,7 @@ electron.crashReporter.start({
 });
 
 
-const {autoUpdater} = require("electron-updater");
+const { autoUpdater } = require('electron-updater');
 
 // windows
 let mainWindow = null, downloadWindow = null, uploadWindow = null;
@@ -225,6 +225,9 @@ function initialize () {
 
   function prepareAutoUpdate() {
     autoUpdater.autoDownload = false;
+    autoUpdater.channel = getUpdateChannel();
+    // setting "channel" sets "allowDowngrade" to true, so change allowDowngrade after the channel property is set
+    autoUpdater.allowDowngrade = autoUpdater.channel === 'latest'
     // debugging with autoUpdater.logger not required but still useful
     autoUpdater.logger = electron_log;
     //autoUpdater.logger.transports.file.level = 'info';
@@ -340,6 +343,7 @@ function initialize () {
 
       You can allow this by checking the "Allow unverified certificates" option on the server definition. Note that this may expose sensitive information if the connection has been compromised. Please check with your system administrator if you're unsure how to proceed.`
       post_message('custom_error', 'Certificate Error', msg);
+      post_message('display_allow_unverified_ssl');
 
       //callback(false);
     }
@@ -609,7 +613,7 @@ ipcMain.on('global_pause_status', (e, new_status) => {
 
   if (new_status === true) {
     uploadWindow.webContents.send('start_upload', new_status);
-    uploadWindow.webContents.send('start_download', new_status);
+    downloadWindow.webContents.send('start_download', new_status);
   }
 })
 
@@ -653,6 +657,10 @@ ipcMain.on('upload_finished', (e, transfer_id) => {
   post_message('upload_finished', transfer_id);
 })
 
+ipcMain.on('custom_upload_multiple:generate_exp_label', (e, row) => {
+  post_message('custom_upload_multiple:generate_exp_label', row);
+})
+
 
 ipcMain.on('reload_upload_window', (e, item) => {
   uploadWindow.reload(true);
@@ -675,6 +683,47 @@ ipcMain.on('force_reauthenticate', (e, login_data) => {
   if (login_data.server !== null) {
     post_message('force_reauthenticate', login_data);
   }
+})
+
+// shell.showItemInFolder only brings opened window to front if called from main process
+ipcMain.on('shell.showItemInFolder', (e, full_path) => {
+  shell.showItemInFolder(full_path)
+})
+
+ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base) => {
+  const file_name = `Upload-Receipt--${filename_base}-${Date.now()}` 
+  const pdf_filepath = path.join(destination, `${file_name}.pdf`)
+  const html_filepath = path.join(destination, `${file_name}.html`)
+
+  try {
+    fs.writeFileSync(html_filepath, html, 'utf8')
+  } catch(err) {
+    showErrorBox('Greska', err)
+    return
+  }
+
+  const window_to_PDF = new BrowserWindow({show : false})//to just open the browser in background
+  window_to_PDF.loadURL(`file://${html_filepath}`) //give the file link you want to display
+
+  window_to_PDF.webContents.once('did-finish-load', () => {
+    window_to_PDF.webContents.printToPDF(pdf_settings, function(err, data) {
+      if (err) {
+        devToolsLog(err)
+      } else {
+        try {
+          fs.writeFileSync(pdf_filepath, data)
+          fs.unlinkSync(html_filepath)
+        } catch (err) {
+          devToolsLog(err)
+        }
+      }
+      
+      window_to_PDF.close()
+      shell.showItemInFolder(pdf_filepath)
+    })
+    
+  });
+  
 })
 
 

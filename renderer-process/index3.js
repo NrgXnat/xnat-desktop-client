@@ -13,7 +13,6 @@ const remote = require('electron').remote;
 
 const ipcEventHandlers = require('../services/ipc-event-handlers')
 
-
 const { isReallyWritable } = require('../services/app_utils');
 
 const user_settings = require('../services/user_settings');
@@ -94,10 +93,10 @@ function loadPage(page) {
             let clone = document.importNode(template.content, true)
         
             let contentContainer = document.querySelector('.content');
-            console.log({page, contentContainer, clone});
+    
             contentContainer.innerHTML = '';
+
             contentContainer.appendChild(clone);
-            console.log({clone});
             document.body.scrollTop = 0;
 
             settings.set('active_page', page); 
@@ -184,7 +183,7 @@ async function protocol_request(e, url) {
         if (url.indexOf(app_protocol + '://') === 0) {
             try {
                 let url_object = new URL(url);
-                console_log(url_object);
+                console_log({url, url_object});
                 
                 let safe_protocol = '';
                 if (app_protocol === app.app_protocol + 's') {
@@ -194,6 +193,8 @@ async function protocol_request(e, url) {
                 let server = 'http' + safe_protocol + '://' + url_object.host
     
                 let last_download_index = url_object.pathname.lastIndexOf('/download/');
+                let upload_slash_index = url_object.pathname.lastIndexOf('/upload/')
+                let last_upload_index = upload_slash_index === -1 ? url_object.pathname.lastIndexOf('/upload') : upload_slash_index 
                 let is_upload;
                 let rest_xml = '';
     
@@ -202,7 +203,9 @@ async function protocol_request(e, url) {
                     server += url_object.pathname.substr(0, last_download_index);
                     is_upload = false;
                     rest_xml = server + '/xapi/archive' + url_object.pathname.substr(last_download_index, url_object.pathname.length - last_download_index - 4) + '/xml'
-                } else if (url_object.pathname.includes('upload')) {
+                // } else if (url_object.pathname.includes('upload')) {
+                } else if (last_upload_index >= 0) {
+                    server += url_object.pathname.substr(0, last_upload_index);
                     is_upload = true;
                 } else {
                     // protocol match, but path is invalid URL not handled
@@ -228,7 +231,7 @@ async function protocol_request(e, url) {
                     password: url_params.s
                 };
 
-                console_log(server, my_user_auth);
+                console_log({server, my_user_auth});
                 
                 let real_username;
                 try {
@@ -244,7 +247,7 @@ async function protocol_request(e, url) {
                     throw_new_error('Connection Error', Helper.errorMessage(err));
                 }
 
-                console_log(url_object);
+                console_log({url_object});
 
                 let url_data = {
                     title: 'External URL trigger',
@@ -258,7 +261,7 @@ async function protocol_request(e, url) {
                     PARAMS: url_params
                 };
 
-                console_log(url_data);
+                console_log({url_data});
 
                 
 
@@ -473,7 +476,22 @@ $(document).on('click', '#download_and_install', function(e) {
     ipc.send('download_and_install');
 })
 
-// ===============
+// =============== POPOVERS ===============
+
+// initialize popovers
+$('body').popover({
+    selector: '[data-toggle="popover"], .has-popover',
+    html: true
+})
+
+// hide popovers when you click outside of them
+$('body').on('click', function (e) {
+    if ($(e.target).data('toggle') !== 'popover' && $(e.target).parents('.popover.show').length === 0 && $(e.target).parents('.has-popover').length === 0) {
+        $('[data-toggle="popover"]').popover('hide')
+    }
+});
+
+// ========================================
 
 ipc.on('load:page',function(e, item){
     console_log('Loading page ... ' + item)
@@ -581,13 +599,18 @@ ipc.on('force_reauthenticate', (e, login_data) => {
 
 ipc.on('handle_protocol_request', protocol_request)
 
-
 ipc.on('custom_error_with_details', ipcEventHandlers.customErrorWithDetails);
+
+ipc.on('display_allow_unverified_ssl', function(e) {
+    $('.form-check').removeClass('hidden')
+})
 
 
 window.onerror = function (errorMsg, url, lineNumber) {
-    electron_log.error(`[Custom Uncaught Error]:: ${__filename}:: (${url}:${lineNumber}) ${errorMsg}`)
+    let error_msg = `${__filename}:: (${url}:${lineNumber}) ${errorMsg}`;
+    electron_log.error(`[Custom Uncaught Error]:: ${error_msg}`)
     console_log(__filename + ':: ' +  errorMsg);
+
+    ipc.send('custom_error', `Custom Uncaught Error`, error_msg)
     return false;
 }
-

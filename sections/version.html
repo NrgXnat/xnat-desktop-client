@@ -7,11 +7,23 @@
 
                     <div class="version">XNAT Desktop Client version: <span id="semver"></span></div>
                     <br>
-                    
+
+                    <div class="form-group mb-4">
+                        <label for="auto_update_channel">Select Update Channel:</label>
+                        <select id="auto_update_channel" class="form-control" style="max-width: 250px;">
+                            <option value="alpha">Alpha</option>
+                            <option value="beta">Beta</option>
+                            <option value="latest">Stable (Default)</option>
+                        </select>
+
+                        <p class="mt-2" id="version_info"></p>
+                    </div>
+
                     <div class="updates">
-                        <p id="version_info"></p>
                         <a href="#" class="btn btn-blue" id="check_for_updated_verision">Check for updates</a>
                     </div>
+
+                    
                     
                 </div>
             </div>

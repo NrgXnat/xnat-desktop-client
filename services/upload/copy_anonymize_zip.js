@@ -3,9 +3,12 @@ const path = require('path');
 const archiver = require('archiver');
 
 const remote = require('electron').remote;
+
+const { file_checksum } = remote.require('./services/app_utils');
+const { MizerError } = require('../errors');
 const mizer = remote.require('./mizer');
 
-const { MizerError } = require('../errors');
+const { uuidv4 } = require('./../app_utils');
 
 const filePromiseChain = (funcs) => {
     const reducer = (promise, func) => {
@@ -21,7 +24,7 @@ const filePromiseChain = (funcs) => {
                 })
                 .catch(err => {
                     result.fail.push(err.file)
-
+                    
                     if (err instanceof MizerError) {
                         throw err
                     }
@@ -51,12 +54,9 @@ const get_unique_copy_path = (file, target_dir) => {
     //   name: 'file' }
     let file_path = path.parse(file);
 
-    let target = path.join(target_dir, file_path.base);
-    let counter = 1;
+    let target = path.join(target_dir, (uuidv4() + file_path.ext));
     while (fs.existsSync(target)) {
-        let alt_name = file_path.name + '-' + counter + file_path.ext;
-        target = path.join(target_dir, alt_name);
-        counter++;
+        target = path.join(target_dir, (uuidv4() + file_path.ext));
     }
 
     return target;
@@ -94,51 +94,65 @@ const copy_file = (file, target_dir) => {
     })
 }
 
-const anonymize_copy = (copy, contexts, variables) => {
+const anonymize_copy = (copy_path, contexts, variables) => {
     return new Promise((resolve, reject) => {
         try {
-            mizer.anonymize(copy, contexts, variables);
+            mizer.anonymize(copy_path, contexts, variables);
             console.count('anonymized')
 
-            resolve(copy)
+            resolve(copy_path)
         } catch(err) {
-            console.log(`ERROR: anonymize_copy(${path.basename(copy)})`)
-            reject({err, copy})
+            console.log(`ERROR: anonymize_copy(${path.basename(copy_path)})`)
+            reject({err, copy: copy_path})
         }
     })
 }
 
-const add_to_archive = (file, original, archive) => {
+const calculate_checksum = async (copy_path, file_path, anon_file_checksums) => {
+    const anon_checksum = await file_checksum(copy_path)
+
+    anon_file_checksums.push({
+        source: file_path,
+        anon_checksum
+    })
+
+    return copy_path
+}
+
+const add_to_archive = (file_path, original, archive) => {
     return new Promise((resolve, reject) => {
         try {
-            archive.file(file, { name: path.basename(original) });
-            console.log(`add_to_archive(${path.basename(file)})`);
-            resolve(file)
+            archive.file(file_path, { name: path.basename(original) });
+            console.log(`add_to_archive(${path.basename(file_path)})`);
+            resolve(file_path)
         } catch(err) {
-            console.log(`ERROR: add_to_archive(${path.basename(file)})`)
+            console.log(`ERROR: add_to_archive(${path.basename(file_path)})`)
             reject({
                 err: err,
-                copy: file
+                copy: file_path
             })
         }
     })
 }
 
-const all_file_tasks = (file, target_dir, archive, contexts, variables) => {
+const all_file_tasks = (file_path, target_dir, archive, contexts, variables, anon_file_checksums) => {
     return () => {
         return new Promise((resolve, reject) => {
-            copy_file(file, target_dir)
-                .then(copy => {
-                    return anonymize_copy(copy, contexts, variables) // promise (anonymize)
+            copy_file(file_path, target_dir)
+                .then(copy_path => {
+                    return anonymize_copy(copy_path, contexts, variables) // promise (anonymize)
                 })
-                .then(copy => {
-                    return add_to_archive(copy, file, archive)
+                .then(async (copy_path) => {
+                    return calculate_checksum(copy_path, file_path, anon_file_checksums)
                 })
-                .then(copy => {
-                    console.log(`DONE: all_file_tasks(${path.basename(file)})`);
+                .then(copy_path => {
+                    return add_to_archive(copy_path, file_path, archive)
+                })
+                .then(copy_path => {
+                    console.log(`DONE: all_file_tasks(${path.basename(file_path)})`);
                     resolve({
-                        file,
-                        copy
+                        file: file_path,
+                        copy: copy_path
                     })
                 })
                 .catch((err) => {
@@ -149,12 +163,8 @@ const all_file_tasks = (file, target_dir, archive, contexts, variables) => {
                         });
                     }
 
-                    if (mizer.isMizerError(err.err.message)) {
-                        reject(new MizerError(err.err.message, err.copy));
-                    }
-
                     reject({
-                        file,
+                        file: file_path,
                         copy: err.copy
                     })
                 })
@@ -168,11 +178,11 @@ function copy_anonymize_zip(_files, destination, contexts, variables) {
     let zip_destination = path.join(destination, Date.now() + '.zip');
 
     if (_files.length === 0) {
-        return Promise.reject('Nema fajlova!!!')
+        return Promise.reject('No files passed to copy_anonymize_zip()!')
     }
 
     return new Promise((resolve, reject) => {
-        let success, _error, remove_files = [];
+        let success, _error, remove_files = [], anon_file_checksums = [];
         // *********************************************************
         // *********************************************************
 
@@ -218,7 +228,10 @@ function copy_anonymize_zip(_files, destination, contexts, variables) {
             console.log({success});
 
             if (success) {
-                resolve(output.path)
+                resolve({
+                    path: output.path,
+                    checksums: anon_file_checksums
+                })
             } else {
                 remove_files.map(file => {
                     if (fs.existsSync(file)) {
@@ -257,7 +270,7 @@ function copy_anonymize_zip(_files, destination, contexts, variables) {
         // **********************************************************************************************
         // **********************************************************************************************
         const file_tasks = (files) => {
-            return files.map((file) => all_file_tasks(file, destination, archive, contexts, variables))
+            return files.map((file) => all_file_tasks(file, destination, archive, contexts, variables, anon_file_checksums))
         }
 
 

@@ -48,17 +48,20 @@
 
     <header id="header_menu">
         <a href="#home" class="logo-header"><img src="assets/images/logo-header.png"></a>
-        <span id="version-number" style="position: relative; float: left; padding: 8px 0; color: #fff"></span>
+        <a href="version.html">
+            <span id="version-number" 
+                style="position: relative; float: left; padding: 8px 0; color: #fff"
+            ></span>
+        </a>
         <div class="menu-holder hidden-by-default hidden">
             <a href="#" class="menu">MENU</a>
             <div class="menu-dropdown">
                 <a href="home.html">Home</a>
                 <a href="upload.html">Upload</a>
                 <a href="#" id="trigger_download">Download</a>
-                <a href="progress.html">Progress Monitor</a>
+                <a href="progress.html">Monitor Transfers</a>
                 <a href="https://wiki.xnat.org/xnat-tools/dxm" target="_blank" class="monitor">Documentation</a>
                 <a href="version.html">About</a>
-                <a href="progress.html" class="monitor">Monitor</a>
                 <!-- <a href="cornerstone.html" class="">Image Viewer</a> -->
             </div>
         </div>
@@ -84,7 +87,7 @@
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLongTitle">XNAT Desktop Client update</h5>
+                    <h5 class="modal-title" id="autoUpdateModalLongTitle">XNAT Desktop Client update</h5>
                     
                 </div>
                 <div class="modal-body">
@@ -104,6 +107,7 @@
                 </div>
     
                 <div class="modal-footer">
+                    <a class="btn btn-link mr-auto p-0" href="version.html" data-dismiss="modal">Change Update Channel</a>
                     <button type="button" class="btn btn-gray" data-dismiss="modal">Remind me later</button>
                     <button type="button" class="btn btn-blue" id="download_and_install">Download and Install</button>
                 </div>
@@ -118,7 +122,7 @@
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLongTitle">XNAT Desktop Client</h5>
+                    <h5 class="modal-title" id="winInstallCppLongTitle">XNAT Desktop Client</h5>
                     
                 </div>
                 <div class="modal-body">
@@ -146,7 +150,7 @@
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLongTitle">XNAT Desktop Client</h5>
+                    <h5 class="modal-title" id="altUploadMethodModalLongTitle">XNAT Desktop Client</h5>
                     
                 </div>
                 <div class="modal-body">
@@ -306,6 +310,9 @@
         PNotify.prototype.options.delay = 7000;
 
         // Helper.pnotify('Title', 'Some message.');
+        // Helper.pnotify('Title');
+        // Helper.pnotify('Title', `Lorem ipsum dolor sit amet consectetur adipisicing elit. Dolore facere soluta ipsum, nobis suscipit quaerat nesciunt molestias doloremque fugiat ducimus vitae quod saepe quasi rem ullam veritatis dolor, reiciendis eveniet modi voluptates, commodi eaque? Hic corrupti assumenda at enim quibusdam?`, 'notice');
+        // Helper.pnotify(null, 'Some message.');
         // Helper.pnotify('Title', 'Some message.', 'info');
         // Helper.pnotify('Title', 'Some message.', 'error');
         // setTimeout(function(){

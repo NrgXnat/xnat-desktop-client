@@ -33,6 +33,20 @@
 	font-size: 1rem;
 }
 
+#relabeling_info {
+	.form-inline .form-group {
+		flex-grow: 1;
+
+		label {
+			width: 35%;
+			justify-content: flex-start;
+		}
+		select {
+			width: 65%;
+		}
+	}
+}
+
 
 ////FORMS
 .btn {
@@ -222,9 +236,11 @@ textarea
     padding: 0;
     margin: 0;
     border: 1px solid $list-border;
-    margin-bottom: 30px;
-    height: 162px;
+	margin-bottom: 30px;
+	min-height: 120px;
+    max-height: 345px;
 	overflow-y: scroll;
+	width: 100%;
 	
 	li.divider {
 		padding-left: 4px;

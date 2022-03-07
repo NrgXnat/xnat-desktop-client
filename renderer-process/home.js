@@ -29,6 +29,11 @@ const db_downloads = remote.require('./services/db/downloads')
 const nedb_logger = remote.require('./services/db/nedb_logger')
 const nedb_log_reader = remote.require('./services/db/nedb_log_reader')
 
+const dom_context = '#home-section';
+const { $$, $on } = require('./../services/selector_factory')(dom_context)
+
+const { isReallyWritable } = require('../services/app_utils');
+
 
 let xnat_server, user_auth, default_local_storage;
 let manifest_urls = new Map();
@@ -80,24 +85,30 @@ $(document).on('page:load', '#home-section', function(e){
 });
 
 $(document).on('show.bs.modal', '#download_modal', function(e) {
+    const default_local_storage = settings.get('default_local_storage')
+	
     if (default_local_storage) {
-        $('#download_destination_text').val(default_local_storage)
-        $('#yes_default_local_storage').show();
-        $('#no_default_local_storage').hide();
+        $$('#download_destination_text').val(default_local_storage)
+        $$('#default_local_storage_dir').text(default_local_storage);
     } else {
-        $('#download_destination_text').val('');
-        $('#yes_default_local_storage').hide();
-        $('#no_default_local_storage').show();
+        $$('#download_destination_text').val('');
+        $$('#default_local_storage_dir').text(`N/A`);
     }
 });
 
 $(document).on('change', '#download_destination_file', function(e) {
-    console.log(this.files);
-
-    let $input = $('#download_destination_text');
+    let $input = $$('#download_destination_text');
+    let $ds = $$('#set_default_local_storage')
 
     if (this.files.length) {
-        $input.val(this.files[0].path);
+        if (isReallyWritable(this.files[0].path)) {
+            $input.val(this.files[0].path);
+
+            let not_default_dir = this.files[0].path !== settings.get('default_local_storage')
+            $ds.toggle(not_default_dir)
+        } else {
+            Helper.pnotify(null, `Selected location "${this.files[0].path}" is not accessible.`, 'error', 3000);
+        }
     }
 
     $(this).val('');
@@ -143,6 +154,18 @@ $(document).on('click', '.js_download_session_files', async function(){
     }
 });
 
+$on('change', '#set_default_local_storage_dir', function() {
+    const folder_path = $$('#download_destination_text').val()
+
+    if ($(this).is(':checked')) {
+        settings.set('default_local_storage', folder_path)
+        $$('#default_local_storage_dir').text(folder_path)
+        $$('#set_default_local_storage').hide()
+        Helper.pnotify(null, 'Default download destination was updated.', 'success', 3000);
+
+        $$('#set_default_local_storage_dir').prop('checked', false)
+    }
+})
 
 async function attempt_download(file_path, destination) {
     let data;

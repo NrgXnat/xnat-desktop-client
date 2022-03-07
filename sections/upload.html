@@ -10,273 +10,500 @@
 
                     <nav>
                         <div class="nav nav-tabs" id="nav-tab" role="tablist">
-                            <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Subject Selection</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-folder" role="tab" aria-controls="nav-folder" aria-selected="false">Select Folder</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-date" role="tab" aria-controls="nav-date" aria-selected="false">Verify Visit Date</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Review Files</a>
+                            <a class="nav-item nav-link active" data-toggle="tab" href="#nav-project" role="tab" aria-controls="nav-project" aria-selected="true">Project / Data Selection</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-verify" role="tab" aria-controls="nav-verify" aria-selected="false">Confirm Details</a>
                             <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-visual" role="tab" aria-controls="nav-visual" aria-selected="false">Inspect Images</a>
-                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Summary</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-visual-bulk" role="tab" aria-controls="nav-visual-bulk" aria-selected="false">Inspect Bulk Images</a>
+                            <a class="nav-item nav-link disabled" data-toggle="tab" href="#nav-summary" role="tab" aria-controls="nav-summary" aria-selected="false">Upload to XNAT</a>
                         </div>
                     </nav>
                     <div class="tab-content" id="nav-tabContent">
                         <div class="tab-pane fade show active" id="nav-project" role="tabpanel" aria-labelledby="nav-home-tab">
                             <div class="row">
-                                <div class="col-6">
-                                    <h2 class="section-title search-inline">Select Project</h2>
-                                </div>
-                                <div class="col-6">
-                                    <div class="filter-control title-inline">
-                                        <input type="text" id="upload-project-filter" onkeyup="" placeholder="Filter" class="form-control">
-                                    </div>
-                                </div>
-                            </div>
-                            <ul id="upload-project" class="choose-list"></ul>
-
-                            <div class="project-subjects-holder">
-                                <div class="row">
-                                    <div class="col-6">
-                                        <h2 class="section-title search-inline">Select Subject</h2>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="filter-control title-inline">
-                                            <input type="text" id="subject-session-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                <div class="col-6"> 
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <h2 class="section-title search-inline">Select Project</h2>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="filter-control title-inline">
+                                                <input type="text" id="upload-project-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <ul id="upload-project" class="choose-list"></ul>
                                         </div>
                                     </div>
+                                    <div class="row">
+                                        
+                                    </div>
                                 </div>
-                                <ul id="subject-session" class="choose-list"></ul>
-                            </div>
 
+                                
+                                <div class="col-6" style="min-height: 423px;">
+                                    <h2 class="section-title">Project Settings</h2>
+
+                                    <div id="project_settings_tbl_wrap"><p>Select a project to view settings</p></div>
+
+                                    <script type="text/html" id="project_settings_tbl_tpl">
+                                        <table id="project_settings_tbl" class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">Project</th>
+                                                    <th scope="col" class="text-right"><%project_settings.project.name%></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>Project ID</th>
+                                                    <td class="text-right"><%project_settings.project.ID%></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Subjects</th>
+                                                    <td class="text-right"><%project_settings.subjects.length%></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Image Sessions</th>
+                                                    <td class="text-right"><%project_settings.sessions.length%></td>
+                                                </tr>
+
+                                                <tr>
+                                                    <td>Site-wide Anon Script</th>
+                                                    <td class="text-right">
+                                                        <%if(site_wide_settings.anon_script !== false) {%>
+                                                            <span title="<%site_wide_settings.anon_script.replace(/"/g, '&quot;')%>">✔</span>
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Project Anon Script</th>
+                                                    <td class="text-right">
+                                                        <%if(project_settings.anon_script !== false) {%>
+                                                            <span title="<%project_settings.anon_script.replace(/"/g, '&quot;')%>">✔</span>
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Site-wide Allow Subject Creation</th>
+                                                    <td class="text-right">
+                                                        <%if(site_wide_settings.allow_create_subject) {%>
+                                                            ✔
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Project Allow Subject Creation</th>
+                                                    <td class="text-right">
+                                                        <%if(project_settings.allow_create_subject) {%>
+                                                            ✔
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Site-wide Series Import Filter</th>
+                                                    <td class="text-right">
+                                                        <%if(site_wide_settings.series_import_filter !== false) {%>
+                                                            <span title="<%site_wide_settings.series_import_filter.replace(/"/g, '&quot;')%>">✔</span>
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Project Series Import Filter</th>
+                                                    <td class="text-right">
+                                                        <%if(project_settings.series_import_filter !== false) {%>
+                                                            <span title="<% (JSON.stringify(project_settings.series_import_filter)).replace(/"/g, '&quot;') %>">✔</span>
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Upload destination</th>
+                                                    <td class="text-right"><%project_settings.upload_destination%></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Date Verification Required</th>
+                                                    <td class="text-right">
+                                                        <%if(site_wide_settings.require_date || project_settings.require_date) {%>
+                                                            ✔
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+
+                                                <tr>
+                                                    <td>Allow Bulk Uploading (for Project)</th>
+                                                    <td class="text-right">
+                                                        <%if(project_settings.allow_bulk_upload) {%>
+                                                            ✔
+                                                        <%} else {%>
+                                                            ✖
+                                                        <%}%>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </script>
+
+                                    
+                                </div>
+                            </div>
                             <div class="row">
-                                <div class="col-12">
-                                    <div class="button-row  project-subjects-holder">
-                                        <button class="btn btn-gray" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
-                                    </div>
-                                </div>
-                            </div>
+                                <div class="col-6">
+                                    <h2 class="section-title">Select Data To Upload (Choose a Folder)</h2>
+                                    <p>Selected folder must contain one or more sets of uncompressed DICOM image files. 
+                                        Selected folder can contain files in a flat directory structure or in subfolders. 
+                                    </p>
 
-                            <div class="project-subject-visits-holder">
-                                <div class="row">
-                                    <div class="col-6">
-                                        <h2 class="section-title search-inline">Select Visit</h2>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="filter-control title-inline">
-                                            <input type="text" id="visit-filter" onkeyup="" placeholder="Filter" class="form-control">
-                                        </div>
-                                    </div>
-                                </div>
-                                <ul id="visit" class="choose-list"></ul>
-                            
-                                <div class="datatypes-holder">
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <h2 class="section-title search-inline">Select datatype</h2>
-                                        </div>
-                                        <div class="col-6">
-                                            <div class="filter-control title-inline">
-                                                <input type="text" id="datatype-filter" onkeyup="" placeholder="Filter" class="form-control">
+                                    <div id="upload_restrictions" class="alert alert-warning" role="alert"></div>
+
+                                    <div class="form-group">
+                                        <div class="input-group">
+                                            <input type="text" id="upload_folder" value="" class="form-control col-9 settings-input" readonly>
+                                            <div class="col-3">
+                                                <label class="input-group-btn">
+                                                    <span class="btn btn-blue">
+                                                        Browse
+                                                        <input type="file" id="file_upload_folder" style="display: none" webkitdirectory
+                                                            directory>
+                                                    </span>
+                                                </label>
                                             </div>
+        
                                         </div>
                                     </div>
-                                    <ul id="datatype" class="choose-list"></ul>
-                                </div>
-                            
-                                <div class="subtypes-holder">
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <h2 class="section-title search-inline">Select subtype</h2>
-                                        </div>
-                                        <div class="col-6">
-                                            <div class="filter-control title-inline">
-                                                <input type="text" id="subtype-filter" onkeyup="" placeholder="Filter" class="form-control">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <ul id="subtype" class="choose-list"></ul>
+        
+        
+                                    <!--<button class="btn btn-blue" id="test-upload" type="button">Test upload</button>-->
+        
+                                    <progress id="dicom_parse_progress" class="hidden" value="0" max="100"></progress>
                                 </div>
                             </div>
                             
+                            
+
+
                             <div class="row action-button-row">
                                 <div class="col-12">
                                     <div class="text-right button-row">
+                                        <button class="btn btn-gray float-left hidden" type="button" data-toggle="modal" data-target="#new-subject">Create new subject</button>
+
                                         <button type="button" class="btn btn-gray" data-href="home.html" type="button">Cancel</button>
-                                        <button type="button" class="btn btn-blue js_next disabled">Next
-                                            <i class="fas fa-angle-right"></i>
-                                        </button>
+                                        <button type="button" class="btn btn-blue js_next disabled">Next <i class="fas fa-angle-right"></i></button>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="tab-pane fade" id="nav-folder" role="tabpanel" aria-labelledby="nav-folder-tab">
-                            <h2 class="section-title">Select Folder</h2>
-
-                            <div class="form-group">
-                                <div class="input-group">
-                                    <input type="text" id="upload_folder" value="" class="form-control col-6 settings-input" readonly>
-                                    <div class="col-3">
-                                        <label class="input-group-btn">
-                                            <span class="btn btn-blue">
-                                                Browse
-                                                <input type="file" id="file_upload_folder" style="display: none" webkitdirectory
-                                                    directory>
-                                            </span>
-                                        </label>
-                                    </div>
-
-                                </div>
-                                <small>Select a folder on your local hard drive or networked drive containing one or more uncompressed
-                                    DICOM image sessions</small>
-                            </div>
-
-
-                            <!--<button class="btn btn-blue" id="test-upload" type="button">Test upload</button>-->
-
-                            <progress id="dicom_parse_progress" class="hidden" value="0" max="100"></progress>
-
-                            <!--
-                        <input type="file" multiple webkitdirectory id="fileURL" />
-                        <ul id="fileOutput"></ul>
-                        -->
-                            <div class="row action-button-row">
-                                <div class="col-12">
-                                    <div class="text-right button-row">
-                                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                                        <button type="button" class="btn btn-gray js_prev">
-                                            <i class="fas fa-angle-left"></i> Prev</button>
-                                        <button type="button" class="btn btn-blue js_next disabled">Next
-                                            <i class="fas fa-angle-right"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </div>
-                        <div class="tab-pane fade" id="nav-date" role="tabpanel" aria-labelledby="nav-date-tab">
-                            <h2 class="section-title">Enter the visit details of the session you plan to upload</h2>
-                            <div class="form-group">
-                                <label>Verify session date</label>
-                                <div class="row">
-                                    <div class="col-3 date-holder">
-                                        <!-- <input type="text" id="datepicker" class="form-control"> -->
-                                        <input type="date" class="form-control" name="upload_session_date" id="upload_session_date">
-
-                                    </div>
-                                </div>
-                            </div>
-
-                            <p>Please enter the date for the session you wish to upload. These values <b>must</b> match the DICOM study
-                                date of the selected session or you will not be able to upload the session to the XNAT server.</p>
                             
-
-                            <div class="row action-button-row">
-                                <div class="col-12">
-                                    <div class="text-right button-row">
-                                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                                        <button type="button" class="btn btn-gray js_prev" type="button">
-                                            <i class="fas fa-angle-left"></i> Prev</button>
-                                        <button type="button" class="btn btn-blue js_next disabled">Next
-                                            <i class="fas fa-angle-right"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
                         </div>
+                        
 
+                        <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-verify">
+                            <div id="custom_upload">
+                                <div class="col" id="anon_variables">
 
-                        <div class="tab-pane fade" id="nav-verify" role="tabpanel" aria-labelledby="nav-home-tab">
-                            <div class="col" id="anon_variables">
-
-                                <div class="form-group row">
-                                    <label class="col-sm-2 col-form-label">
-                                        <b>Project</b>:
-                                    </label>
-                                    <div class="input-group col-sm-10">
-                                        <input class="form-control" type="text" name="project" id="var_project" value="xxx" required readonly>
-                                    </div>
-                                </div>
-                                <div class="form-group row">
-                                    <label class="col-sm-2 col-form-label">
-                                        <b>Subject</b>:
-                                    </label>
-                                    <div class="input-group col-sm-10">
-                                        <input class="form-control" type="text" name="subject" id="var_subject" value="yyy" required readonly>
-                                    </div>
-                                </div>
-                                <div class="project-subject-visits-holder">
                                     <div class="form-group row">
                                         <label class="col-sm-2 col-form-label">
-                                            <b>Visit</b>:
+                                            <b>Project</b>:
                                         </label>
-                                        <div class="input-group col-sm-10">
-                                            <input class="form-control" type="text" name="visit" id="var_visit_label" value="" readonly>
-                                            <input type="hidden" id="var_visit" value="">
+                                        <div class="input-group col-sm-6">
+                                            <input class="form-control" type="text" name="project" id="var_project"
+                                                value="xxx" required readonly>
                                         </div>
                                     </div>
-                                    <div class="form-group row subtypes-holder">
+                                    <div class="form-group row">
                                         <label class="col-sm-2 col-form-label">
-                                            <b>Subtype</b>:
+                                            <b>Subject</b>:
                                         </label>
-                                        <div class="input-group col-sm-10">
-                                            <input class="form-control" type="text" name="subtype" id="var_subtype" value="" readonly>
+                                        <div class="input-group col-sm-6">
+                                            <select class="form-control" id="var_subject" name="subject"
+                                                style="width: 40%" required></select>
+                                            <button class="btn btn-gray" type="button" data-toggle="modal"
+                                                data-target="#new-subject">Create new subject</button>
                                         </div>
                                     </div>
 
-                                    <input type="hidden" id="var_datatype" value="">
+
+                                    <!--  -->
+                                    
+                                    <div class="project-subject-visits-holder">
+
+                                        <div class="visits-holder form-group row hidden">
+                                            <label class="col-sm-2 col-form-label">
+                                                <b>Select Visit</b>:
+                                            </label>
+                                            <div class="input-group col-sm-6">
+                                                <ul id="visit" class="choose-list"></ul>
+
+                                                <input type="hidden" id="var_visit" value="">
+                                            </div>
+                                        </div>
+
+                                        <div class="datatypes-holder form-group row hidden">
+                                            <label class="col-sm-2 col-form-label">
+                                                <b>Select Datatype</b>:
+                                            </label>
+                                            <div class="input-group col-sm-6">
+                                                <ul id="datatype" class="choose-list"></ul>
+
+                                                <input type="hidden" id="var_datatype" value="">
+                                            </div>
+                                        </div>
+
+                                        
+                                        <div class="subtypes-holder form-group row hidden">
+                                            <label class="col-sm-2 col-form-label">
+                                                <b>Select Subtype</b>:
+                                            </label>
+                                            <div class="input-group col-sm-6">
+                                                <ul id="subtype" class="choose-list"></ul>
+
+                                                <input type="hidden" id="var_subtype" value="">
+                                            </div>
+                                        </div>
+                                        
+                                    </div>
+                                    <!--  -->
+
+
+
+                                    <div class="form-group row" id="experiment_label_container">
+                                        <label for="experiment_label" class="col-sm-2 col-form-label">
+                                            <b>Experiment Label
+                                                <br>(Session)</b>:</label>
+                                        <div class="input-group col-sm-6">
+                                            <input class="form-control" type="text" name="experiment_label"
+                                                id="experiment_label" value="" required>
+                                            <div class="invalid-feedback">
+                                                Allowed characters: alphanumeric, dash(-) and underscore(_)
+                                            </div>
+                                            <small>This field has been auto-populated. If you specify a session label
+                                                that matches a
+                                                session already in this project, XNAT will attempt to merge selected
+                                                scans into
+                                                the existing session</small>
+
+                                        </div>
+                                    </div>
+                                    <div id="additional-upload-fields"></div>
+
+                                    <!--
+                                    <br>
+                                    <br>
+
+                                    <div class="form-group row">
+                                        <span class="col-sm-2 col-form-label"><b>Label Generator</b>:</span>
+                                        <div class="input-group col-sm-10">
+                                            <button id="label_generate_api" type="button">API Gen</button>
+                                            <button id="label_generate_local" type="button">Local Gen</button>
+                                            <button id="validate_form" type="button">validate form</button>
+                                        </div>
+                                    </div>
+                                    -->
+
+                                </div>
+
+                                <div class="col">
+                                    <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
+                                    <p>Note: Unchecked scans will not be uploaded</p>
+                                    <table class="table table-bordered" id="image_session"></table>
+                                </div>
+
+                                <div class="col">
+                                    <h2 class="section-title">Session Summary:</h2>
+                                    <p id="session_info"></p>
+                                </div>
+
+                                <div class="row action-button-row">
+                                    <div class="col-12">
+                                        <div class="text-right button-row">
+                                            <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                            <button type="button" class="btn btn-gray js_prev" type="button">
+                                            <i class="fas fa-angle-left"></i> Prev</button>
+                                            <button type="button" class="btn btn-blue js_next disabled">Next
+                                                <i class="fas fa-angle-right"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-blue js_upload">Upload</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div><!-- #custom_upload -->
+
+                            <div id="quick_upload">
+                                <div class="col">
+                                    <button id="switch_to_custom_upload" type="button" class="float-right btn btn-blue">Switch to the Custom Upload Process</button>
+                                    <h2>Quick Upload</h2>
+                                    <p>A "quick upload" process assumes that you do not need to make any modifications 
+                                        to your session or scan data, including visual PHI inspection or pixel 
+                                        anonymization, before uploading to your XNAT. You can switch to the 
+                                        Custom Upload Process if you wish.  </p>
                                 </div>
                                 
 
-                                <div class="form-group row" id="experiment_label_container">
-                                    <label for="experiment_label" class="col-sm-2 col-form-label">
-                                        <b>Experiment Label
-                                            <br>(Session)</b>:</label>
-                                    <div class="input-group col-sm-10">
-                                        <input class="form-control" type="text" name="experiment_label" id="experiment_label" value="" required>
-                                        <div class="invalid-feedback">
-                                            Allowed characters: alphanumeric, dash(-) and underscore(_)
+                                <div class="col">
+                                    <table class="table table-bordered" id="selected_session_tbl"></table>
+                                </div>
+
+                                <div class="row action-button-row">
+                                    <div class="col-12 row_items">
+                                        <div class="button-row">
+                                            <label for="upload_overwrite_method" style="font-weight: bold; margin: 0 10px 0 0;">How should XNAT handle overwriting existing data?</label>
+                                            <select required id="upload_overwrite_method" style="display: inline-block; width: auto;" class="form-control form-control-sm">
+                                                <option value="">Select</option>
+                                                <option value="append">Append to Existing Data</option>
+                                                <option value="delete">Overwrite Existing Data</option>
+                                                <option value="none">Ignore Duplicate Data (Default)</option>
+                                            </select>
                                         </div>
-                                        <small>This field has been auto-populated. If you specify a session label that matches a
-                                            session already in this project, XNAT will attempt to merge selected scans into
-                                            the existing session</small>
-                                            
+    
+                                        <div class="button-row">
+                                            <button type="button" data-href="home.html"
+                                                class="btn btn-gray">Cancel</button>
+                                            <button type="button" class="btn btn-gray js_prev" type="button">
+                                                <i class="fas fa-angle-left"></i> Prev</button>
+                                                <button type="button" class="btn btn-blue js_next">Next
+                                                    <i class="fas fa-angle-right"></i>
+                                                </button>
+                                            <button type="button" class="btn btn-blue js_upload">Upload</button>
+                                        </div>
                                     </div>
                                 </div>
-                                <div id="additional-upload-fields"></div>
 
-                                <br>
-                                <br>
+                            </div><!-- #quick_upload -->
 
-                            </div>
+                            <div id="custom_upload_multiple">
+                                <div class="col">
+                                    <!-- <button id="switch_to_quick_upload" type="button" class="float-right btn btn-blue">Switch to the Quick Upload Process</button> -->
+                                    <h2>Bulk Upload</h2>
+                                    <p>The bulk upload process allows you to modify session metadata and add parameters for
+                                        multiple image sessions, and also includes visual PHI inspection and pixel anonymization,
+                                        before uploading to your XNAT. </p>
+                                </div>
 
-                            <div class="col">
-                                <h2 class="section-title">Confirm The Scans To Be Uploaded</h2>
-                                <p>Note: Unchecked scans will not be uploaded</p>
-                                <table class="table table-bordered" id="image_session"></table>
-                                <span class="hidden" id="image_session_date"></span>
-                            </div>
+                                
 
-                            <div class="col">
-                                <h2 class="section-title">Session Summary:</h2>
-                                <p id="session_info"></p>
-                            </div>
+                                <div class="col">
+                                    <div class="container-fluid table-preheader-info">
+                                        <div class="row">
+                                            <div class="col-7" id="relabeling_info">
+                                                <h3>Relabeling Settings 
+                                                    <span data-toggle="popover" 
+                                                        title="Relabeling Instructions" 
+                                                        data-content="The XNAT Desktop Client supports multiple common labeling schemes for subjects and image sessions. You can choose any of these schemes, or hand-enter values. You can also set a default labeling scheme in your project. <a href='https://wiki.xnat.org/xnat-tools/xnat-desktop-client-dxm/subject-and-session-labeling-schemes-for-uploads'>See Documentation</a>.">
+                                                        <i class="fas fa-question-circle"></i> Help
+                                                    </span>
+                                                </h3>
+                                                <!--
+                                                <p>This table shows both the DICOM values for patient, study, and date
+                                                    that were found in your sessions, and the current values for XNAT's
+                                                    Subject ID and Session Label fields that have been generated by your
+                                                    site and project anonymization scripts. You can edit these values in
+                                                    place, or download a CSV file and assign values there.
+                                                </p>
+                                                -->
 
+                                                
+                                                <div class="form-inline" style="margin: 10px 0">
+                                                    <div class="form-group">
+                                                        <label for="subject_labeling_pattern">Subject Labeling Pattern:</label>
+                                                        <select class="form-control form-control-sm" id="subject_labeling_pattern">
+                                                            <option value="manual">Manual Entry</option>
+                                                            <option value="auto">Auto-generate Labels</option>
+                                                            <option value="dicom_patient_name">Use DICOM Patient Name (0010,0010)</option>
+                                                            <option value="dicom_patient_id">Use DICOM Patient ID (0010,0020)</option>
+                                                            <!--
+                                                            <option value="hash_patient_name">Hash DICOM Patient Name</option>
+                                                            <option value="hash_patient_id">Hash DICOM Patient ID</option>
+                                                            -->
+                                                        </select>
+                                                    </div>
+                                                </div>
 
-                            <div class="row action-button-row">
-                                <div class="col-12">
-                                    <div class="text-right button-row">
-                                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                                        <button type="button" class="btn btn-gray js_prev" type="button">
-                                            <i class="fas fa-angle-left"></i> Prev</button>
-                                        <button type="button" class="btn btn-blue js_next disabled">Next
-                                            <i class="fas fa-angle-right"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-blue js_upload">Upload</button>
+                                                <div class="form-inline" style="margin: 10px 0">
+                                                    <div class="form-group">
+                                                        <label for="session_labeling_pattern">Session Labeling Pattern:</label>
+                                                        <select class="form-control form-control-sm" id="session_labeling_pattern">
+                                                            <option value="manual">Manual Entry</option>
+                                                            <option value="auto">Auto-generate From Subject Label</option>
+                                                            <option value="dicom_accession_num">Use DICOM Accession Num (0008,0050)</option>
+                                                            <option value="dicom_patient_id">Use DICOM Patient ID (0010,0020)</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+    
+                                            <div class="col-4 offset-1">
+                                                <h3>Alternate Relabeling
+
+                                                    <span data-toggle="popover" 
+                                                    title="Alternate Relabeling" 
+                                                    data-content="Download this table as a CSV file, assign values there and then reupload with edited values.">
+                                                    <i class="fas fa-question-circle"></i> Help
+                                                </span>
+
+                                                </h3>
+                                                <p>
+                                                    Download this table as a CSV file, then reupload with edited values.
+                                                </p>
+                                                <p>
+                                                    <button class="btn btn-gray" data-csv-tpl-download>Download CSV</button>
+                                                    <!-- <button class="btn btn-link" data-csv-tpl-upload>Upload CSV</button> -->
+
+                                                    <label>
+                                                        <span class="btn btn-link">
+                                                            Upload CSV
+                                                            <input type="file" data-csv-file-upload accept=".csv" style="display: none">
+                                                        </span>
+                                                    </label>
+
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <table class="table table-bordered" id="custom_upload_multiple_tbl"></table>
+                                </div>
+
+                                <div class="row action-button-row">
+                                    <div class="col-12 row_items">
+                                        <div class="button-row">
+                                            <!--
+                                            <label for="upload_overwrite_method" style="font-weight: bold; margin: 0 10px 0 0;">How should XNAT handle overwriting existing data?</label>
+                                            <select required id="upload_overwrite_method" style="display: inline-block; width: auto;" class="form-control form-control-sm">
+                                                <option value="">Select</option>
+                                                <option value="append">Append to Existing Data</option>
+                                                <option value="delete">Overwrite Existing Data</option>
+                                                <option value="none">Ignore Duplicate Data (Default)</option>
+                                            </select>
+                                            -->
+                                            <input type="hidden" id="upload_overwrite_method" name="upload_overwrite_method" value="none" />
+                                        </div>
+    
+                                        <div class="button-row">
+                                            <button type="button" data-href="home.html"
+                                                class="btn btn-gray">Cancel</button>
+                                            <button type="button" class="btn btn-gray js_prev" type="button">
+                                                <i class="fas fa-angle-left"></i> Prev</button>
+                                            <button type="button" class="btn btn-blue js_next disabled">
+                                                Next <i class="fas fa-angle-right"></i></button>
+                                            <button type="button" class="btn btn-blue js_upload">Upload</button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+
+                            </div><!-- #custom_upload_multiple -->
 
                         </div>
+
 
                         <div class="tab-pane fade" id="nav-visual" role="tabpanel" aria-labelledby="nav-visual-tab">
                             <h2 class="section-title">Required Visual Check for Burned-in PHI</h2>
@@ -388,7 +615,7 @@
                                                 <div class="container">
                                                     <div class="row">
                                                         <div class="col-sm-3" id="series_thumbs_holder">
-                                                            <ul id="series_thumbs"></ul>
+                                                            <ul id="series_thumbs" class="series_thumbs"></ul>
                                                         </div>
                                                         <div class="col-sm-9" style="max-width: calc(100% - 194px); flex: 0 1 auto;">
                                                             <div id="frame_input_container"></div>
@@ -417,6 +644,40 @@
                             </div>
                         </div>
 
+
+                        <!-- #nav-visual-bulk -->
+                        <div class="tab-pane fade" id="nav-visual-bulk" role="tabpanel" aria-labelledby="nav-visual-bulk-tab">
+                            <h2 class="section-title">Grouped Scans for Visual PHI Removal.
+
+                                <span 
+                                    id="visual-phi-removal-instructions"
+                                    style="cursor: pointer; padding: 3px; width: 70px; display: inline-block;"
+                                
+                                >
+                                    <i class="fas fa-question-circle"></i>
+                                    Help
+                                </span>
+                            </h2>
+
+                            <div class="row">
+                                <div class="col-sm-12">
+                                    <div id="masking-groups"></div>
+                                </div>
+                            </div>
+
+
+                            <div class="row action-button-row">
+                                <div class="text-right button-row ">
+                                    <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
+                                    <button type="button" class="btn btn-gray js_prev" type="button">
+                                        <i class="fas fa-angle-left"></i> Prev</button>
+                                    <button type="button" class="btn btn-blue" id="data-js-visual-bulk-upload" data-js-visual-bulk-upload>Finish and Upload</button>
+                                </div>
+                            </div>
+                        </div>
+
+
+
                         <div class="tab-pane fade" id="nav-summary" role="tabpanel" aria-labelledby="nav-profile-tab">
                             <h2 class="section-title">Summary</h2>
 
@@ -425,21 +686,7 @@
                                 <br>
                                 <div class="col" id="summary_info"></div>
                             </div>
-                            <!--
-                <div class="row">
-                    <div class="col button-row">
-                        <button class="btn btn-blue" type="button" data-toggle="modal" data-target="#new-subject">Click here to finish archiving the data</button>
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col text-right button-row">
-                        <button type="button" data-href="home.html" class="btn btn-gray">Cancel</button>
-                        <button type="button" class="btn btn-gray">Home</button>
-                        <button type="button" class="btn btn-blue">Finish</button>
-                    </div>
-                </div>
-                -->
+                           
                         </div>
                     </div>
 
@@ -535,12 +782,19 @@
                 <div class="modal-dialog modal-dialog-centered modal-lg modal-xl" role="document">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="exampleModalLongTitle">Please select one session</h5>
+                            <h5 class="modal-title" id="exampleModalLongTitle">Found X sessions</h5>
+                            
                             <!-- <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                                 <i class="far fa-window-close"></i>
                             </button> -->
                         </div>
                         <div class="modal-body">
+                            <p id="upload_restrictions_modal" class="alert alert-warning" role="alert"></p>
+
+                            <p id="select-sessions-message">Select one or more sessions to upload</p>
+
+                            <p class="notice" data-display="require_date"><span>&#x26A0;</span> Project requires Date Verification before upload can continue</p>
+                            
                             <form>
                                 <div class="row">
                                     <div class="col">
@@ -551,279 +805,229 @@
                         </div>
 
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-blue js_cancel_session_selection" type="button" data-dismiss="modal">Cancel Selection</button>
-                            <!-- <button type="submit" class="btn btn-gray">Add New Subject</button> -->
+                            <div class="mr-auto" data-display="require_date">
+                                <input type="checkbox" class="magic-checkbox" name="skip_session_date_validation" id="skip_session_date_validation">
+                                <label for="skip_session_date_validation">I don't know the dates of these sessions</label>
+                            </div>
+                            <button type="button" class="btn btn-gray js_cancel_session_selection" type="button" data-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-gray js_custom_upload" type="button" disabled>Upload</button>
+                            <button type="button" class="btn btn-blue js_quick_upload hidden" type="button" disabled>Quick Upload</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal -->
+            <div class="modal fade" id="fullscreenModal" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-scrollable" role="document">
+                    <div class="modal-content">
+                        <div class="modal-body"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Review Series Images Modal -->
+            <div class="modal fade fullscreenModal" data-keyboard="false" id="review-series-images" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    
+                    <div class="modal-header">
+                        <div>
+                            <h5 class="modal-title">Review Scans in <span id="modal_mask_alias"></span></h5>
+
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+
+                        <div class="second-line">
+                            <div id="scanReviewFilter">
+                                <label for="review-scans-select-all">
+                                    <input type="checkbox" id="review-scans-select-all">
+                                    Select all</label>
+                                    &nbsp;&nbsp;&nbsp;
+                                <label for="review-scans-hide-excluded">
+                                    <input type="checkbox" id="review-scans-hide-excluded">
+                                    Hide Excluded (<span id="review-series-images--excluded">0/0</span>)</label>
+                            </div>
+                            
+                            <div class="text-center">
+                                <span class="with-selected">With selected (<span id="review-series-images--selected">0</span>):</span>
+    
+                                <button disabled data-js-review-reset type="button" class="btn btn-gray" type="button">Reset</button>
+                                <button disabled data-js-review-set-template data-toggle="modal" data-target="#setTemplateModal" type="button" class="btn btn-gray" type="button">Set Template</button>
+                                <button disabled data-js-review-exclude type="button" class="btn btn-gray" type="button">Exclude</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-content">
+                        <div class="modal-body">
+                            <div class="container-fluid">
+                                
+
+                                <div id="scan_images">EJS TPL!</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+
+
+            <!-- Modal -->
+            <div class="modal fade" id="setTemplateModal" tabindex="-1" data-backdrop="static" 
+                role="dialog" aria-labelledby="setTemplateModalLabel" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="setTemplateModalLabel">Templates Found</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="template-listing"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button data-js-review-create-template type="button" class="btn btn-link mr-auto">Create New Template</button>
+                        <button type="button" class="btn btn-blue" data-dismiss="modal">Okay</button>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- Create Template Cornerstone Modal -->
+            <div class="modal fade fullscreenModal" id="create-masking-template" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    
+                    <div class="modal-header">
+                        <h5 class="modal-title">Create New Masking Template</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    
+                    <div class="modal-content">
+                        <div class="modal-body">
+                            <div class="container-fluid">
+                                <section id="topBarCustom">
+                                    <nav class="navbar bg-black">
+                                        <ul class="nav" id="dicom_image_tools">
+                                            <li class="nav-item">
+                                                <a id="stack-scroll-btn" class="nav-link active" 
+                                                    data-tool="StackScrollMouseWheel" href="#">
+                                                    <svg version="1.2" preserveAspectRatio="none"
+                                                        viewBox="0 0 24 24">
+                                                        <g>
+                                                            <path xmlns:default="http://www.w3.org/2000/svg"
+                                                                d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z">
+                                                            </path>
+                                                        </g>
+                                                    </svg>
+                                                    <p>Stack Scroll</p>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a id="zoom-btn" class="nav-link" 
+                                                    data-tool="Zoom" href="#">
+                                                    <svg id="icon-tools-zoom">
+                                                        <use href="assets/images/icons.svg#icon-tools-zoom"></use>
+                                                    </svg>
+                                                    <p>Zoom</p>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a id="pan-btn" class="nav-link"
+                                                    data-tool="Pan" href="#">
+                                                    <svg id="icon-tools-zoom">
+                                                        <use href="assets/images/icons.svg#icon-tools-pan"></use>
+                                                    </svg>
+                                                    <p>Pan</p>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a id="select-area-btn" class="nav-link" 
+                                                    data-tool="RectangleOverlay" href="#">
+                                                    <div class="el-group"
+                                                        style="opacity: 1; mix-blend-mode: normal;">
+                                                        <svg id="select-area-plus" viewBox="0 0 24 24"
+                                                            style="width: 17px; height: 17px; transform: rotate(0deg) translate(5px, -6px);">
+                                                            <use href="assets/images/icons.svg#select-area-plus">
+                                                            </use>
+                                                        </svg>
+                                                        <svg id="select-area-body" viewBox="0 0 30 20"
+                                                            style="overflow: visible; width: 30px; height: 20px; transform: translate(-10px,0);">
+                                                            <use href="assets/images/icons.svg#select-area-body">
+                                                            </use>
+                                                        </svg>
+                                                    </div>
+                                                    <p>Select Area</p>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                        <ul class="nav" id="scans_save_toolbar">
+                                            <li class="nav-item">
+                                                <a id="reset-scan-btn" class="nav-link" href="#">
+                                                    <svg id="reset-scan" viewBox="0 0 24 24"
+                                                        style="transform: rotate(0deg) rotate(315deg);">
+                                                        <use href="assets/images/icons.svg#reset-scan"></use>
+                                                    </svg>
+                                                    <p>Reset Scan</p>
+                                                </a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a id="save-scan-btn" class="nav-link" href="#">
+                                                    <svg id="save-scan" viewBox="0 0 24 24"
+                                                        style="transform: rotate(0deg);">
+                                                        <use href="assets/images/icons.svg#save-scan"></use>
+                                                    </svg>
+                                                    <p>Save scan</p>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                </section>
+
+                                <section id="imgGalleryPreview">
+                                    <div class="container">
+                                        <div class="row">
+                                            <div class="col-sm-3" id="series_thumbs_holder">
+                                                <ul id="series_thumbs" class="series_thumbs"></ul>
+                                            </div>
+                                            <div class="col-sm-9" style="max-width: calc(100% - 194px); flex: 0 1 auto; padding-left: 0; padding-right: 0;">
+                                                <div id="frame_input_container"></div>
+                                                <div id="dicom_image_container" style="width: 100%; height: calc(100vh - 200px)"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="row action-button-row">
+                            <div class="col-12">
+                                <div class="text-right button-row">
+                                    <button  data-dismiss="modal" type="button" class="btn btn-gray" type="button">Cancel</button>
+                                    <button data-js-create-template type="button" class="btn btn-blue" type="button">Create Template</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
 
-            <!-- Modal -->
-            <div class="modal fade" id="fullscreenModal" tabindex="-1" role="dialog" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-scrollable" role="document">
-                <div class="modal-content">
-                    <div class="modal-body"></div>
-                </div>
-                </div>
-            </div>
         </div>
 
 
-        <script type="text/javascript">
-            require('./renderer-process/upload')
 
-            Helper.pageLoadTrigger('#upload-section'); 
-        </script>
+        
 
-        <style>
-            #image-toolbar-wrap {
-                display: flex; 
-                justify-content: space-between; 
-            }
-            #image-toolbar-wrap ul {
-                display: inline-flex;
-                padding-left: 0;
-                list-style-type: none;
-            }
+        <!-- REQUIRED FOR... -->
+        
+        <input type="hidden" id="image_session_date" value="">
 
-            #image-toolbar-wrap li {
-                margin: 0 2px;
-            }
-
-            #image-toolbar-wrap label.btn.btn-sm.btn-primary {
-                padding: 4px 15px;
-                height: 32px;
-            }
-
-            #series_thumbs_holder {
-                max-width: 194px; 
-                flex: 0 1 auto; 
-                background: #202020;
-                border-right: 1px solid #20A5D6;
-                padding-top: 17px;
-            }
-
-            #series_thumbs {
-                list-style-type: none;
-                padding: 0;
-                max-height: 480px;
-                overflow-y: auto;
-                width: 176px;
-                padding-left: 7px;
-                background: inherit;
-                margin-bottom: 0;
-            }
-
-
-            #dicom_image_tools, #scans_save_toolbar, #dicom_image_container {
-                background: #202020;
-            }
-
-            /* Let's get this party started */
-            #series_thumbs::-webkit-scrollbar {
-                width: 8px;
-            }
-
-            /* Track */
-            #series_thumbs::-webkit-scrollbar-track {
-                box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
-                border-radius: 10px;
-            }
-
-            /* Handle */
-            #series_thumbs::-webkit-scrollbar-thumb {
-                border-radius: 10px;
-                background: #20a5d6;
-                box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5);
-            }
-            /*
-            #series_thumbs::-webkit-scrollbar-thumb:window-inactive {
-                background: black;
-            }
-            */
-
-            
-            #series_thumbs li {
-                margin-bottom: 20px;
-                width: 150px;
-                margin-top: 3px;
-            }
-
-            .highlite-outline {
-                outline: 3px solid #20a5d6;
-            }
-
-
-            /* ACA */
-#topBarCustom .bg-black {
-  background-color: #202020; }
-  #topBarCustom .bg-black .nav {
-    align-items: flex-end;
-    height: 100%; }
-    #topBarCustom .bg-black .nav .nav-item a {
-      color: #9CCEF9;
-      fill: currentColor;
-      stroke: currentColor;
-      font-size: 12px;
-      text-align: center;
-      padding: 0 8px; }
-      #topBarCustom .bg-black .nav .nav-item a:hover {
-        color: #fff; }
-        #topBarCustom .bg-black .nav .nav-item a.active {
-            color: #20A5D6;
-        }
-      #topBarCustom .bg-black .nav .nav-item a#select-area-btn .el-group {
-        min-width: 55px; }
-      #topBarCustom .bg-black .nav .nav-item a svg {
-        background-color: transparent;
-        margin: 0;
-        width: 24px;
-        height: 24px; }
-        #topBarCustom .bg-black .nav .nav-item a svg#reset-scan, #topBarCustom .bg-black .nav .nav-item a svg#save-scan {
-          height: 28px;
-          width: 28px; }
-      #topBarCustom .bg-black .nav .nav-item a p {
-        line-height: 1;
-        margin: 0;
-        padding-top: 5px; }
-
-#imgGalleryPreview {
-  border-top: 1px solid #20A5D6;}
-  #imgGalleryPreview > .container {
-      margin-bottom: 0;
-  }
-  #imgGalleryPreview .img-list {
-    height: 300px;
-    overflow: scroll;
-    overflow-x: hidden; }
-    #imgGalleryPreview .img-list img {
-      width: 100%;
-      height: auto;
-      padding-bottom: 5px; }
-  #imgGalleryPreview .canvas #imgPreview {
-    width: 100%;
-    height: 300px; }
-#fullscreenContent {
-    background: #000; 
-    color: white;
-    width: 100%;
-    margin: 0;
-}
-#fullscreenContent .navbar {
-  align-items: flex-end; }
-  #fullscreenContent .navbar .nav {
-    align-items: flex-end; }
-    #fullscreenContent .navbar .nav .nav-item .nav-link:hover {
-      color: #fff; }
-    #fullscreenContent .navbar .nav .nav-item .nav-link p {
-      line-height: 1;
-      padding-top: 5px; }
-    #fullscreenContent .navbar .nav .modal-nav {
-      display: flex;
-      flex-direction: column;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      list-style-type: none;
-      height: 54px;
-      padding-left: 8px; }
-      #fullscreenContent .navbar .nav .modal-nav .nav-item {
-        box-sizing: border-box;
-        height: 24px; }
-        #fullscreenContent .navbar .nav .modal-nav .nav-item #fullscreenBtn {
-          border: 2px solid;
-          border-radius: 2px;
-          cursor: pointer;
-          height: 24px;
-          width: 30px; }
-          #fullscreenContent .navbar .nav .modal-nav .nav-item #fullscreenBtn:active, #fullscreenContent .navbar .nav .modal-nav .nav-item #fullscreenBtn:focus {
-            outline: none;
-            box-shadow: none; }
-        #fullscreenContent .navbar .nav .modal-nav .nav-item #closeBtn {
-          background: transparent;
-          border-radius: 2px;
-          height: 24px;
-          position: relative;
-          width: 30px; }
-          #fullscreenContent .navbar .nav .modal-nav .nav-item #closeBtn:after {
-            border-radius: 2px;
-            bottom: 2px;
-            content: '';
-            display: inline-block;
-            height: 10px;
-            position: absolute;
-            right: 2px;
-            width: 14px; }
-
-#fullscreenMode {
-  padding: 20px 0 0 0; }
-  #fullscreenMode .modal-nav .nav-item #fullscreenBtn {
-    cursor: pointer; }
-    #fullscreenMode .modal-nav .nav-item #fullscreenBtn:hover {
-      color: #fff; }
-  #fullscreenMode .modal-nav .nav-item #closeBtn {
-    border: 2px solid #484848;
-    pointer-events: none; }
-    #fullscreenMode .modal-nav .nav-item #closeBtn:after {
-      background: #484848;
-      border: 2px solid #484848; }
-body.dicomImageViewerFS .modal-backdrop {
-    top: 40px;
-}
-body.dicomImageViewerFS #header_menu {
-    z-index: 1100;
-}
-#fullscreenModal {
-    top: 40px;
-  padding: 0 !important; }
-  #fullscreenModal .modal-dialog {
-    height: calc(100vh - 40px) !important;
-    max-height: 100vh !important;
-    max-width: 100%;
-    margin: 0;
-    padding: 0;
-    width: 100%; }
-    #fullscreenModal .modal-dialog .modal-content {
-      border: 0;
-      border-radius: 0;
-      height: calc(100vh - 40px) !important;
-      max-height: 100vh !important;
-      max-width: 100vw !important;
-      width: 100%; }
-      #fullscreenModal .modal-dialog .modal-content .modal-body {
-        padding: 0; }
-        #fullscreenModal .modal-dialog .modal-content .modal-body .modal-nav .nav-item #fullscreenBtn {
-          color: #484848;
-          pointer-events: none; }
-        #fullscreenModal .modal-dialog .modal-content .modal-body .modal-nav .nav-item #closeBtn {
-          border: 2px solid #9CCEF9; }
-          #fullscreenModal .modal-dialog .modal-content .modal-body .modal-nav .nav-item #closeBtn:after {
-            background: #9CCEF9;
-            border: 2px solid #9CCEF9; }
-          #fullscreenModal .modal-dialog .modal-content .modal-body .modal-nav .nav-item #closeBtn:hover {
-            border-color: #fff; }
-            #fullscreenModal .modal-dialog .modal-content .modal-body .modal-nav .nav-item #closeBtn:hover:after {
-              background: #fff;
-              border-color: #fff; }
-#fullscreenModal #imgGalleryPreview > .container {
-    max-width: 100%;
-}
-.footer {
-  background-color: #333;
-  color: #fff;
-  padding: 50px 0; }
-  .footer p {
-    text-align: center;
-    font-family: 'Roboto';
-    font-size: 20px; }
-
-    .dicomImageViewerFS.modal-open .modal {
-        overflow-y: hidden;
-    }
-.green_mark, .yellow_mark {
-    display: none;
-}
-        </style>
 
         <!-- Params passed through from webapp -->
         <div class="hidden">
@@ -833,5 +1037,13 @@ body.dicomImageViewerFS #header_menu {
             <input type="hidden" id="datatype_prm" value="">
             <input type="hidden" id="subtype_prm" value="">
         </div>
+
+
+        <script type="text/javascript">
+            require('./renderer-process/upload')
+
+            Helper.pageLoadTrigger('#upload-section'); 
+        </script>
+
     </section>
 </template>

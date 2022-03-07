@@ -1,0 +1,35 @@
+<% for(let i = 0; i < selected_scans.length; i++) { %>
+    <%
+    const row = selected_scans[i]
+    const imgSrc = imgDataImages[i]
+    %>
+
+    <div class="item-row">
+        <div class="row">
+            <div class="col-12">
+                <div class="img-data"><img src="<%= imgSrc %> "></div>
+                <dl>
+                    <dt>Study:</dt>
+                    <dd><%= row.studyId%> - <%= row.studyDescription%></dd>
+                    
+                    <dt>Series:</dt>
+                    <dd><b><%= row.seriesNumber%></b>: [<%= row.seriesDescription%>]</dd>
+                    
+                    <dt>Modality:</dt>
+                    <dd><%= row.modality%></dd>
+
+                    <dt>Frames:</dt>
+                    <dd><%= row.frames%></dd>
+
+                    <dt>Date:</dt>
+                    <dd><%= row.studyDate%> <%= row.studyTime%></dd>
+                </dl>
+                <div class="scan-links">
+                    <a href="">Edit</a>
+                </div>
+            </div>
+        </div>  
+        
+    </div>
+    
+<% } %>

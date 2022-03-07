@@ -1,0 +1,18 @@
+<canvas id="<%= id %>" 
+    width="<%= columns %>" 
+    height="<%= rows %>" 
+    ></canvas>
+
+<%
+    setTimeout((rectangles, counter) => {
+        let c = document.getElementById(id);
+        for (rectangle of rectangles) {
+            var ctx = c.getContext("2d");
+            ctx.beginPath();
+            ctx.fillStyle = "#777";
+            var w = rectangle[2] - rectangle[0]
+            var h = rectangle[3] - rectangle[1]
+            ctx.fillRect(rectangle[0], rectangle[1], w, h);
+        }
+    }, 0, rectangles, id);
+%>

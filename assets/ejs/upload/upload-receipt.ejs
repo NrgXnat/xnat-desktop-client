@@ -1,0 +1,37 @@
+<div id="view-receipt-content">
+    <div>
+        <b>Destination</b>: <a href="<%= session_link %>"><%= session_link %></a> <br>
+        <b>User</b>: "<%= user %>" <br>
+        <b>Study ID</b>: <%= session_data.studyId %> <br>
+
+        <ol>
+            <li><b>Start Upload: </b> <%= computed.start_upload %></li>
+            <li><b>Study Anonymization: </b> 
+                <ul>
+                    <% for(var key in anon_variables) { %>
+                        <li><b><%= key %>:</b> <%= anon_variables[key] %></li>
+                    <% } %>
+                </ul>
+            </li>
+
+            <% for(var single_series in series) { %>
+                <li><b>Scan Series:</b> <%= series[single_series][0].seriesInstanceUid %> 
+                    <ul>
+                        <li><b>Files:</b>
+                            <ul>
+                                <% for(var index in series[single_series]) { %>
+                                    <li>
+                                        <%= series[single_series][index].filename %>
+                                        <ul>
+                                            <li>Checksum (local): <%= series[single_series][index].anon_checksum %></li>
+                                        </ul>
+                                    </li>
+                                <% } %>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            <% } %>
+            </ol>
+    </div>
+</div>

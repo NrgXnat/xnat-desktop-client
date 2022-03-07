@@ -170,21 +170,21 @@ class XNATAPI {
     }
 
     async project_allow_create_subject(project_id) {
-        const res = await this.axios_get(`/data/config/projects/${project_id}/applet/allow-create-subject?contents=true&accept-not-found=true`)
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/allow-create-subject?contents=true&accept-not-found=true`)
         
         return typeof res.data === 'boolean' ? res.data : (res.data === '' || res.data.toLowerCase() === 'true')
     }
 
     /*
     async project_require_date(project_id) {
-        const res = await this.axios_get(`/data/config/projects/${project_id}/applet/require-date?contents=true&accept-not-found=true`)
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/require-date?contents=true&accept-not-found=true`)
 
         return typeof res.data === 'boolean' ? res.data : (res.data.toLowerCase() !== 'false' && res.data !== '')
     }
     */
 
     async project_require_date(project_id) {
-        const res = await this.axios_get(`/data/config/projects/${project_id}/applet/require-date?contents=true&accept-not-found=true`)
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/require-date?contents=true&accept-not-found=true`)
 
         if (res.data === '') {
             // return null;
@@ -194,8 +194,45 @@ class XNATAPI {
         }
     }
 
+    async project_allow_bulk_upload(project_id) {
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/allow-bulk-upload?contents=true&accept-not-found=true`)
+
+        if (res.data === '') {
+            return true
+            // return await this.sitewide_require_date(); // use sitewide
+        } else {
+            return typeof res.data === 'boolean' ? res.data : (res.data.toLowerCase() !== 'false');
+        }
+    }
+
+    async project_default_subject_labeling_scheme(project_id) {
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/default-subject-labeling-scheme?contents=true&accept-not-found=true`)
+
+        if (res.data === '') {
+            return 'manual' // default
+        } else {
+            return res.data.toLowerCase()
+        }
+    }
+
+    async project_default_session_labeling_scheme(project_id) {
+        const res = await this.axios_get(`/data/projects/${project_id}/config/applet/default-session-labeling-scheme?contents=true&accept-not-found=true`)
+
+        if (res.data === '') {
+            return 'auto' // default
+        } else {
+            return res.data.toLowerCase()
+        }
+    }
+
     async project_sessions(project_id) {
         const res = await this.axios_get(`/data/projects/${project_id}/experiments?columns=ID,label&format=json`)
+
+        return res.data.ResultSet.Result
+    }
+
+    async project_prearchived_sessions(project_id) {
+        const res = await this.axios_get(`/data/prearchive/projects/${project_id}`)
 
         return res.data.ResultSet.Result
     }
@@ -311,7 +348,7 @@ class XNATAPI {
         params.append('modality', modality);
         params.append('subtype', subtype);
         params.append('date', session_date);
-        params.append('dateFormat', 'yyyyMMdd');
+        params.append('dateFormat', 'yyyy-MM-dd');
 
         const res = await this.axios_post(`/xapi/protocols/generate_label`, params)
 

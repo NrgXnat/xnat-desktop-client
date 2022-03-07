@@ -1,7 +1,7 @@
 <template class="task-template">
     <section id="progress-section" class="section js-section u-category-native-ui">
         <div class="container">
-            <h2 class="main-title">Progress Monitor: <span id="transfer-type">Download</span></h2>
+            <h2 class="main-title">Monitor Transfers: <span id="transfer-type">Download</span></h2>
             <div class="row hidden">
                 <div class="col"></div>
                 <div class="col-10">
@@ -116,6 +116,12 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
+
+                        <button id="view-receipt-link" type="button" class="btn btn-gray" data-dismiss="modal" 
+                            data-toggle="modal" 
+                            data-target="#view-receipt"
+                            data-id="">View Receipt</button>
+
                         <button id="upload-details-link" type="button" class="btn btn-blue" data-dismiss="modal" 
                             data-toggle="modal" 
                             data-target="#upload-details"
@@ -223,6 +229,165 @@
                 </div>
             </div>
         </div>
+
+        
+        <!-- Modal -->
+        <div class="modal fade" id="view-receipt" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLongTitle">View Upload Receipt</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <i class="far fa-window-close"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <h4>Upload receipt</h4>
+
+                        <div id="receipt-content"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
+
+                        <button id="receipt-to-pdf" type="button" class="btn btn-gray"
+                            data-id="">PDF Receipt</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal -->
+        <div class="modal fade" id="upload-receipt-destination" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLongTitle">Select Folder</h5>
+                        
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <i class="far fa-window-close"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col">
+                                <p>Generated PDF receipt will be stored in this location:</p>
+                                <div class="form-group">
+                                    <div class="input-group">
+                                        <input type="text" id="pdf_destination" value="" class="form-control col-9 settings-input" readonly>
+                                        <div class="col-3">
+                                            <label class="input-group-btn">
+                                                <span class="btn btn-blue">
+                                                    Browse
+                                                    <input type="file" id="pdf_destination_folder" style="display: none" webkitdirectory
+                                                        directory>
+                                                </span>
+                                            </label>
+                                        </div>
+    
+                                    </div>
+                                </div>
+
+                                <div class="form-group row">
+                                    <legend class="col-form-label col-sm-2 pt-0">Orientation:</legend>
+                                    <div class="col-sm-10">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="pdf_orientation"
+                                                id="pdf_orientation1" value="portrait" checked>
+                                            <label class="form-check-label" for="pdf_orientation1">
+                                                Portrait
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="pdf_orientation"
+                                                id="pdf_orientation2" value="landscape">
+                                            <label class="form-check-label" for="pdf_orientation2">
+                                                Landscape
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                                <div class="form-group row">
+                                    <legend class="col-form-label col-sm-2 pt-0">Page Size:</legend>
+                                    <div class="col-sm-10">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="pdf_pagesize"
+                                                id="pdf_pagesize2" value="Letter" checked>
+                                            <label class="form-check-label" for="pdf_pagesize2">
+                                                Letter
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="pdf_pagesize"
+                                                id="pdf_pagesize1" value="A4">
+                                            <label class="form-check-label" for="pdf_pagesize1">
+                                                A4
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                            </div>
+                        </div>
+
+
+                        
+                            
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="save-pdf-destination" class="btn btn-blue">Save</button>
+                        <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <script type="text/html" id="view-receipt-tpl">
+            <div id="view-receipt-content">
+                <div>
+                    <b>Destination</b>: <a href="<%session_link%>"><%session_link%></a> <br>
+                    <b>User</b>: "<%user%>" <br>
+                    <b>Study ID</b>: <%session_data.studyId%> <br>
+
+                    <ul>
+                        <li><b>Start Upload: </b> <%computed.start_upload%></li>
+                        <li><b>Study Anonymization: </b> 
+                            <ul>
+                                <%for(var key in anon_variables) {%>
+                                    <li><b><%key%>:</b> <%anon_variables[key]%></li>
+                                <%}%>
+                            </ul>
+                        </li>
+
+                        <%for(var single_series in series) {%>
+                            <li><b>Scan Series:</b> <%series[single_series][0].seriesInstanceUid%> 
+                                <ul>
+                                    <li><b>Files:</b>
+                                        <ul>
+                                            <%for(var index in series[single_series]) {%>
+                                                <li>
+                                                    <%series[single_series][index].filename%>
+                                                    <ul>
+                                                        <li>Checksum (local): <%series[single_series][index].anon_checksum%></li>
+                                                    </ul>
+                                                </li>
+                                            <%}%>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                        <%}%>
+                    </ul>
+                </div>
+            </div>
+            
+        </script>
+
+        
 
 
 

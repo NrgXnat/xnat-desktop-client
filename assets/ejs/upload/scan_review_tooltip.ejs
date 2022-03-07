@@ -1,0 +1,7 @@
+<ul class='scan-review-tooltip'>
+    <li><b>Series Description:</b> <%= row.seriesDescription%></li>
+    <li><b>Study:</b> <%= row.studyId%> - <%= row.studyDescription%></li>
+    <li><b>Modality:</b> <%= row.modality%></li>
+    <li><b>Frames:</b> <%= row.frames ? row.frames : row.filesCount %></li>
+    <li><b>Date:</b> <%= row.studyDate%> <%= row.studyTime%></li>
+</ul>

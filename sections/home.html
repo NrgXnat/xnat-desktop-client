@@ -23,7 +23,7 @@
                 </div>
                 <div class="col-sm">
                     <button data-href="progress.html" class="btn btn-bigfriendly btn-lg btn-block home-button" type="button">
-                        <span class="history"></span> Transfer history</button>
+                        <span class="history"></span> Monitor Transfers</button>
                 </div>
             </div>
         </div>
@@ -80,15 +80,15 @@
                                 </div>
 
                                 <small class="form-text text-muted">
-                                    <span id="no_default_local_storage">
-                                        Your default download destination folder is not set.
-                                    </span>
-                                    <span id="yes_default_local_storage">
-                                        Your default download destination folder has been selected. 
-                                        If you would like to use a different folder, you can select it here.
-                                    </span>
-                                    To change your default download destination, go to
-                                    <a data-href="settings.html#nav-profile-tab" href="#" data-dismiss="modal">Application Settings</a>.
+                                    <div>
+                                        Default download destination folder: <q id="default_local_storage_dir"></q> 
+                                    </div>
+                                    <div id="set_default_local_storage" class="hidden">
+                                        <input class="magic-checkbox magic-checkbox--small" type="checkbox" 
+                                        name="set_default_local_storage_dir" id="set_default_local_storage_dir"
+                                        >
+                                        <label for="set_default_local_storage_dir">Set as the default storage location</label>
+                                    </div>
                                 </small>
                             </div>
                         </form>

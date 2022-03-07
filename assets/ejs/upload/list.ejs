@@ -1,0 +1,170 @@
+<div class="row">
+    <div class="col-12">
+        <%
+            let group_counter = 0;
+            const unsupported_size = masking_groups._UNSUPPORTED_ ? masking_groups._UNSUPPORTED_.length : 0;
+
+            let total_size = 0;
+            for (mask_label in masking_groups) {
+                total_size += masking_groups[mask_label].length
+            }
+            const supported_size = total_size - unsupported_size;
+
+            const supported_class = show === 'supported' ? 'btn-gray' : 'btn-link';
+            const unsupported_class = show === 'supported' ? 'btn-link' : 'btn-gray';
+        %>
+        <button data-mask-type="supported" class="btn <%= supported_class %>">Valid Scans (<%= supported_size %>)</button>
+        <button data-mask-type="unsupported" class="btn <%= unsupported_class %>">Unsupported Scans (<%= unsupported_size %>)</button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <% if (show === 'unsupported') { %>
+            <div class="alert alert-primary mt-3" role="alert">
+                Image anonymization is not supported for the scans listed below, but the scans can still be uploaded or excluded from the upload.
+            </div>
+        <% } %>
+
+        <% for (mask_label in masking_groups) { %>
+            <% 
+                if (
+                    (show === 'supported' && mask_label === '_UNSUPPORTED_') ||
+                    (show !== 'supported' && mask_label !== '_UNSUPPORTED_')
+                ) continue; 
+
+                group_counter++;
+
+                const target_size = 4;
+                // let first_scan = masking_groups[mask_label][0];
+                let scans = []
+                if (masking_groups[mask_label].length >= target_size) {
+                    scans = masking_groups[mask_label].slice(0,target_size);
+                } else {
+                    scans = [].concat(masking_groups[mask_label]);
+                    let scans_size = scans.length
+                    scans.length = target_size;
+                    scans.fill({imgDataUrl: false}, scans_size, target_size)
+                }
+            %>
+
+            <%
+            const included = masking_groups[mask_label].filter(_scan => _scan.excluded === false)
+            const group_excluded_class = included.length > 0 ? '' : 'group_excluded'
+            const excluded_icon = included.length === 0 
+                ? '<i class="fas fa-exclamation-circle" style="color: orange; margin-left: 4px;"></i>' : 
+                '<i class="fas fa-exclamation-circle" style="color: orange; margin-left: 4px;"></i>'
+            %>
+
+            <%
+                const _scans_without_anon = masking_groups[mask_label].filter(_scan => _scan.rectangles.length === 0 && _scan.excluded === false).length
+                const _scans_with_anon = masking_groups[mask_label].filter(_scan => _scan.rectangles.length > 0 && _scan.excluded === false).length
+                const _excluded = masking_groups[mask_label].filter(_scan => _scan.excluded === true).length
+            %>
+            
+            <div class="mask-group-row d-flex flex-row align-items-center <%= group_excluded_class %>">
+                <div class="p-2">
+                    <table>
+                        <tr>
+                            <td>
+                                <% if (scans[0].imgDataUrl) { %>
+                                    <img src="<%- scans[0].imgDataUrl %> " alt="">
+                                <% } else { %>
+                                    N/A
+                                <% } %> 
+                            </td>
+                            <td>
+                                <% if (scans[1].imgDataUrl) { %>
+                                    <img src="<%- scans[1].imgDataUrl %> " alt="">
+                                <% } else { %>
+                                    N/A
+                                <% } %> 
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <% if (scans[2].imgDataUrl) { %>
+                                    <img src="<%- scans[2].imgDataUrl %> " alt="">
+                                <% } else { %>
+                                    N/A
+                                <% } %> 
+                            </td>
+                            <td>
+                                <% if (scans[3].imgDataUrl) { %>
+                                    <img src="<%- scans[3].imgDataUrl %> " alt="">
+                                <% } else { %>
+                                    N/A
+                                <% } %> 
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="p-2" style="flex-grow: 1;">
+                    <%
+                    let scan_label = masking_groups[mask_label].length === 1 ? 'scan' : 'scans'
+                    %>
+                    <h4>Group <%- group_counter %> (<%= masking_groups[mask_label].length %> <%= scan_label %>)</h4>
+                    <ul>
+                        <li><span style="color: green; font-weight: bold;">Modality</span>
+                            <i title="Grouping Parameter" style="color: green;" class="far fa-object-group"></i>:
+                            <%= masking_groups[mask_label][0].modality %></li>
+
+                            
+                        <li><span>SOP Class:</span>
+                            <%= findSOPClassUID(masking_groups[mask_label][0].SOPClassUID)['label'] %></li>
+
+                        <li><span style="color: green; font-weight: bold;">Resolution</span>
+                            <i title="Grouping Parameter" style="color: green;" class="far fa-object-group"></i>: 
+                            <%= masking_groups[mask_label][0].Rows %>
+                                <% if (masking_groups[mask_label][0].Rows) { %>
+                                x
+                                <% } %> 
+                            <%= masking_groups[mask_label][0].Columns %></li>
+                        
+                        <li><span>Color:</span>
+                            <%= masking_groups[mask_label][0].PhotometricInterpretation %></li>
+                        <li><span>Templates: <%= masking_groups[mask_label][0].matchingMasks.length %></span> </li>
+                    </ul>
+                </div>
+                
+
+                <div class="p-2" style="height: 220px; text-align: right; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <button
+                            data-review-mask-alias="<%= mask_label %>" 
+                            class="btn btn-blue"
+                        >Review <i class="fas fa-search"></i></button>
+                    </div>
+
+                    <div style="">
+                        <% if (masking_groups_reviewed.includes(mask_label)) { %>
+                            <% if (_scans_without_anon) { %>
+                                <p style="margin-bottom: 0;">
+                                    <b><%= _scans_without_anon %> Scan<%= _scans_without_anon !== 1 ? 's' : '' %></b>
+                                    Queued Without Pixel Anonymization
+                                </p>
+                            <% } %>
+
+                            <% if (_scans_with_anon) { %>
+                                <p style="margin-bottom: 0;">
+                                    <b><%= _scans_with_anon %> Scan<%= _scans_with_anon !== 1 ? 's' : '' %></b>
+                                    Queued With Pixel Anonymization
+                                </p>
+                            <% } %>
+
+                            <% if (_excluded) { %>
+                                <p style="margin-bottom: 0; color: red;">
+                                    <b><%= _excluded %> Scan<%= _excluded !== 1 ? 's' : '' %></b>
+                                    Excluded From Upload
+                                </p>
+                            <% } %>
+
+                        <% } else { %>
+                            <span class="scans-review-info" style="color: #888">Scans Need Review</span>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        <% }; %>
+    </div>
+</div>

@@ -1,0 +1,78 @@
+<div class="row">
+    <div class="col-12">
+        <% for (mask_label in masking_groups) { %>
+            <% 
+                const target_size = 4;
+                // let first_scan = masking_groups[mask_label][0];
+                let scans = []
+                if (masking_groups[mask_label].length >= target_size) {
+                    scans = masking_groups[mask_label].slice(0,target_size);
+                } else {
+                    scans = masking_groups[mask_label];
+                    let scans_size = scans.length
+                    scans.length = target_size;
+                    scans.fill({imgDataUrl: false}, scans_size, target_size)
+                }
+            %>
+
+            <% console.log({scans}) %>
+            
+        <div class="mask-group-row d-flex flex-row align-items-center">
+            <div class="p-2">
+                <table>
+                    <tr>
+                        <td>
+                            <% if (scans[0].imgDataUrl) { %>
+                                <img src="<%- scans[0].imgDataUrl %> " alt="">
+                            <% } else { %>
+                                N/A
+                            <% } %> 
+                        </td>
+                        <td>
+                            <% if (scans[1].imgDataUrl) { %>
+                                <img src="<%- scans[1].imgDataUrl %> " alt="">
+                            <% } else { %>
+                                N/A
+                            <% } %> 
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <% if (scans[2].imgDataUrl) { %>
+                                <img src="<%- scans[2].imgDataUrl %> " alt="">
+                            <% } else { %>
+                                N/A
+                            <% } %> 
+                        </td>
+                        <td>
+                            <% if (scans[3].imgDataUrl) { %>
+                                <img src="<%- scans[3].imgDataUrl %> " alt="">
+                            <% } else { %>
+                                N/A
+                            <% } %> 
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div class="p-2" style="flex-grow: 1;">
+                <h4><%- mask_label %> (<%= masking_groups[mask_label].length %> scans)</h4>
+                <ul>
+                    <li><span>Modality:</span> 
+                        <%= masking_groups[mask_label][0].modality %>)</li>
+
+                    <li><span>Resolution:</span> 
+                        <%= masking_groups[mask_label][0].Rows %>x
+                        <%= masking_groups[mask_label][0].Columns %></li>
+                    
+                    <li><span>Color:</span>
+                        <%= masking_groups[mask_label][0].PhotometricInterpretation %></li>
+                    <li><span>Filters:</span> </li>
+                </ul>
+            </div>
+            <div class="p-2">
+                <button data-bulk-scan-review class="btn btn-blue">Review <i class="fas fa-search"></i></button>
+            </div>
+        </div>
+        <% }; %>
+    </div>
+</div>

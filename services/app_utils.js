@@ -1,5 +1,12 @@
-const path = require('path');
-const fs = require('fs');
+const electron = require('electron')
+const path = require('path')
+const fs = require('fs')
+const checksum = require('checksum')
+const FileSaver = require('file-saver')
+
+const ElectronStore = require('electron-store')
+const { replace } = require('lodash')
+const settings = new ElectronStore()
 
 exports.isDevEnv = () => {
     // return process.argv && process.argv.length >= 3 && /--debug/.test(process.argv[2]);
@@ -10,8 +17,40 @@ exports.isDevEnv = () => {
     return process.mainModule.filename.indexOf('app.asar') === -1;
 }
 
+exports.getDefaultUpdateChannel = () => {
+    const app = electron.remote ? electron.remote.app : electron.app
+    const versionString = app.getVersion()
+    
+    return versionString.includes("-beta") ? "beta" : 
+        versionString.includes("-alpha") ? "alpha" :
+        "latest";
+}
 
-exports.objArrayToCSV = (objArray) => {
+exports.getUpdateChannel = () => {
+    return settings.get('electron-updater-channel', this.getDefaultUpdateChannel())
+}
+
+exports.setUpdateChannel = (channel) => {
+    if (!['alpha', 'beta', 'latest'].includes(channel)) {
+        channel = 'latest'
+    }
+    return settings.set('electron-updater-channel', channel)
+}
+
+exports.objToJsonFile = (jsonObject, target_path) => {
+    if (this.isReallyWritable(path.dirname(target_path))) {
+        const data = JSON.stringify(jsonObject, null, 2)
+        fs.writeFile(target_path, data, function(err) {
+            if (err) {
+                console.log(err)
+            }
+        })
+    } else {
+        console.log(`Not writable: ${path.dirname(target_path)}`)
+    }
+}
+
+function objArrayToCSV(objArray, header_fields = false) {
     function isObject (value) {
         return value && typeof value === 'object' && value.constructor === Object;
     }
@@ -22,7 +61,7 @@ exports.objArrayToCSV = (objArray) => {
 
     const replacer = (key, value) => value === null ? '' : value; // handle null values here
 
-    const header = Object.keys(objArray[0]);
+    const header = header_fields ? header_fields : Object.keys(objArray[0]);
 
     // let csv = objArray.map(row => header.map(fieldName => JSON.stringify(row[fieldName], replacer)).join(','));
 
@@ -43,6 +82,15 @@ exports.objArrayToCSV = (objArray) => {
     csv = csv.join('\r\n');
 
     return csv;
+}
+
+exports.objArrayToCSV = objArrayToCSV
+
+exports.saveAsCSV = (data, filename, header_fields = false) => {
+    let csv = objArrayToCSV(data, header_fields);
+
+    var file = new File([csv], filename, {type: "text/csv;charset=utf-8"});
+    FileSaver.saveAs(file);
 }
 
 exports.isReallyWritable = (_path) => {
@@ -77,6 +125,65 @@ exports.promiseSerial = (funcs) => {
     return funcs.reduce(reducer, Promise.resolve([]))
 }
 
+exports.uuidv4 = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+exports.uuidv4_crypto = () => {
+    return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    )
+}
+
+exports.random_string = (length, charset = 'ALPHA', include_lowercase = false) => {
+    let chars = ''
+    let rand_str = ''
+
+    switch (charset) {
+        case 'ALNUM':
+        case 'ALPHANUM':
+        case 'ALPHANUMERIC':
+            chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+            if (include_lowercase) {
+                chars += chars.replace(/[0-9]/g, '').toLowerCase()
+            }
+            break
+        
+        case 'NUM':
+        case 'NUMERIC':
+            chars = "0123456789"
+            break
+
+        case 'ALPHA':
+        default:
+            chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            if (include_lowercase) {
+                chars += chars.toLowerCase()
+            }
+            break
+    }
+
+    for (let i = 0; i < length; i++) {
+        rand_str += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    return rand_str;
+};
+
+exports.file_checksum = async (file_path) => {
+    return new Promise((resolve, reject) => {
+        checksum.file(file_path, {algorithm: 'md5'}, function(checksum_err, checksum) {
+            if (checksum_err) {
+                reject(checksum_err)
+            } else {
+                resolve(checksum)
+            }
+        })
+    })
+}
 
 // sort alphabetically (if attr is set, sort objects by attr alphabetically)
 // string_arr.sort(sortAlpha())
@@ -126,3 +233,34 @@ function normalizeTimeString(only_numbers) {
     }
 }
 exports.normalizeTimeString = normalizeTimeString
+
+
+// INFO: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#escaping
+const escapeRegExp = (str) => {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") // $& means the whole matched string
+}
+
+const multiLetterRegExp = (char) =>
+    char !== "" ? new RegExp(`${escapeRegExp(char)}+`, "g") : ""
+
+exports.replaceFactory = (allowRegExp, input, replacedBy = "") => {
+    return input
+        .replace(allowRegExp, replacedBy)
+        .replace(multiLetterRegExp(replacedBy), replacedBy)
+}
+
+exports.alNum = (input, replacedBy = "") => {
+    const allowRegExp = /[^A-Z0-9]+/gim
+    return exports.replaceFactory(allowRegExp, input, replacedBy)
+}
+
+exports.alNumDash = (input, replacedBy = "-") => {
+    const allowRegExp = /[^A-Z0-9-]+/gim
+    return exports.replaceFactory(allowRegExp, input, replacedBy)
+}
+
+exports.alNumDashUnderscore = (input, replacedBy = "_") => {
+    const allowRegExp = /[^A-Z0-9_-]+/gim
+    return exports.replaceFactory(allowRegExp, input, replacedBy)
+}
+

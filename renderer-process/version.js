@@ -1,22 +1,50 @@
-
-
 const remote = require('electron').remote
-const app = remote.app;
-const { autoUpdater } = remote.require("electron-updater");
-const electron_log = remote.require('./services/electron_log');
+const app = remote.app
+const { autoUpdater } = remote.require("electron-updater")
+const store = require('store2')
+const { getUpdateChannel, setUpdateChannel } = require('../services/app_utils')
 
-const store = require('store2');
+const dom_context = '#version-section'
+const { $on } = require('./../services/selector_factory')(dom_context)
 
-const ipc = require('electron').ipcRenderer
+$on('page:load', '#version-section', function(e){
+    updateChannelSelectionDropdown()
+    getAutoUpdateInfo()
 
-$(document).on('page:load', '#version-section', function(e){
-    if (store.has('version-info-update')) {
-        $('#version_info').text(store.get('version-info-update'))
-    }
     $('#semver').text(app.getVersion())
-});
-
-$(document).on('click', '#check_for_updated_verision', function(e) {
-    autoUpdater.checkForUpdates()
 })
 
+$on('change', '#auto_update_channel', function(e) {
+    const newAutoUpdateValue = $(this).val()
+
+    autoUpdater.channel = newAutoUpdateValue
+    // setting "channel" sets "allowDowngrade" to true, so change allowDowngrade after the channel property is set
+    autoUpdater.allowDowngrade = newAutoUpdateValue === 'latest'
+
+    setUpdateChannel(newAutoUpdateValue)
+    checkForUpdates()
+})
+
+$on('click', '#check_for_updated_verision', checkForUpdates)
+
+function getAutoUpdateInfo() {
+    if (store.has('version-info-update')) {
+        const channel = getUpdateChannel()
+        const channelLabel = channel === 'latest' ? 'Stable' : Helper.capitalizeFirstLetter(channel)
+        $('#version_info').html(`Update Channel <b>${channelLabel}</b>: ${store.get('version-info-update')}`)
+    } else {
+        $('#version_info').text('No Auto-Update Info.')
+    }
+}
+
+function checkForUpdates() {
+    autoUpdater.checkForUpdates()
+    setTimeout(function() {
+        getAutoUpdateInfo()
+    }, 100)
+}
+
+function updateChannelSelectionDropdown() {
+    const channel = getUpdateChannel()
+    $(`#auto_update_channel option[value="${channel}"]`).prop('selected', true)
+}

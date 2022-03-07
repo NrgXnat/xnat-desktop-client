@@ -1,18 +1,24 @@
+const {remote, ipcRenderer: ipc, shell} = require('electron')
+
 require('promise.prototype.finally').shim();
 const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
-const ipc = require('electron').ipcRenderer;
 const swal = require('sweetalert');
 const prettyBytes = require('pretty-bytes');
 const FileSaver = require('file-saver');
+const electron_log = remote.require('./services/electron_log');
 
-const db_uploads = require('electron').remote.require('./services/db/uploads')
-const db_uploads_archive = require('electron').remote.require('./services/db/uploads_archive')
-const db_downloads = require('electron').remote.require('./services/db/downloads')
-const db_downloads_archive = require('electron').remote.require('./services/db/downloads_archive')
 
-const nedb_log_reader = require('electron').remote.require('./services/db/nedb_log_reader')
+const db_uploads = remote.require('./services/db/uploads')
+const db_uploads_archive = remote.require('./services/db/uploads_archive')
+const db_downloads = remote.require('./services/db/downloads')
+const db_downloads_archive = remote.require('./services/db/downloads_archive')
+
+const nedb_log_reader = remote.require('./services/db/nedb_log_reader')
 const moment = require('moment');
+const ejs_template = require('../services/ejs_template')
+
+const path = require('path')
 
 const { objArrayToCSV } = require('../services/app_utils');
 
@@ -29,8 +35,28 @@ NProgress.configure({
 
 let xnat_server, user_auth;
 
+function upload_checksum_errors() {
+    db_uploads.listAll((err, uploads) => {
+        let my_errors = {};
+        uploads.forEach((transfer) => {
+            if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
+                my_errors[transfer.id] = [];
+                transfer.series.forEach(series => {
+                    series.forEach(sFile => {
+                        if (!sFile.hasOwnProperty('anon_checksum') || typeof sFile.anon_checksum !== 'string' || sFile.anon_checksum.length != 32) {
+                            my_errors[transfer.id].push(sFile)
+                        }
+                    })
+                })
+            }
+        });
+        console.log({my_errors});
+    })
+}
 
 function _init_upload_progress_table() {
+    // upload_checksum_errors()
+
     $('#upload_monitor_table').bootstrapTable({
         filterControl: true,
         hideUnusedSelectOptions: true,
@@ -170,6 +196,13 @@ function _init_upload_progress_table() {
 
     db_uploads.listAll((err, uploads) => {
         console.log({uploads});
+
+        /*
+        // log each upload digest
+        uploads.forEach(item => {
+            console.log(item.url_data.expt_label, JSON.stringify(item))
+        })
+        */
 
         let my_data = [];
 
@@ -481,13 +514,36 @@ function _UI() {
 }
 
 
-function _init_variables() {
+async function _init_variables() {
     xnat_server = settings.get('xnat_server');
     user_auth = settings.get('user_auth');
 
     _init_download_progress_table();
     _init_upload_progress_table();
+    
+    // find newest transfer type and display corresponding tab
+    const newest_item_type = await getNewestTransfer()
+    $(`#nav-${newest_item_type}-tab`).trigger('click')
+
     _UI();
+}
+
+async function getNewestTransfer() {
+    try {
+        const all_uploads = await db_uploads._listAll()
+        const all_downloads = await db_downloads._listAll()
+
+        const my_uploads = all_uploads.filter(transfer => transfer.xnat_server === xnat_server && transfer.user === user_auth.username)
+        const my_downloads = all_downloads.filter(transfer => transfer.server === xnat_server && transfer.user === user_auth.username)
+
+        const max_upload = my_uploads.length ? my_uploads.reduce((a,b) => a.transfer_start > b.transfer_start ? a : b).transfer_start : 0
+        const max_download = my_downloads.length ? my_downloads.reduce((a,b) => a.transfer_start > b.transfer_start ? a : b).transfer_start : 0
+
+        return max_upload > max_download ? 'upload' : 'download'
+
+    } catch (err) {
+        throw err
+    }
 }
 
 
@@ -497,10 +553,10 @@ if (!settings.has('user_auth') || !settings.has('xnat_server')) {
 }
 
 
-$(document).on('page:load', '#progress-section', function(e){
+$(document).on('page:load', '#progress-section', async function(e){
     console.log('PROGRESS page:load triggered');
     
-    _init_variables();
+    await _init_variables();
 });
 
 const csv_export_buttons = [
@@ -678,6 +734,117 @@ $(document).on('show.bs.modal', '#error-log--upload', function(e) {
     });
 });
 
+$(document).on('show.bs.modal', '#view-receipt', async function(e) {
+    var id = $(e.relatedTarget).data('id');
+    
+    let transfer = await db_uploads._getById(id)
+
+    // trim unused data for performance
+    const _transfer = {
+        session_link: transfer.session_link,
+        user: transfer.user,
+        session_data: transfer.session_data,
+        computed: {
+            start_upload: moment(transfer.transfer_start * 1000).format('YYYY-MM-DD HH:mm:ss')
+        },
+        anon_variables: transfer.anon_variables,
+        series: transfer.series.map(item => {
+            return item.map(single => {
+                return {
+                    seriesInstanceUid: single.seriesInstanceUid,
+                    filename: single.filename,
+                    anon_checksum: single.anon_checksum,
+                }
+            })
+        })
+    }
+
+    let tpl_function = ejs_template.compile('upload/upload-receipt')
+    let parsed_tpl = tpl_function(_transfer)
+
+    $('#receipt-content').html(parsed_tpl)
+    $('#receipt-to-pdf').data('expt_label', transfer.url_data.expt_label)
+})
+
+$(document).on('click', '#receipt-to-pdf', function() {
+    
+    if (settings.has('receipt_pdf_settings.destination')) {
+        $('#pdf_destination').val(settings.get('receipt_pdf_settings.destination'))
+    }
+
+    if (settings.has('receipt_pdf_settings.orientation')) {
+        $('[name="pdf_orientation"]', '#upload-receipt-destination').each(function() {
+            const is_checked = $(this).val() === settings.get('receipt_pdf_settings.orientation')
+            $(this).prop("checked", is_checked)
+        })
+    }
+
+    if (settings.has('receipt_pdf_settings.pagesize')) {
+        $('[name="pdf_pagesize"]', '#upload-receipt-destination').each(function() {
+            const is_checked = $(this).val() === settings.get('receipt_pdf_settings.pagesize')
+            $(this).prop("checked", is_checked)
+        })
+    }
+
+    $('#upload-receipt-destination').modal('show')
+});
+
+$(document).on('show.bs.modal', '#upload-receipt-destination', function(e) {
+    $('#view-receipt').css('z-index', 1040)
+})
+
+$(document).on('hide.bs.modal', '#upload-receipt-destination', function(e) {
+    $('#view-receipt').css('z-index', '')
+})
+
+$(document).on('click', '#save-pdf-destination', function(e) {
+    const pdf_destination = $('#pdf_destination').val()
+    const pdf_orientation = $('[name="pdf_orientation"]:checked').val()
+    const landscape_setting = pdf_orientation === 'landscape'
+    const pdf_pagesize = $('[name="pdf_pagesize"]:checked').val();
+
+    if (pdf_destination) {
+        // store pdf settings
+        settings.set('receipt_pdf_settings', {
+            destination: pdf_destination,
+            orientation: pdf_orientation,
+            pagesize: pdf_pagesize
+        })
+
+        $(this).closest('.modal').modal('hide');
+
+        let partial = $('#view-receipt .modal-body').html();
+
+        let html = partial.replace(/\n/g, " ");
+        html = html.replace(/\s+/g, " ");
+
+        html = `<html><body>${html}</body></html>`
+
+        const pdf_settings = {
+            landscape: landscape_setting,
+            marginsType: 0,
+            printBackground: false,
+            printSelectionOnly: false,
+            pageSize: pdf_pagesize
+        }
+
+        const expt_label = $('#receipt-to-pdf').data('expt_label')
+        const filename_base = `${expt_label}-${user_auth.username}`;
+        // METHOD 3:
+        ipc.send('print_pdf', html, pdf_destination, pdf_settings, filename_base);
+    }
+    
+})
+
+$(document).on('change', '#pdf_destination_folder', function(e) {
+    if (this.files.length) {
+        let pth = this.files[0].path;
+
+        $('#pdf_destination').val(pth);
+    }
+});
+
+
 $(document).on('show.bs.modal', '#upload-details', function(e) {
     var id = $(e.relatedTarget).data('id');
 
@@ -767,6 +934,10 @@ $(document).on('show.bs.modal', '#upload-success-log', function(e) {
         $('#upload-details-link').data({
             id: my_transfer.id,
             session_label: my_transfer.url_data.expt_label
+        });
+
+        $('#view-receipt-link').data({
+            id: my_transfer.id
         });
 
         for (key in my_transfer.session_data) {
@@ -1064,7 +1235,6 @@ $(document).on('click', '.js_cancel_download', function(e){
     let new_cancel_status = $button.data('new_cancel_status');
 
 
-
     // disable button to prevent further submission
     $button.attr("disabled", true);
 
@@ -1209,9 +1379,9 @@ $(document).on('click', '.js_cancel_all_transfers', function(){
         settings.set('global_pause', global_pause);
 
         if (modified_uploads + modified_downloads === 0) {
-            Helper.pnotify('Cancel All Tranfsers', 'No new transfers were canceled.', 'notice');
+            Helper.pnotify('Cancel All Transfers', 'No new transfers were canceled.', 'notice');
         } else {
-            Helper.pnotify('Cancel All Tranfsers - Success', `Downloads canceled: ${modified_downloads}
+            Helper.pnotify('Cancel All Transfers - Success', `Downloads canceled: ${modified_downloads}
                 Uploads canceled: ${modified_uploads}`);
         }
 
@@ -1268,7 +1438,7 @@ function global_pause_status(new_pause_status) {
     let title = new_pause_status ? 'Pause' : 'Resume';
     let body = new_pause_status ? 'Paused' : 'Resumed';
 
-    Helper.pnotify(`${title} All Tranfsers`, `All Transfers Successfully ${body}.`, 'success', 3000);
+    Helper.pnotify(`${title} All Transfers`, `All Transfers Successfully ${body}.`, 'success', 3000);
 }
 
 $(document).on('click', '.js_clear_finished', function(){
@@ -1440,7 +1610,7 @@ function remove_transfers(include_canceled) {
         remove_finished_downloads(include_canceled)
     ]).then(([removed_uploads, removed_download]) => {
         console_red('remove_transfers -> then', {removed_uploads, removed_download})
-        Helper.pnotify(`Clear Completed Tranfsers`,  `Downloads Removed: ${removed_download}
+        Helper.pnotify(`Clear Completed Transfers`,  `Downloads Removed: ${removed_download}
         Uploads Removed: ${removed_uploads}`, 'success');
 
         //_init_download_progress_table();

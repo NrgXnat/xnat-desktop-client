@@ -71,9 +71,14 @@ module.exports._updateProperty = (id, property, value) => {
     });
 }
 
-
-
-
+module.exports._insertDoc = (data) => {
+    return new Promise((resolve, reject) => {
+        db().insert(data, (err, newItem) => {
+            if (err) reject(err)
+            resolve(newItem)
+        });
+    });
+}
 
 
 module.exports.insert_one = (name, callback) => { // callback(err, newDoc)
