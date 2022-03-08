@@ -619,7 +619,7 @@ $(document).on('change', '#subject_labeling_pattern', function() {
     }
 
     if (session_pattern === 'auto') {
-        generate_session_auto()
+        autogenerate_session_labels()
     }
 })
 
@@ -629,7 +629,7 @@ $(document).on('change', '#session_labeling_pattern', function() {
 
     switch (session_pattern) {
         case 'auto':
-            generate_session_auto()
+            autogenerate_session_labels()
             break;
         
         case 'dicom_accession_num':
@@ -676,23 +676,19 @@ function generate_field_pattern(target_field, source_field) {
     }
 }
 
-// TODO: SHOULD BE REFACTORED
-function generate_session_auto() {
+function autogenerate_session_labels() {
     let $tbl = $('#custom_upload_multiple_tbl')
-    let tbl_data = $tbl.bootstrapTable('getData')
+    let tbl_data = $tbl.bootstrapTable('getSelections')
 
-    let existing_labels = [...project_settings.computed.experiment_labels]
+    let local_labels = []
 
     for (let i = 0; i < tbl_data.length; i++) {
         let row = tbl_data[i]
         let reinit_val = i === tbl_data.length - 1
 
-        // const new_session_label = generate_unique_session_label(row.xnat_subject_id + row.label_suffix, existing_labels)
         const series_data = get_session_series(session_map.get(row.id))
         const tracer_val = row.tracer ? row.tracer : 'PT'
-        const new_session_label = generate_experiment_label(row.xnat_subject_id, series_data, tracer_val, '')
-
-        existing_labels.push(new_session_label)
+        const new_session_label = generate_experiment_label_bulk(local_labels, row.xnat_subject_id, series_data, tracer_val, '')
 
         $tbl.bootstrapTable("updateCellByUniqueId", {
             id: row.id,
@@ -700,6 +696,8 @@ function generate_session_auto() {
             value: new_session_label,
             reinit: reinit_val
         });
+
+        local_labels.push(new_session_label)
     }
 }
 
@@ -4593,8 +4591,13 @@ ipcRenderer.on('custom_upload_multiple:generate_exp_label', function(e, row){
     const tracer_val = row.tracer ? row.tracer : 'PT'
     const subject_value = $$('#session_labeling_pattern').val() === 'dicom_patient_id' ? row.patient_id : row.xnat_subject_id 
 
-    const new_label = generate_experiment_label(subject_value, series_data, tracer_val, '')
-    
+    // calc local labels
+    const selected_sessions = $('#custom_upload_multiple_tbl').bootstrapTable('getSelections');
+    const other_sessions = selected_sessions.filter(sess => sess.id !== row.id)
+    const local_labels = other_sessions.map(sess => sess.experiment_label)
+
+    const new_label = generate_experiment_label_bulk(local_labels, subject_value, series_data, tracer_val, '')
+
     $('#custom_upload_multiple_tbl').bootstrapTable("updateCellByUniqueId", {
         id: row.id,
         field: 'experiment_label',
@@ -4728,7 +4731,7 @@ function __generate_experiment_label_single() {
 	return generate_experiment_label(subject_label, selected_series, pet_tracer, custom_pet_tracer)
 }
 
-// single and bulk
+// single
 function generate_experiment_label(_subject_label, _selected_series, _pet_tracer, _custom_pet_tracer) {
 	const data = {
 		subject_label: _subject_label,
@@ -4738,6 +4741,22 @@ function generate_experiment_label(_subject_label, _selected_series, _pet_tracer
 	};
 	
 	const exp_label = new ExperimentLabel(data, project_settings.computed.experiment_labels);
+    
+	return exp_label.generateLabel()
+}
+
+// bulk
+function generate_experiment_label_bulk(local_labels, _subject_label, _selected_series, _pet_tracer, _custom_pet_tracer) {
+	const data = {
+		subject_label: _subject_label,
+		selected_series: _selected_series,
+		pet_tracer: _pet_tracer,
+		custom_pet_tracer: _custom_pet_tracer
+	};
+
+    const all_labels = project_settings.computed.experiment_labels.concat(local_labels)
+	
+	const exp_label = new ExperimentLabel(data, all_labels);
     
 	return exp_label.generateLabel()
 }
