@@ -36,8 +36,7 @@
     "postinstall:default": "find build_resources -name \"._*\" -exec rm '{}' \\;; find build_resources/jre -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \\;; ./patch-java-binding.sh; electron-builder install-app-deps;",
     "cleanstall": "run-script-os",
     "cleanstall:win32": "rmdir /s /q node_modules & yarn install",
-    "cleanstall:default": "rm -rf node_modules ; yarn install",
-    "modify-file": "node modify.js"
+    "cleanstall:default": "rm -rf node_modules ; yarn install"
   },
   "author": "Washington University in St. Louis",
   "license": "ISC",
