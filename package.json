@@ -71,7 +71,7 @@
     "magic-check": "^1.0.3",
     "mime-types": "^2.1.18",
     "mkdir-recursive": "^0.4.0",
-    "moment": "^2.24.0",
+    "moment": "^2.29.2",
     "nedb": "^1.8.0",
     "nedb-logger": "^0.1.0",
     "nprogress": "^0.2.0",
