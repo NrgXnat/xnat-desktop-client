@@ -1,0 +1,32 @@
+<template class="task-template">
+    <section id="json-stats" class="section js-section u-category-native-ui">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-12">
+                    <h2 class="main-title">JSON stats</h2>
+
+                    <h5>JSON DB Files:</h5>
+                    <p><a id="user-data-path" href="#"></a></p>
+                    <ul id="json-files"></ul>
+
+                    <div>
+                        <button type="button" class="btn btn-gray" id="add-upload">Add Dummy Upload Sessions</button>
+                        <br>
+                        <br>
+                        <button type="button" class="btn btn-blue" id="clear-upload">Clear Upload Content</button>
+
+                    </div>
+
+                    <pre id="jsonx"></pre>
+                    
+                </div>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            require('./renderer-process/json-stats')
+            Helper.pageLoadTrigger('#json-stats');
+        </script>
+
+    </section>
+</template>

@@ -1,6 +1,6 @@
 {
   "name": "xnat-desktop-client",
-  "version": "3.0.0",
+  "version": "3.0.1-alpha.1",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "extraMetadata": {
@@ -48,6 +48,7 @@
     "bootstrap": "^4.0.0",
     "bootstrap-table": "^1.16.0",
     "bootstrap4-tagsinput-douglasanpa": "^4.1.2",
+    "bytes": "^3.1.2",
     "checksum": "^0.1.1",
     "cornerstone-core-with-bg": "^2.2.8",
     "cornerstone-math": "^0.1.8",
