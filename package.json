@@ -43,7 +43,7 @@
     "axios": "^0.18.0",
     "blockui-npm": "^1.0.0",
     "bootstrap": "^4.0.0",
-    "bootstrap-table": "^1.16.0",
+    "bootstrap-table": "^1.20.2",
     "bootstrap4-tagsinput-douglasanpa": "^4.1.2",
     "cornerstone-core-with-bg": "^2.2.8",
     "cornerstone-math": "^0.1.8",
