@@ -56,7 +56,7 @@ $on('click', '#add-upload', async () => {
     //     $$('#jsonx').text(JSON.stringify(canceled_items[0]))
     // })
 
-    await addUpload(20, 700)
+    await addUpload(15, 1000)
 })
 
 $on('click', '#clear-upload', async () => {
@@ -76,10 +76,10 @@ async function addUpload(numOfSeriesPerSession = 20, numOfFilesPerSeries = 700) 
         const realSize = parseInt(maxSize) || 0
     
         if (realSize > 3000 || realSize < uploadsFileSizeMB) {
-            swal(`Invalid size: ${realSize}MB`);
+            await swal(`Invalid size: ${realSize}MB`);
             return
         } else {
-            swal(`You typed: ${maxSize} ---> ${realSize}MB
+            await swal(`You typed: ${maxSize} ---> ${realSize}MB
                 The application will restart after reaching ${realSize}MB.`);
             maxUploadSizeMB = realSize
         }
@@ -139,29 +139,39 @@ async function addUpload(numOfSeriesPerSession = 20, numOfFilesPerSeries = 700) 
         canceled: true
     };
 
-    console.log({upload_digest});
+    // console.log({upload_digest});
 
     //$$('#jsonx').text(JSON.stringify(upload_digest).length)
     
     const dbPath = getDbFilePath('uploads')
 
+    /*
     fs.appendFile(dbPath, JSON.stringify(upload_digest) + "\n", async function (err) {
         if (err) throw err
         console.log('Saved!')
         populateJsonDbData()
 
-        if (getFilesizeInBytes(getDbFilePath('uploads')) > maxUploadSizeMB * 1024 * 1024) {
+        if (getFilesizeInBytes(dbPath) > maxUploadSizeMB * 1024 * 1024) {
             app.relaunch()
             app.exit()
         } else {
-            await addUpload()
+            await addUpload(numOfSeriesPerSession, numOfFilesPerSeries)
         }
     });
+    */
 	
 	
-    // const newItem = await db_uploads._insertDoc(upload_digest)
-    // console.log({newItem});
-    // populateJsonDbData()
+    const newItem = await db_uploads._insertDoc(upload_digest)
+    console.log('Great Success');
+
+    populateJsonDbData()
+
+    if (getFilesizeInBytes(dbPath) > maxUploadSizeMB * 1024 * 1024) {
+        // console.log({newItem});
+        console.log('Done')
+    } else {
+        await addUpload(numOfSeriesPerSession, numOfFilesPerSeries)
+    }
     
 }
 
