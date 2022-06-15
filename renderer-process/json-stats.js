@@ -19,7 +19,7 @@ const db_uploads = remote.require('./services/db/uploads')
 const dom_context = '#json-stats'
 const { $$, $on } = require('../services/selector_factory')(dom_context)
 
-
+let maxUploadSizeMB;
 
 $on('page:load', dom_context, function(e){
     $$('#user-data-path').text(app.getPath('userData'))
@@ -56,6 +56,7 @@ $on('click', '#add-upload', async () => {
     //     $$('#jsonx').text(JSON.stringify(canceled_items[0]))
     // })
 
+    maxUploadSizeMB = null;
     await addUpload(15, 1000)
 })
 
@@ -63,10 +64,8 @@ $on('click', '#clear-upload', async () => {
     await clearUploadDb()
 })
 
-let maxUploadSizeMB;
-
 async function addUpload(numOfSeriesPerSession = 20, numOfFilesPerSeries = 700) {
-    if (maxUploadSizeMB === undefined) {
+    if (maxUploadSizeMB === null) {
         const uploadsFileSizeMB = getFilesizeInBytes(getDbFilePath('uploads')) / 1024 / 1024
 
         const maxSize = await swal(`Fill Upload with this much MB of content (number between ${uploadsFileSizeMB.toFixed(2)} and 3000):`, {
@@ -79,8 +78,7 @@ async function addUpload(numOfSeriesPerSession = 20, numOfFilesPerSeries = 700) 
             await swal(`Invalid size: ${realSize}MB`);
             return
         } else {
-            await swal(`You typed: ${maxSize} ---> ${realSize}MB
-                The application will restart after reaching ${realSize}MB.`);
+            await swal(`You typed: ${maxSize} ---> ${realSize}MB`);
             maxUploadSizeMB = realSize
         }
     }

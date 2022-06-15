@@ -1728,7 +1728,7 @@ function progress_bar_html(my_value, my_text) {
     `;
 }
 
-ipc.on('upload_finished',function(e, transfer_id){
+ipc.on('upload_finished', async function(e, transfer_id){
     let $modal_content = $(`#upload-details [data-id=${transfer_id}]`);
 
     console_red('ipc.on upload_finished', $modal_content.length, $modal_content.is(':visible'))
@@ -1737,8 +1737,150 @@ ipc.on('upload_finished',function(e, transfer_id){
         $(`#upload-details`).modal('hide');
         $(`tr[data-uniqueid=${transfer_id}] button[data-toggle=modal]`).trigger('click');
     }
+
+    // add PDF settings
+    if (settings.get('receipt_pdf_settings.enabled', false)) {
+        await generate_pdf_receipt(transfer_id)
+    }
+
+    await remove_finished_upload(transfer_id)
+
 })
 
+
+function remove_finished_upload(transfer_id) {
+    return new Promise(async (resolve, reject) => {
+        let transfer = await db_uploads._getById(transfer_id)
+
+        let to_archive = [];
+        let delete_ids = [];
+
+
+        // validate current user/server
+        if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
+            if (transfer.status === 'finished') {
+                delete_ids.push(transfer._id);
+                to_archive.push(transfer)
+            }
+        }
+
+        console_red('remove_finished_uploads', {to_archive, delete_ids})
+
+        if (delete_ids.length) {
+            db_uploads().remove({_id: {$in: delete_ids}}, {multi: true}, (err, numRemoved) => {
+                console.log(`Removed ${numRemoved} from ${delete_ids.length} from db.uploads`)
+    
+                db_uploads_archive().insert(to_archive, function (err, newDocs) {
+                    //console.log(`Added ${newDocs.length} from ${to_archive.length} into db.uploads_archive`)
+    
+                    _init_upload_progress_table();
+
+                    resolve(numRemoved)
+                });
+            })
+        } else {
+            resolve(0)
+        }
+
+    })
+
+}
+
+async function generate_pdf_receipt_html(transfer_id) {
+    let transfer = await db_uploads._getById(transfer_id)
+
+    // trim unused data for performance
+    const _transfer = {
+        session_link: transfer.session_link,
+        user: transfer.user,
+        session_data: transfer.session_data,
+        computed: {
+            start_upload: moment(transfer.transfer_start * 1000).format('YYYY-MM-DD HH:mm:ss')
+        },
+        anon_variables: transfer.anon_variables,
+        series: transfer.series.map(item => {
+            return item.map(single => {
+                return {
+                    seriesInstanceUid: single.seriesInstanceUid,
+                    filename: single.filename,
+                    anon_checksum: single.anon_checksum,
+                }
+            })
+        })
+    }
+
+    let tpl_function = ejs_template.compile('upload/upload-receipt')
+    let parsed_tpl = tpl_function(_transfer)
+
+    let html = parsed_tpl.replace(/\n/g, " ").replace(/\s+/g, " ");
+
+    return `<html><body><h4>Upload receipt</h4>${html}</body></html>`
+
+}
+
+async function generate_pdf_receipt_filename(transfer_id) {
+    let transfer = await db_uploads._getById(transfer_id)
+
+    return `${transfer.url_data.expt_label}-${user_auth.username}`;
+}
+
+
+async function generate_pdf_receipt(transfer_id) {
+    const html = await generate_pdf_receipt_html(transfer_id)
+    const filename_base = await generate_pdf_receipt_filename(transfer_id)
+
+    const pdf_destination = settings.get('receipt_pdf_settings.destination', 'D:\\__XNAT__\\PDF_RECEIPTS')
+
+    const pdf_settings = {
+        landscape: settings.get('receipt_pdf_settings.orientation', 'landscape') === 'landscape',
+        marginsType: 0,
+        printBackground: false,
+        printSelectionOnly: false,
+        pageSize: settings.get('receipt_pdf_settings.pagesize', 'Letter')
+    }
+
+    ipc.send('print_pdf', html, pdf_destination, pdf_settings, filename_base, false);
+}
+
+/*
+{
+    const pdf_destination = $('#pdf_destination').val()
+    const pdf_orientation = $('[name="pdf_orientation"]:checked').val()
+    const landscape_setting = pdf_orientation === 'landscape'
+    const pdf_pagesize = $('[name="pdf_pagesize"]:checked').val();
+
+    if (pdf_destination) {
+        // store pdf settings
+        settings.set('receipt_pdf_settings', {
+            destination: pdf_destination,
+            orientation: pdf_orientation,
+            pagesize: pdf_pagesize
+        })
+
+        $(this).closest('.modal').modal('hide');
+
+        let partial = $('#view-receipt .modal-body').html();
+
+        let html = partial.replace(/\n/g, " ");
+        html = html.replace(/\s+/g, " ");
+
+        html = `<html><body>${html}</body></html>`
+
+        const pdf_settings = {
+            landscape: landscape_setting,
+            marginsType: 0,
+            printBackground: false,
+            printSelectionOnly: false,
+            pageSize: pdf_pagesize
+        }
+
+        const expt_label = $('#receipt-to-pdf').data('expt_label')
+        const filename_base = `${expt_label}-${user_auth.username}`;
+        // METHOD 3:
+        ipc.send('print_pdf', html, pdf_destination, pdf_settings, filename_base);
+    }
+}
+*/
 
 ipc.on('progress_cell',function(e, item){
     console_red('progress_cell', item);

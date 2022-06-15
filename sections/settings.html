@@ -182,72 +182,178 @@
                         </div>
                     </form>
 
+
+                    <div class="form-group">
+                        <br>
+                        <label>PDF Receipt Settings</label>
+                        <br/>
+                        <div class="input-group row">
+                            <div class="col-12" id="pdf-receipt-settings"></div>
+                            
+                            <div class="col-3">
+                                <button class="btn btn-blue" id="change-pdf-receipt-settings">Change PDF Receipt Settings</button>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
 
-    </section>
-    <!-- Modal -->
-    <div class="modal fade" id="user_connection" tabindex="-1" role="dialog" data-keyboard="false" aria-labelledby="loginTitle"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-            <div class="modal-content">
-                <form action="" id="userForm">
-                    <input type="hidden" name="old_server" id="old_server" value="">
-                    <input type="hidden" name="old_username" id="old_username" value="">
+    
+        <!-- Modal -->
+        <div class="modal fade" id="user_connection" tabindex="-1" role="dialog" data-keyboard="false" aria-labelledby="loginTitle"
+            aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+                <div class="modal-content">
+                    <form action="" id="userForm">
+                        <input type="hidden" name="old_server" id="old_server" value="">
+                        <input type="hidden" name="old_username" id="old_username" value="">
 
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="exampleModalLongTitle">User login</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <i class="far fa-window-close"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-danger text-center hidden" id="login_feedback" role="alert">
+                                <h2 class="red-title">
+                                    <i class="fas fa-exclamation-triangle"></i> Login attempt failed!</h2>
+                                <span id="login_error_message"></span>
+
+                                <div style="text-align: left">
+                                    <br>
+                                    <a class="btn btn-link" data-toggle="collapse" href="#login_error_details" role="button" aria-expanded="false" aria-controls="login_error_details">
+                                        Error Details
+                                    </a>
+                                    <div id="login_error_details" class="collapse" style="font-size: 0.8em;"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="server" class="col-form-label">Server:</label>
+                                <input type="text" class="form-control" name="server" id="server" placeholder="xnat.server.url" required>
+                            </div>
+                            <div class="form-check text-right">
+                                <input class="form-check-input" type="checkbox" value="" name="allow_insecure_ssl" id="allow_insecure_ssl">
+                                <label class="form-check-label" for="allow_insecure_ssl">
+                                    Allow unverified certificates
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label for="username" class="col-form-label">Username:</label>
+                                <input type="text" class="form-control" name="username" id="username">
+                            </div>
+                            <div class="form-group">
+                                <label for="password" class="col-form-label">Password:</label>
+                                <input type="password" class="form-control" name="password" id="password">
+                            </div>
+
+                        </div>
+                        <div class="modal-footer">
+                            <!-- <button type="button" id="remove_login" class="btn btn-link mr-auto">Remove From List</button> -->
+                            <button type="button" class="btn btn-gray" data-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-blue">Verify and Save connection</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- Modal -->
+        <div class="modal fade" id="upload-receipt-destination-settings" tabindex="-1" role="dialog" aria-labelledby="loginTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+                <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="exampleModalLongTitle">User login</h5>
+                        <h5 class="modal-title" id="exampleModalLongTitle">Select Folder</h5>
+                        
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <i class="far fa-window-close"></i>
                         </button>
                     </div>
                     <div class="modal-body">
-                        <div class="alert alert-danger text-center hidden" id="login_feedback" role="alert">
-                            <h2 class="red-title">
-                                <i class="fas fa-exclamation-triangle"></i> Login attempt failed!</h2>
-                            <span id="login_error_message"></span>
+                        <div class="row">
+                            <div class="col">
+                                <p>Generated PDF receipt will be stored in this location:</p>
+                                <div class="form-group">
+                                    <div class="input-group">
+                                        <input type="text" id="pdf_destination" value="" class="form-control col-9 settings-input" readonly>
+                                        <div class="col-3">
+                                            <label class="input-group-btn">
+                                                <span class="btn btn-blue">
+                                                    Browse
+                                                    <input type="file" id="pdf_destination_folder" style="display: none" webkitdirectory
+                                                        directory>
+                                                </span>
+                                            </label>
+                                        </div>
 
-                            <div style="text-align: left">
-                                <br>
-                                <a class="btn btn-link" data-toggle="collapse" href="#login_error_details" role="button" aria-expanded="false" aria-controls="login_error_details">
-                                    Error Details
-                                </a>
-                                <div id="login_error_details" class="collapse" style="font-size: 0.8em;"></div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group row">
+                                    <legend class="col-form-label col-sm-2 pt-0">Orientation:</legend>
+                                    <div class="col-sm-10">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="pdf_orientation"
+                                                id="pdf_orientation1" value="portrait" checked>
+                                            <label class="form-check-label" for="pdf_orientation1">
+                                                Portrait
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="pdf_orientation"
+                                                id="pdf_orientation2" value="landscape">
+                                            <label class="form-check-label" for="pdf_orientation2">
+                                                Landscape
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                                <div class="form-group row">
+                                    <legend class="col-form-label col-sm-2 pt-0">Page Size:</legend>
+                                    <div class="col-sm-10">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="pdf_pagesize"
+                                                id="pdf_pagesize2" value="Letter" checked>
+                                            <label class="form-check-label" for="pdf_pagesize2">
+                                                Letter
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="pdf_pagesize"
+                                                id="pdf_pagesize1" value="A4">
+                                            <label class="form-check-label" for="pdf_pagesize1">
+                                                A4
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="server" class="col-form-label">Server:</label>
-                            <input type="text" class="form-control" name="server" id="server" placeholder="xnat.server.url" required>
-                        </div>
-                        <div class="form-check text-right">
-                            <input class="form-check-input" type="checkbox" value="" name="allow_insecure_ssl" id="allow_insecure_ssl">
-                            <label class="form-check-label" for="allow_insecure_ssl">
-                                Allow unverified certificates
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label for="username" class="col-form-label">Username:</label>
-                            <input type="text" class="form-control" name="username" id="username">
-                        </div>
-                        <div class="form-group">
-                            <label for="password" class="col-form-label">Password:</label>
-                            <input type="password" class="form-control" name="password" id="password">
-                        </div>
+
+                        
+                            
 
                     </div>
                     <div class="modal-footer">
-                        <!-- <button type="button" id="remove_login" class="btn btn-link mr-auto">Remove From List</button> -->
-                        <button type="button" class="btn btn-gray" data-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-blue">Verify and Save connection</button>
+                        <button type="button" id="save-pdf-destination" class="btn btn-blue">Save</button>
+                        <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
-    </div>
 
-
+    </section>
+    
     <script type="text/javascript">
         require('./renderer-process/settings')
 

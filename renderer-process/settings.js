@@ -18,6 +18,9 @@ const user_settings = require('../services/user_settings');
 const { isReallyWritable } = require('../services/app_utils');
 const tempDir = require('temp-dir');
 
+const dom_context = '#settings-section';
+const { $$, $on } = require('./../services/selector_factory')(dom_context)
+
 //const blockUI = require('blockui-npm');
 let allow_insecure_ssl;
 
@@ -529,3 +532,28 @@ $(document).on('change', '#zip_upload_mode', function(e) {
     user_settings.set('zip_upload_mode', use_zip_upload_mode);
     Helper.pnotify('Success!', `Upload mode was updated! (${use_zip_upload_mode ? 'Zip' : 'Stream'})`);
 })
+
+
+$on('click', '#change-pdf-receipt-settings', function() {
+    console.log($$('#upload-receipt-destination-settings').length);
+    
+    $$('#pdf_destination').val(user_settings.getDefault('receipt_pdf_settings--destination', ''))
+
+    let orientation = user_settings.getDefault('receipt_pdf_settings--orientation', false)
+    if (orientation) {
+        $$('[name="pdf_orientation"]', '#upload-receipt-destination').each(function() {
+            const is_checked = $(this).val() === orientation
+            $(this).prop("checked", is_checked)
+        })
+    }
+
+    let pagesize = user_settings.getDefault('receipt_pdf_settings--pagesize', false)
+    if (pagesize) {
+        $$('[name="pdf_pagesize"]', '#upload-receipt-destination').each(function() {
+            const is_checked = $(this).val() === pagesize
+            $(this).prop("checked", is_checked)
+        })
+    }
+
+    $$('#upload-receipt-destination-settings').modal('show')
+});

@@ -1,4 +1,5 @@
 module.exports.get = get;
+module.exports.getDefault = getDefault;
 module.exports.set = set;
 module.exports.unset = unset;
 module.exports.push = push;
@@ -31,6 +32,12 @@ function get(filter = false) {
     } else {
         throw new Error('User not set')
     }
+}
+
+function getDefault(search, defaultValue) {
+    const val = get(search)
+
+    return val === undefined ? defaultValue : val
 }
 
 function set(filter, value) {

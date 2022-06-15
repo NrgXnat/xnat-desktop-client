@@ -690,7 +690,7 @@ ipcMain.on('shell.showItemInFolder', (e, full_path) => {
   shell.showItemInFolder(full_path)
 })
 
-ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base) => {
+ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base, show_in_folder = true) => {
   const file_name = `Upload-Receipt--${filename_base}-${Date.now()}` 
   const pdf_filepath = path.join(destination, `${file_name}.pdf`)
   const html_filepath = path.join(destination, `${file_name}.html`)
@@ -719,7 +719,10 @@ ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base) => {
       }
       
       window_to_PDF.close()
-      shell.showItemInFolder(pdf_filepath)
+
+      if (show_in_folder) {
+        shell.showItemInFolder(pdf_filepath)
+      }
     })
     
   });
