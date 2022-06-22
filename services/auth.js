@@ -5,7 +5,7 @@ const store = require('store2')
 const sha1 = require('sha1')
 const { ipcRenderer, remote } = require('electron')
 const { URL } = require('url')
-const lodashClonedeep = require('lodash/cloneDeep')
+const lodashCloneDeep = require('lodash/cloneDeep')
 const isPlainObject = require('lodash/isPlainObject')
 
 const XNATAPI = require('./xnat-api')
@@ -259,7 +259,7 @@ const auth = {
     },
 
     anonymize_response: (response, anon = '***REMOVED***') => {
-        let conf, data = lodashClonedeep(response)
+        let conf, data = lodashCloneDeep(response)
 
         if (data.config) {
             conf = data.config

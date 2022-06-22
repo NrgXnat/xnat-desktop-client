@@ -25,8 +25,6 @@ const { $$, $on } = require('./../services/selector_factory')(dom_context)
 let allow_insecure_ssl;
 
 $(document).on('page:load', '#settings-section', function(e){
-    console.log('Ucitano................')
-
     if (auth.get_current_user()) {
         $('.nav-tabs a.hidden').removeClass('hidden');
         display_user_preferences()
@@ -46,7 +44,6 @@ $(document).on('page:load', '#settings-section', function(e){
     if (settings.get('send_crash_reports', false) === true) {
         $('#send-crash-reports').val('1')
     }
-
 });
 
 function display_user_preferences() {
@@ -54,6 +51,7 @@ function display_user_preferences() {
     show_default_temp_storage();
     show_default_upload_mode();
     show_recent_upload_projects_count();
+    update_pdf_settings_info();
 }
 
 function display_missing_anon_script_warnings_settings() {
@@ -535,7 +533,10 @@ $(document).on('change', '#zip_upload_mode', function(e) {
 
 
 $on('click', '#change-pdf-receipt-settings', function() {
-    console.log($$('#upload-receipt-destination-settings').length);
+    let pdf_enabled = user_settings.getDefault('receipt_pdf_settings--enabled', false)
+    $$('#receipt_pdf_settings--enabled').prop('checked', pdf_enabled)
+    $$('#receipt_pdf_settings_additional').toggle(pdf_enabled)
+    
     
     $$('#pdf_destination').val(user_settings.getDefault('receipt_pdf_settings--destination', ''))
 
@@ -557,3 +558,59 @@ $on('click', '#change-pdf-receipt-settings', function() {
 
     $$('#upload-receipt-destination-settings').modal('show')
 });
+
+
+$on('change', '#pdf_destination_folder', function(e) {
+    if (this.files.length) {
+        let pth = this.files[0].path;
+
+        $$('#pdf_destination').val(pth);
+    }
+});
+
+$on('change', '#receipt_pdf_settings--enabled', function() {
+    const pdf_enabled = $(this).is(':checked')
+    const $additional = $$('#receipt_pdf_settings_additional')
+    if (pdf_enabled) {
+        $additional.slideDown()
+    } else {
+        $additional.slideUp()
+    }
+})
+
+$on('click', '#save-pdf-destination', function(e) {
+    const pdf_enabled = $$('#receipt_pdf_settings--enabled').is(':checked')
+    const pdf_destination = $$('#pdf_destination').val()
+    const pdf_orientation = $$('[name="pdf_orientation"]:checked').val()
+    const pdf_pagesize = $$('[name="pdf_pagesize"]:checked').val()
+
+    if (pdf_enabled && pdf_destination === '') {
+        Helper.pnotify('Warning', 'PDF receipt store location is a required field!', 'notice')
+    } else {
+        user_settings.set('receipt_pdf_settings--enabled', pdf_enabled)
+        user_settings.set('receipt_pdf_settings--destination', pdf_destination)
+        user_settings.set('receipt_pdf_settings--orientation', pdf_orientation)
+        user_settings.set('receipt_pdf_settings--pagesize', pdf_pagesize)
+
+        update_pdf_settings_info()
+
+        $(this).closest('.modal').modal('hide')
+    }
+})
+
+function update_pdf_settings_info() {
+    let $infobox = $$('#pdf-receipt-settings')
+    
+    let enabled = user_settings.getDefault('receipt_pdf_settings--enabled', false)
+
+    if (!enabled) {
+        $infobox.html('<b>Status</b>: DISABLED')
+    } else {
+        $infobox.html(`
+            <span style="display: inline-block; width: 100px;">Status:</span> ENABLED<br>
+            <span style="display: inline-block; width: 100px;">Destination:</span> ${user_settings.get('receipt_pdf_settings--destination')}<br>
+            <span style="display: inline-block; width: 100px;">Orientation:</span> ${user_settings.get('receipt_pdf_settings--orientation')}<br>
+            <span style="display: inline-block; width: 100px;">Page Size:</span> ${user_settings.get('receipt_pdf_settings--pagesize')}<br>
+        `)
+    }
+}

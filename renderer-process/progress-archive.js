@@ -1,21 +1,31 @@
 require('promise.prototype.finally').shim();
-const ElectronStore = require('electron-store');
-const settings = new ElectronStore();
-const ipc = require('electron').ipcRenderer;
-const prettyBytes = require('pretty-bytes');
+const { ipcRenderer, remote } = require('electron')
 
-const FileSaver = require('file-saver');
+const ElectronStore = require('electron-store')
+const settings = new ElectronStore()
+const prettyBytes = require('pretty-bytes')
+const path = require('path')
 
-const db_uploads_archive = require('electron').remote.require('./services/db/uploads_archive')
-const db_downloads_archive = require('electron').remote.require('./services/db/downloads_archive')
+const FileSaver = require('file-saver')
 
-const NProgress = require('nprogress');
+const db_uploads_archive = remote.require('./services/db/uploads_archive')
+const db_downloads_archive = remote.require('./services/db/downloads_archive')
+
+const dom_context = '#progress-archive-section';
+const { $$, $on } = require('./../services/selector_factory')(dom_context)
+
+
+const { 
+    objToJsonFile, 
+} = require('../services/app_utils')
+
+const NProgress = require('nprogress')
 NProgress.configure({ 
     trickle: false,
     easing: 'ease',
     speed: 1,
     minimum: 0.03
-});
+})
 
 
 let xnat_server, user_auth;
@@ -170,6 +180,14 @@ function _init_upload_archive_table() {
             console.log(transfer)
             if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
                 let study_label = transfer.session_data.studyId ? transfer.session_data.studyId : transfer.session_data.studyInstanceUid;
+
+                /*
+                if (transfer.anon_variables.experiment_label === 'DARKO_1_MR_12') {
+                    const target_path = path.resolve(remote.app.getPath('desktop'), '--JUNK--', 'XNAT-DEBUG', `upload_archive-digest--${transfer.anon_variables.experiment_label}--${Date.now()}.json`)
+                    objToJsonFile(transfer, target_path)
+                }
+                */
+
                 let session_datetime = '';
                 if (transfer.session_data.studyDate) {
                     session_datetime += transfer.session_data.studyDate
@@ -461,7 +479,7 @@ function _init_variables() {
 
 
 if (!settings.has('user_auth') || !settings.has('xnat_server')) {
-    ipc.send('redirect', 'login.html');
+    ipcRenderer.send('redirect', 'login.html');
     return;
 }
 
@@ -801,7 +819,7 @@ function _init_upload_details_table(transfer_id) {
 }
 
 
-$(document).on('click', '[data-save-txt]', function(){
+$on('click', '[data-save-txt]', function(){
     let text_content = $.trim($(this).closest('.modal-content').find('.modal-body').text());
     let lines = text_content.split('\n');
     for (let i = 0; i < lines.length; i++) {

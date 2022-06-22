@@ -14,6 +14,10 @@ const db_uploads_archive = remote.require('./services/db/uploads_archive')
 const db_downloads = remote.require('./services/db/downloads')
 const db_downloads_archive = remote.require('./services/db/downloads_archive')
 
+const user_settings = require('../services/user_settings')
+const tempDir = require('temp-dir')
+const lodashCloneDeep = require('lodash/cloneDeep')
+
 const nedb_log_reader = remote.require('./services/db/nedb_log_reader')
 const moment = require('moment');
 const ejs_template = require('../services/ejs_template')
@@ -23,6 +27,9 @@ const path = require('path')
 const { objArrayToCSV } = require('../services/app_utils');
 
 const { console_red } = require('../services/logger');
+
+const dom_context = '#progress-section';
+const { $$, $on } = require('./../services/selector_factory')(dom_context)
 
 const NProgress = require('nprogress');
 NProgress.configure({ 
@@ -768,20 +775,20 @@ $(document).on('show.bs.modal', '#view-receipt', async function(e) {
 
 $(document).on('click', '#receipt-to-pdf', function() {
     
-    if (settings.has('receipt_pdf_settings.destination')) {
-        $('#pdf_destination').val(settings.get('receipt_pdf_settings.destination'))
-    }
+    $$('#pdf_destination').val(user_settings.getDefault('receipt_pdf_settings--destination', ''))
 
-    if (settings.has('receipt_pdf_settings.orientation')) {
-        $('[name="pdf_orientation"]', '#upload-receipt-destination').each(function() {
-            const is_checked = $(this).val() === settings.get('receipt_pdf_settings.orientation')
+    let orientation = user_settings.getDefault('receipt_pdf_settings--orientation', false)
+    if (orientation) {
+        $$('[name="pdf_orientation"]', '#upload-receipt-destination').each(function() {
+            const is_checked = $(this).val() === orientation
             $(this).prop("checked", is_checked)
         })
     }
 
-    if (settings.has('receipt_pdf_settings.pagesize')) {
-        $('[name="pdf_pagesize"]', '#upload-receipt-destination').each(function() {
-            const is_checked = $(this).val() === settings.get('receipt_pdf_settings.pagesize')
+    let pagesize = user_settings.getDefault('receipt_pdf_settings--pagesize', false)
+    if (pagesize) {
+        $$('[name="pdf_pagesize"]', '#upload-receipt-destination').each(function() {
+            const is_checked = $(this).val() === pagesize
             $(this).prop("checked", is_checked)
         })
     }
@@ -797,23 +804,21 @@ $(document).on('hide.bs.modal', '#upload-receipt-destination', function(e) {
     $('#view-receipt').css('z-index', '')
 })
 
-$(document).on('click', '#save-pdf-destination', function(e) {
-    const pdf_destination = $('#pdf_destination').val()
-    const pdf_orientation = $('[name="pdf_orientation"]:checked').val()
+$on('click', '#save-pdf-destination', function(e) {
+    const pdf_destination = $$('#pdf_destination').val()
+    const pdf_orientation = $$('[name="pdf_orientation"]:checked').val()
     const landscape_setting = pdf_orientation === 'landscape'
-    const pdf_pagesize = $('[name="pdf_pagesize"]:checked').val();
+    const pdf_pagesize = $$('[name="pdf_pagesize"]:checked').val();
 
     if (pdf_destination) {
         // store pdf settings
-        settings.set('receipt_pdf_settings', {
-            destination: pdf_destination,
-            orientation: pdf_orientation,
-            pagesize: pdf_pagesize
-        })
+        user_settings.set('receipt_pdf_settings--destination', pdf_destination)
+        user_settings.set('receipt_pdf_settings--orientation', pdf_orientation)
+        user_settings.set('receipt_pdf_settings--pagesize', pdf_pagesize)
 
         $(this).closest('.modal').modal('hide');
 
-        let partial = $('#view-receipt .modal-body').html();
+        let partial = $$('#view-receipt .modal-body').html();
 
         let html = partial.replace(/\n/g, " ");
         html = html.replace(/\s+/g, " ");
@@ -828,7 +833,7 @@ $(document).on('click', '#save-pdf-destination', function(e) {
             pageSize: pdf_pagesize
         }
 
-        const expt_label = $('#receipt-to-pdf').data('expt_label')
+        const expt_label = $$('#receipt-to-pdf').data('expt_label')
         const filename_base = `${expt_label}-${user_auth.username}`;
         // METHOD 3:
         ipc.send('print_pdf', html, pdf_destination, pdf_settings, filename_base);
@@ -1292,7 +1297,7 @@ $(document).on('click', '.js_cancel_download', function(e){
 
 });
 
-$(document).on('click', '.js_cancel_upload', function(e){
+$on('click', '.js_cancel_upload', function(e){
     let $button = $(this);
     
     let transfer_id = $button.data('transfer_id');
@@ -1351,7 +1356,7 @@ $(document).on('click', '.js_cancel_upload', function(e){
     
 });
 
-$(document).on('click', '[data-save-txt]', function(){
+$on('click', '[data-save-txt]', function(){
     let text_content = $.trim($(this).closest('.modal-content').find('.modal-body').text());
     let lines = text_content.split('\n');
     for (let i = 0; i < lines.length; i++) {
@@ -1738,8 +1743,9 @@ ipc.on('upload_finished', async function(e, transfer_id){
         $(`tr[data-uniqueid=${transfer_id}] button[data-toggle=modal]`).trigger('click');
     }
 
+    
     // add PDF settings
-    if (settings.get('receipt_pdf_settings.enabled', false)) {
+    if (user_settings.getDefault('receipt_pdf_settings--enabled', false)) {
         await generate_pdf_receipt(transfer_id)
     }
 
@@ -1759,8 +1765,10 @@ function remove_finished_upload(transfer_id) {
         // validate current user/server
         if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
             if (transfer.status === 'finished') {
-                delete_ids.push(transfer._id);
-                to_archive.push(transfer)
+                delete_ids.push(transfer._id)
+                let transfer_copy = lodashCloneDeep(transfer)
+                transfer_copy.series = [] // remove large data set from series
+                to_archive.push(transfer_copy)
             }
         }
 
@@ -1829,58 +1837,22 @@ async function generate_pdf_receipt(transfer_id) {
     const html = await generate_pdf_receipt_html(transfer_id)
     const filename_base = await generate_pdf_receipt_filename(transfer_id)
 
-    const pdf_destination = settings.get('receipt_pdf_settings.destination', 'D:\\__XNAT__\\PDF_RECEIPTS')
+    const pdf_destination = user_settings.getDefault('receipt_pdf_settings--destination', path.resolve(tempDir, '_xdc_temp'))
 
     const pdf_settings = {
-        landscape: settings.get('receipt_pdf_settings.orientation', 'landscape') === 'landscape',
+        landscape: user_settings.getDefault('receipt_pdf_settings--orientation', 'landscape') === 'landscape',
         marginsType: 0,
         printBackground: false,
         printSelectionOnly: false,
-        pageSize: settings.get('receipt_pdf_settings.pagesize', 'Letter')
+        pageSize: user_settings.getDefault('receipt_pdf_settings--pagesize', 'Letter')
     }
+
+    const pdf_filepath = path.join(pdf_destination, `${filename_base}.pdf`)
+
+    db_uploads._updateProperty(transfer_id, 'pdf_receipt_path', pdf_filepath)
 
     ipc.send('print_pdf', html, pdf_destination, pdf_settings, filename_base, false);
 }
-
-/*
-{
-    const pdf_destination = $('#pdf_destination').val()
-    const pdf_orientation = $('[name="pdf_orientation"]:checked').val()
-    const landscape_setting = pdf_orientation === 'landscape'
-    const pdf_pagesize = $('[name="pdf_pagesize"]:checked').val();
-
-    if (pdf_destination) {
-        // store pdf settings
-        settings.set('receipt_pdf_settings', {
-            destination: pdf_destination,
-            orientation: pdf_orientation,
-            pagesize: pdf_pagesize
-        })
-
-        $(this).closest('.modal').modal('hide');
-
-        let partial = $('#view-receipt .modal-body').html();
-
-        let html = partial.replace(/\n/g, " ");
-        html = html.replace(/\s+/g, " ");
-
-        html = `<html><body>${html}</body></html>`
-
-        const pdf_settings = {
-            landscape: landscape_setting,
-            marginsType: 0,
-            printBackground: false,
-            printSelectionOnly: false,
-            pageSize: pdf_pagesize
-        }
-
-        const expt_label = $('#receipt-to-pdf').data('expt_label')
-        const filename_base = `${expt_label}-${user_auth.username}`;
-        // METHOD 3:
-        ipc.send('print_pdf', html, pdf_destination, pdf_settings, filename_base);
-    }
-}
-*/
 
 ipc.on('progress_cell',function(e, item){
     console_red('progress_cell', item);
