@@ -12,11 +12,9 @@ require('promise.prototype.finally').shim();
 const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
 
-const { file_checksum } = remote.require('./services/app_utils');
-
 const archiver = require('archiver');
 const tempDir = require('temp-dir');
-
+const lodashCloneDeep = require('lodash/cloneDeep')
 
 const auth = require('../services/auth');
 
@@ -34,10 +32,10 @@ const user_settings = require('../services/user_settings');
 const nedb_logger = remote.require('./services/db/nedb_logger')
 
 const { copy_anonymize_zip } = require('../services/upload/copy_anonymize_zip');
-const { isEmptyObject, promiseSerial } = require('../services/app_utils')
+// const { copy_anonymize_stream } = require('../services/upload/copy_anonymize_stream');
+const { file_checksum, uuidv4, isEmptyObject, promiseSerial } = require('../services/app_utils')
 const { MizerError } = require('../services/errors');
 
-const { uuidv4 } = require('./../services/app_utils');
 
 
 let summary_log = {};
@@ -572,20 +570,23 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     }
 
     async function store_checksums(transfer_id, series_id, upload_id) {
-        let current_transfer = await db_uploads._getById(transfer_id);
+        let _current_transfer = await db_uploads._getById(transfer_id);
+        let current_transfer = lodashCloneDeep(_current_transfer)
+        
         let selected_series = current_transfer.series.find(ss => series_id == ss[0].seriesInstanceUid);
-
         let st_item = checksum_index.filter_series(upload_id)
 
-        st_item.forEach(sfile => {
+        for (let i = 0; i < st_item.length; i++) {
+            let sfile = st_item[i]
             let selected_item = selected_series.find(item => item.filepath == sfile.source)
             selected_item['anon_checksum'] = sfile.anon_checksum;
-        })
-
+        }
+        
         const _transfer_copy_ = await replace_transfer_doc(current_transfer)
         console.log({_transfer_copy_});
 
         checksum_index.remove_series(upload_id)
+        console_red('store_checksums DONE');
     }
 
     axios(request_settings)
@@ -614,6 +615,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         }
     })
     .then(async data => {
+        console_red('zip upload done - then 1')
         let {transfer, res} = data;
 
         let transfer_series_ids = transfer.series_ids;
@@ -673,6 +675,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             
             axios.post(commit_url, commit_data, commit_request_settings)
             .then(commit_res => {
+                console_red('-------- XCOMMIT_SUCCESS ----------')
                 console_log('-------- XCOMMIT_SUCCESS ----------')
                 console_log(commit_res);
 
@@ -764,6 +767,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                 }
             })
             .finally(() => {
+                console_red(`+++ FINALLY +++`);
                 console_log(`+++ FINALLY +++`);
                 // let _time_took = ((performance.now() - commit_timer) / 1000).toFixed(2);
                 // update_transfer_summary(transfer.id, 'timer_commit', _time_took);
@@ -1324,7 +1328,7 @@ function mark_uploaded(transfer_id, series_id) {
     return new Promise((resolve, reject) => {
         db_uploads.getById(transfer_id, (err, db_transfer) => {
             // copy the response
-            let transfer = Helper.copy_obj(db_transfer);
+            let transfer = lodashCloneDeep(db_transfer);
 
             transfer.done_series_ids = transfer.done_series_ids || [];
 
@@ -1378,7 +1382,7 @@ function mark_uploaded(transfer_id, series_id) {
 async function update_transfer_summary(transfer_id, property, new_value, callback = false) {
     summary_log_update(transfer_id, property, new_value)
     let db_transfer = await db_uploads._getById(transfer_id)
-    let transfer = Helper.copy_obj(db_transfer);
+    let transfer = lodashCloneDeep(db_transfer);
 
     transfer.summary = transfer.summary || {}
     transfer.summary[property] = transfer.summary[property] || []
@@ -1392,7 +1396,7 @@ async function update_transfer_summary(transfer_id, property, new_value, callbac
 }
 
 async function replace_transfer_doc(transfer) {
-    let _transfer = Helper.copy_obj(transfer);
+    let _transfer = lodashCloneDeep(transfer);
     return await db_uploads._replaceDoc(_transfer.id, _transfer);
 }
 
@@ -1457,10 +1461,10 @@ async function update_progress_details(transfer, table_row, filesize, reset = fa
         console_red('selected_row.progress => NeDB: ', selected_row.id, selected_row.progress);
 
         let db_transfer = await db_uploads._getById(transfer.id);
-    
-        let transfer_copy = Helper.copy_obj(db_transfer);
+        let transfer_copy = lodashCloneDeep(db_transfer);
+        
         let tbl_row = transfer_copy.table_rows.find(t_row => t_row.id === table_row.id);
-
+        
         if (tbl_row) {
             tbl_row.progress = 100;
             await db_uploads._replaceDoc(transfer.id, transfer_copy);
@@ -1490,7 +1494,7 @@ async function update_progress_details_zip(transfer, table_row, progress) {
     if (progress == 100) {
         let db_transfer = await db_uploads._getById(transfer.id);
     
-        let transfer_copy = Helper.copy_obj(db_transfer);
+        let transfer_copy = lodashCloneDeep(db_transfer);
         let tbl_row = transfer_copy.table_rows.find(t_row => t_row.id === table_row.id);
 
         tbl_row.progress = 100;

@@ -1,4 +1,5 @@
 const db_init = require('./_init');
+const lodashCloneDeep = require('lodash/cloneDeep')
 
 module.exports = db;
 
@@ -29,6 +30,15 @@ module.exports._getById = (id) => { // callback(err, doc)
         db().findOne({id: id}, (err, doc) => {
             if (err) reject(err)
             resolve(doc)
+        });
+    })
+}
+
+module.exports._getByIdCopy = (id) => { // callback(err, doc)
+    return new Promise((resolve, reject) => {
+        db().findOne({id: id}, (err, doc) => {
+            if (err) reject(err)
+            resolve(lodashCloneDeep(doc))
         });
     })
 }
