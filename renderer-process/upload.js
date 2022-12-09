@@ -30,7 +30,8 @@ const {
     normalizeDateString, 
     normalizeTimeString, 
     normalizeDateTimeString,
-    alNum
+    alNum,
+    getFilesizeInBytes
 } = require('../services/app_utils')
 
 const { optimizeUploadDigest } = require('../services/db/utils')
@@ -4460,12 +4461,6 @@ async function update_recent_projects(project_id) {
     user_settings.set('recent_upload_projects', filtered)
 }
 
-
-function getFilesizeInBytes(filename) {
-    const stats = fs.statSync(filename)
-    const fileSizeInBytes = stats.size
-    return fileSizeInBytes
-}
 
 // recursive directory listing
 const walkSync = (dir, fileList = []) => {

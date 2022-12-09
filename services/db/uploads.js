@@ -50,10 +50,12 @@ module.exports._replaceDoc = (id, doc) => { // callback(err, num)
         delete doc._id
     }
 
+    let docClone = lodashCloneDeep(doc)
+
     return new Promise((resolve, reject) => {
-        db().update({id: id}, doc, {}, (err, num) => {
+        db().update({id: id}, docClone, {}, (err, num) => {
             if (err) reject(err)
-            resolve(doc)
+            resolve(docClone)
         })
     })
     

@@ -33,7 +33,7 @@ const nedb_logger = remote.require('./services/db/nedb_logger')
 
 const { copy_anonymize_zip } = require('../services/upload/copy_anonymize_zip');
 // const { copy_anonymize_stream } = require('../services/upload/copy_anonymize_stream');
-const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel } = require('../services/app_utils')
+const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes } = require('../services/app_utils')
 const { MizerError } = require('../services/errors');
 
 const CONSTANTS = require('../services/constants');
@@ -99,6 +99,7 @@ ipc.on('cancel_upload',function(e, transfer_id){
  *      {
  *          transfer_id: ... , // int
  *          series_id: ... , // string
+ *          segment_index: ..., int
  *          cancel: ... // function
  *      },
  *      
@@ -108,13 +109,15 @@ ipc.on('cancel_upload',function(e, transfer_id){
 
 let cancel_tokens = [];
 
-const remove_cancel_token = (transfer_id, series_id = false) => {
+const remove_cancel_token = (transfer_id, series_id = false, segment_index = false) => {
     console_red('remove_cancel_token::BEFORE', {cancel_tokens})
     cancel_tokens = cancel_tokens.filter(ct => {
         if (series_id === false) {
             return ct.transfer_id !== transfer_id
-        } else {
+        } else if (segment_index === false) {
             return ct.transfer_id !== transfer_id || ct.series_id !== series_id
+        } else {
+            return ct.transfer_id !== transfer_id || ct.series_id !== series_id || ct.segment_index !== segment_index
         }
     });
 
@@ -138,82 +141,6 @@ const execute_cancel_token = (transfer_id) => {
 
 }
 
-
-
-
-/*
-const { isDevEnv } = remote.require('./services/app_utils');
-
-if (isDevEnv()) {
-    (async function() {
-        try {
-            let jsession_cookie = await auth.get_jsession_cookie()
-            electron_log.info(jsession_cookie)
-        } catch (err) {
-            electron_log.error(err)
-        }
-
-        electron_log.warn('ovo se izvrsava')
-    })()
-} else {
-    electron_log.info('Not Dev ENV')
-}
-*/
-/*
-(async function(){
-
-    //let url_fragment = '/data/prearchive/projects/DARKO_1/20190319_160010026/DARKO_01_MR_1?action=commit&SOURCE=uploader&XNAT_CSRF=';
-    let url_fragment = '/data/prearchive/projects/DARKO_1/20190325_173114775/DARKO_01_MR_2?action=commit&SOURCE=uploader&XNAT_CSRF=';
-    let xnat_server = 'http://xnat1.local';
-    let user_auth = auth.get_user_auth()
-    let csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
-    let commit_url = xnat_server + url_fragment + csrfToken;
-
-    let jsession_cookie;
-    try {
-        jsession_cookie = await auth.get_jsession_cookie(xnat_server)
-    } catch (err) {
-        electron_log.error(err)
-    }
-    
-
-    let request_settings = {
-        headers: {
-            'Cookie': jsession_cookie
-        }
-    }
-
-    if (auth.allow_insecure_ssl()) {
-        // insecure SSL at request level
-        // request_settings.httpsAgent = new https.Agent({
-        //     rejectUnauthorized: false
-        // });
-    }
-    
-
-    electron_log.info('data', {
-        csrfToken,
-        commit_url,
-        request_settings
-    })
-    
-
-    
-	// axios.post(commit_url, {
-	// 	//auth: user_auth
-    // })
-    axios.post(commit_url, request_settings)
-	.then(commit_res => {
-		console_red('XCOMMIT_SUCCESS', {commit_res});
-	})
-	.catch(err => {
-		console_red('XCOMMIT_ERR', {
-            err_response: err.response
-        });
-    })
-    
-})()
-*/
 
 const checksum_index = {
     items: [],
@@ -239,9 +166,9 @@ let items_uploaded = []
 let _queue_ = {
     items: [],
     _processed: [],
-    add: function(transfer_id, series_id) {
+    add: function(transfer_id, series_id, segment_index) {
         if (this.items.length < _queue_.get_max_items()) {
-            let transfer_label = transfer_id + '::' + series_id;
+            let transfer_label = `${transfer_id}::${series_id}||${segment_index}`;
             if (this.items.indexOf(transfer_label) == -1) {
                 if (this.isInProcessed(transfer_label)) {
                     console_log('Already processed ' + transfer_label);
@@ -265,8 +192,9 @@ let _queue_ = {
             return false;
         }
     },
-    remove: function(transfer_id, series_id) {
-        var index = this.items.indexOf(transfer_id + '::' + series_id);
+    remove: function(transfer_id, series_id, segment_index) {
+        let transfer_label = `${transfer_id}::${series_id}||${segment_index}`;
+        let index = this.items.indexOf(transfer_label);
       
         if (index > -1) {
             this.items.splice(index, 1);
@@ -284,38 +212,58 @@ let _queue_ = {
     isInProcessed: function(transfer_label) {
         return this._processed.includes(transfer_label)
     },
-    addProcessed: function(transfer_id, series_id) {
-        let transfer_label = transfer_id + '::' + series_id;
+    addProcessed: function(transfer_id, series_id, segment_index) {
+        let transfer_label = `${transfer_id}::${series_id}||${segment_index}`;
         this._processed.push(transfer_label);
     },
     removeProcessedTransfer: function(transfer_id) {
         this._processed = this._processed.filter(single => single.indexOf(`${transfer_id}::`) !== 0)
     },
-    getProcessedTransferSeries: function(transfer_id) {
-        return this._processed.reduce((processed, label) => {
+    getProcessedTransferSeries: async function(transfer_id) {
+        let processedSeriesSegments = this._processed.reduce((processed, label) => {
             if (label.indexOf(`${transfer_id}::`) === 0) {
                 processed.push(label.split(/::/)[1])
             }
             return processed;
         }, [])
+
+        processedSeriesSegments = arrayUnique(processedSeriesSegments)
+
+        let processedSeriesSegmentSizes = {};
+        for(let seriesSegment of processedSeriesSegments) {
+            let series_id = seriesSegment.split(/\|\|/)[0]
+            processedSeriesSegmentSizes[series_id] = processedSeriesSegmentSizes[series_id] ? ++processedSeriesSegmentSizes[series_id] : 1;
+            
+            // let segment_index = seriesSegment.split(/\|\|/)[1]
+        }
+
+        // get segments sizes for each series within a session/transfer
+        let transfer = await db_uploads._getById(transfer_id);
+        let seriesSegmentLengths = transfer.series.map(serie => {
+            return {
+                series_id: serie.seriesInstanceUid,
+                segmentSize: serie.segments.length
+            }
+        })
+
+        let fullyProcessedSeries = []
+        for (let series_id in processedSeriesSegmentSizes) {
+            let found_segment = seriesSegmentLengths.find(item => item.series_id === series_id)
+
+            if (found_segment && found_segment.segmentSize === processedSeriesSegmentSizes[series_id]) {
+                fullyProcessedSeries.push(series_id)
+            }
+        }
+
+        return fullyProcessedSeries;
     },
 }
 
-
-
 console_log(__filename);
-
 
 do_transfer();
 
-// try {
-//     do_transfer()
-// } catch(err) {
-//     console_log(err)
-//     ipc.send('custom_error', 'Upload Error', err.message);
-// }
-
-setInterval(do_transfer, 20000);
+setInterval(do_transfer, 30000);
 
 
 async function do_transfer(source_series_id = 'initial', source_upload_success = true) {
@@ -335,13 +283,15 @@ async function do_transfer(source_series_id = 'initial', source_upload_success =
 
     let _list_all_timer = performance.now();
 
+    let current_transfers = [];
+
     try {
         let my_transfers = await db_uploads._listAll()
 
         let _list_all_took = ((performance.now() - _list_all_timer) / 1000).toFixed(2);
         console_red('_list_all_took', _list_all_took)
 
-        let current_transfers = my_transfers.filter(transfer => {
+        current_transfers = my_transfers.filter(transfer => {
             return transfer.xnat_server === xnat_server && 
                 transfer.user === current_username && 
                 transfer.canceled !== true && 
@@ -349,35 +299,110 @@ async function do_transfer(source_series_id = 'initial', source_upload_success =
                 transfer.series_ids.length > 0
         })
 
+    } catch (db_uploads_listAll_error) {
+        console_log({db_uploads_listAll_error});
+    }
+
+    current_transfers = await confirmTransferSeriesSegments(current_transfers);
+
+    if (current_transfers) {
         for (let i = 0; i < current_transfers.length; i++) {
             let transfer = current_transfers[i]
 
             for (let j = 0; j < transfer.series_ids.length; j++) {
                 let series_id = transfer.series_ids[j]
 
-                if (_queue_.add(transfer.id, series_id)) {
+                let selected_series = transfer.series.find(serie => {
+                    return serie.seriesInstanceUid === series_id
+                })
 
-                    console_red('double_snapshot', {
-                        source_series_id,
-                        target_series_id: series_id,
-                        _queue_items_: _queue_.items,
-                        _queue_processed_: _queue_.getProcessedTransferSeries(transfer.id),
-                        status: transfer.status,
-                        series_ids: transfer.series_ids,
-                        done_series_ids: transfer.done_series_ids || []
-                    })
-
-                    doUpload(transfer, series_id);
+                for (let segment_index = 0; segment_index < selected_series.segments.length; segment_index++) {
+                    if (_queue_.add(transfer.id, series_id, segment_index)) {
+                        doUpload(transfer, series_id, segment_index);
+                    }
                 }
             }
-
         }
-
-    } catch (db_uploads_listAll_error) {
-        console_log({db_uploads_listAll_error});
     }
     
 }
+
+async function confirmTransferSeriesSegments(current_transfers) {
+    for (let i = 0; i < current_transfers.length; i++) {
+        let transfer = current_transfers[i]
+
+        let update_transfer = false
+        for (let j = 0; j < transfer.series.length; j++) {
+            let current_series = transfer.series[j]
+            if (!current_series.hasOwnProperty('segments')) {
+                update_transfer = true
+                current_series.segments = calculateSegments(current_series)
+            }
+        }
+
+        if (update_transfer) {
+            try {
+                await db_uploads._replaceDoc(transfer.id, transfer)
+            } catch (err) {
+                console_log({err});
+                electron_log.error(err);
+            }
+        }
+    }
+
+    return current_transfers;
+}
+
+function calculateSegments(selected_series) {
+    let filepath_index = selected_series.dataIndex.indexOf("filepath")
+    let _files = selected_series.data.map(fileInfo => selected_series.commonPath + fileInfo[filepath_index])
+
+    let filesize_index = selected_series.dataIndex.indexOf("filesize")
+    let _fileSizes = selected_series.data.map(fileInfo => fileInfo[filesize_index])
+
+    // console.log({_files, _fileSizes})
+
+    let master = []
+
+    const max_files = 25
+    const max_size = 10 * 1024 * 1024
+    // const max_size = 150 * 1024
+
+    let running_size = 0
+    let running_arr = []
+    for (let i = 0; i < _files.length; i++) {
+        // let filesize = getFilesizeInBytes(_files[i]) 
+        running_size += _fileSizes[i]
+
+        if (running_arr.length && (running_size > max_size || running_arr.length === max_files)) {
+            master.push(running_arr)
+
+            // restart running
+            running_size = _fileSizes[i]
+            running_arr = []
+        }
+
+        running_arr.push(i)
+
+        if (i + 1 === _files.length) {
+            master.push(running_arr)
+        }
+    }
+
+    let segments = []
+    for(let segment of master) {
+        segments.push({
+            status: false,
+            start: segment[0],
+            size: segment.length
+        })
+    }
+
+    // console.log({selected_series, segments});
+
+    return segments;
+}
+
 
 function set_transfer_totals_summary(transfer) {
     if (!transfer.summary || isEmptyObject(transfer.summary)) {
@@ -406,7 +431,7 @@ function set_transfer_totals_summary(transfer) {
     
 }
 
-async function doUpload(transfer, series_id) {
+async function doUpload(transfer, series_id, segment_index) {
     console_red('uploading series_id', series_id);
 
     let xnat_server = transfer.xnat_server, 
@@ -438,6 +463,10 @@ async function doUpload(transfer, series_id) {
     let _files = selected_series.data.map(fileInfo => selected_series.commonPath + fileInfo[filepath_index])
     // let _files = getScanFilesProperty(selected_series, 'filepath') ;
 
+    let fstart = selected_series.segments[segment_index].start
+    let fend = fstart + selected_series.segments[segment_index].size
+    _files = _files.slice(fstart, fend)
+
     let contexts, variables;
     
     //mizer.get_mizer_scripts(xnat_server, user_auth, project_id)
@@ -468,10 +497,8 @@ async function doUpload(transfer, series_id) {
         if (user_settings.get('zip_upload_mode') === true) {
             copy_and_anonymize_zip(transfer, series_id, _files, contexts, variables, csrfToken)
         } else {
-            copy_and_anonymize(transfer, series_id, _files, contexts, variables, csrfToken)
+            copy_and_anonymize(transfer, series_id, segment_index, _files, contexts, variables, csrfToken)
         }
-
-        
     })
     .catch(function(error) {
         electron_log.error(error);
@@ -485,7 +512,7 @@ function get_temp_upload_path() {
 }
 
 let upload_counter = 0;
-async function copy_and_anonymize(transfer, series_id, filePaths, contexts, variables, csrfToken) {
+async function copy_and_anonymize(transfer, series_id, segment_index, filePaths, contexts, variables, csrfToken) {
     const upload_id = uuidv4()
     console_red('copy_and_anonymize')
     let _timer = performance.now();
@@ -594,6 +621,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             cancel_tokens.push({
                 transfer_id: transfer.id,
                 series_id: series_id,
+                segment_index: segment_index,
                 cancel: c
             })
         }),
@@ -631,8 +659,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     }
 
     async function store_checksums(transfer_id, series_id, upload_id) {
-        let _current_transfer = await db_uploads._getById(transfer_id);
-        let current_transfer = lodashCloneDeep(_current_transfer)
+        let current_transfer = await db_uploads._getByIdCopy(transfer_id);
         
         let selected_series = current_transfer.series.find(ss => series_id === ss.seriesInstanceUid);
         let st_item = checksum_index.filter_series(upload_id)
@@ -646,7 +673,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             selected_item[anon_checksum_index] = sfile.anon_checksum;
         }
         
-        const _transfer_copy_ = await replace_transfer_doc(current_transfer)
+        const _transfer_copy_ = await db_uploads._replaceDoc(current_transfer.id, current_transfer)
         console_log({_transfer_copy_});
 
         checksum_index.remove_series(upload_id)
@@ -663,17 +690,17 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
         await store_checksums(transfer.id, series_id, upload_id)
 
-        remove_cancel_token(transfer.id, series_id)
+        remove_cancel_token(transfer.id, series_id, segment_index)
 
         let data = {
             res: res
         };
         try {
-            data.transfer = await mark_uploaded(transfer.id, series_id);
+            data.transfer = await mark_uploaded(transfer.id, series_id, segment_index);
 
-            nedb_logger.success(transfer.id, 'upload', `Series uploaded ${series_id}.`);
+            nedb_logger.success(transfer.id, 'upload', `Series uploaded ${series_id}, segment[${segment_index}].`);
             
-            _queue_.remove(transfer.id, series_id);
+            _queue_.remove(transfer.id, series_id, segment_index);
 
             return data;
 
@@ -863,7 +890,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     })
     .catch(err => {
         xnat_api.heartbeat_stop();
-        handleUploadError(transfer, series_id, err)
+        handleUploadError(transfer, series_id, segment_index, err)
     });
 
     /**************************************************** */
@@ -1007,7 +1034,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
 
 }
 
-function handleUploadError(transfer, series_id, err) {
+function handleUploadError(transfer, series_id, segment_index, err) {
     let log_and_respawn = true;
     let stream_upload_error = false;
     let authentication_error = false;
@@ -1043,8 +1070,8 @@ function handleUploadError(transfer, series_id, err) {
         }
     }
     
-    remove_cancel_token(transfer.id, series_id)
-    _queue_.remove(transfer.id, series_id);
+    remove_cancel_token(transfer.id, series_id, segment_index)
+    _queue_.remove(transfer.id, series_id, segment_index);
 
     if (log_and_respawn) {
         update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
@@ -1132,7 +1159,7 @@ async function copy_and_anonymize_zip(transfer, series_id, _files, contexts, var
                 selected_item[anon_checksum_index] = sfile.anon_checksum;
             })
 
-            const _transfer_copy_ = await replace_transfer_doc(transfer)
+            const _transfer_copy_ = await db_uploads._replaceDoc(transfer.id, transfer)
             console_log({_transfer_copy_});
 
             upload_zip(result.path, transfer, series_id, csrfToken)
@@ -1420,6 +1447,9 @@ async function all_transfer_series_uploaded(transfer) {
     let all_series_uploaded = true;
     for (let i = 0; i < transfer.series_ids.length; i++) {
         let transfer_label = transfer.id + '::' + transfer.series_ids[i]
+
+        // let transfer_label = `${transfer.id}::${transfer.series_ids[i]}||${segment_index}`;
+
         if (_queue_.isInProcessed(transfer_label)) {
             console_log('all_transfer_series_uploaded PROCESSED: ' + transfer_label)
             await mark_uploaded(transfer.id, transfer.series_ids[i])
@@ -1436,18 +1466,20 @@ function respawn_transfer(transfer_id, series_id, success) {
     do_transfer(series_id, success);
 }
 
-function mark_uploaded(transfer_id, series_id) {
+function mark_uploaded(transfer_id, series_id, segment_index) {
     console.count('mark_uploaded')
     console.count('mark_uploaded__' + transfer_id + '::' + series_id)
 
-    _queue_.addProcessed(transfer_id, series_id)
+    _queue_.addProcessed(transfer_id, series_id, segment_index)
     
     return new Promise((resolve, reject) => {
-        db_uploads.getById(transfer_id, (err, db_transfer) => {
+        db_uploads.getById(transfer_id, async (err, db_transfer) => {
             // copy the response
             let transfer = lodashCloneDeep(db_transfer);
 
-            let processed_series = _queue_.getProcessedTransferSeries(transfer_id)
+            let processed_series = await _queue_.getProcessedTransferSeries(transfer_id)
+
+            console_log({processed_series});
 
             transfer.series_ids = transfer.series_ids.filter(ser_id => {
                 return !processed_series.includes(ser_id)
@@ -1483,25 +1515,13 @@ function mark_uploaded(transfer_id, series_id) {
                 if (err) reject (err);
                 resolve(transfer);
             });
-    
-            /*
-            db_uploads.replaceDoc(transfer_id, transfer, (err, nume) => {
-                if (err) reject (err);
-                _queue_.remove(transfer_id, series_id);
-                resolve(transfer);
-            });
-            */
-    
-            // left_to_upload = transfer.series_ids.length;
-            
         })
     })
 }
 
 async function update_transfer_summary(transfer_id, property, new_value, callback = false) {
     summary_log_update(transfer_id, property, new_value)
-    let db_transfer = await db_uploads._getById(transfer_id)
-    let transfer = lodashCloneDeep(db_transfer);
+    let transfer = await db_uploads._getById(transfer_id)
 
     transfer.summary = transfer.summary || {}
     transfer.summary[property] = transfer.summary[property] || []
@@ -1512,11 +1532,6 @@ async function update_transfer_summary(transfer_id, property, new_value, callbac
     if (callback) {
         callback()
     }
-}
-
-async function replace_transfer_doc(transfer) {
-    let _transfer = lodashCloneDeep(transfer);
-    return await db_uploads._replaceDoc(_transfer.id, _transfer);
 }
 
 function transfer_tpl(transfer) {
@@ -1580,13 +1595,12 @@ async function update_progress_details(transfer, table_row, filesize, reset = fa
         console_red('selected_row.progress => NeDB: ', selected_row.id, selected_row.progress);
 
         let db_transfer = await db_uploads._getById(transfer.id);
-        let transfer_copy = lodashCloneDeep(db_transfer);
         
-        let tbl_row = transfer_copy.table_rows.find(t_row => t_row.id === table_row.id);
+        let tbl_row = db_transfer.table_rows.find(t_row => t_row.id === table_row.id);
         
         if (tbl_row) {
             tbl_row.progress = 100;
-            await db_uploads._replaceDoc(transfer.id, transfer_copy);
+            await db_uploads._replaceDoc(transfer.id, db_transfer);
             selected_row.db = 1
         }
     }
@@ -1611,9 +1625,8 @@ async function update_progress_details_zip(transfer, table_row, progress) {
     console_red('selected_row.progress: ', selected_row.id, selected_row.progress);
 
     if (progress == 100) {
-        let db_transfer = await db_uploads._getById(transfer.id);
+        let transfer_copy = await db_uploads._getById(transfer.id);
     
-        let transfer_copy = lodashCloneDeep(db_transfer);
         let tbl_row = transfer_copy.table_rows.find(t_row => t_row.id === table_row.id);
 
         tbl_row.progress = 100;

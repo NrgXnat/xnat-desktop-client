@@ -284,3 +284,7 @@ exports.alNumDashUnderscore = (input, replacedBy = "_") => {
 exports.arrayUnique = (arr) => {
     return arr.filter((item, pos) => arr.indexOf(item) === pos)
 }
+exports.getFilesizeInBytes = (filename) => {
+    const stats = fs.statSync(filename)
+    return stats.size // fileSizeInBytes
+}
