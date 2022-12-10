@@ -888,8 +888,9 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
     .then(() => {
         respawn_transfer(transfer.id, series_id, true)
     })
-    .catch(err => {
+    .catch(async err => {
         xnat_api.heartbeat_stop();
+        await new Promise(resolve => rimraf(new_dirpath, { disableGlob: true }, resolve))
         handleUploadError(transfer, series_id, segment_index, err)
     });
 

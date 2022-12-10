@@ -42,17 +42,20 @@ exports.setUpdateChannel = (channel) => {
 }
 
 exports.clearDefaultTempFiles = () => {
-    return new Promise((resolve, reject) => {
-        const directory = path.resolve(tempDir, '_xdc_temp', '*')
+    const defaultTempDir = path.resolve(tempDir, '_xdc_temp')
 
-        rimraf(directory, {disableGlob: false}, error => {
-            if (error) {
-                reject(error)
-            } else {
-                resolve(true)
-            }
-        })
-    })
+    if (fs.existsSync(defaultTempDir) && fs.lstatSync(defaultTempDir).isDirectory()) {
+        const dirGlob = path.join(defaultTempDir, '*')
+
+        try {
+            rimraf.sync(dirGlob, { disableGlob: false })
+            return `Temp directory '${defaultTempDir}' is now empty.`
+        } catch (err) {
+            throw err
+        }
+    }
+
+    return `Temp directory '${defaultTempDir}' does not exist.`
 }
 
 exports.objToJsonFile = (jsonObject, target_path) => {
