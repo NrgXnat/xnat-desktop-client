@@ -73,6 +73,7 @@ exports.optimizeUploadDigest = (upload) => {
                     seriesInstanceUid: upload.series[i][0].seriesInstanceUid,
                     seriesNumber: upload.series[i][0].seriesNumber,
                     modality: upload.series[i][0].modality,
+                    segments: [],
                     dataIndex: [
                         "filepath",
                         "filesize",
