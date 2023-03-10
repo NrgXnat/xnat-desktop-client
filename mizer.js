@@ -39,16 +39,16 @@ console.log(jarDir);
     "dcm4che-iod-2.0.29.jar",
     "dcm4che-net-2.0.29.jar",
     "dicom-edit4-1.1.0.jar",
-    "dicom-edit6-6.3.1.jar",
-    "dicomtools-1.8.4.jar",
-    "framework-1.8.4.jar",
+    "dicom-edit6-6.4.0.jar",
+    "dicomtools-1.8.7.jar",
+    "framework-1.8.7.jar",
     "guava-20.0.jar",
     "jai-imageio-core-1.3.0.jar",
     "jai-imageio-jpeg2000-1.3.0.jar",
     "java-uuid-generator-3.1.4.jar",
     "jcl-over-slf4j-1.7.30.jar",
     "log4j-1.2.17.jar",
-    "mizer-1.2.1.jar",
+    "mizer-1.2.3.jar",
     "pixelEditor-1.3.0.jar",
     "pixelmed-nrg-20200327.jar",
     "pixelmed-codec-20200328.jar",
@@ -57,11 +57,12 @@ console.log(jarDir);
     "slf4j-api-1.7.30.jar",
     "slf4j-log4j12-1.7.30.jar",
     "spring-core-4.3.30.RELEASE.jar",
-    "transaction-1.8.4.jar"].forEach(jar => java.classpath.push(jarDir + jar))
+    "transaction-1.8.7.jar"].forEach(jar => java.classpath.push(jarDir + jar))
 
 const mizers = java.newInstanceSync("java.util.ArrayList");
 mizers.addSync(java.newInstanceSync("org.nrg.dcm.edit.mizer.DE4Mizer"));
-mizers.addSync(java.newInstanceSync("org.nrg.dicom.dicomedit.mizer.DE6Mizer"));
+const scriptFactory = java.newInstanceSync("org.nrg.dicom.dicomedit.DE6ScriptFactory");
+mizers.addSync(java.newInstanceSync("org.nrg.dicom.dicomedit.mizer.DE6Mizer", scriptFactory));
 
 const mizerService = java.newInstanceSync("org.nrg.dicom.mizer.service.impl.BaseMizerService", mizers);
 
