@@ -47,7 +47,9 @@ const {
     BULK_IMAGE_ANONYMIZATION,
     UPLOAD_SELECTION_WARNING_SIZE,
     PRIMARY_MODALITIES,
-    CSV_UPLOAD_FIELDS
+    CSV_UPLOAD_FIELDS,
+    MAX_UPLOAD_CHUNK_SIZE,
+    MAX_UPLOAD_CHUNK_COUNT
 } = require('../services/constants')
 
 
@@ -2123,8 +2125,13 @@ function dragover_dicom(ev) {
 
 function drop_dicom(ev) {
 	ev.preventDefault();
-	// Get the id of the target and add the moved element to the target's DOM
 
+    // prevent execution if it does not contain valid data
+    if (!ev.dataTransfer.getData("dicomimg/id")) {
+        return
+    }
+
+    // Get the id of the target and add the moved element to the target's DOM
 	console.log(ev.dataTransfer.getData("dicomimg/id"))
     console.log(ev.dataTransfer.getData("dicomimg/path"))
     console.log(ev.dataTransfer.getData("dicomimg/series_id"))
@@ -3398,9 +3405,71 @@ $on('click', '.js_custom_upload', async function(){
     } else {
         select_session_id(selected[0])
     }
+
+    checkUploadFlow()
     
     $('#session-selection').modal('hide');
 })
+
+function checkUploadFlow() {
+    let upload_method = $('#nav-verify').data('upload_method')
+    let skip_session_pixel_anon = $('#skip_session_pixel_anon').is(':checked');
+
+    console.log({skip_session_pixel_anon, upload_method});
+
+    if (skip_session_pixel_anon) {
+        switch (upload_method) {
+            case 'custom_upload':
+                $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', skip_session_pixel_anon);
+
+                $('#nav-verify #custom_upload .js_next').toggleClass('hidden', skip_session_pixel_anon);
+                $('#nav-verify #custom_upload .js_upload').toggleClass('hidden', !skip_session_pixel_anon);
+
+                setTimeout(function() {
+                    $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', skip_session_pixel_anon);
+                }, 800)
+            break;
+
+            case 'custom_upload_multiple':
+                $('#upload-section a[href="#nav-visual-bulk"]').toggleClass('hidden', skip_session_pixel_anon);
+
+                $$('#nav-verify #custom_upload_multiple .js_next').toggleClass('hidden', skip_session_pixel_anon);
+                $$('#nav-verify #custom_upload_multiple .js_upload').toggleClass('hidden', !skip_session_pixel_anon);
+
+                setTimeout(function() {
+                    $('#upload-section a[href="#nav-visual-bulk"]').toggleClass('hidden', skip_session_pixel_anon);
+                }, 800)
+            break;
+
+            case 'quick_upload':
+
+                $$('#nav-verify #quick_upload .js_next').toggleClass('hidden', skip_session_pixel_anon);
+                $$('#nav-verify #quick_upload .js_upload').toggleClass('hidden', !skip_session_pixel_anon);
+
+            break;
+        }
+    }
+
+
+    return
+
+    const HIDE_PHI_TAB = !ALLOW_VISUAL_PHI_CHECK || upload_method !== 'custom_upload'
+    const HIDE_PHI_MULTI_TAB = !BULK_IMAGE_ANONYMIZATION || upload_method === 'custom_upload'
+
+    $('#upload-section a[href="#nav-visual"]').toggleClass('hidden', HIDE_PHI_TAB);
+    $('#upload-section a[href="#nav-visual-bulk"]').toggleClass('hidden', HIDE_PHI_MULTI_TAB);
+
+
+    $('#nav-verify #custom_upload .js_next').toggleClass('hidden', !ALLOW_VISUAL_PHI_CHECK);
+    $('#nav-verify #custom_upload .js_upload').toggleClass('hidden', ALLOW_VISUAL_PHI_CHECK);
+
+    
+    $$('#nav-verify #quick_upload .js_next').toggleClass('hidden', !BULK_IMAGE_ANONYMIZATION);
+    $$('#nav-verify #quick_upload .js_upload').toggleClass('hidden', BULK_IMAGE_ANONYMIZATION);
+    
+    $$('#nav-verify #custom_upload_multiple .js_next').toggleClass('hidden', !BULK_IMAGE_ANONYMIZATION);
+    $$('#nav-verify #custom_upload_multiple .js_upload').toggleClass('hidden', BULK_IMAGE_ANONYMIZATION);
+}
 
 $on('click', '.js_quick_upload', function(){
     let selected = $('#found_sessions').bootstrapTable('getSelections');
@@ -4332,8 +4401,6 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
             let scan_size = scan.reduce(function(prevVal, elem) {
                 return prevVal + elem.filesize;
             }, 0);
-            total_size += scan_size;
-            //total_files += scan.length;
             
             // use scan description from the last one (or any other from the batch)
             let scans_description = scan[0].seriesDescription;
@@ -4403,11 +4470,11 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
             studyTime: studyTime
         },
         series_ids: series_ids,
+        done_series_ids: [],
         series: series,
-        //_files: _files,
+        checksums: [],
         pixel_anon: pixel_anon_data,
         total_size: total_size,
-        //user_auth: user_auth,
         xnat_server: xnat_server,
         user: auth.get_current_user(),
         transfer_start: Helper.unix_timestamp(),
@@ -4416,7 +4483,10 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
         canceled: false
     };
 
-    upload_digest = optimizeUploadDigest(upload_digest)
+    const max_upload_chunk_size = settings.get('max_upload_chunk_size', MAX_UPLOAD_CHUNK_SIZE)
+    const max_upload_chunk_count = settings.get('max_upload_chunk_count', MAX_UPLOAD_CHUNK_COUNT)
+
+    upload_digest = optimizeUploadDigest(upload_digest, max_upload_chunk_size, max_upload_chunk_count)
 
     console.log({upload_digest});
 

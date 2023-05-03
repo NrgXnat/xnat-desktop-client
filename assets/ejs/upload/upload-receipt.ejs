@@ -23,9 +23,11 @@
                                 <% for(var i = 0; i < series[single_series].filenames.length; i++) { %>
                                     <li>
                                         <%= series[single_series].filenames[i] %>
+                                        <% if (display_checksums) { %>
                                         <ul>
                                             <li>Checksum (local): <%= series[single_series].anon_checksums[i] %></li>
                                         </ul>
+                                        <% } %>
                                     </li>
                                 <% } %>
                             </ul>

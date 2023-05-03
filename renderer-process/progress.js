@@ -1,4 +1,4 @@
-const {remote, ipcRenderer: ipc, shell} = require('electron')
+const {remote, ipcRenderer, shell} = require('electron')
 
 require('promise.prototype.finally').shim();
 const ElectronStore = require('electron-store');
@@ -28,6 +28,9 @@ const { objArrayToCSV, objToJsonFile } = require('../services/app_utils');
 const { getScanFilesProperty } = require('../services/db/utils');
 
 const { console_red } = require('../services/logger');
+const auth = require('../services/auth')
+
+const CONSTANTS = require('../services/constants');
 
 const dom_context = '#progress-section';
 const { $$, $on } = require('./../services/selector_factory')(dom_context)
@@ -117,7 +120,7 @@ function _init_upload_progress_table() {
 
                     if (typeof value !== 'string') {
                         let my_value = parseFloat(value);
-                        let my_text = my_value === 100 ? 'Archiving' : '';
+                        let my_text = my_value === 100 ? 'Archiving1' : '';
                         return progress_bar_html(my_value, my_text);
                     } else {
                         //return value
@@ -541,7 +544,7 @@ async function getNewestTransfer() {
 
 
 if (!settings.has('user_auth') || !settings.has('xnat_server')) {
-    ipc.send('redirect', 'login.html');
+    ipcRenderer.send('redirect', 'login.html');
     return;
 }
 
@@ -628,7 +631,7 @@ $on('click', '#upload_session_to_json', function() {
             let my_path = path.resolve(tempDir, `${id}--${Date.now()}.json`)
             objToJsonFile(transfer, my_path)
 
-            ipc.send('shell.showItemInFolder', my_path)
+            ipcRenderer.send('shell.showItemInFolder', my_path)
         }
     });
 })
@@ -867,7 +870,7 @@ $on('shown.bs.modal', '#upload-details', function(e) {
 
 $on('click', '[data-js-view-receipt-link]', function(e) {
     const pdf_receipt_path = $(this).data('pdf_receipt_path')
-    ipc.send('shell.showItemInFolder', pdf_receipt_path)
+    ipcRenderer.send('shell.showItemInFolder', pdf_receipt_path)
 })
 
 // TODO - this is almost duplicated feature from progress-archive.js
@@ -1213,9 +1216,9 @@ $on('click', '.js_cancel_download', function(e){
                                     num
                                 })
 
-                                ipc.send('cancel_download', transfer_id);
+                                ipcRenderer.send('cancel_download', transfer_id);
                             } else {
-                                ipc.send('start_download');
+                                ipcRenderer.send('start_download');
                             }
                             
                             $('#download-details').find('.modal-content').toggleClass('transfer-canceled', new_cancel_status);
@@ -1272,9 +1275,9 @@ $on('click', '.js_cancel_upload', function(e){
                                         num
                                     })
                     
-                                    ipc.send('cancel_upload', transfer_id);
+                                    ipcRenderer.send('cancel_upload', transfer_id);
                                 } else {
-                                    ipc.send('start_upload');
+                                    ipcRenderer.send('start_upload');
                                 }
                                 
                                 $('#upload-details').find('.modal-content').toggleClass('transfer-canceled', new_cancel_status);
@@ -1329,8 +1332,8 @@ $on('click', '.js_cancel_all_transfers', function(){
         update_uploads_cancel_status(true), 
         update_downloads_cancel_status(true)
     ]).then(([modified_uploads, modified_downloads]) => {
-        ipc.send('reload_upload_window');
-        ipc.send('reload_download_window');
+        ipcRenderer.send('reload_upload_window');
+        ipcRenderer.send('reload_download_window');
 
         settings.set('global_pause', global_pause);
 
@@ -1355,8 +1358,8 @@ $on('click', '.js_restart_all_transfers', function(){
         update_uploads_cancel_status(false), 
         update_downloads_cancel_status(false)
     ]).then(([modified_uploads, modified_downloads]) => {
-        ipc.send('reload_upload_window');
-        ipc.send('reload_download_window');
+        ipcRenderer.send('reload_upload_window');
+        ipcRenderer.send('reload_download_window');
 
         settings.set('global_pause', global_pause);
 
@@ -1384,8 +1387,8 @@ function global_pause_status(new_pause_status) {
     }
 
     if (!new_pause_status) {
-        ipc.send('start_download');
-        ipc.send('start_upload');
+        ipcRenderer.send('start_download');
+        ipcRenderer.send('start_upload');
     }
     
     settings.set('global_pause', new_pause_status);
@@ -1493,10 +1496,6 @@ $on('click', '.js_clear_finished', function(){
 
 
 function update_uploads_cancel_status(new_cancel_status) {
-    // db_uploads().find({canceled: {$ne: !new_cancel_status}, $where: () => this.series_ids.length }, (err, my_transfers) => {
-
-    // });
-
     return new Promise((resolve, reject) => {
         db_uploads.listAll((err, my_transfers) => {
             let updated = 0;
@@ -1510,6 +1509,9 @@ function update_uploads_cancel_status(new_cancel_status) {
                     transfer.series_ids.length
                 ) {
                     db_uploads.updateProperty(transfer.id, 'canceled', new_cancel_status)
+                    if (new_cancel_status) {
+                        ipcRenderer.send('cancel_upload', transfer.id);
+                    }
                     updated++;
                 }
             });
@@ -1520,7 +1522,6 @@ function update_uploads_cancel_status(new_cancel_status) {
             }, 500)
         })
     })
-
 }
 
 function update_downloads_cancel_status(new_cancel_status) {
@@ -1684,8 +1685,21 @@ function progress_bar_html(my_value, my_text) {
     `;
 }
 
-ipc.on('upload_finished', async function(e, transfer_id){
-    let transfer = await db_uploads._getByIdCopy(transfer_id)
+ipcRenderer.on('upload_finished', async function(e, transfer_id){
+    let _transfer = await db_uploads._getById(transfer_id)
+    let transfer = lodashCloneDeep(_transfer)
+
+    const anon_checksum_index = transfer.series[0].dataIndex.indexOf('anon_checksum')
+
+    for (let i = 0; i < transfer.checksums.length; i++) {
+        const [series_index, data_index, anon_checksum] = transfer.checksums[i]
+        transfer.series[series_index].data[data_index][anon_checksum_index] = anon_checksum
+    }
+
+    console.log({anon_checksum_index, transfer});
+
+    await db_uploads._replaceDoc(transfer_id, transfer)
+
     // add PDF settings
     if (user_settings.getDefault('receipt_pdf_settings--enabled', false)) {
         await generate_pdf_receipt(transfer_id)
@@ -1723,7 +1737,9 @@ function remove_finished_upload(transfer_id) {
             if (transfer.status === 'finished') {
                 delete_ids.push(transfer._id)
                 let transfer_copy = lodashCloneDeep(transfer)
+                
                 transfer_copy.series = [] // remove large data set from series
+                transfer_copy.checksums = [] // remove no longer needed checksums
                 to_archive.push(transfer_copy)
             }
         }
@@ -1753,11 +1769,14 @@ function remove_finished_upload(transfer_id) {
 async function generate_pdf_receipt_html(transfer_id) {
     let transfer = await db_uploads._getById(transfer_id)
 
+    const display_checksums = user_settings.getDefault('receipt_pdf_settings--checksums', CONSTANTS.CALCULATE_UPLOAD_CHECKSUMS)
+
     // trim unused data for performance
     const _transfer = {
         session_link: transfer.session_link,
         user: transfer.user,
         session_data: transfer.session_data,
+        display_checksums: display_checksums,
         computed: {
             start_upload: moment(transfer.transfer_start * 1000).format('YYYY-MM-DD HH:mm:ss'),
             finished_upload: moment().format('YYYY-MM-DD HH:mm:ss')
@@ -1805,10 +1824,10 @@ async function generate_pdf_receipt(transfer_id) {
     const pdf_filepath = path.join(pdf_destination, `${filename_base}.pdf`)
     db_uploads._updateProperty(transfer_id, 'pdf_receipt_path', pdf_filepath)
 
-    ipc.send('print_pdf', html, pdf_destination, pdf_settings, filename_base, false);
+    ipcRenderer.send('print_pdf', html, pdf_destination, pdf_settings, filename_base, false);
 }
 
-ipc.on('progress_cell',function(e, item){
+ipcRenderer.on('progress_cell',function(e, item){
     console_red('progress_cell', item);
     let $item_table = $(item.table);
     let $tbl_row = $(`${item.table} [data-uniqueid="${item.id}"]`);
@@ -1818,23 +1837,27 @@ ipc.on('progress_cell',function(e, item){
         let $progress_bar = $tbl_row.find('.progress-bar');
 
         let reinit = typeof item.value != 'number' || $progress_bar.length == 0;
-        
-        $item_table.bootstrapTable("updateCellByUniqueId", {
-            id: item.id,
-            field: item.field,
-            value: item.value,
-            reinit: reinit
-        });
+
+        const data_row = $item_table.bootstrapTable('getRowByUniqueId', item.id)
+        if (typeof data_row.status === 'number' && typeof item.value === 'number' && data_row.status > item.value) {
+            // old status is larger than new status => SKIP
+            console_red('SKIP PROGRESS UPDATE')
+        } else {
+            $item_table.bootstrapTable("updateCellByUniqueId", {
+                id: item.id,
+                field: item.field,
+                value: item.value,
+                reinit: reinit
+            });
+        }
 
         if (!reinit) {
             let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
             $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
             if (percent === 100 && is_upload) {
-                $progress_bar.append('Archiving');
+                $progress_bar.text('Archiving2');
             }
         }
-
-
 
         if (item.table === '#download_monitor_table') {
             let $modal_content = $(`#download-details [data-id=${item.id}]`);
@@ -1864,7 +1887,7 @@ ipc.on('progress_cell',function(e, item){
             }
         }
 
-        if (is_upload) {
+        if (is_upload) { // item.table === '#upload_monitor_table'
             let $modal_content = $(`#upload-details [data-id=${item.id}]`);
 
             if (typeof item.value != 'number') {
@@ -1872,21 +1895,22 @@ ipc.on('progress_cell',function(e, item){
                 $modal_content.find('#transfer_rate_upload').hide();
             }
 
-            if ($modal_content.is(':visible')) {
-                let $details_total_progress_bar = $modal_content.find('#transfer_rate_upload .progress-bar');
+            if ($modal_content.is(':visible') && typeof item.value === 'number') {
+                const $details_total_progress_bar = $modal_content.find('#transfer_rate_upload .progress-bar');
+                const progress_now = parseFloat($details_total_progress_bar.attr('aria-valuenow')) || 0
 
-                let percent = 100 * item.value / parseInt($details_total_progress_bar.attr('aria-valuemax'));
-                $details_total_progress_bar.attr('aria-valuenow', percent).css('width', percent + '%');
+                if (progress_now < item.value) {
+                    let percent = 100 * item.value / parseInt($details_total_progress_bar.attr('aria-valuemax'));
+                    $details_total_progress_bar.attr('aria-valuenow', percent).css('width', percent + '%');
+                }
             }
         }
-
-        
         
     }
 
 });
 
-ipc.on('download_progress',function(e, item){
+ipcRenderer.on('download_progress',function(e, item){
     //console.log(item);
 
     if (item.table !== undefined) {
@@ -1904,7 +1928,7 @@ ipc.on('download_progress',function(e, item){
     
 });
 
-ipc.on('upload_progress',function(e, item) {
+ipcRenderer.on('upload_progress',function(e, item) {
     //console.log(item);
 
     if (item.table !== undefined) {
@@ -1921,12 +1945,161 @@ ipc.on('upload_progress',function(e, item) {
     
 });
 
-ipc.on('global_pause_status', function(e, item) {
+ipcRenderer.on('global_pause_status', function(e, item) {
     global_pause_status(item)
     // $('.js_pause_all').html(pause_btn_content(item));
 })
 
-ipc.on('refresh_progress_tables', (e, refresh_data) => {
+ipcRenderer.on('refresh_progress_tables', (e, refresh_data) => {
     _init_upload_progress_table()
     console.log({refresh_data});
 })
+
+$on('click', 'button[data-js="test_checksum"]', async function() {
+    console.log('KLIK')
+
+    store_checksums(
+        '8eedbc24-4a2d-47a9-a226-4600987f4568',
+        '1.2.826.0.1.3417726.3.908247.20150604161156631'
+    )
+
+    return
+
+    let transfers = await getUploads()
+
+    for (let k = 0; k < transfers.length; k++) {
+        await store_checksums(transfers[k])
+    }
+})
+
+async function getUploads() {
+    const start = performance.now()
+
+    let current_username = auth.get_current_user();
+
+    let current_transfers = [];
+
+    try {
+        let my_transfers = await db_uploads._listAll()
+
+        console.log({store_checksums_listAll: _time_offset(start)});
+
+        current_transfers = my_transfers.filter(transfer => {
+            return transfer.xnat_server === xnat_server && 
+                transfer.user === current_username && 
+                transfer.canceled !== true && 
+                typeof transfer.status === 'number' && 
+                transfer.series_ids.length > 0
+        })
+
+    } catch (db_uploads_listAll_error) {
+        console.error({db_uploads_listAll_error});
+    }
+
+    return current_transfers
+}
+
+
+async function store_checksums_QUICK(_transfer) {
+    let current_transfer = lodashCloneDeep(_transfer)
+    for (let x = 0; x < current_transfer.series.length; x++) {
+        const start = performance.now()
+
+        let selected_series = current_transfer.series[x]
+        
+        //let selected_series = lodashCloneDeep(current_series)
+
+        let filepath_index = selected_series.dataIndex.indexOf('filepath')
+        let anon_checksum_index = selected_series.dataIndex.indexOf('anon_checksum')
+
+        // console.log({filepath_index, anon_checksum_index});
+
+        
+
+        // create a map of indexex ... where key is the path and index is the value
+        const filesMap = selected_series.data.reduce((fileMap, fileInfo, index) => {
+            let filepath = selected_series.commonPath + fileInfo[filepath_index]
+            fileMap[filepath] = index
+            return fileMap
+        }, {})
+
+        console.log({store_checksums_fileMap: _time_offset(start)});
+
+        /*
+        for (let y = 0; y < selected_series.data.length; y++) {
+            const start_inner = performance.now()
+
+            let dataIndex = filesMap[sfile.source]
+            if (i < 5) console.log({store_checksums_dataIndex: _time_offset(start_inner)});
+
+            selected_series.data[dataIndex][anon_checksum_index] = "A";
+
+            if (i < 5) console.log(`store_checksums_index_A__${i}`, _time_offset(start_inner));
+        }
+        */
+
+        console.log({store_checksums_filter_item_A: _time_offset(start)});
+
+        for (let dataIndex = 0; dataIndex < selected_series.data.length; dataIndex++) {
+            const start_inner = performance.now()
+
+            selected_series.data[dataIndex][anon_checksum_index] = "B";
+            if (dataIndex % 100 === 0) console.log(`store_checksums_index_B__${dataIndex}`, _time_offset(start_inner));
+        }
+
+        console.log({selected_series});
+
+        console.log({store_checksums_filter_item_B: _time_offset(start)});
+
+        const _transfer_copy_ = await db_uploads._replaceDoc(current_transfer.id, current_transfer)
+        console.log({store_checksums__transfer_copy_: _time_offset(start)});
+    }
+    
+    console_red(`store_checksums DONE: ${current_transfer.id}`);
+}
+
+async function store_checksums(transfer_id, series_id) {
+    const start = performance.now()
+    
+    let this_transfer = await db_uploads._getById(transfer_id);
+    let current_transfer = lodashCloneDeep(this_transfer)
+
+    console.log({store_checksums_find_db_upload: _time_offset(start)});
+
+    let selected_series = current_transfer.series.find(ss => series_id === ss.seriesInstanceUid);
+    console.log({store_checksums_find_upload_series: _time_offset(start)});
+
+    let filepath_index = selected_series.dataIndex.indexOf('filepath')
+    let anon_checksum_index = selected_series.dataIndex.indexOf('anon_checksum')
+    console.log({store_checksums_index: _time_offset(start)});
+
+    // create a map of indexex ... where key is the path and index is the value
+    const filesMap = selected_series.data.reduce((fileMap, fileInfo, index) => {
+        let filepath = selected_series.commonPath + fileInfo[filepath_index]
+        fileMap[filepath] = index
+        return fileMap
+    }, {})
+
+    console.log({store_checksums_fileMap: _time_offset(start)});
+
+    for (let dataIndex = 0; dataIndex < selected_series.data.length; dataIndex++) {
+        const start_inner = performance.now()
+
+        selected_series.data[dataIndex][anon_checksum_index] = "Z";
+        if (dataIndex % 100 === 0) console.log(`store_checksums_index_Z__${dataIndex}`, _time_offset(start_inner));
+    }
+
+    console.log({store_checksums_filter_item: _time_offset(start)});
+
+    console.log({selected_series});
+    
+    const _transfer_copy_ = await db_uploads._replaceDoc(current_transfer.id, current_transfer)
+    console.log({store_checksums__transfer_copy_: _time_offset(start)});
+
+    console_red('store_checksums DONE');
+}
+
+
+function _time_offset(start_time) {
+    return ((performance.now() - start_time) / 1000).toFixed(2);
+}

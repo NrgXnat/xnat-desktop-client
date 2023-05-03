@@ -478,7 +478,6 @@ $(document).on('click', '#confirm_temp_folder', function() {
     if (use_alt_path) {
         if (alt_path) {
             if (isReallyWritable(alt_path)) {
-                user_settings.set('zip_upload_mode', true);
                 user_settings.set('temp_folder_alternative', alt_path);
 
                 // unpause => restart upload
@@ -492,12 +491,10 @@ $(document).on('click', '#confirm_temp_folder', function() {
             swal('Form Error', 'Please select a storage location.', 'error');
         }
     } else {
-        user_settings.set('zip_upload_mode', true);
         ipcRenderer.send('global_pause_status', false);
 
         $('#alt_upload_method_modal').modal('hide');
     }
-
 })
 
 $(document).on('click', '#download_and_install', function(e) {

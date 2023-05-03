@@ -38,10 +38,21 @@ electron.crashReporter.start({
 });
 */
 
-global.user_auth = {
-  username: null,
-  password: null
-};
+global = require('./services/global');
+
+if (isDevEnv()) {
+  setInterval(function() {
+    console.log(`Queue items: ${global.shared._queue_.items.length}`)
+    console.log(`Queue items: `, global.shared._queue_.items)
+    console.log(`Queue processed: ${global.shared._queue_._processed.length}`)
+    console.log(`Upload Windows: ${global.windows.upload}`)
+  
+    let allWindows = BrowserWindow.getAllWindows()
+    let allWindowsIds = allWindows.map(win => win.id)
+    console.log(`All Win: ${allWindowsIds}`)
+  }, 5000)
+}
+
 
 initApp()
 
@@ -158,7 +169,7 @@ function initialize () {
     uploadWindow.on('closed', function () {
       uploadWindow = null
     });
-    uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload.html'));
+    uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload-manager.html'));
     updateUserAgentString(uploadWindow);
 
     // Download window
@@ -575,7 +586,6 @@ ipcMain.on('redirect', (e, item) => {
   post_message('load:page', item);
 })
 
-
 ipcMain.on('launch_download_modal', (e, item) => {
   post_message('load:page', 'home.html');
   post_message('launch_download_modal', item);
@@ -590,11 +600,13 @@ ipcMain.on('log', (e, ...args) => {
   log(...args)
 })
 
+ipcMain.on('main_log', (e, ...args) => {
+  console.log(...args)
+})
 
 ipcMain.on('download_progress', (e, item) =>{
   post_message('download_progress', item);
 })
-
 
 ipcMain.on('upload_progress', (e, item) => {
   post_message('upload_progress', item);
@@ -642,8 +654,17 @@ ipcMain.on('start_upload', (e, item) => {
 })
 
 ipcMain.on('cancel_upload', (e, transfer_id) => {
-  log('cancel_upload event (main.js)');
-  uploadWindow.webContents.send('cancel_upload', transfer_id);
+  // uploadWindow.webContents.send('cancel_upload', transfer_id);
+
+  for(let i = 0; i < global.windows.upload.length; i++) {
+    let uploadBrowserWindow = BrowserWindow.fromId(global.windows.upload[i])
+
+    if (uploadBrowserWindow) {
+      console.log(`window ID: ${global.windows.upload[i]} - cancel upload`)
+      uploadBrowserWindow.webContents.send('cancel_upload', transfer_id);
+      // uploadBrowserWindow.close()
+    }
+  }
 })
 
 ipcMain.on('start_download', (e, item) => {
@@ -737,3 +758,66 @@ ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base, show
   
 })
 
+ipcMain.on('init_upload_single', (e, transfer, series_id, segment_index) => {
+
+  const uploadWindowSingle = new BrowserWindow({show : false})//to just open the browser in background
+
+  uploadWindowSingle.on('close', function() {
+    console.log('close: ', uploadWindowSingle.id)
+    global.windows.remove(uploadWindowSingle.id)
+  })
+
+  
+  uploadWindowSingle.webContents.on('dom-ready', function() {
+    console.log('dom-ready:' + uploadWindowSingle.id)
+  })
+
+  uploadWindowSingle.webContents.on('console-message', function(event, level, message, line, sourceId) {
+    if (level === 2) {
+      console.log(`renderer console.error: ${message}`)
+      console.log(message)
+    }
+
+    const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
+    const distinctError2 = 'Uncaught ReferenceError: require is not defined';
+    const distinctError3 = "Uncaught (in promise) TypeError: Cannot read property 'canceled' of null";
+    
+    if ( level === 2 && ( message.startsWith(distinctError) || message.startsWith(distinctError2) || message.startsWith(distinctError3) ) ) {
+      console.log('console-message (TARGETED ERROR):' + uploadWindowSingle.id)
+      uploadWindowSingle.close()
+      uploadWindow.webContents.send('single_upload_load_error', transfer.id, series_id, segment_index);
+    }
+  })
+
+  
+  uploadWindowSingle.loadURL(path.join('file://', __dirname, '/sections/_upload-single.html'));
+  updateUserAgentString(uploadWindowSingle);
+
+  // uploadWindowSingle.showInactive()
+  // uploadWindowSingle.webContents.openDevTools()
+  // uploadWindowSingle.maximize()
+
+  uploadWindowSingle.webContents.once('did-finish-load', () => {
+    console.log('did-finish-load:' + uploadWindowSingle.id)
+    uploadWindowSingle.webContents.send('set_window_id', uploadWindowSingle.id);
+    uploadWindowSingle.webContents.send('single_upload_data', transfer, series_id, segment_index);
+  });
+
+
+  uploadWindowSingle.webContents.once('plugin-crashed', () => {
+    console.log('plugin-crashed:' + uploadWindowSingle.id)
+  });
+
+  uploadWindowSingle.webContents.once('crashed', () => {
+    console.log('crashed:' + uploadWindowSingle.id)
+  });
+  
+})
+
+ipcMain.on('single_upload_finished', (e, window_id) => {
+  uploadWindow.webContents.send('single_upload_finished', window_id);
+})
+
+ipcMain.on('respawn_transfer', (e, transfer_id, series_id, success) => {
+  uploadWindow.webContents.send('respawn_transfer', transfer_id, series_id, success);
+})

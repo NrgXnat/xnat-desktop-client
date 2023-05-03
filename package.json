@@ -1,6 +1,6 @@
 {
   "name": "xnat-desktop-client",
-  "version": "3.2.2",
+  "version": "4.0.0-alpha.3",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "extraMetadata": {
@@ -87,6 +87,7 @@
     "pnotify": "^3.2.1",
     "popper.js": "^1.12.9",
     "pretty-bytes": "^5.1.0",
+    "progress-stream": "^2.0.0",
     "promise.prototype.finally": "^3.1.0",
     "rimraf": "^3.0.2",
     "sha1": "^1.1.1",

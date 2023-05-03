@@ -35,6 +35,9 @@ $on('page:load', dom_context, async function(e){
     show_default_email_address();
     show_default_local_storage();  
     show_default_pet_tracers();
+    show_upload_concurrency();
+    show_max_upload_chunk_size();
+    show_max_upload_chunk_count();
 
     $('input[data-role="tagsinput"]').tagsinput({
         onTagExists: function(item, $tag) {
@@ -67,9 +70,7 @@ function template_variables() {
 function display_user_preferences() {
     display_missing_anon_script_warnings_settings();
     show_default_temp_storage();
-    show_default_upload_mode();
     show_recent_upload_projects_count();
-    show_upload_concurrency();
     update_pdf_settings_info();
 }
 
@@ -143,16 +144,18 @@ function show_default_pet_tracers() {
     $('#default_pet_tracers').val(settings.get('default_pet_tracers'));
 }
 
+function show_max_upload_chunk_size() {
+    $('#max_upload_chunk_size').val(settings.get('max_upload_chunk_size', constants.MAX_UPLOAD_CHUNK_SIZE));
+}
+
+function show_max_upload_chunk_count() {
+    $('#max_upload_chunk_count').val(settings.get('max_upload_chunk_count', constants.MAX_UPLOAD_CHUNK_COUNT));
+}
+
 function show_default_temp_storage() {
     let dicom_temp_folder_path = user_settings.getDefault('temp_folder_alternative', path.resolve(tempDir, '_xdc_temp'))
 
     $('#temp_folder_alt').val(dicom_temp_folder_path);
-}
-
-function show_default_upload_mode() {
-    if (user_settings.get('zip_upload_mode') === true) {
-        $('#zip_upload_mode').val('1')
-    }
 }
 
 function show_recent_upload_projects_count() {
@@ -168,55 +171,48 @@ $(document).on('click', '#save_recent_upload_projects_count', function(e) {
     e.preventDefault();
 
     if ($('#recent_upload_projects_count').is(':invalid')) {
-        swal({
+        return swal({
             title: "Error!",
             text: "Please validate `Number of Recent Projects` field",
             icon: "error",
             button: "Okay",
           });
-    } else {
-        let recent_upload_projects_count = $('#recent_upload_projects_count').val() ? parseInt($('#recent_upload_projects_count').val()) : 0;
-        
-        user_settings.set('recent_upload_projects_count', recent_upload_projects_count);
-
-        Helper.pnotify('Success!', `Recent upload projects count successfully updated! (New value: ${recent_upload_projects_count})`);
-        
-        $(this).prop('disabled', true);
     }
     
+    let recent_upload_projects_count = $('#recent_upload_projects_count').val() ? parseInt($('#recent_upload_projects_count').val()) : 0;
+    user_settings.set('recent_upload_projects_count', recent_upload_projects_count);
+
+    Helper.pnotify(null, `Recent upload projects count successfully updated! (New value: ${recent_upload_projects_count})`);
+    $(this).prop('disabled', true);
 });
 
-
 function show_upload_concurrency() {
-    let upload_concurrency = user_settings.get('upload_concurrency') !== undefined ? 
-        user_settings.get('upload_concurrency') : constants.DEFAULT_UPLOAD_CONCURRENCY;
-    $('#upload_concurrency').attr('max', constants.MAX_UPLOAD_CONCURRENCY).val(upload_concurrency);
+    $$('#upload_concurrency')
+        .attr('max', constants.MAX_UPLOAD_CONCURRENCY)
+        .val(settings.get('upload_concurrency', constants.DEFAULT_UPLOAD_CONCURRENCY));
 }
 
-$(document).on('input', '#upload_concurrency', function(e) {
+$on('input', '#upload_concurrency', function(e) {
     $('#save_upload_concurrency').prop('disabled', false);
 });
 
-$(document).on('click', '#save_upload_concurrency', function(e) {
+$on('click', '#save_upload_concurrency', function(e) {
     e.preventDefault();
 
     if ($('#upload_concurrency').is(':invalid')) {
-        swal({
+        return swal({
             title: "Error!",
-            text: "Please validate `Upload Concurrency` field",
+            text: "`Upload Concurrency` field contains an invalid value!",
             icon: "error",
             button: "Okay",
-          });
-    } else {
-        let upload_concurrency = parseInt($('#upload_concurrency').val() || constants.DEFAULT_UPLOAD_CONCURRENCY);
-        
-        user_settings.set('upload_concurrency', upload_concurrency);
-
-        Helper.pnotify('Success!', `Upload concurrency successfully updated! (New value: ${upload_concurrency})`);
-        
-        $(this).prop('disabled', true);
+        });
     }
-    
+
+    let upload_concurrency = parseInt($('#upload_concurrency').val() || constants.DEFAULT_UPLOAD_CONCURRENCY);
+    settings.set('upload_concurrency', upload_concurrency)
+
+    Helper.pnotify(null, `Upload concurrency successfully updated! (New value: ${upload_concurrency})`);
+    $(this).prop('disabled', true);
 });
 
 function render_users() {
@@ -323,7 +319,7 @@ function handleLoginSuccess(xnat_server, user_auth, old_user_data) {
     $('#user_connection').modal('hide')
     render_users();
 
-    Helper.pnotify('Success!', `User connection is ${old_user_data.username ? 'updated': 'added'}.`);
+    Helper.pnotify(null, `User connection is ${old_user_data.username ? 'updated': 'added'}.`);
 
     // swal({
     //     title: "Success!",
@@ -390,15 +386,62 @@ $(document).on('click', '#save_default_pet_tracers', function(e) {
 
     settings.set('default_pet_tracers', $('#default_pet_tracers').val());
 
-    Helper.pnotify('Success!', `Default PET tracers successfully updated! (${$('#default_pet_tracers').val()})`);
+    Helper.pnotify(null, `Default PET tracers successfully updated! (${$('#default_pet_tracers').val()})`);
 
     $(this).prop('disabled', true);
 })
 
+
+$on('click', '#save_max_upload_chunk_size', function(e) {
+    e.preventDefault();
+
+    if ($('#max_upload_chunk_size').is(':invalid')) {
+        return swal({
+            title: "Error!",
+            text: "`Maximum upload chunk size` field contains an invalid value!",
+            icon: "error",
+            button: "Okay",
+        });
+    }
+
+    const newValue = $('#max_upload_chunk_size').val()
+    settings.set('max_upload_chunk_size', parseInt(newValue));
+
+    Helper.pnotify(null, `Maximum upload chunk size (MB) successfully updated! (${newValue} MB)`);
+    $(this).prop('disabled', true);
+})
+
+$on('change', '#max_upload_chunk_size', function(e) {
+    $('#save_max_upload_chunk_size').prop('disabled', false);
+});
+
+$on('click', '#save_max_upload_chunk_count', function(e) {
+    e.preventDefault();
+
+    if ($('#max_upload_chunk_count').is(':invalid')) {
+        return swal({
+            title: "Error!",
+            text: "`Maximum upload chunk files count` field contains an invalid value!",
+            icon: "error",
+            button: "Okay",
+        });
+    }
+
+    const newValue = $('#max_upload_chunk_count').val()
+    settings.set('max_upload_chunk_count', parseInt(newValue));
+
+    Helper.pnotify(null, `Maximum upload chunk files count successfully updated! (${newValue})`);
+    $(this).prop('disabled', true);
+})
+
+$on('change', '#max_upload_chunk_count', function(e) {
+    $('#save_max_upload_chunk_count').prop('disabled', false);
+});
+
 $(document).on('change', '#send-crash-reports', function(e) {
     let send_crash_reports = $('#send-crash-reports').val() === '1';
     settings.set('send_crash_reports', send_crash_reports);
-    Helper.pnotify('Success!', `Crash Report status was updated! (${send_crash_reports ? 'ON' : 'OFF'})`);
+    Helper.pnotify(null, `Crash Report status was updated! (${send_crash_reports ? 'ON' : 'OFF'})`);
 })
 
 
@@ -406,33 +449,25 @@ $(document).on('click', '#save_default_email_address', function(e) {
     e.preventDefault();
 
     if ($('#default_email_address').is(':invalid')) {
-        swal({
+        return swal({
             title: "Error!",
-            text: "Please validate email field",
+            text: "Please validate email field!",
             icon: "error",
             button: "Okay",
           });
-    } else {
-        settings.set('default_email_address', $('#default_email_address').val());
-
-        Helper.pnotify('Success!', `Default email address successfully updated! (${$('#default_email_address').val()})`);
-        
-        $(this).prop('disabled', true);
     }
     
+    settings.set('default_email_address', $('#default_email_address').val());
+
+    Helper.pnotify(null, `Default email address successfully updated! (${$('#default_email_address').val()})`);
+    $(this).prop('disabled', true);
 });
 
 $(document).on('change', '#file_default_local_storage', function(e) {
     settings.set('default_local_storage', this.files[0].path);
     $('#default_local_storage').val(this.files[0].path);
 
-    Helper.pnotify('Success!', `Default local storage path successfully updated! (${this.files[0].path})`);
-    // swal({
-    //     title: "Success!",
-    //     text: "Default local storage path successfully updated!",
-    //     icon: "success",
-    //     button: "Okay"
-    // });
+    Helper.pnotify(null, `Default local storage path successfully updated! (${this.files[0].path})`);
 });
 
 $(document).on('submit', '#userForm', function(e) {
@@ -513,13 +548,6 @@ $(document).on('click', '.js_remove_login', function(e){
             render_users();
 
             Helper.pnotify('Connection data removed!', 'Connection data removed from the list of stored connections.');
-
-            // swal({
-            //     title: "Connection data removed",
-            //     text: "Connection data removed from the list of stored connections",
-            //     icon: "success",
-            //     closeOnEsc: false
-            // })
         }
     });
 });
@@ -544,7 +572,7 @@ $(document).on('change', '#file_temp_folder_alt', function(e) {
             $('#temp_folder_alt').val(alt_path);
 
             user_settings.set('temp_folder_alternative', alt_path);
-            Helper.pnotify('Success!', `Default temporary storage path successfully updated! (${alt_path})`);
+            Helper.pnotify(null, `Default temporary storage path successfully updated! (${alt_path})`);
 
             // TODO add Helper.notify
         } else {
@@ -569,15 +597,8 @@ $(document).on('click', '#reset_temp_folder_alt', async function() {
     if (proceed) {
         user_settings.unset('temp_folder_alternative')
         $('#temp_folder_alt').val(default_temp_path)
-        Helper.pnotify('Success!', `Temporary folder reset to system default!`, 'success', 2000)
+        Helper.pnotify(null, `Temporary folder reset to system default!`, 'success', 2000)
     }
-})
-
-
-$(document).on('change', '#zip_upload_mode', function(e) {
-    let use_zip_upload_mode = $('#zip_upload_mode').val() === '1';
-    user_settings.set('zip_upload_mode', use_zip_upload_mode);
-    Helper.pnotify('Success!', `Upload mode was updated! (${use_zip_upload_mode ? 'Zip' : 'Stream'})`);
 })
 
 
@@ -604,6 +625,9 @@ $on('click', '#change-pdf-receipt-settings', function() {
             $(this).prop("checked", is_checked)
         })
     }
+
+    let upload_checksums_enabled = user_settings.getDefault('receipt_pdf_settings--checksums', constants.CALCULATE_UPLOAD_CHECKSUMS)
+    $$('#checksum_calculation').prop('checked', pdf_enabled && upload_checksums_enabled)
 
     $$('#upload-receipt-destination-settings').modal('show')
 });
@@ -632,6 +656,7 @@ $on('click', '#save-pdf-destination', function(e) {
     const pdf_destination = $$('#pdf_destination').val()
     const pdf_orientation = $$('[name="pdf_orientation"]:checked').val()
     const pdf_pagesize = $$('[name="pdf_pagesize"]:checked').val()
+    const pdf_checksums = pdf_enabled ? $$('#checksum_calculation').is(':checked') : pdf_enabled
 
     if (pdf_enabled && pdf_destination === '') {
         Helper.pnotify('Warning', 'PDF receipt store location is a required field!', 'notice')
@@ -640,6 +665,7 @@ $on('click', '#save-pdf-destination', function(e) {
         user_settings.set('receipt_pdf_settings--destination', pdf_destination)
         user_settings.set('receipt_pdf_settings--orientation', pdf_orientation)
         user_settings.set('receipt_pdf_settings--pagesize', pdf_pagesize)
+        user_settings.set('receipt_pdf_settings--checksums', pdf_checksums)
 
         update_pdf_settings_info()
 
@@ -681,11 +707,13 @@ function update_pdf_settings_info() {
     if (!enabled) {
         $infobox.html('<b>Status</b>: DISABLED')
     } else {
+        const checksums_label = user_settings.getDefault('receipt_pdf_settings--checksums', constants.CALCULATE_UPLOAD_CHECKSUMS) ? 'Yes' : 'No'
         $infobox.html(`
-            <span style="display: inline-block; width: 100px;">Status:</span> ENABLED<br>
-            <span style="display: inline-block; width: 100px;">Destination:</span> ${user_settings.get('receipt_pdf_settings--destination')}<br>
-            <span style="display: inline-block; width: 100px;">Orientation:</span> ${user_settings.get('receipt_pdf_settings--orientation')}<br>
-            <span style="display: inline-block; width: 100px;">Page Size:</span> ${user_settings.get('receipt_pdf_settings--pagesize')}<br>
+            <span style="display: inline-block; width: 150px;">Status:</span> ENABLED<br>
+            <span style="display: inline-block; width: 150px;">Destination:</span> ${user_settings.get('receipt_pdf_settings--destination')}<br>
+            <span style="display: inline-block; width: 150px;">Orientation:</span> ${user_settings.get('receipt_pdf_settings--orientation')}<br>
+            <span style="display: inline-block; width: 150px;">Page Size:</span> ${user_settings.get('receipt_pdf_settings--pagesize')}<br>
+            <span style="display: inline-block; width: 150px;">Calculate Checksums:</span> ${checksums_label}<br>
         `)
     }
 }

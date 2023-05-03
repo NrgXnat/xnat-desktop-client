@@ -94,6 +94,56 @@
                         </div>
                     </form>
 
+                    <hr>
+
+
+                    <form class="row">
+
+                        <div class="form-group col-12">
+                            <label>Upload Concurrency</label>
+                            <div class="input-group">
+                                <div class="mr-3">
+                                    <input type="number" min="1" step="1" size="3" name="upload_concurrency" id="upload_concurrency" class="form-control settings-input">
+                                </div>
+                                
+                                <div>
+                                    <button class="btn btn-blue" id="save_upload_concurrency" disabled>Save</button>
+                                </div>
+                            </div>
+                            <small>The maximum number of simultaneous uploads (Default is 6.)</small>
+                        </div>
+                        
+                        <div class="form-group col-12">
+                            <label>Maximum upload chunk size (MB):</label>
+                            <div class="input-group">
+                                <div class="mr-3">
+                                    <input type="number" min="1" max="5000" step="1" name="max_upload_chunk_size" id="max_upload_chunk_size" class="form-control settings-input">
+                                </div>
+                                
+                                <div>
+                                    <button class="btn btn-blue" id="save_max_upload_chunk_size" disabled>Save</button>
+                                </div>
+                            </div>
+                            <small>Default value is 10.</small>
+                        </div>
+
+                        <div class="form-group col-12">
+                            <label>Maximum upload chunk files count:</label>
+                            <div class="input-group">
+                                <div class="mr-3">
+                                    <input value="100" type="number" min="1" max="5000" step="1" name="max_upload_chunk_count" id="max_upload_chunk_count" class="form-control settings-input">
+                                </div>
+                                
+                                <div>
+                                    <button class="btn btn-blue" id="save_max_upload_chunk_count" disabled>Save</button>
+                                </div>
+                            </div>
+                            <small>Default value is 100.</small>
+                        </div>
+                    </form>
+
+                    <hr>
+
                     <form>
                         <div class="form-group">
                             <label for="send-crash-reports">Send Crash Reports</label>
@@ -105,8 +155,6 @@
                                         <option value="1">SEND Crash Reports</option>
                                     </select>
                                 </div>
-                                
-                                
                             </div>
                             <small>Notice: Crash reports may contain sensitive data!</small>
                         </div>
@@ -148,24 +196,7 @@
                         </div>
                     </form>
 
-                    <form>
-                        <div class="form-group">
-                            <label for="zip_upload_mode">Upload mode</label>
-                            <br/>
-                            <div class="input-group row">
-                                <div class="col-7">
-                                    <select class="form-control" id="zip_upload_mode">
-                                        <option value="0">Stream (default)</option>
-                                        <option value="1">Zip</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <small>Notice: Use zip method only if it's required by your XNAT server!</small>
-                        </div>
-                    </form>
-
-                    
-                    
+                    <hr>
 
                     <form>
                         <div class="form-group">
@@ -184,28 +215,10 @@
                         </div>
                     </form>
 
-                    <form>
-                        <div class="form-group">
-                            <label>Upload Concurrency</label>
-                            <br/>
-                            <div class="input-group row">
-                                <div class="col-2">
-                                    <input type="number" min="1" step="1" name="upload_concurrency" id="upload_concurrency" class="form-control settings-input">
-                                </div>
-                                
-                                <div class="col-3">
-                                    <button class="btn btn-blue" id="save_upload_concurrency" disabled>Save</button>
-                                </div>
-                            </div>
-                            <small>The maximum number of simultaneous uploads (Default is 6.)</small>
-                        </div>
-                    </form>
-
+                    <hr>
 
                     <div class="form-group">
-                        <br>
                         <label>PDF Receipt Settings</label>
-                        <br/>
                         <div class="input-group row">
                             <div class="col-12 ml-3 mb-3" id="pdf-receipt-settings" style="font-size: 14px;"></div>
                             
@@ -326,7 +339,7 @@
                                 <div class="form-group">
                                     <div class="input-group">
                                         <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" value="" id="receipt_pdf_settings--enabled">
+                                            <input class="form-check-input magic-checkbox" type="checkbox" value="" id="receipt_pdf_settings--enabled">
                                             <label class="form-check-label" for="receipt_pdf_settings--enabled">
                                                 Enabled
                                             </label>
@@ -358,15 +371,15 @@
                                 <div class="form-group row">
                                     <legend class="col-form-label col-sm-2 pt-0">Orientation:</legend>
                                     <div class="col-sm-10">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="pdf_orientation"
+                                        <div class="">
+                                            <input class="form-check-input magic-radio" type="radio" name="pdf_orientation"
                                                 id="pdf_orientation1" value="portrait" checked>
                                             <label class="form-check-label" for="pdf_orientation1">
                                                 Portrait
                                             </label>
                                         </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="pdf_orientation"
+                                        <div class="">
+                                            <input class="form-check-input magic-radio" type="radio" name="pdf_orientation"
                                                 id="pdf_orientation2" value="landscape">
                                             <label class="form-check-label" for="pdf_orientation2">
                                                 Landscape
@@ -379,15 +392,15 @@
                                 <div class="form-group row">
                                     <legend class="col-form-label col-sm-2 pt-0">Page Size:</legend>
                                     <div class="col-sm-10">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="pdf_pagesize"
+                                        <div class="">
+                                            <input class="form-check-input magic-radio" type="radio" name="pdf_pagesize"
                                                 id="pdf_pagesize2" value="Letter" checked>
                                             <label class="form-check-label" for="pdf_pagesize2">
                                                 Letter
                                             </label>
                                         </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="pdf_pagesize"
+                                        <div class="">
+                                            <input class="form-check-input magic-radio" type="radio" name="pdf_pagesize"
                                                 id="pdf_pagesize1" value="A4">
                                             <label class="form-check-label" for="pdf_pagesize1">
                                                 A4
@@ -396,11 +409,19 @@
                                     </div>
                                 </div>
 
+                                <div class="form-group">
+                                    <div class="input-group row">
+                                        <div class="col-12">
+                                            <input class="magic-checkbox" type="checkbox" name="checksum_calculation" id="checksum_calculation">
+                                            <label for="checksum_calculation">Calculate Checksums For Uploaded Files</label>
+                                        </div>
+                                    </div>
+                                    <small>Notice: Enabling checksums will have a moderate effect on performance during uploads.</small>
+                                </div>
+
 
                             </div>
                         </div>
-
-
                         
                             
 

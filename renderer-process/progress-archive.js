@@ -7,6 +7,7 @@ const prettyBytes = require('pretty-bytes')
 const path = require('path')
 
 const FileSaver = require('file-saver')
+const tempDir = require('temp-dir')
 
 const db_uploads_archive = remote.require('./services/db/uploads_archive')
 const db_downloads_archive = remote.require('./services/db/downloads_archive')
@@ -532,6 +533,7 @@ $on('click', '[data-js-view-receipt-link]', function(e) {
 
 $on('show.bs.modal', '#upload-archive-success-log', function(e) {
     var transfer_id = $(e.relatedTarget).data('id');
+    $(this).find('.modal-content').attr('data-id', transfer_id)
     db_uploads_archive.getById(transfer_id, (err, my_transfer) => {
         console.log(my_transfer);
         console.log($(e.currentTarget));
@@ -573,6 +575,34 @@ $on('show.bs.modal', '#upload-archive-success-log', function(e) {
 
     //_init_upload_details_table(id)
 });
+
+$on('click', '[data-js-save-session-as-json]', function() {
+    let id = $(this).closest('.modal-content').attr('data-id');
+
+    console.log({id});
+
+    swal({
+        title: "Notice!",
+        text: "Export session data as JSON file?",
+        icon: "warning",
+        buttons: {
+            yes: "Export JSON",
+            cancel: "Cancel"
+        },
+
+        closeOnEsc: true,
+        dangerMode: true
+    })
+    .then(async (toDownload) => {
+        if (toDownload === "yes") {
+            let transfer = await db_uploads_archive._getById(id)
+            let my_path = path.resolve(tempDir, `${id}--${Date.now()}.json`)
+            objToJsonFile(transfer, my_path)
+
+            ipcRenderer.send('shell.showItemInFolder', my_path)
+        }
+    });
+})
 
 
 function _init_download_details_table(transfer_id) {
