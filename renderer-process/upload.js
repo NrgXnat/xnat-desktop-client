@@ -587,7 +587,7 @@ function toggle_upload_buttons() {
         })
     }
 
-    $('.js_quick_upload').prop('disabled', invalid_days || selected.length < 2 || project_settings.anon_script !== false)
+    $('.js_quick_upload').prop('disabled', invalid_days || selected.length < 2)
     //$('.js_custom_upload').prop('disabled', invalid_days || selected.length != 1)
     $('.js_custom_upload').prop('disabled', invalid_days || selected.length === 0)
 }
@@ -738,7 +738,7 @@ function _init_session_selection_table(tbl_data) {
     const $found_sessions_tbl = $('#found_sessions');
 
     const date_required = site_wide_settings.require_date || project_settings.require_date
-    const single_select = !project_settings.allow_bulk_upload || project_settings.anon_script !== false || !project_settings.allow_create_subject
+    const single_select = !project_settings.allow_bulk_upload || !project_settings.allow_create_subject
 
     if (single_select) {
         tbl_data = tbl_data.map(row => {
@@ -2575,8 +2575,6 @@ function restrictions_info() {
         return 'This project does not allow bulk uploading.'
     } else if (!project_settings.allow_create_subject) {
         return 'Subject creation is disabled for this project. Only single session upload is available.'
-    } else if (project_settings.anon_script !== false) {
-        return 'Project anonymization script contains variables. Only single session upload is available.'
     }
 
     return ''
@@ -3383,17 +3381,7 @@ $on('click', '.js_custom_upload', async function(){
     let selected = $('#found_sessions').bootstrapTable('getSelections');
 
     if (selected.length > 1) {
-        if (project_settings.anon_script === false) {
-            custom_upload_multiple_selection(selected)
-        } else {
-            await swal({
-                title: `Project Restriction - Single Session Upload`,
-                text: `Custom variables are defined for this project. Please select a single session and continue with the upload.`,
-                icon: "info",
-                dangerMode: true
-            })
-            return
-        }
+        custom_upload_multiple_selection(selected)
     } else {
         select_session_id(selected[0])
     }
