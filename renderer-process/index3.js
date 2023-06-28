@@ -643,6 +643,10 @@ ipcRenderer.on('clearVersion2DbFiles', function(e) {
     });
 })
 
+ipcRenderer.on('notify_main', (e, title, message, type, closeDelay) => {
+    console.log({title, message, type, closeDelay})
+    Helper.pnotify(title, message, type, closeDelay);
+})
 
 
 window.onerror = function (errorMsg, url, lineNumber) {

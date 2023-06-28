@@ -24,7 +24,7 @@ const ejs_template = require('../services/ejs_template')
 
 const path = require('path')
 
-const { objArrayToCSV, objToJsonFile } = require('../services/app_utils');
+const { objArrayToCSV, objToJsonFile, stripScriptTags, stripStyleTags } = require('../services/app_utils');
 const { getScanFilesProperty } = require('../services/db/utils');
 
 const { console_red } = require('../services/logger');
@@ -767,6 +767,8 @@ $on('show.bs.modal', '#error-log--upload', function(e) {
             } catch (e) {
                 details = doc.details;
             }
+            details = stripScriptTags(details)
+            details = stripStyleTags(details)
             table += `
                 <tr>
                     <td>${doc.level}</td>
@@ -1701,7 +1703,7 @@ ipcRenderer.on('upload_finished', async function(e, transfer_id){
     await db_uploads._replaceDoc(transfer_id, transfer)
 
     // add PDF settings
-    if (user_settings.getDefault('receipt_pdf_settings--enabled', false)) {
+    if (transfer.status === 'finished' && user_settings.getDefault('receipt_pdf_settings--enabled', false)) {
         await generate_pdf_receipt(transfer_id)
     }
 

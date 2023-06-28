@@ -821,3 +821,8 @@ ipcMain.on('single_upload_finished', (e, window_id) => {
 ipcMain.on('respawn_transfer', (e, transfer_id, series_id, success) => {
   uploadWindow.webContents.send('respawn_transfer', transfer_id, series_id, success);
 })
+
+// types => success (green), info (blue), notice (yellow), error (red)
+ipcMain.on('notify_main', (e, title, message, type, closeDelay) => {
+  post_message('notify_main', title, message, type, closeDelay)
+})

@@ -291,3 +291,38 @@ exports.getFilesizeInBytes = (filename) => {
     const stats = fs.statSync(filename)
     return stats.size // fileSizeInBytes
 }
+
+exports.stringifyNoCircRef = (obj) => {
+    let cache = [];
+    let str = JSON.stringify(obj, function (key, value) {
+        if (typeof value === "object" && value !== null) {
+            if (cache.indexOf(value) !== -1) {
+                // Circular reference found, discard key
+                return
+            }
+            // Store value in our collection
+            cache.push(value)
+        }
+        return value
+    });
+    cache = null // reset the cache
+    return str
+}
+
+exports.stripScriptTags = (str) => {
+    if (typeof str !== 'string') {
+        return str
+    }
+
+    const regex = /<script\b[^<]*(?:(?!<\/script\s*>)<[^<]*)*<\/script\s*>/gi;
+    return str.replace(regex, '');
+}
+
+exports.stripStyleTags = (str) => {
+    if (typeof str !== 'string') {
+        return str
+    }
+
+    const regex = /<style([\S\s]*?)>([\S\s]*?)<\/style>/gi;
+    return str.replace(regex, '');
+}

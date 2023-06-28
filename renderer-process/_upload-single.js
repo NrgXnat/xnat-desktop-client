@@ -33,7 +33,17 @@ const user_settings = require('../services/user_settings');
 const nedb_logger = remote.require('./services/db/nedb_logger')
 
 // const { copy_anonymize_stream } = require('../services/upload/copy_anonymize_stream');
-const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes } = require('../services/app_utils')
+const { 
+    file_checksum, 
+    uuidv4, 
+    isEmptyObject, 
+    promiseSerial, 
+    arrayUnique, 
+    isDevEnv, 
+    currentVersionChannel, 
+    getFilesizeInBytes, 
+    stringifyNoCircRef
+} = require('../services/app_utils')
 const { MizerError } = require('../services/errors');
 
 const CONSTANTS = require('../services/constants');
@@ -500,6 +510,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
 
 
             let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
+            // let commit_url = xnat_server + '/pera' + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
         
             console_log('-------- XCOMMIT_url ----------')
             console_log(`++++ Session commited. URL: ${commit_url}`);
@@ -586,27 +597,28 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
 
             } catch (err) {
                 console_log('-------- XCOMMIT_ERR ----------')
-                console_log(err);
+                console_log({err});
                 xnat_api.heartbeat_stop();
 
                 if (err.response.status != 301) {
-                    electron_log.error('commit_error', commit_url, JSON.stringify(err.response))
+                    electron_log.error('commit_error', commit_url, stringifyNoCircRef(err.response))
                     let error_message = `[${remote.getCurrentWindow().id}: ]` + `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`;
                     
                     nedb_logger.error(transfer.id, 'upload', error_message, err.response);
 
-                    await db_uploads._updateProperty(transfer.id, 'status', 'xnat_error', function() {
-                        update_transfer_summary(transfer.id, 'commit_errors', error_message);
-                    
-                        ipcRenderer.send('progress_cell', {
-                            table: '#upload_monitor_table',
-                            id: transfer.id,
-                            field: 'status',
-                            value: 'xnat_error'
-                        });
-                        
-                        ipcRenderer.send('upload_finished', transfer.id);
+                    // after this error the upload will be resumed.
+                    await db_uploads._updateProperty(transfer.id, 'status', 'xnat_error');
+
+                    await update_transfer_summary(transfer.id, 'commit_errors', error_message);
+
+                    ipcRenderer.send('progress_cell', {
+                        table: '#upload_monitor_table',
+                        id: transfer.id,
+                        field: 'status',
+                        value: 'xnat_error'
                     });
+                    
+                    ipcRenderer.send('upload_finished', transfer.id);
                 } else {
                     console_log(`+++ SESSION ARCHIVED +++`);
                     
@@ -650,6 +662,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
             CATCH_ERROR: err,
             tss: `${transfer.id}::${series_id}||${segment_index}`
         });
+        ipcRenderer.send('notify_main', 'notice', `handleUploadError: ${err.toString()}`, 'notice', 10000000)
         handleUploadError(transfer, series_id, segment_index, err)
     });
 
