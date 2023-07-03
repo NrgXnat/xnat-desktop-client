@@ -411,7 +411,7 @@ $on('click', '#save_max_upload_chunk_size', function(e) {
     $(this).prop('disabled', true);
 })
 
-$on('change', '#max_upload_chunk_size', function(e) {
+$on('input', '#max_upload_chunk_size', function(e) {
     $('#save_max_upload_chunk_size').prop('disabled', false);
 });
 
@@ -434,7 +434,7 @@ $on('click', '#save_max_upload_chunk_count', function(e) {
     $(this).prop('disabled', true);
 })
 
-$on('change', '#max_upload_chunk_count', function(e) {
+$on('input', '#max_upload_chunk_count', function(e) {
     $('#save_max_upload_chunk_count').prop('disabled', false);
 });
 
