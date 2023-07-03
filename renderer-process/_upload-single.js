@@ -510,7 +510,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
 
 
             let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
-            // let commit_url = xnat_server + '/pera' + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
+            // let commit_url = xnat_server + '/error_path' + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
         
             console_log('-------- XCOMMIT_url ----------')
             console_log(`++++ Session commited. URL: ${commit_url}`);
@@ -619,6 +619,9 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
                     });
                     
                     ipcRenderer.send('upload_finished', transfer.id);
+
+                    console_log({commit_err: err})
+                    throw err
                 } else {
                     console_log(`+++ SESSION ARCHIVED +++`);
                     
@@ -643,6 +646,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
                         ipcRenderer.send('upload_finished', transfer.id);
                     } catch (err1) {
                         console_log({err1})
+                        throw err1
                     }
                 }
             }
