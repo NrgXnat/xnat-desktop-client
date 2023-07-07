@@ -34,6 +34,22 @@ ipcRenderer.on('start_upload',function(e, item){
     setTimeout(do_transfer, 200);
 })
 
+ipcRenderer.on('scan_segment_done', async function(e, transfer_id, series_id, segment_index){
+    console_red('ipc.on :: scan_segment_done', transfer_id, series_id, segment_index);
+
+    let transfer = await db_uploads._getByIdCopy(transfer_id);
+
+    if (transfer.done_series_ids.includes(series_id)) {
+        const selected_row = transfer.table_rows.find(tr => tr.series_id === series_id)
+    
+        ipcRenderer.send('progress_cell', {
+            table: '#upload-details-table',
+            id: selected_row.id,
+            field: "progress",
+            value: 100
+        });
+    }
+})
 
 ipcRenderer.on('single_upload_finished', function(e, window_id){
     console_red('ipc.on :: single_upload_finished', window_id);

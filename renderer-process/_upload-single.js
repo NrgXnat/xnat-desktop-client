@@ -452,7 +452,6 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
             res: res
         };
         try {
-            await markSegmentDone(transfer.id, series_id, segment_index)
             data.transfer = await mark_uploaded(transfer.id, series_id, segment_index);
 
             nedb_logger.success(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + `Series uploaded ${series_id}, segment[${segment_index}].`);
@@ -473,7 +472,10 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
     })
     .then(async data => {
         console_red('zip upload done - then 1: ' + data.info)
-        let {transfer, res} = data;
+        let { transfer, res } = data;
+
+        ipcRenderer.send('scan_segment_done', transfer.id, series_id, segment_index)
+        
 
         let transfer_series_ids = transfer.series_ids;
         let items_in_queue = _queue_.items;
@@ -637,7 +639,6 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         }
 
         return true
-
     })
     .then(() => {
         respawn_transfer(transfer.id, series_id, true)
@@ -911,6 +912,8 @@ function sendMonitorTableUpdate (transfer, plus_bytes = 0) {
 async function mark_uploaded(transfer_id, series_id, segment_index) {
     console.count('mark_uploaded__SERIES_' + transfer_id + '::' + series_id)
     console.count('mark_uploaded__SEGMENT_' + transfer_id + '::' + series_id + '||' + segment_index)
+
+    await markSegmentDone(transfer_id, series_id, segment_index)
 
     // TODO (SINGLE UPLOAD) - queue
     _queue_.addProcessed(transfer_id, series_id, segment_index)

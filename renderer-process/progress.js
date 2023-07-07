@@ -120,10 +120,9 @@ function _init_upload_progress_table() {
 
                     if (typeof value !== 'string') {
                         let my_value = parseFloat(value);
-                        let my_text = my_value === 100 ? 'Archiving1' : '';
+                        let my_text = my_value === 100 ? 'Archiving' : '';
                         return progress_bar_html(my_value, my_text);
                     } else {
-                        //return value
                         return value === 'finished' ? 'Completed' : value;
                     } 
                 }
@@ -1104,9 +1103,13 @@ function _init_download_details_table(transfer_id) {
 }
 
 function _init_upload_details_table(transfer_id, archive = false) {
+    const $table = $$('#upload-details-table')
+    const db = archive ? db_uploads_archive : db_uploads
+
     function init_bootstrap_table(transfer) {
-        $('#upload-details-table').bootstrapTable('destroy');
-        $('#upload-details-table').bootstrapTable({
+        $table.bootstrapTable('destroy');
+
+        $table.bootstrapTable({
             uniqueId: 'id',
             sortName: 'series_number',
             sortOrder: 'asc',
@@ -1144,7 +1147,6 @@ function _init_upload_details_table(transfer_id, archive = false) {
                     class: 'right-aligned',
                     formatter: function(value, row, index, field) {
                         return prettyBytes(value);
-                        // return `${(value / 1024 / 1024).toFixed(2)} MB`;
                     }
                 }, 
                 {
@@ -1157,29 +1159,47 @@ function _init_upload_details_table(transfer_id, archive = false) {
         });
     }
 
-    const db = archive ? db_uploads_archive : db_uploads
-
     db.getById(transfer_id, (err, transfer) => {
         init_bootstrap_table(transfer);
 
-        let $details = $('#upload-details');
-        let $buttons = $details.find('.js_pause_upload, .js_cancel_upload');
+        const $details = $$('#upload-details');
+        const $buttons = $details.find('.js_pause_upload, .js_cancel_upload');
         if (transfer.status === 'finished') {
             $buttons.hide();
         } else {
             $buttons.show();
 
-            let cancel_button_html = transfer.canceled ? '<i class="fas fa-redo"></i> Restart Upload' : '<i class="far fa-stop-circle"></i> Cancel Upload';
-            $details.find('.js_cancel_upload').data({
-                'transfer_id': transfer_id,
-                'new_cancel_status': !transfer.canceled
-            }).html(cancel_button_html);
+            const cancel_button_html = transfer.canceled ?
+                '<i class="fas fa-redo"></i> Restart Upload' :
+                '<i class="far fa-stop-circle"></i> Cancel Upload';
+
+            $details.find('.js_cancel_upload')
+                .data({
+                    'transfer_id': transfer_id,
+                    'new_cancel_status': !transfer.canceled
+                })
+                .html(cancel_button_html);
         }
 
-        $('#upload-details').find('.modal-content').toggleClass('transfer-canceled', transfer.canceled);
+        $details.find('.modal-content').toggleClass('transfer-canceled', transfer.canceled);
 
-        $('#upload-details-table')
-            .bootstrapTable('removeAll')    
+        // calculate initial upload progress
+        for (let i = 0; i < transfer.table_rows.length; i++) {
+            const series_id = transfer.table_rows[i].series_id
+            if (transfer.done_series_ids.includes(series_id)) {
+                transfer.table_rows[i].progress = 100
+            } else {
+                const serie = transfer.series.find(serie => serie.seriesInstanceUid === series_id)
+                const done_bytes = serie.segments.reduce((done_bytes, segment) => {
+                    return segment.status ? done_bytes + segment.bytes : done_bytes
+                }, 0)
+
+                transfer.table_rows[i].progress = 100 * done_bytes / serie.bytes
+            }
+        }
+
+        $table
+            .bootstrapTable('removeAll')
             .bootstrapTable('append', transfer.table_rows)
             .bootstrapTable('resetView');
     });
@@ -1674,11 +1694,11 @@ function update_transfer_cancel_status(table_id, transfer_id, new_cancel_status)
     });
 }
 
-function progress_bar_html(my_value, my_text) {
+function progress_bar_html(my_value, my_text = '') {
     return `
     <div class="progress-container">
         <div class="progress-bar bg-success" role="progressbar" aria-valuenow="${my_value}" aria-valuemin="0" aria-valuemax="100" style="width:${my_value}%; height:25px;">
-            ${my_text || ''}
+            ${my_text}
             <span class="sr-only">In progress</span>
         </div>
     </div>
@@ -1839,26 +1859,23 @@ ipcRenderer.on('progress_cell',function(e, item){
         let reinit = typeof item.value != 'number' || $progress_bar.length == 0;
 
         const data_row = $item_table.bootstrapTable('getRowByUniqueId', item.id)
-        if (typeof data_row.status === 'number' && typeof item.value === 'number' && data_row.status > item.value) {
-            // old status is larger than new status => SKIP
-            console_red('SKIP PROGRESS UPDATE')
-        } else {
-            $item_table.bootstrapTable("updateCellByUniqueId", {
-                id: item.id,
-                field: item.field,
-                value: item.value,
-                reinit: reinit
-            });
+
+        // old status is larger than new status => SKIP
+        let progress_field = item.table === '#upload-details-table' ? 'progress' : 'status'
+        let should_skip_update = typeof data_row[progress_field] === 'number' && typeof item.value === 'number' && data_row[progress_field] > item.value
+        
+        if (should_skip_update) {
+            console_red('SKIP PROGRESS UPDATE', item.table)
+            return
         }
 
-        if (!reinit) {
-            let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
-            $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
-            if (percent === 100 && is_upload) {
-                $progress_bar.text('Archiving2');
-            }
-        }
-
+        $item_table.bootstrapTable("updateCellByUniqueId", {
+            id: item.id,
+            field: item.field,
+            value: item.value,
+            reinit: reinit
+        });
+        
         if (item.table === '#download_monitor_table') {
             let $modal_content = $(`#download-details [data-id=${item.id}]`);
             
@@ -1895,6 +1912,7 @@ ipcRenderer.on('progress_cell',function(e, item){
                 $modal_content.find('#transfer_rate_upload').hide();
             }
 
+            // updating big progress bar under upload details table
             if ($modal_content.is(':visible') && typeof item.value === 'number') {
                 const $details_total_progress_bar = $modal_content.find('#transfer_rate_upload .progress-bar');
                 const progress_now = parseFloat($details_total_progress_bar.attr('aria-valuenow')) || 0

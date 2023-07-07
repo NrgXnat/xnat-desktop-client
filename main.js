@@ -814,6 +814,10 @@ ipcMain.on('init_upload_single', (e, transfer, series_id, segment_index) => {
   
 })
 
+ipcMain.on('scan_segment_done', (e, transfer_id, series_id, segment_index) => {
+  uploadWindow.webContents.send('scan_segment_done', transfer_id, series_id, segment_index);
+})
+
 ipcMain.on('single_upload_finished', (e, window_id) => {
   uploadWindow.webContents.send('single_upload_finished', window_id);
 })
