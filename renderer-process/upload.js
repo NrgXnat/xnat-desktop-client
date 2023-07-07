@@ -578,8 +578,6 @@ function toggle_upload_buttons() {
 
     let skip_session_date_validation = $('#skip_session_date_validation').is(':checked');
 
-    console.log({skip_session_date_validation});
-
     let invalid_days = false;
 
     if (date_required && !skip_session_date_validation) {
@@ -591,7 +589,6 @@ function toggle_upload_buttons() {
     }
 
     $('.js_quick_upload').prop('disabled', invalid_days || selected.length < 2)
-    //$('.js_custom_upload').prop('disabled', invalid_days || selected.length != 1)
     $('.js_custom_upload').prop('disabled', invalid_days || selected.length === 0)
 }
 
