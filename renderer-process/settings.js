@@ -36,6 +36,7 @@ $on('page:load', dom_context, async function(e){
     show_default_local_storage();  
     show_default_pet_tracers();
     show_upload_concurrency();
+    show_upload_chunking_enabled();
     show_max_upload_chunk_size();
     show_max_upload_chunk_count();
 
@@ -142,6 +143,26 @@ function show_default_email_address() {
 
 function show_default_pet_tracers() {
     $('#default_pet_tracers').val(settings.get('default_pet_tracers'));
+}
+
+function show_upload_chunking_enabled() {
+    const upload_chunking_enabled = settings.get('upload_chunking_enabled', constants.UPLOAD_CHUNKING)
+    const $checkbox =$$('#upload_chunking_enabled')
+    $checkbox.prop('checked', upload_chunking_enabled)
+
+    if (upload_chunking_enabled) {
+        const targetCollapseId = $checkbox.data('target')
+        $$(targetCollapseId).addClass('show')
+    }
+
+    $checkbox.on('change', function() {
+        const upload_chunking_enabled = $checkbox.prop('checked')
+        settings.set('upload_chunking_enabled', upload_chunking_enabled)
+
+        const messageType = upload_chunking_enabled ? 'success' : 'warning'
+        const newStatus = upload_chunking_enabled ? 'ENABLED' : 'Disabled'
+        Helper.pnotify(null, `Upload chunking is ${newStatus}!`, messageType, 3000)
+    })
 }
 
 function show_max_upload_chunk_size() {

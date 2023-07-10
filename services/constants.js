@@ -6,6 +6,7 @@ module.exports = Object.freeze({
     ALLOW_VISUAL_PHI_CHECK: true, // PIXEL EDITING UI switch (upload workflow)
     BULK_IMAGE_ANONYMIZATION: true, // ALLOW_VISUAL_PHI_CHECK_BULK
     UPLOAD_SELECTION_WARNING_SIZE: 5 * 1024 * 1024 * 1024, // 5GB
+    UPLOAD_CHUNKING: false, // default upload chunking setting
     MAX_UPLOAD_CHUNK_SIZE: 10, // MB
     MAX_UPLOAD_CHUNK_COUNT: 100, // 
     KEEP_ALIVE_TIMEOUT_SEC: 60, // Keep-Alive header, timeout parameter

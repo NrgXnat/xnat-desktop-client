@@ -58,7 +58,7 @@ exports.getScanFilesProperty = (scan, prop) => {
     })
 }
 
-exports.optimizeUploadDigest = (upload, max_upload_chunk_size, max_upload_chunk_count) => {
+exports.optimizeUploadDigest = (upload, upload_chunking_enabled, max_upload_chunk_size, max_upload_chunk_count) => {
     let _upload = lodashCloneDeep(upload)
 
     _upload.series = []
@@ -111,8 +111,8 @@ exports.optimizeUploadDigest = (upload, max_upload_chunk_size, max_upload_chunk_
 
     // calculating segments
     for (let i = 0; i < _upload.series.length; i++) {
-        _upload.series[i].segments = calcSeriesSegments(_upload.series[i], max_upload_chunk_size, max_upload_chunk_count)
         _upload.series[i].bytes = calcSeriesBytes(_upload.series[i])
+        _upload.series[i].segments = calcSeriesSegments(_upload.series[i], upload_chunking_enabled, max_upload_chunk_size, max_upload_chunk_count)
     }
 
     return _upload;
@@ -141,9 +141,13 @@ function calcSegmentBytes(series, fileSliceStart, fileSliceSize) {
     return segmentBytes;
 }
 
-function calcSeriesSegments(selected_series, max_upload_chunk_size, max_upload_chunk_count) {
+function calcSeriesSegments(selected_series, upload_chunking_enabled, max_upload_chunk_size, max_upload_chunk_count) {
     let filepath_index = selected_series.dataIndex.indexOf("filepath")
     let _files = selected_series.data.map(fileInfo => selected_series.commonPath + fileInfo[filepath_index])
+
+    if (!upload_chunking_enabled) {
+        return calcSeriesSegmentsNoChunking(selected_series, _files)
+    }
 
     let filesize_index = selected_series.dataIndex.indexOf("filesize")
     let _fileSizes = selected_series.data.map(fileInfo => fileInfo[filesize_index])
@@ -188,4 +192,15 @@ function calcSeriesSegments(selected_series, max_upload_chunk_size, max_upload_c
     }
 
     return segments;
+}
+
+function calcSeriesSegmentsNoChunking(selected_series, _files) {
+    return [
+        {
+            status: false,
+            start: 0,
+            size: _files.length,
+            bytes: selected_series.bytes
+        }
+    ]
 }

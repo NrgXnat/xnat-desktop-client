@@ -49,7 +49,8 @@ const {
     PRIMARY_MODALITIES,
     CSV_UPLOAD_FIELDS,
     MAX_UPLOAD_CHUNK_SIZE,
-    MAX_UPLOAD_CHUNK_COUNT
+    MAX_UPLOAD_CHUNK_COUNT,
+    UPLOAD_CHUNKING
 } = require('../services/constants')
 
 
@@ -4470,8 +4471,9 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
 
     const max_upload_chunk_size = settings.get('max_upload_chunk_size', MAX_UPLOAD_CHUNK_SIZE)
     const max_upload_chunk_count = settings.get('max_upload_chunk_count', MAX_UPLOAD_CHUNK_COUNT)
+    const upload_chunking_enabled = settings.get('upload_chunking_enabled', UPLOAD_CHUNKING)
 
-    upload_digest = optimizeUploadDigest(upload_digest, max_upload_chunk_size, max_upload_chunk_count)
+    upload_digest = optimizeUploadDigest(upload_digest, upload_chunking_enabled, max_upload_chunk_size, max_upload_chunk_count)
 
     console.log({upload_digest});
 
