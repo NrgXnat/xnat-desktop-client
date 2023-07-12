@@ -750,18 +750,20 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             console_log({commit_data});
             
             xnat_api.heartbeat_start();
-            axios.post(commit_url, commit_data, commit_request_settings)
-            .then(commit_res => {
-                console_red('-------- XCOMMIT_SUCCESS ----------')
+
+            try {
+                const commit_res = await axios.post(commit_url, commit_data, commit_request_settings)
                 console_log('-------- XCOMMIT_SUCCESS ----------')
                 console_log(commit_res);
+    
                 xnat_api.heartbeat_stop();
-
+    
+                let num_updated = false;
                 if (commit_res.data.indexOf(reference_str) >= 0) {
                     console_log(`+++ SESSION PREARCHIVED +++`);
                     let str_start = commit_res.data.indexOf(reference_str) + reference_str.length;
                     let session_str = commit_res.data.substr(str_start);
-
+    
                     let res_arr = session_str.split('/');
                     // let res_project_id = res_arr[0];
                     // let res_timestamp = res_arr[1];
@@ -769,13 +771,9 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                     
                     session_link = xnat_server + '/app/action/LoadImageData/project/' + res_arr[0] + '/timestamp/' + res_arr[1] + '/folder/' + res_arr[2];
                     
-                    return db_uploads._updateProperty(transfer.id, 'session_link', session_link)
-                } else {
-                    return false;
+                    num_updated = db_uploads._updateProperty(transfer.id, 'session_link', session_link)
                 }
-                
-            })
-            .then(num_updated => {
+    
                 console_red('num_updated 1', {num_updated})
                 if (num_updated) {
                     Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
@@ -792,8 +790,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                         ipc.send('upload_finished', transfer.id);
                     });
                 }
-            })
-            .catch(err => {
+            } catch (err) {
                 console_log('-------- XCOMMIT_ERR ----------')
                 console_log(err.response.data);
                 xnat_api.heartbeat_stop();
@@ -816,6 +813,8 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                         
                         ipc.send('upload_finished', transfer.id);
                     });
+
+                    throw err
                 } else {
                     console_log(`+++ SESSION ARCHIVED +++`);
                     
@@ -844,16 +843,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                         }
                     );
                 }
-            })
-            .finally(() => {
-                console_red(`+++ FINALLY +++`);
-                console_log(`+++ FINALLY +++`);
-                // let _time_took = ((performance.now() - commit_timer) / 1000).toFixed(2);
-                // update_transfer_summary(transfer.id, 'timer_commit', _time_took);
-
-                // TODO - remove this from here
-                // Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
-            });
+            }
         }
 
         return true;
@@ -863,6 +853,10 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     })
     .catch(err => {
         xnat_api.heartbeat_stop();
+
+        console_log({handleUploadError: err})
+
+        ipc.send('notify_main', 'handleUploadError', err.toString(), 'notice', 10000000)
         handleUploadError(transfer, series_id, err)
     });
 

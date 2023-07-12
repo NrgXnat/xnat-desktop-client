@@ -737,3 +737,7 @@ ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base, show
   
 })
 
+// types => success (green), info (blue), notice (yellow), error (red)
+ipcMain.on('notify_main', (e, title, message, type, closeDelay) => {
+  post_message('notify_main', title, message, type, closeDelay)
+})
