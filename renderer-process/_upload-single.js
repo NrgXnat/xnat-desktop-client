@@ -8,6 +8,7 @@ const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
 const isRetryAllowed = require('is-retry-allowed');
 const progressStream = require('progress-stream');
+const { Throttle } = require('stream-throttle')
 require('promise.prototype.finally').shim();
 
 // const ElectronStore = require('electron-store');
@@ -358,7 +359,8 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         let _transfer = await db_uploads._getByIdCopy(transfer.id);
 
         sendMonitorTableUpdate(_transfer, progress.transferred)
-        sendDetailsTableUpdate(_transfer, series_id, progress.transferred)
+        // sendDetailsTableUpdate(_transfer, series_id, progress.transferred)
+        sendDetailsTableUpdate(_transfer, series_id, progress.transferred, progress)
 
         console_red('Progress transferred:', progress.transferred);
         console_red('Progress speed:', progress.speed);
@@ -399,6 +401,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         //     console_log(data)
         //     return data;
         // }],
+        //data: archive.pipe(new Throttle({rate: 150000})).pipe(prog)
         data: archive.pipe(prog)
     };
 
@@ -861,13 +864,23 @@ async function markSegmentDone(transfer_id, series_id, segment_index) {
     await db_uploads._replaceDoc(transfer_id, transfer);
 }
 
-function sendDetailsTableUpdate (transfer, series_id, plus_bytes = 0) {
+function sendDetailsTableUpdate (transfer, series_id, plus_bytes = 0, progress) {
     const serie = transfer.series.find(serie => serie.seriesInstanceUid === series_id)
 
     const selected_row = transfer.table_rows.find(tr => tr.series_id === series_id)
 
     const total = serie.bytes
     const done = calcUploadedSerieBytes(serie)
+
+    console_log({
+        '0_series_id': series_id,
+        '1_done': done, 
+        '2_plus_bytes': plus_bytes, 
+        '3_total': total, 
+        '4_percent_done': (done + plus_bytes) / total * 100,
+        '5_series.segments': serie.segments,
+        '6_progress': progress
+    })
 
     ipcRenderer.send('progress_cell', {
         table: '#upload-details-table',
