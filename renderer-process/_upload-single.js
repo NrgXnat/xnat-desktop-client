@@ -401,7 +401,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         //     console_log(data)
         //     return data;
         // }],
-        //data: archive.pipe(new Throttle({rate: 150000})).pipe(prog)
+        // data: archive.pipe(new Throttle({rate: 50000})).pipe(prog)
         data: archive.pipe(prog)
     };
 

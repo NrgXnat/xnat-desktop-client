@@ -451,10 +451,10 @@ boom@5.x.x:
   dependencies:
     hoek "4.x.x"
 
-bootstrap-table@^1.22.0:
-  version "1.22.0"
-  resolved "https://registry.yarnpkg.com/bootstrap-table/-/bootstrap-table-1.22.0.tgz#dabf7923a736ef320031c37307d143959822f586"
-  integrity sha512-N1MLgPcIOa9cfwr7CaoLOekKJ9nHq/z8lk6LsC3mLUZq77VeMC/vTh+EqN7+iT8JADmoAsX7RqQbYfVxF9ZCig==
+bootstrap-table@1.20.2:
+  version "1.20.2"
+  resolved "https://registry.yarnpkg.com/bootstrap-table/-/bootstrap-table-1.20.2.tgz#187fcd1812fa3422f964e3b32e3fc3d266108a83"
+  integrity sha512-6j9zfjjK6VZyJj8KsH+LnGczqglmMvMctGAoEAKDvrQ92ExQbA3mHGYPQr9iPrzoyeGL8+6Dyx6LqJbWmWmBoA==
 
 bootstrap4-tagsinput-douglasanpa@^4.1.2:
   version "4.1.2"

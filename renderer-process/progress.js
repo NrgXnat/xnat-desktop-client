@@ -150,6 +150,8 @@ function _init_upload_progress_table() {
                             break;
 
                         case 'finished':
+                            content = `Moving to archive`
+                            break;
                             content = `
                             <button class="btn btn-block btn-success" 
                                 data-toggle="modal" 
@@ -1848,17 +1850,29 @@ async function generate_pdf_receipt(transfer_id) {
 }
 
 ipcRenderer.on('progress_cell',function(e, item){
-    console_red('progress_cell', item);
-    let $item_table = $(item.table);
-    let $tbl_row = $(`${item.table} [data-uniqueid="${item.id}"]`);
+    let $item_table = $$(item.table);
+    let $tbl_row = $$(`${item.table} [data-uniqueid="${item.id}"]`);
     let is_upload = item.table === '#upload_monitor_table';
 
-    if ($item_table.length && $tbl_row.length) {
+    console_red('progress_cell', item);
+
+    console_red(`progress_cell::${item.table}`, {
+        tbl: $item_table.length, 
+        tbl_r: $tbl_row.length, 
+        tbl_visible: $item_table.is(':visible'),
+        tbl_html: $item_table.is(':visible') ? '-- skipped --' : $item_table.html()
+    })
+
+
+    if ($item_table.length && $tbl_row.length && $item_table.is(':visible')) {
         let $progress_bar = $tbl_row.find('.progress-bar');
 
         let reinit = typeof item.value != 'number' || $progress_bar.length == 0;
 
         const data_row = $item_table.bootstrapTable('getRowByUniqueId', item.id)
+
+        console.log({data_row});
+        console_red('progress_cell::data_row', data_row.experiment_label);
 
         // old status is larger than new status => SKIP
         let progress_field = item.table === '#upload-details-table' ? 'progress' : 'status'
@@ -1875,6 +1889,17 @@ ipcRenderer.on('progress_cell',function(e, item){
             value: item.value,
             reinit: reinit
         });
+
+        if (!reinit) {
+            let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
+            if (percent > 100) {
+                percent = 100
+            }
+            $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
+            if (percent === 100 && is_upload) {
+                $progress_bar.text('Archiving 2');
+            }
+        }
         
         if (item.table === '#download_monitor_table') {
             let $modal_content = $(`#download-details [data-id=${item.id}]`);
@@ -1905,7 +1930,7 @@ ipcRenderer.on('progress_cell',function(e, item){
         }
 
         if (is_upload) { // item.table === '#upload_monitor_table'
-            let $modal_content = $(`#upload-details [data-id=${item.id}]`);
+            let $modal_content = $$(`#upload-details [data-id=${item.id}]`);
 
             if (typeof item.value != 'number') {
                 $modal_content.find('.js_cancel_upload').hide();
