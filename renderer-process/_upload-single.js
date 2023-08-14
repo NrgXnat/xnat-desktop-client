@@ -34,7 +34,7 @@ const user_settings = require('../services/user_settings');
 const nedb_logger = remote.require('./services/db/nedb_logger')
 
 // const { copy_anonymize_stream } = require('../services/upload/copy_anonymize_stream');
-const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes } = require('../services/app_utils')
+const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes, simpleLog } = require('../services/app_utils')
 const { MizerError } = require('../services/errors');
 
 const CONSTANTS = require('../services/constants');
@@ -129,16 +129,16 @@ ipcRenderer.on('set_window_id',function(e, upload_window_id){
 
 let uploadStartTimer;
 
-ipcRenderer.on('single_upload_data', async function(e, transfer, series_id, segment_index) {
+ipcRenderer.on('single_upload_data', async function(e, transfer_id, series_id, segment_index) {
     console_red('ipcRenderer.on :: single_upload_data');
 
-    electron_log.info(`FROM SINGLE UPLOAD (window: ${WINDOW_ID})`, `${transfer.id}::${series_id}||${segment_index}`)
+    electron_log.info(`FROM SINGLE UPLOAD (window: ${WINDOW_ID})`, `${transfer_id}::${series_id}||${segment_index}`)
     
     console_log({
-        transfer_id: transfer.id, series_id, segment_index
+        transfer_id, series_id, segment_index
     })
     
-    let transfer_copy = await db_uploads._getByIdCopy(transfer.id)
+    let transfer_copy = await db_uploads._getByIdCopy(transfer_id)
 
     if (transfer_copy !== null) {
         uploadStartTimer = performance.now()
@@ -288,13 +288,22 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
 
     const xnat_api = new XNATAPI(xnat_server, user_auth);
 
-    let dicom_temp_folder_path = get_temp_upload_path();
-    let new_dirname = 'dir_' + Date.now(); // eg. dir_1522274921704
-    let new_dirpath = path.join(dicom_temp_folder_path, new_dirname);
-
-    fx.mkdirSync(new_dirpath, function (err) {
-        if (err) throw err;
-    });
+    const dicom_temp_folder_path = get_temp_upload_path();
+    let dirCreated = false;
+    while (!dirCreated) {
+        let new_dirpath = path.join(dicom_temp_folder_path, `dir_${Date.now()}`);
+        
+        fx.mkdirSync(new_dirpath, function (err) {
+            if (!err) {
+                dirCreated = true
+                simpleLog(`DIR Created (WINDOW_ID: ${WINDOW_ID}): ${new_dirpath}`, 'xdc--queue')
+            } else {
+                simpleLog(`DIR NOT Created (WINDOW_ID: ${WINDOW_ID}): ${new_dirpath}`, 'xdc--queue')
+                simpleLog(err, 'xdc--queue')
+            }
+        });
+    }
+    
 
     
     let cancelCurrentUpload;
@@ -401,7 +410,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         //     console_log(data)
         //     return data;
         // }],
-        // data: archive.pipe(new Throttle({rate: 50000})).pipe(prog)
+        // data: archive.pipe(new Throttle({rate: 500000000})).pipe(prog)
         data: archive.pipe(prog)
     };
 
@@ -425,7 +434,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
     if (current_transfer.canceled === true) {
         // TODO (SINGLE UPLOAD) - queue
         _queue_.remove_many(transfer.id);
-        respawn_transfer(transfer.id, series_id, false)
+        respawn_transfer(transfer.id, series_id, segment_index, false)
         return;
     }
 
@@ -644,7 +653,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         return true
     })
     .then(() => {
-        respawn_transfer(transfer.id, series_id, true)
+        respawn_transfer(transfer.id, series_id, segment_index, true)
     })
     .catch(async err => {
         xnat_api.heartbeat_stop();
@@ -1039,11 +1048,13 @@ function handleUploadError(transfer, series_id, segment_index, err) {
     remove_cancel_token(transfer.id, series_id, segment_index)
 
     // TODO (SINGLE UPLOAD) - queue
+    let transfer_label = `${transfer.id}::${series_id}||${segment_index}`;
+    simpleLog(`*${transfer_label} > handleUploadError`, 'xdc--queue')
     _queue_.remove(transfer.id, series_id, segment_index);
 
     if (log_and_respawn) {
         update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
-            respawn_transfer(transfer.id, series_id, false)
+            respawn_transfer(transfer.id, series_id, segment_index, false)
         });
     } else {
         // TODO (SINGLE UPLOAD) - queue
@@ -1144,10 +1155,13 @@ async function update_transfer_summary(transfer_id, property, new_value, callbac
 }
 
 // TODO (SINGLE UPLOAD) - fix this
-function respawn_transfer(transfer_id, series_id, success) {
-    console_red('respawn_transfer', {transfer_id, series_id, success})
+function respawn_transfer(transfer_id, series_id, segment_index, success) {
+    console_red('respawn_transfer', {transfer_id, series_id, segment_index, success})
 
-    ipcRenderer.send('respawn_transfer', transfer_id, series_id, success)
+    ipcRenderer.send('respawn_transfer', transfer_id, series_id, segment_index, success)
+
+    let transfer_label = `${transfer_id}::${series_id}||${segment_index}`;
+    simpleLog(`*${transfer_label} > respawn_transfer (upload time: ${_time_offset(uploadStartTimer)})`, 'xdc--queue')
 
     console.log({transfer_progress})
     console.log({total_upload_time: _time_offset(uploadStartTimer)});

@@ -24,7 +24,7 @@ const ejs_template = require('../services/ejs_template')
 
 const path = require('path')
 
-const { objArrayToCSV, objToJsonFile } = require('../services/app_utils');
+const { objArrayToCSV, objToJsonFile, simpleLog } = require('../services/app_utils');
 const { getScanFilesProperty } = require('../services/db/utils');
 
 const { console_red } = require('../services/logger');
@@ -1708,6 +1708,7 @@ function progress_bar_html(my_value, my_text = '') {
 }
 
 ipcRenderer.on('upload_finished', async function(e, transfer_id){
+    simpleLog(`upload_finished::${transfer_id}`, 'xdc--queue')
     let _transfer = await db_uploads._getById(transfer_id)
     let transfer = lodashCloneDeep(_transfer)
 
@@ -1728,6 +1729,8 @@ ipcRenderer.on('upload_finished', async function(e, transfer_id){
     }
 
     await remove_finished_upload(transfer_id)
+
+    simpleLog(`upload_finished::${transfer_id} DONE`, 'xdc--queue')
 
 
     let $modal_content = $(`#upload-details [data-id=${transfer_id}]`);
@@ -1760,8 +1763,8 @@ function remove_finished_upload(transfer_id) {
                 delete_ids.push(transfer._id)
                 let transfer_copy = lodashCloneDeep(transfer)
                 
-                transfer_copy.series = [] // remove large data set from series
-                transfer_copy.checksums = [] // remove no longer needed checksums
+                // transfer_copy.series = [] // remove large data set from series
+                // transfer_copy.checksums = [] // remove no longer needed checksums
                 to_archive.push(transfer_copy)
             }
         }
@@ -1930,6 +1933,9 @@ ipcRenderer.on('progress_cell',function(e, item){
         }
 
         if (is_upload) { // item.table === '#upload_monitor_table'
+            if (item.value === 'finished') {
+                simpleLog(`progress_cell--finished :: ${item.id}`)
+            }
             let $modal_content = $$(`#upload-details [data-id=${item.id}]`);
 
             if (typeof item.value != 'number') {
@@ -2001,17 +2007,26 @@ ipcRenderer.on('refresh_progress_tables', (e, refresh_data) => {
 $on('click', 'button[data-js="test_checksum"]', async function() {
     console.log('KLIK')
 
-    store_checksums(
-        '8eedbc24-4a2d-47a9-a226-4600987f4568',
-        '1.2.826.0.1.3417726.3.908247.20150604161156631'
-    )
+    const upload_concurrency = settings.get('upload_concurrency', CONSTANTS.DEFAULT_UPLOAD_CONCURRENCY)
+    const max_upload_chunk_size = settings.get('max_upload_chunk_size', CONSTANTS.MAX_UPLOAD_CHUNK_SIZE)
+    const max_upload_chunk_count = settings.get('max_upload_chunk_count', CONSTANTS.MAX_UPLOAD_CHUNK_COUNT)
+    const upload_chunking_enabled = settings.get('upload_chunking_enabled', CONSTANTS.UPLOAD_CHUNKING)
 
-    return
+    const upload_settings = `${upload_concurrency}|${upload_chunking_enabled}|${max_upload_chunk_size}MB|${max_upload_chunk_count}`
+    
+    simpleLog(`==================================================`, 'xdc-chunks')
+    simpleLog(`Upload settings: ${upload_settings}`, 'xdc-chunks')
 
     let transfers = await getUploads()
-
     for (let k = 0; k < transfers.length; k++) {
-        await store_checksums(transfers[k])
+        // simpleLog(`--- transfer ---`, 'xdc-chunks')
+        // simpleLog(transfers[k].url_data.expt_label + ' ID:' + transfers[k].id, 'xdc-chunks')
+
+        for (let j = 0; j < transfers[k].series.length; j++) {
+            const segments = transfers[k].url_data.expt_label + '//' + transfers[k].id + '::' +
+                transfers[k].series[j].seriesInstanceUid + '(' + transfers[k].series[j].segments.length + ')'
+            simpleLog(segments, 'xdc-chunks')
+        }
     }
 })
 

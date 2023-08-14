@@ -6,7 +6,7 @@ const settings = new ElectronStore()
 
 const auth = require('../services/auth')
 const db_uploads = remote.require('./services/db/uploads')
-const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes } = require('../services/app_utils')
+const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes, simpleLog } = require('../services/app_utils')
 
 const { console_red } = require('../services/logger')
 const electron_log = remote.require('./services/electron_log')
@@ -55,12 +55,16 @@ ipcRenderer.on('single_upload_finished', function(e, window_id){
     console_red('ipc.on :: single_upload_finished', window_id);
 })
 
-ipcRenderer.on('respawn_transfer', function(e, transfer_id, series_id, success){
-    console_red('ipc.on :: respawn_transfer', transfer_id, series_id, success);
-    respawn_transfer(transfer_id, series_id, success)
+ipcRenderer.on('respawn_transfer', function(e, transfer_id, series_id, segment_index, success){
+    console_red('ipc.on :: respawn_transfer', transfer_id, series_id, segment_index, success);
+    // let transfer_label = `${transfer_id}::${series_id}||${segment_index}`;
+    // simpleLog(`ipc.on :: respawn_transfer [${transfer_label}] - ${isDoingTransfer ? 'NO RESPAWN' : 'YES RESPAWN'}`, 'xdc--queue')
+    respawn_transfer(transfer_id, series_id, segment_index, success)
 })
 
 ipcRenderer.on('single_upload_load_error', async function(e, transfer_id, series_id, segment_index) {
+    let transfer_label = `${transfer_id}::${series_id}||${segment_index}`;
+    simpleLog(`*${transfer_label} > single_upload_load_error`, 'xdc--queue')
     _queue_.remove(transfer_id, series_id, segment_index)
     respawn_transfer(transfer_id, series_id, false)
 })
@@ -79,15 +83,21 @@ if (!settings.has('global_pause')) {
 // let { _queue_ } = require('../services/_queue_')
 let { _queue_ } = remote.getGlobal('shared');
 
-
+let isDoingTransfer = false;
 
 console_log(__filename);
 do_transfer();
-setInterval(do_transfer, 10000);
-
+setInterval(do_transfer, 10000, 'setInterval');
 
 
 async function do_transfer(source_series_id = 'initial', source_upload_success = true) {
+    simpleLog(`do_transfer [${source_series_id}] > ${isDoingTransfer ? 'SKIP' : 'GO'}`, 'xdc--queue')
+    if (isDoingTransfer || settings.get('global_pause')) {
+        return
+    }
+
+    isDoingTransfer = true
+
     let xnat_server = settings.get('xnat_server');
     let current_username = auth.get_current_user();
 
@@ -97,11 +107,6 @@ async function do_transfer(source_series_id = 'initial', source_upload_success =
         current_username
     });
 
-
-    if (settings.get('global_pause')) {
-        return;
-    }
-
     let _list_all_timer = performance.now();
 
     let current_transfers = [];
@@ -110,6 +115,7 @@ async function do_transfer(source_series_id = 'initial', source_upload_success =
 
         let _list_all_took = ((performance.now() - _list_all_timer) / 1000).toFixed(2);
         console_red('_list_all_took', _list_all_took)
+        simpleLog(`_list_all_took [${source_series_id}] > ${_list_all_took}`, 'xdc--queue')
 
         current_transfers = my_transfers.filter(transfer => {
             return transfer.xnat_server === xnat_server && 
@@ -121,10 +127,12 @@ async function do_transfer(source_series_id = 'initial', source_upload_success =
 
     } catch (db_uploads_listAll_error) {
         console_log({db_uploads_listAll_error});
+        isDoingTransfer = false
         return
     }
 
     if (current_transfers.length && _queue_.queueNotFull()) {
+        const loop_start_time = performance.now()
         for (let i = 0; i < current_transfers.length; i++) {
             let transfer = current_transfers[i]
 
@@ -138,22 +146,32 @@ async function do_transfer(source_series_id = 'initial', source_upload_success =
                 for (let segment_index = 0; segment_index < selected_series.segments.length; segment_index++) {
                     if (_queue_.add(transfer.id, series_id, segment_index)) {
                         doUpload(transfer, series_id, segment_index);
+                    } else {
+                        // simpleLog(`do_transfer [${source_series_id}] > doUpload SKIP`, 'xdc--queue')
                     }
                 }
             }
         }
-    } else {
-        console_log('Queue FULL', _queue_.items.length);
+        simpleLog(`do_transfer [${source_series_id}] > loop_time: ${_time_offset(loop_start_time)}`, 'xdc--queue')
     }
+
+    isDoingTransfer = false
+}
+
+function _time_offset(start_time) {
+    return ((performance.now() - start_time) / 1000).toFixed(2);
 }
 
 async function doUpload(transfer, series_id, segment_index) {
-    ipcRenderer.send('init_upload_single', transfer, series_id, segment_index)
+    ipcRenderer.send('init_upload_single', transfer.id, series_id, segment_index)
 }
 
-function respawn_transfer(transfer_id, series_id, success) {
-    console_red('respawn_transfer', {transfer_id, series_id, success})
-    do_transfer(series_id, success);
+function respawn_transfer(transfer_id, series_id, segment_index, success) {
+    console_red('respawn_transfer', {transfer_id, series_id, segment_index, success})
+    // transfer, series_id, segment_index
+
+    let transfer_label = `${transfer_id}::${series_id}||${segment_index}`;
+    do_transfer(transfer_label, success);
 }
 
 

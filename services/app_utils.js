@@ -291,3 +291,41 @@ exports.getFilesizeInBytes = (filename) => {
     const stats = fs.statSync(filename)
     return stats.size // fileSizeInBytes
 }
+
+function getCurrentTime() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-11, so we add 1
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+    
+    return `${year}-${month}-${day}_${hours}:${minutes}:${seconds}.${milliseconds}`;
+}
+
+exports.simpleLog = (msg, filename = 'xdc-log-3') => {
+    // if (filename !== 'xdc--queue-log') return
+    
+    const date = getCurrentTime()
+    const filepath = `${filename}.log`
+    const longMsg = `${date}: ${msg}\n`
+    /*
+    fs.appendFile(filepath, longMsg, (err) => {
+        if (err) {
+            console.error('xdc-log error:', err);
+        } else {
+            console.log('xdc-log SUCCESS.');
+        }
+    });
+    */
+    try {
+        // Append data to a file
+        fs.appendFileSync(filepath, longMsg);
+        // console.log('xdc-log SUCCESS.');
+    } catch (error) {
+        console.error('xdc-log error:', err);
+    }
+};
+
