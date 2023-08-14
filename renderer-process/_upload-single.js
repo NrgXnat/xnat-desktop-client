@@ -138,7 +138,8 @@ ipcRenderer.on('single_upload_data', async function(e, transfer_id, series_id, s
         transfer_id, series_id, segment_index
     })
     
-    let transfer_copy = await db_uploads._getByIdCopy(transfer_id)
+    let transfer = await db_uploads._getByIdCopy(transfer_id)
+    let transfer_copy = lodashCloneDeep(transfer)
 
     if (transfer_copy !== null) {
         uploadStartTimer = performance.now()
@@ -149,6 +150,7 @@ ipcRenderer.on('single_upload_data', async function(e, transfer_id, series_id, s
         doUpload(transfer_copy, series_id, segment_index)
     } else {
         electron_log.error(`FROM SINGLE UPLOAD (window: ${WINDOW_ID})`, `transfer_copy IS NULL`)
+        simpleLog(`(window: ${WINDOW_ID}) transfer_copy IS NULL`, 'xdc--queue')
         closeThisWindow()
     }
 })
@@ -275,8 +277,8 @@ function set_transfer_totals_summary(transfer) {
 }
 
 async function copy_and_anonymize(transfer, series_id, segment_index, filePaths, contexts, variables, csrfToken) {
-    const upload_id = uuidv4()
-    // console_red('copy_and_anonymize')
+    console_red('copy_and_anonymize')
+    simpleLog(`(window: ${WINDOW_ID}) copy_and_anonymize`, 'xdc--queue')
     let _timer = performance.now();
 
     let selected_series = transfer.series.find(ss => series_id === ss.seriesInstanceUid);
@@ -291,7 +293,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
     const dicom_temp_folder_path = get_temp_upload_path();
     let dirCreated = false;
     while (!dirCreated) {
-        let new_dirpath = path.join(dicom_temp_folder_path, `dir_${Date.now()}`);
+        let new_dirpath = path.join(dicom_temp_folder_path, `dir_${uuidv4()}`);
         
         fx.mkdirSync(new_dirpath, function (err) {
             if (!err) {
@@ -304,7 +306,8 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         });
     }
     
-
+    simpleLog(`(window: ${WINDOW_ID}) ${dirCreated ? 'dirCreated' : 'not dirCreated'}`, 'xdc--queue')
+    
     
     let cancelCurrentUpload;
 

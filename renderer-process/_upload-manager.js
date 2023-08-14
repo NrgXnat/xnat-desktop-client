@@ -145,7 +145,7 @@ async function do_transfer(source_series_id = 'initial', source_upload_success =
 
                 for (let segment_index = 0; segment_index < selected_series.segments.length; segment_index++) {
                     if (_queue_.add(transfer.id, series_id, segment_index)) {
-                        doUpload(transfer, series_id, segment_index);
+                        await doUpload(transfer, series_id, segment_index);
                     } else {
                         // simpleLog(`do_transfer [${source_series_id}] > doUpload SKIP`, 'xdc--queue')
                     }
@@ -163,7 +163,13 @@ function _time_offset(start_time) {
 }
 
 async function doUpload(transfer, series_id, segment_index) {
-    ipcRenderer.send('init_upload_single', transfer.id, series_id, segment_index)
+    return new Promise(resolve => {
+        setTimeout(() => {
+            ipcRenderer.send('init_upload_single', transfer.id, series_id, segment_index)
+            resolve()
+        }, 1000);
+    });
+    
 }
 
 function respawn_transfer(transfer_id, series_id, segment_index, success) {

@@ -782,7 +782,12 @@ ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
     const distinctError2 = 'Uncaught ReferenceError: require is not defined';
     const distinctError3 = "Uncaught (in promise) TypeError: Cannot read property 'canceled' of null";
     
-    if ( level === 2 && ( message.startsWith(distinctError) || message.startsWith(distinctError2) || message.startsWith(distinctError3) ) ) {
+    if ( level === 2 && ( 
+        message.startsWith(distinctError) || 
+        message.startsWith(distinctError2) || 
+        message.startsWith(distinctError3) 
+      ) 
+    ) {
       console.log('console-message (TARGETED ERROR):' + uploadWindowSingle.id)
       uploadWindowSingle.close()
       uploadWindow.webContents.send('single_upload_load_error', transfer_id, series_id, segment_index);
@@ -793,9 +798,9 @@ ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
   uploadWindowSingle.loadURL(path.join('file://', __dirname, '/sections/_upload-single.html'));
   updateUserAgentString(uploadWindowSingle);
 
-  // uploadWindowSingle.showInactive()
-  // uploadWindowSingle.webContents.openDevTools()
-  // uploadWindowSingle.maximize()
+  uploadWindowSingle.showInactive()
+  uploadWindowSingle.webContents.openDevTools()
+  uploadWindowSingle.maximize()
 
   uploadWindowSingle.webContents.once('did-finish-load', () => {
     console.log('did-finish-load:' + uploadWindowSingle.id)
