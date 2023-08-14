@@ -1763,8 +1763,8 @@ function remove_finished_upload(transfer_id) {
                 delete_ids.push(transfer._id)
                 let transfer_copy = lodashCloneDeep(transfer)
                 
-                transfer_copy.series = [] // remove large data set from series
-                transfer_copy.checksums = [] // remove no longer needed checksums
+                // transfer_copy.series = [] // remove large data set from series
+                // transfer_copy.checksums = [] // remove no longer needed checksums
                 to_archive.push(transfer_copy)
             }
         }
