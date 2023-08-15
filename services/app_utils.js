@@ -306,20 +306,12 @@ function getCurrentTime() {
 }
 
 exports.simpleLog = (msg, filename = 'xdc-log-3') => {
-    // if (filename !== 'xdc--queue-log') return
+    return
     
     const date = getCurrentTime()
     const filepath = `${filename}.log`
     const longMsg = `${date}: ${msg}\n`
-    /*
-    fs.appendFile(filepath, longMsg, (err) => {
-        if (err) {
-            console.error('xdc-log error:', err);
-        } else {
-            console.log('xdc-log SUCCESS.');
-        }
-    });
-    */
+    
     try {
         // Append data to a file
         fs.appendFileSync(filepath, longMsg);
