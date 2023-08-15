@@ -11,6 +11,9 @@ const progressStream = require('progress-stream');
 const { Throttle } = require('stream-throttle')
 require('promise.prototype.finally').shim();
 
+const ElectronStore = require('electron-store')
+const settings = new ElectronStore()
+
 // const ElectronStore = require('electron-store');
 // const settings = new ElectronStore();
 
@@ -130,6 +133,7 @@ ipcRenderer.on('set_window_id',function(e, upload_window_id){
 let uploadStartTimer;
 
 ipcRenderer.on('single_upload_data', async function(e, transfer_id, series_id, segment_index) {
+
     console_red('ipcRenderer.on :: single_upload_data');
 
     electron_log.info(`FROM SINGLE UPLOAD (window: ${WINDOW_ID})`, `${transfer_id}::${series_id}||${segment_index}`)
@@ -141,7 +145,7 @@ ipcRenderer.on('single_upload_data', async function(e, transfer_id, series_id, s
     let transfer = await db_uploads._getByIdCopy(transfer_id)
     let transfer_copy = lodashCloneDeep(transfer)
 
-    if (transfer_copy !== null) {
+    if (!settings.get('global_pause') && transfer_copy !== null) {
         uploadStartTimer = performance.now()
         
         const window = remote.getCurrentWindow()
@@ -151,6 +155,7 @@ ipcRenderer.on('single_upload_data', async function(e, transfer_id, series_id, s
     } else {
         electron_log.error(`FROM SINGLE UPLOAD (window: ${WINDOW_ID})`, `transfer_copy IS NULL`)
         simpleLog(`(window: ${WINDOW_ID}) transfer_copy IS NULL`, 'xdc--queue')
+        _queue_.remove(transfer_id, series_id, segment_index);
         closeThisWindow()
     }
 })
@@ -167,6 +172,7 @@ let csrfToken;
 // =========================
 async function doUpload(transfer, series_id, segment_index) {
     console_red('uploading_segment_id', `${transfer.id}::${series_id}||${segment_index}`);
+    simpleLog(`(window: ${WINDOW_ID}) doUpload start`, 'xdc--queue')
 
     let xnat_server = transfer.xnat_server, 
         project_id = transfer.url_data.project_id,
@@ -178,6 +184,8 @@ async function doUpload(transfer, series_id, segment_index) {
     if (csrfToken === false) {
         _queue_.remove_many(transfer.id);
         execute_cancel_token(transfer.id);
+
+        simpleLog(`(window: ${WINDOW_ID}) force_reauthenticate`, 'xdc--queue')
         
         ipcRenderer.send('force_reauthenticate', auth.current_login_data());
         return;
@@ -210,6 +218,7 @@ async function doUpload(transfer, series_id, segment_index) {
     _files = _files.slice(fstart, fend)
 
     console_red('FILES FOR UPLOAD:', _files.length)
+    simpleLog(`(window: ${WINDOW_ID}) FILES FOR UPLOAD: ${_files.length}`, 'xdc--queue')
 
     let contexts, variables;
     
@@ -243,6 +252,7 @@ async function doUpload(transfer, series_id, segment_index) {
         copy_and_anonymize(transfer, series_id, segment_index, _files, contexts, variables, csrfToken)
     })
     .catch(function(error) {
+        simpleLog(`(window: ${WINDOW_ID}) xnat_api.anon_scripts catch`, 'xdc--queue')
         electron_log.error(error);
         nedb_logger.error(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + error.message, error);
         console_log(error); // Test with throwing random errors (and rejecting promises)
@@ -292,22 +302,19 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
 
     const dicom_temp_folder_path = get_temp_upload_path();
     let dirCreated = false;
+    let new_dirpath
     while (!dirCreated) {
-        let new_dirpath = path.join(dicom_temp_folder_path, `dir_${uuidv4()}`);
-        
-        fx.mkdirSync(new_dirpath, function (err) {
-            if (!err) {
-                dirCreated = true
-                simpleLog(`DIR Created (WINDOW_ID: ${WINDOW_ID}): ${new_dirpath}`, 'xdc--queue')
-            } else {
-                simpleLog(`DIR NOT Created (WINDOW_ID: ${WINDOW_ID}): ${new_dirpath}`, 'xdc--queue')
-                simpleLog(err, 'xdc--queue')
-            }
-        });
+        new_dirpath = path.join(dicom_temp_folder_path, `dir_${uuidv4()}`);
+
+        try {
+            fx.mkdirSync(new_dirpath);
+            dirCreated = true
+            simpleLog(`DIR Created (WINDOW_ID: ${WINDOW_ID}): ${new_dirpath}`, 'xdc--queue')
+        } catch (err) {
+            simpleLog(`DIR NOT Created (WINDOW_ID: ${WINDOW_ID}): ${new_dirpath}`, 'xdc--queue')
+            simpleLog(err.message, 'xdc--queue')
+        }
     }
-    
-    simpleLog(`(window: ${WINDOW_ID}) ${dirCreated ? 'dirCreated' : 'not dirCreated'}`, 'xdc--queue')
-    
     
     let cancelCurrentUpload;
 
@@ -327,6 +334,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
     // good practice to catch this error explicitly
     archive.on('error', function (err) {
         console_red('anon archiver error', err)
+        simpleLog(`(window: ${WINDOW_ID}) - archive.on('error')`, 'xdc--queue')
         electron_log.error(err)
         // throw err;
     });
@@ -773,6 +781,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         console_red('anon finished 1', {copy_errors})
 
         if (copy_errors.length) {
+            simpleLog(`(window: ${WINDOW_ID}) - copy_errors.length`, 'xdc--queue')
             // ===== Attempt 2
             const funcs2 = copy_errors.map(copyAnonArchive);
 
