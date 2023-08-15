@@ -133,6 +133,7 @@ ipcRenderer.on('set_window_id',function(e, upload_window_id){
 let uploadStartTimer;
 
 ipcRenderer.on('single_upload_data', async function(e, transfer_id, series_id, segment_index) {
+
     console_red('ipcRenderer.on :: single_upload_data');
 
     electron_log.info(`FROM SINGLE UPLOAD (window: ${WINDOW_ID})`, `${transfer_id}::${series_id}||${segment_index}`)

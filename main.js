@@ -798,9 +798,9 @@ ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
   uploadWindowSingle.loadURL(path.join('file://', __dirname, '/sections/_upload-single.html'));
   updateUserAgentString(uploadWindowSingle);
 
-  uploadWindowSingle.showInactive()
-  uploadWindowSingle.webContents.openDevTools()
-  uploadWindowSingle.maximize()
+  // uploadWindowSingle.showInactive()
+  // uploadWindowSingle.webContents.openDevTools()
+  // uploadWindowSingle.maximize()
 
   uploadWindowSingle.webContents.once('did-finish-load', () => {
     console.log('did-finish-load:' + uploadWindowSingle.id)
