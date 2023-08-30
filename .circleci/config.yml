@@ -2,7 +2,7 @@ build_config: &build_config
   BUILD_IMAGE_NAME: xnat/node-java-build
   BUILD_IMAGE_TAG: latest
   CACHE_VERSION: v2
-  NODE_VERSION: "v14.20.0"
+  NODE_VERSION: "v10.24.1"
   NVM_VERSION: "0.39.1"
   JAVA_VERSION: "zulu8.64.0.19-ca-jdk8.0.345"
   JDK_ROOT: "https://cdn.azul.com/zulu/bin"
