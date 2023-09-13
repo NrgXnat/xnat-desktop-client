@@ -124,6 +124,31 @@ if (process.env.NODE_ENV !== 'production') {
                 }
             },
             {
+                label: 'Transfer Windows - SHOW',
+                click: function(item, focusedWindow) {
+                    let uploadWindow = BrowserWindow.fromId(2)
+                    let downloadWindow = BrowserWindow.fromId(3)
+
+                    uploadWindow.showInactive()
+                    uploadWindow.webContents.openDevTools()
+                    uploadWindow.maximize()
+
+                    downloadWindow.showInactive()
+                    downloadWindow.webContents.openDevTools()
+                    downloadWindow.maximize()
+                }
+            },
+            {
+                label: 'Transfer Windows - HIDE',
+                click: function(item, focusedWindow) {
+                    let uploadWindow = BrowserWindow.fromId(2)
+                    let downloadWindow = BrowserWindow.fromId(3)
+
+                    uploadWindow.hide()
+                    downloadWindow.hide()
+                }
+            },
+            {
                 role: 'reload'
             }
         ]
