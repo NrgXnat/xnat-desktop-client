@@ -1,6 +1,9 @@
 const path = require('path');
 const axios = require('axios');
 const sha1 = require('sha1');
+
+const XNATAPI = require('./xnat-api')
+
 require('promise.prototype.finally').shim();
 
 let api = {
@@ -12,11 +15,8 @@ let api = {
         try {
             console.log(`------------- set_logo_path --------------`);
             
-            let home_page = axios.get(xnat_server + '/', {
-                auth: user_auth
-            });
-            
-            let resp = await home_page; // wait till the promise resolves (*)
+            const xnatApi = new XNATAPI(xnat_server, user_auth)
+            let resp = await xnatApi.axios_get('/'); // wait till the promise resolves (*)
 
             // create a virtual document to avoid image download
             let newDocument = document.implementation.createHTMLDocument('virtual');

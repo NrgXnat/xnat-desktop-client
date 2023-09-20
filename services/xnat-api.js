@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { sortAlpha } = require('./app_utils');
+const { sortAlpha, apiRequestLog } = require('./app_utils');
 const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
 const https = require('https');
@@ -28,19 +28,23 @@ class XNATAPI {
 
     //******** axios helpers ********* */
     axios_get(url_path) {
+        apiRequestLog(`INIT axios.get: ${url_path}`)
         return axios.get(this.xnat_server + url_path, this.axios_config())
     }
 
     axios_put(url_path) {
+        apiRequestLog(`INIT axios.put: ${url_path}`)
         return axios.put(this.xnat_server + url_path, this.axios_config())
     }
 
     axios_delete(url_path) {
+        apiRequestLog(`INIT axios.delete: ${url_path}`)
         return axios.delete(this.xnat_server + url_path, this.axios_config())
     }
 
-    axios_post(url_path, params) {
-        return axios.post(this.xnat_server + url_path, params, this.axios_config())
+    axios_post(url_path, params, request_settings = this.axios_config()) {
+        apiRequestLog(`INIT axios.post: ${url_path}`)
+        return axios.post(this.xnat_server + url_path, params, request_settings)
     }
 
     catch_handler(err, resolve, reject) {

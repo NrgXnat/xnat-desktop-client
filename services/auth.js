@@ -11,14 +11,15 @@ const isPlainObject = require('lodash/isPlainObject')
 const XNATAPI = require('./xnat-api')
 
 const auth = {
+    api: (xnat_server, user_auth = {}) => {
+        return new XNATAPI(xnat_server, user_auth)
+    },
     login_promise: (xnat_server, user_auth) => {
-        return axios.get(xnat_server + '/data/auth', {
-            auth: user_auth
-        })
+        return auth.api(xnat_server, user_auth).axios_get(`/data/auth`)
     },
 
     logout_promise: (xnat_server) => {
-        return axios.get(xnat_server + '/app/action/LogoutUser');
+        return auth.api(xnat_server).axios_get(`/app/action/LogoutUser`)
     },
 
     current_login_data: () => {

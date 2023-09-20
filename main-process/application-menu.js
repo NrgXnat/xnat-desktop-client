@@ -149,6 +149,21 @@ if (process.env.NODE_ENV !== 'production') {
                 }
             },
             {
+                label: 'Show Request Log',
+                click: function(item, focusedWindow) {
+                    const now = new Date()
+                    const year = now.getFullYear()
+                    const month = String(now.getMonth() + 1).padStart(2, '0')
+
+                    const filepath = path.join(app.getPath('userData'), `request-log--${year}-${month}.log`)
+                    
+                    shell.showItemInFolder(filepath)
+                }
+            },
+            {
+                type: 'separator'
+            },
+            {
                 role: 'reload'
             }
         ]

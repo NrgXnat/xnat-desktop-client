@@ -284,3 +284,40 @@ exports.alNumDashUnderscore = (input, replacedBy = "_") => {
 exports.arrayUnique = (arr) => {
     return arr.filter((item, pos) => arr.indexOf(item) === pos)
 }
+
+function getCurrentTime() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-11, so we add 1
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+    
+    return `${year}-${month}-${day}_${hours}:${minutes}:${seconds}.${milliseconds}`;
+}
+
+exports.apiRequestLog = (msg) => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const app = this.getApp()
+
+    const filepath = path.join(app.getPath('userData'), `request-log--${year}-${month}.log`)
+
+    // remove XNAT_CSRF
+    const regex = /&XNAT_CSRF=[0-9a-f-]+/gm;
+    const subst = `&XNAT_CSRF=***`;
+    const redacted = msg.replace(regex, subst);
+
+    const date = getCurrentTime()
+    const longMsg = `${date}: ${redacted}\n`
+    
+    try {
+        // Append data to a file
+        fs.appendFileSync(filepath, longMsg);
+    } catch (error) {
+        console.error('apiRequestLog error:', err);
+    }
+};

@@ -33,7 +33,7 @@ const nedb_logger = remote.require('./services/db/nedb_logger')
 
 const { copy_anonymize_zip } = require('../services/upload/copy_anonymize_zip');
 // const { copy_anonymize_stream } = require('../services/upload/copy_anonymize_stream');
-const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel } = require('../services/app_utils')
+const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, apiRequestLog } = require('../services/app_utils')
 const { MizerError } = require('../services/errors');
 
 const CONSTANTS = require('../services/constants');
@@ -654,9 +654,12 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
     }
 
     xnat_api.heartbeat_start();
+
+    apiRequestLog(`INIT axios method: ${request_settings.method}, url: ${request_settings.url.substring(xnat_server.length)}`)
     axios(request_settings)
     .then(async (res) => {
         console_red('zip upload done - res')
+        apiRequestLog(`SUCCESS axios method: ${request_settings.method}, url: ${request_settings.url.substring(xnat_server.length)}`)
         xnat_api.heartbeat_stop();
 
         await new Promise(resolve => rimraf(new_dirpath, { disableGlob: true }, resolve))
@@ -708,7 +711,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             let csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
 
 
-            let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
+            let commit_url = $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
         
             console_log('-------- XCOMMIT_url ----------')
             console_log(`++++ Session commited. URL: ${commit_url}`);
@@ -750,11 +753,14 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
             console_log({commit_data});
             
             xnat_api.heartbeat_start();
-            axios.post(commit_url, commit_data, commit_request_settings)
+            xnat_api.axios_post(commit_url, commit_data, commit_request_settings)
+            // axios.post(commit_url, commit_data, commit_request_settings)
             .then(commit_res => {
                 console_red('-------- XCOMMIT_SUCCESS ----------')
                 console_log('-------- XCOMMIT_SUCCESS ----------')
                 console_log(commit_res);
+
+                apiRequestLog(`SUCCESS axios.post url: ${commit_url}`)
                 xnat_api.heartbeat_stop();
 
                 if (commit_res.data.indexOf(reference_str) >= 0) {
@@ -801,6 +807,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                 if (err.response.status != 301) {
                     electron_log.error('commit_error', commit_url, JSON.stringify(err.response))
                     let error_message = `Session upload failed (with status code: ${err.response.status} - "${err.response.statusText}").`;
+                    apiRequestLog(`ERROR axios.post url: ${commit_url}, error: ${error_message}`)
                     
                     nedb_logger.error(transfer.id, 'upload', error_message, err.response);
 
@@ -818,6 +825,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
                     });
                 } else {
                     console_log(`+++ SESSION ARCHIVED +++`);
+                    apiRequestLog(`SUCCESS axios.post url: ${commit_url} (status: ${err.response.status})`)
                     
                     session_link = `${xnat_server}/data/archive/projects/${project_id}/subjects/${subject_id}/experiments/${expt_label}?format=html`
                     
@@ -862,6 +870,7 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         respawn_transfer(transfer.id, series_id, true)
     })
     .catch(err => {
+        apiRequestLog(`ERROR axios method: ${request_settings.method}, url: ${request_settings.url.substring(xnat_server.length)}, error: ${err.name}: ${err.message}`)
         xnat_api.heartbeat_stop();
         handleUploadError(transfer, series_id, err)
     });
@@ -1224,8 +1233,11 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
 
         request_settings.data = zip_content;
         xnat_api.heartbeat_start();
+        apiRequestLog(`INIT axios method: ${request_settings.method}, url: ${request_settings.url.substring(xnat_server.length)}`)
         axios(request_settings)
         .then(async res => {
+            apiRequestLog(`SUCCESS axios method: ${request_settings.method}, url: ${request_settings.url.substring(xnat_server.length)}`)
+
             const zip_path_dir = path.dirname(zip_path)
             xnat_api.heartbeat_stop();
             fs.unlink(zip_path, (err) => {
@@ -1311,11 +1323,14 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
                 console_log({commit_data});
                 
                 xnat_api.heartbeat_start();
-                axios.post(commit_url, commit_data, commit_request_settings)
+                xnat_api.axios_post(commit_url, commit_data, commit_request_settings)
+                // axios.post(commit_url, commit_data, commit_request_settings)
                 .then(commit_res => {
-                    xnat_api.heartbeat_stop();
                     console_log('-------- XCOMMIT_SUCCESS ----------')
                     console_log(commit_res);
+
+                    apiRequestLog(`SUCCESS axios.post url: ${commit_url}`)
+                    xnat_api.heartbeat_stop();
     
                     if (commit_res.data.indexOf(reference_str) >= 0) {
                         console_log(`+++ SESSION PREARCHIVED +++`);
@@ -1359,12 +1374,15 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
                     if (err.response.status != 301) {
                         electron_log.error('commit_error', commit_url, JSON.stringify(err.response))
                         let error_message = `Session archival failed (with status code: ${err.response.status} - "${err.response.statusText}").`;
+                        apiRequestLog(`ERROR axios.post url: ${commit_url}, error: ${error_message}`)
                         
                         nedb_logger.error(transfer.id, 'upload', error_message, err.response);
     
                         update_transfer_summary(transfer.id, 'commit_errors', error_message);
                     } else {
                         console_log(`+++ SESSION ARCHIVED +++`);
+
+                        apiRequestLog(`SUCCESS axios.post url: ${commit_url} (status: ${err.response.status})`)
                         
                         session_link = `${xnat_server}/data/archive/projects/${project_id}/subjects/${subject_id}/experiments/${expt_label}?format=html`
                         
@@ -1403,6 +1421,7 @@ async function upload_zip(zip_path, transfer, series_id, csrfToken) {
             respawn_transfer(transfer.id, series_id, true)
         })
         .catch(err => {
+            apiRequestLog(`ERROR axios method: ${request_settings.method}, url: ${request_settings.url.substring(xnat_server.length)}, error: ${err.name}: ${err.message}`)
             xnat_api.heartbeat_stop();
             handleUploadError(transfer, series_id, err)
         });
