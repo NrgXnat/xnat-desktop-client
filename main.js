@@ -758,7 +758,7 @@ ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base, show
   
 })
 
-ipcMain.on('init_upload_single', (e, transfer, series_id, segment_index) => {
+ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
 
   const uploadWindowSingle = new BrowserWindow({show : false})//to just open the browser in background
 
@@ -774,7 +774,7 @@ ipcMain.on('init_upload_single', (e, transfer, series_id, segment_index) => {
 
   uploadWindowSingle.webContents.on('console-message', function(event, level, message, line, sourceId) {
     if (level === 2) {
-      console.log(`renderer console.error: ${message}`)
+      console.log(`renderer console.error (win: ${uploadWindowSingle.id}): ${message}`)
       console.log(message)
     }
 
@@ -782,10 +782,15 @@ ipcMain.on('init_upload_single', (e, transfer, series_id, segment_index) => {
     const distinctError2 = 'Uncaught ReferenceError: require is not defined';
     const distinctError3 = "Uncaught (in promise) TypeError: Cannot read property 'canceled' of null";
     
-    if ( level === 2 && ( message.startsWith(distinctError) || message.startsWith(distinctError2) || message.startsWith(distinctError3) ) ) {
+    if ( level === 2 && ( 
+        message.startsWith(distinctError) || 
+        message.startsWith(distinctError2) || 
+        message.startsWith(distinctError3) 
+      ) 
+    ) {
       console.log('console-message (TARGETED ERROR):' + uploadWindowSingle.id)
       uploadWindowSingle.close()
-      uploadWindow.webContents.send('single_upload_load_error', transfer.id, series_id, segment_index);
+      uploadWindow.webContents.send('single_upload_load_error', transfer_id, series_id, segment_index);
     }
   })
 
@@ -800,7 +805,7 @@ ipcMain.on('init_upload_single', (e, transfer, series_id, segment_index) => {
   uploadWindowSingle.webContents.once('did-finish-load', () => {
     console.log('did-finish-load:' + uploadWindowSingle.id)
     uploadWindowSingle.webContents.send('set_window_id', uploadWindowSingle.id);
-    uploadWindowSingle.webContents.send('single_upload_data', transfer, series_id, segment_index);
+    uploadWindowSingle.webContents.send('single_upload_data', transfer_id, series_id, segment_index);
   });
 
 
@@ -822,6 +827,6 @@ ipcMain.on('single_upload_finished', (e, window_id) => {
   uploadWindow.webContents.send('single_upload_finished', window_id);
 })
 
-ipcMain.on('respawn_transfer', (e, transfer_id, series_id, success) => {
-  uploadWindow.webContents.send('respawn_transfer', transfer_id, series_id, success);
+ipcMain.on('respawn_transfer', (e, transfer_id, series_id, segment_index, success) => {
+  uploadWindow.webContents.send('respawn_transfer', transfer_id, series_id, segment_index, success);
 })

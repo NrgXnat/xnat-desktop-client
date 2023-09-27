@@ -2,9 +2,9 @@ build_config: &build_config
   BUILD_IMAGE_NAME: xnat/node-java-build
   BUILD_IMAGE_TAG: latest
   CACHE_VERSION: v2
-  NODE_VERSION: "v14.20.0"
+  NODE_VERSION: "v10.24.1"
   NVM_VERSION: "0.39.1"
-  JAVA_VERSION: "zulu8.64.0.19-ca-jdk8.0.345"
+  JAVA_VERSION: "zulu8.72.0.17-ca-jdk8.0.382"
   JDK_ROOT: "https://cdn.azul.com/zulu/bin"
 
 version: 2
@@ -76,7 +76,7 @@ jobs:
       <<: *build_config
 
     macos:
-      xcode: "11.7.0"
+      xcode: "12.5.1"
       resource_class: macos.x86.medium.gen2
 
     working_directory: ~/build
@@ -100,7 +100,7 @@ jobs:
           name: Download and install JDK
           command: |
             [[ ! -d /Library/Java/JavaVirtualMachines/zulu-8.jdk ]] && {
-                JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
+                export JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
                 echo "No JDK found, downloading ${JAVA_VERSION}"
                 http --download ${JDK_ROOT}/${JAVA_TARGET}.zip
                 unzip ${JAVA_TARGET}.zip
@@ -144,7 +144,7 @@ jobs:
       - run:
           name: Install and build node dependencies
           command: |
-            JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
+            export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
             yarn install
       - save_cache:
           key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
@@ -155,7 +155,7 @@ jobs:
       - run:
           name: Build Mac executable and installer
           command: |
-            JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
+            export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
             yarn dist-mac
       - run:
           name: Copy build artifacts to artifacts folder

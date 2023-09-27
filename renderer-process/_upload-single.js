@@ -8,7 +8,11 @@ const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
 const isRetryAllowed = require('is-retry-allowed');
 const progressStream = require('progress-stream');
+const { Throttle } = require('stream-throttle')
 require('promise.prototype.finally').shim();
+
+const ElectronStore = require('electron-store')
+const settings = new ElectronStore()
 
 // const ElectronStore = require('electron-store');
 // const settings = new ElectronStore();
@@ -33,7 +37,7 @@ const user_settings = require('../services/user_settings');
 const nedb_logger = remote.require('./services/db/nedb_logger')
 
 // const { copy_anonymize_stream } = require('../services/upload/copy_anonymize_stream');
-const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes } = require('../services/app_utils')
+const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes, simpleLog } = require('../services/app_utils')
 const { MizerError } = require('../services/errors');
 
 const CONSTANTS = require('../services/constants');
@@ -128,18 +132,20 @@ ipcRenderer.on('set_window_id',function(e, upload_window_id){
 
 let uploadStartTimer;
 
-ipcRenderer.on('single_upload_data', async function(e, transfer, series_id, segment_index) {
+ipcRenderer.on('single_upload_data', async function(e, transfer_id, series_id, segment_index) {
+
     console_red('ipcRenderer.on :: single_upload_data');
 
-    electron_log.info(`FROM SINGLE UPLOAD (window: ${WINDOW_ID})`, `${transfer.id}::${series_id}||${segment_index}`)
+    electron_log.info(`FROM SINGLE UPLOAD (window: ${WINDOW_ID})`, `${transfer_id}::${series_id}||${segment_index}`)
     
     console_log({
-        transfer_id: transfer.id, series_id, segment_index
+        transfer_id, series_id, segment_index
     })
     
-    let transfer_copy = await db_uploads._getByIdCopy(transfer.id)
+    let transfer = await db_uploads._getByIdCopy(transfer_id)
+    let transfer_copy = lodashCloneDeep(transfer)
 
-    if (transfer_copy !== null) {
+    if (!settings.get('global_pause') && transfer_copy !== null) {
         uploadStartTimer = performance.now()
         
         const window = remote.getCurrentWindow()
@@ -148,6 +154,8 @@ ipcRenderer.on('single_upload_data', async function(e, transfer, series_id, segm
         doUpload(transfer_copy, series_id, segment_index)
     } else {
         electron_log.error(`FROM SINGLE UPLOAD (window: ${WINDOW_ID})`, `transfer_copy IS NULL`)
+        simpleLog(`(window: ${WINDOW_ID}) transfer_copy IS NULL`, 'xdc--queue')
+        _queue_.remove(transfer_id, series_id, segment_index);
         closeThisWindow()
     }
 })
@@ -164,6 +172,7 @@ let csrfToken;
 // =========================
 async function doUpload(transfer, series_id, segment_index) {
     console_red('uploading_segment_id', `${transfer.id}::${series_id}||${segment_index}`);
+    simpleLog(`(window: ${WINDOW_ID}) doUpload start`, 'xdc--queue')
 
     let xnat_server = transfer.xnat_server, 
         project_id = transfer.url_data.project_id,
@@ -175,6 +184,8 @@ async function doUpload(transfer, series_id, segment_index) {
     if (csrfToken === false) {
         _queue_.remove_many(transfer.id);
         execute_cancel_token(transfer.id);
+
+        simpleLog(`(window: ${WINDOW_ID}) force_reauthenticate`, 'xdc--queue')
         
         ipcRenderer.send('force_reauthenticate', auth.current_login_data());
         return;
@@ -207,6 +218,7 @@ async function doUpload(transfer, series_id, segment_index) {
     _files = _files.slice(fstart, fend)
 
     console_red('FILES FOR UPLOAD:', _files.length)
+    simpleLog(`(window: ${WINDOW_ID}) FILES FOR UPLOAD: ${_files.length}`, 'xdc--queue')
 
     let contexts, variables;
     
@@ -240,6 +252,7 @@ async function doUpload(transfer, series_id, segment_index) {
         copy_and_anonymize(transfer, series_id, segment_index, _files, contexts, variables, csrfToken)
     })
     .catch(function(error) {
+        simpleLog(`(window: ${WINDOW_ID}) xnat_api.anon_scripts catch`, 'xdc--queue')
         electron_log.error(error);
         nedb_logger.error(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + error.message, error);
         console_log(error); // Test with throwing random errors (and rejecting promises)
@@ -274,8 +287,8 @@ function set_transfer_totals_summary(transfer) {
 }
 
 async function copy_and_anonymize(transfer, series_id, segment_index, filePaths, contexts, variables, csrfToken) {
-    const upload_id = uuidv4()
-    // console_red('copy_and_anonymize')
+    console_red('copy_and_anonymize')
+    simpleLog(`(window: ${WINDOW_ID}) copy_and_anonymize`, 'xdc--queue')
     let _timer = performance.now();
 
     let selected_series = transfer.series.find(ss => series_id === ss.seriesInstanceUid);
@@ -287,14 +300,21 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
 
     const xnat_api = new XNATAPI(xnat_server, user_auth);
 
-    let dicom_temp_folder_path = get_temp_upload_path();
-    let new_dirname = 'dir_' + Date.now(); // eg. dir_1522274921704
-    let new_dirpath = path.join(dicom_temp_folder_path, new_dirname);
+    const dicom_temp_folder_path = get_temp_upload_path();
+    let dirCreated = false;
+    let new_dirpath
+    while (!dirCreated) {
+        new_dirpath = path.join(dicom_temp_folder_path, `dir_${uuidv4()}`);
 
-    fx.mkdirSync(new_dirpath, function (err) {
-        if (err) throw err;
-    });
-
+        try {
+            fx.mkdirSync(new_dirpath);
+            dirCreated = true
+            simpleLog(`DIR Created (WINDOW_ID: ${WINDOW_ID}): ${new_dirpath}`, 'xdc--queue')
+        } catch (err) {
+            simpleLog(`DIR NOT Created (WINDOW_ID: ${WINDOW_ID}): ${new_dirpath}`, 'xdc--queue')
+            simpleLog(err.message, 'xdc--queue')
+        }
+    }
     
     let cancelCurrentUpload;
 
@@ -314,6 +334,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
     // good practice to catch this error explicitly
     archive.on('error', function (err) {
         console_red('anon archiver error', err)
+        simpleLog(`(window: ${WINDOW_ID}) - archive.on('error')`, 'xdc--queue')
         electron_log.error(err)
         // throw err;
     });
@@ -358,7 +379,8 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         let _transfer = await db_uploads._getByIdCopy(transfer.id);
 
         sendMonitorTableUpdate(_transfer, progress.transferred)
-        sendDetailsTableUpdate(_transfer, series_id, progress.transferred)
+        // sendDetailsTableUpdate(_transfer, series_id, progress.transferred)
+        sendDetailsTableUpdate(_transfer, series_id, progress.transferred, progress)
 
         console_red('Progress transferred:', progress.transferred);
         console_red('Progress speed:', progress.speed);
@@ -399,6 +421,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         //     console_log(data)
         //     return data;
         // }],
+        // data: archive.pipe(new Throttle({rate: 500000000})).pipe(prog)
         data: archive.pipe(prog)
     };
 
@@ -422,7 +445,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
     if (current_transfer.canceled === true) {
         // TODO (SINGLE UPLOAD) - queue
         _queue_.remove_many(transfer.id);
-        respawn_transfer(transfer.id, series_id, false)
+        respawn_transfer(transfer.id, series_id, segment_index, false)
         return;
     }
 
@@ -641,7 +664,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         return true
     })
     .then(() => {
-        respawn_transfer(transfer.id, series_id, true)
+        respawn_transfer(transfer.id, series_id, segment_index, true)
     })
     .catch(async err => {
         xnat_api.heartbeat_stop();
@@ -758,6 +781,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         console_red('anon finished 1', {copy_errors})
 
         if (copy_errors.length) {
+            simpleLog(`(window: ${WINDOW_ID}) - copy_errors.length`, 'xdc--queue')
             // ===== Attempt 2
             const funcs2 = copy_errors.map(copyAnonArchive);
 
@@ -861,13 +885,23 @@ async function markSegmentDone(transfer_id, series_id, segment_index) {
     await db_uploads._replaceDoc(transfer_id, transfer);
 }
 
-function sendDetailsTableUpdate (transfer, series_id, plus_bytes = 0) {
+function sendDetailsTableUpdate (transfer, series_id, plus_bytes = 0, progress) {
     const serie = transfer.series.find(serie => serie.seriesInstanceUid === series_id)
 
     const selected_row = transfer.table_rows.find(tr => tr.series_id === series_id)
 
     const total = serie.bytes
     const done = calcUploadedSerieBytes(serie)
+
+    console_log({
+        '0_series_id': series_id,
+        '1_done': done, 
+        '2_plus_bytes': plus_bytes, 
+        '3_total': total, 
+        '4_percent_done': (done + plus_bytes) / total * 100,
+        '5_series.segments': serie.segments,
+        '6_progress': progress
+    })
 
     ipcRenderer.send('progress_cell', {
         table: '#upload-details-table',
@@ -1026,11 +1060,13 @@ function handleUploadError(transfer, series_id, segment_index, err) {
     remove_cancel_token(transfer.id, series_id, segment_index)
 
     // TODO (SINGLE UPLOAD) - queue
+    let transfer_label = `${transfer.id}::${series_id}||${segment_index}`;
+    simpleLog(`*${transfer_label} > handleUploadError`, 'xdc--queue')
     _queue_.remove(transfer.id, series_id, segment_index);
 
     if (log_and_respawn) {
         update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
-            respawn_transfer(transfer.id, series_id, false)
+            respawn_transfer(transfer.id, series_id, segment_index, false)
         });
     } else {
         // TODO (SINGLE UPLOAD) - queue
@@ -1131,10 +1167,13 @@ async function update_transfer_summary(transfer_id, property, new_value, callbac
 }
 
 // TODO (SINGLE UPLOAD) - fix this
-function respawn_transfer(transfer_id, series_id, success) {
-    console_red('respawn_transfer', {transfer_id, series_id, success})
+function respawn_transfer(transfer_id, series_id, segment_index, success) {
+    console_red('respawn_transfer', {transfer_id, series_id, segment_index, success})
 
-    ipcRenderer.send('respawn_transfer', transfer_id, series_id, success)
+    ipcRenderer.send('respawn_transfer', transfer_id, series_id, segment_index, success)
+
+    let transfer_label = `${transfer_id}::${series_id}||${segment_index}`;
+    simpleLog(`*${transfer_label} > respawn_transfer (upload time: ${_time_offset(uploadStartTimer)})`, 'xdc--queue')
 
     console.log({transfer_progress})
     console.log({total_upload_time: _time_offset(uploadStartTimer)});

@@ -1,4 +1,4 @@
-const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes } = require('./app_utils')
+const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes, simpleLog } = require('./app_utils')
 const CONSTANTS = require('./constants');
 const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
@@ -15,6 +15,7 @@ global.shared = {
                         return false;
                     }
     
+                    simpleLog(`+${transfer_label}`, 'xdc--queue')
                     this.items.push(transfer_label);
 
                     return true;
@@ -22,6 +23,10 @@ global.shared = {
                     return false;
                 }
             } else {
+                // simpleLog(`queueFull, upload_windows: ${global.windows.upload.length}`, 'xdc--queue')
+                if (global.windows.upload.length === 0) {
+                    this.items = []
+                }
                 return false;
             }
         },
@@ -30,10 +35,12 @@ global.shared = {
             let index = this.items.indexOf(transfer_label);
           
             if (index > -1) {
+                simpleLog(`-${transfer_label}`, 'xdc--queue')
                 this.items.splice(index, 1);
             }
         },
         remove_many: function(transfer_id) {
+            simpleLog(`-${transfer_id}`, 'xdc--queue')
             this.items = this.items.filter(single => single.indexOf(`${transfer_id}::`) !== 0)
         },
         get_max_items: function() {

@@ -24,7 +24,7 @@ const ejs_template = require('../services/ejs_template')
 
 const path = require('path')
 
-const { objArrayToCSV, objToJsonFile } = require('../services/app_utils');
+const { objArrayToCSV, objToJsonFile, simpleLog } = require('../services/app_utils');
 const { getScanFilesProperty } = require('../services/db/utils');
 
 const { console_red } = require('../services/logger');
@@ -150,6 +150,8 @@ function _init_upload_progress_table() {
                             break;
 
                         case 'finished':
+                            content = `Moving to archive`
+                            break;
                             content = `
                             <button class="btn btn-block btn-success" 
                                 data-toggle="modal" 
@@ -1706,6 +1708,7 @@ function progress_bar_html(my_value, my_text = '') {
 }
 
 ipcRenderer.on('upload_finished', async function(e, transfer_id){
+    simpleLog(`upload_finished::${transfer_id}`, 'xdc--queue')
     let _transfer = await db_uploads._getById(transfer_id)
     let transfer = lodashCloneDeep(_transfer)
 
@@ -1726,6 +1729,8 @@ ipcRenderer.on('upload_finished', async function(e, transfer_id){
     }
 
     await remove_finished_upload(transfer_id)
+
+    simpleLog(`upload_finished::${transfer_id} DONE`, 'xdc--queue')
 
 
     let $modal_content = $(`#upload-details [data-id=${transfer_id}]`);
@@ -1848,17 +1853,29 @@ async function generate_pdf_receipt(transfer_id) {
 }
 
 ipcRenderer.on('progress_cell',function(e, item){
-    console_red('progress_cell', item);
-    let $item_table = $(item.table);
-    let $tbl_row = $(`${item.table} [data-uniqueid="${item.id}"]`);
+    let $item_table = $$(item.table);
+    let $tbl_row = $$(`${item.table} [data-uniqueid="${item.id}"]`);
     let is_upload = item.table === '#upload_monitor_table';
 
-    if ($item_table.length && $tbl_row.length) {
+    console_red('progress_cell', item);
+
+    console_red(`progress_cell::${item.table}`, {
+        tbl: $item_table.length, 
+        tbl_r: $tbl_row.length, 
+        tbl_visible: $item_table.is(':visible'),
+        tbl_html: $item_table.is(':visible') ? '-- skipped --' : $item_table.html()
+    })
+
+
+    if ($item_table.length && $tbl_row.length && $item_table.is(':visible')) {
         let $progress_bar = $tbl_row.find('.progress-bar');
 
         let reinit = typeof item.value != 'number' || $progress_bar.length == 0;
 
         const data_row = $item_table.bootstrapTable('getRowByUniqueId', item.id)
+
+        console.log({data_row});
+        console_red('progress_cell::data_row', data_row.experiment_label);
 
         // old status is larger than new status => SKIP
         let progress_field = item.table === '#upload-details-table' ? 'progress' : 'status'
@@ -1875,6 +1892,17 @@ ipcRenderer.on('progress_cell',function(e, item){
             value: item.value,
             reinit: reinit
         });
+
+        if (!reinit) {
+            let percent = 100 * item.value / parseInt($progress_bar.attr('aria-valuemax'));
+            if (percent > 100) {
+                percent = 100
+            }
+            $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
+            if (percent === 100 && is_upload) {
+                $progress_bar.text('Archiving 2');
+            }
+        }
         
         if (item.table === '#download_monitor_table') {
             let $modal_content = $(`#download-details [data-id=${item.id}]`);
@@ -1905,7 +1933,10 @@ ipcRenderer.on('progress_cell',function(e, item){
         }
 
         if (is_upload) { // item.table === '#upload_monitor_table'
-            let $modal_content = $(`#upload-details [data-id=${item.id}]`);
+            if (item.value === 'finished') {
+                simpleLog(`progress_cell--finished :: ${item.id}`)
+            }
+            let $modal_content = $$(`#upload-details [data-id=${item.id}]`);
 
             if (typeof item.value != 'number') {
                 $modal_content.find('.js_cancel_upload').hide();
@@ -1976,17 +2007,26 @@ ipcRenderer.on('refresh_progress_tables', (e, refresh_data) => {
 $on('click', 'button[data-js="test_checksum"]', async function() {
     console.log('KLIK')
 
-    store_checksums(
-        '8eedbc24-4a2d-47a9-a226-4600987f4568',
-        '1.2.826.0.1.3417726.3.908247.20150604161156631'
-    )
+    const upload_concurrency = settings.get('upload_concurrency', CONSTANTS.DEFAULT_UPLOAD_CONCURRENCY)
+    const max_upload_chunk_size = settings.get('max_upload_chunk_size', CONSTANTS.MAX_UPLOAD_CHUNK_SIZE)
+    const max_upload_chunk_count = settings.get('max_upload_chunk_count', CONSTANTS.MAX_UPLOAD_CHUNK_COUNT)
+    const upload_chunking_enabled = settings.get('upload_chunking_enabled', CONSTANTS.UPLOAD_CHUNKING)
 
-    return
+    const upload_settings = `${upload_concurrency}|${upload_chunking_enabled}|${max_upload_chunk_size}MB|${max_upload_chunk_count}`
+    
+    simpleLog(`==================================================`, 'xdc-chunks')
+    simpleLog(`Upload settings: ${upload_settings}`, 'xdc-chunks')
 
     let transfers = await getUploads()
-
     for (let k = 0; k < transfers.length; k++) {
-        await store_checksums(transfers[k])
+        // simpleLog(`--- transfer ---`, 'xdc-chunks')
+        // simpleLog(transfers[k].url_data.expt_label + ' ID:' + transfers[k].id, 'xdc-chunks')
+
+        for (let j = 0; j < transfers[k].series.length; j++) {
+            const segments = transfers[k].url_data.expt_label + '//' + transfers[k].id + '::' +
+                transfers[k].series[j].seriesInstanceUid + '(' + transfers[k].series[j].segments.length + ')'
+            simpleLog(segments, 'xdc-chunks')
+        }
     }
 })
 
