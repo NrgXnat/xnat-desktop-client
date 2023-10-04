@@ -305,8 +305,10 @@ function getCurrentTime() {
     return `${year}-${month}-${day}_${hours}:${minutes}:${seconds}.${milliseconds}`;
 }
 
-exports.simpleLog = (msg, filename = 'xdc-log-3') => {
-    return
+exports.simpleLog = (msg, filename = 'xdc-log-3', forceLog = false) => {
+    if (!forceLog) {
+        return
+    }
     
     const date = getCurrentTime()
     const filepath = `${filename}.log`
@@ -321,3 +323,35 @@ exports.simpleLog = (msg, filename = 'xdc-log-3') => {
     }
 };
 
+exports.jsonStringify = (obj) => {
+    const getCircularReplacer = () => {
+        const seen = new WeakSet()
+        return (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+                if (seen.has(value)) {
+                    return '_circRef_'
+                }
+                seen.add(value)
+            }
+            return value
+        }
+    };
+    
+    return JSON.stringify(obj, getCircularReplacer())
+};
+
+exports.stripTags = (html) => {
+    if (typeof html !== 'string') {
+        return ''
+    }
+    
+    return html
+        .replace(/<br *\/?>/gi, "\n")
+        .replace(/\r+/gi, "")
+        .replace(/(<([^>]+)>)/gi, " ")
+        .replace(/\t+/g, " ")
+        .replace(/ +/g, " ")
+        .replace(/ ?\n ?/gi, "\n")
+        .replace(/\n+/gi, "\n")
+        .trim();
+} 
