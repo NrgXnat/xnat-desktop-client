@@ -28,6 +28,8 @@ const XNATAPI = require('../services/xnat-api')
 
 const db_uploads = remote.require('./services/db/uploads')
 
+const { uploadCommit } = require('../services/upload-commit')
+
 const { console_red } = require('../services/logger');
 
 const electron_log = remote.require('./services/electron_log');
@@ -160,7 +162,7 @@ ipcRenderer.on('single_upload_data', async function(e, transfer_id, series_id, s
         electron_log.error(`FROM SINGLE UPLOAD (window: ${WINDOW_ID})`, `transfer_copy IS NULL`)
         simpleLog(`(window: ${WINDOW_ID}) transfer_copy IS NULL`, 'xdc--queue')
         _queue_.remove(transfer_id, series_id, segment_index);
-        closeThisWindow(0, true)
+        closeThisWindow()
     }
 })
 
@@ -514,167 +516,10 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         console_log(`${transfer_signature(transfer)} zzz::${series_id}||${segment_index} /${res.status}/`)
         
         if (transfer.series_ids.length === 0) {
-            console_log(`COMMIT::START ${transfer_signature(transfer)}::${series_id}`)
-            // console_log(`***** res.statusText  = ${res.statusText }' ******`);
-            // console_log(`***** res.data = ${res.data}' ******`);
-            // console_log('***** res.status = ' + res.status + ' ****** (' + (typeof res.status) + ')');
-
             // TODO (SINGLE UPLOAD) - queue
             _queue_.removeProcessedTransfer(transfer.id)
 
-            let session_link;
-            let reference_str = '/data/prearchive/projects/';
-            
-            let commit_timer = performance.now();
-
-            // have to make this call again if too much time has passed (large upload)
-            let csrfToken = await auth.get_csrf_token(xnat_server, user_auth);
-
-
-            let commit_url = xnat_server + $.trim(res.data) + '?action=commit&SOURCE=uploader&XNAT_CSRF=' + csrfToken;
-        
-            console_log(`++++ XCOMMIT_url: ${commit_url}`);
-
-
-            let jsession_cookie = await auth.get_jsession_cookie()
-            let commit_request_settings = {
-                auth: user_auth,
-                headers: {
-                    'User-Agent': userAgentString,
-                    'Keep-Alive': `timeout=${CONSTANTS.KEEP_ALIVE_TIMEOUT_SEC}, max=1000`,
-                    'Cookie': jsession_cookie
-                }
-            }
-
-            let https_agent_options = { 
-                keepAlive: true,
-                keepAliveMsecs: 1000, // default is 1000
-
-                // Socket timeout in milliseconds. This will set the timeout after the socket is connected. 
-                timeout: CONSTANTS.SOCET_TIMEOUT_SEC * 1000 
-            }
-            if (auth.allow_insecure_ssl()) {
-                https_agent_options.rejectUnauthorized = false // insecure SSL at request level
-            }
-            commit_request_settings.httpsAgent = new https.Agent(https_agent_options)
-            commit_request_settings.adapter =  httpAdapter
-
-
-            let commit_data = {};
-
-            // console_log({transfer_XXX: transfer});
-
-            if (transfer.anon_variables.hasOwnProperty('tracer')) {
-                let label = transfer.session_data.modality.indexOf('MR') >=0 ? 'xnat:petMrSessionData/tracer/name' : 'xnat:petSessionData/tracer/name';                
-
-                commit_data[label] = transfer.anon_variables.tracer;
-            }
-
-            console_log({commit_data});
-            
-            xnat_api.heartbeat_start();
-
-            try {
-                const commit_res = await axios.post(commit_url, commit_data, commit_request_settings)
-
-                console_log(`COMMIT::SUCCESS-200 ${transfer_signature(transfer)}::${series_id}`)
-
-                console_red('-------- XCOMMIT_SUCCESS ----------')
-                
-                xnat_api.heartbeat_stop();
-
-                let num_updated = false
-                if (commit_res.data.indexOf(reference_str) >= 0) {
-                    console_log(`+++ SESSION PREARCHIVED +++`);
-                    let str_start = commit_res.data.indexOf(reference_str) + reference_str.length;
-                    let session_str = commit_res.data.substr(str_start);
-
-                    let res_arr = session_str.split('/');
-                    // let res_project_id = res_arr[0];
-                    // let res_timestamp = res_arr[1];
-                    // let res_session_label = res_arr[2];
-                    
-                    session_link = xnat_server + '/app/action/LoadImageData/project/' + res_arr[0] + '/timestamp/' + res_arr[1] + '/folder/' + res_arr[2];
-                    
-                    num_updated = await db_uploads._updateProperty(transfer.id, 'session_link', session_link)
-                }
-
-                console_red('num_updated 1', {num_updated})
-                if (num_updated) {
-                    Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
-                    nedb_logger.success(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
-                    
-                    // have to split this out bc a 301 indicates archival and goes into the catch block, whereas 200 means prearchived so we are in fact finished
-                    await db_uploads._updateProperty(transfer.id, 'status', 'finished');
-
-                    ipcRenderer.send('progress_cell', {
-                        table: '#upload_monitor_table',
-                        id: transfer.id,
-                        field: 'status',
-                        value: 'finished'
-                    });
-                    ipcRenderer.send('upload_finished', transfer.id);
-
-                    console_log(`UploadStatus: finished 1. ${transfer_signature(transfer)}`)
-                }
-
-            } catch (err) {
-                console_log('--- XCOMMIT_ERR ---: ' + err.response.status)
-                if (err.response && err.response.data) {
-                    console_log({XCOMMIT_ERR_DATA: stripTags(err.response.data)});
-                }
-                
-                xnat_api.heartbeat_stop();
-
-                if (err.response.status != 301) {
-                    console_log(`COMMIT::ERROR ${transfer_signature(transfer)}::${series_id}`)
-                    electron_log.error('commit_error', commit_url, jsonStringify(err.response))
-                    let error_message = `[${remote.getCurrentWindow().id}: ]` + `Session commit failed (status code: ${err.response.status} - "${err.response.statusText}"). ${stripTags(err.response.data)}`;
-                    
-                    nedb_logger.error(transfer.id, 'upload', error_message, jsonStringify(err.response));
-
-                    await db_uploads._updateProperty(transfer.id, 'status', 'xnat_error');
-
-                    update_transfer_summary(transfer.id, 'commit_errors', error_message);
-                    
-                    ipcRenderer.send('progress_cell', {
-                        table: '#upload_monitor_table',
-                        id: transfer.id,
-                        field: 'status',
-                        value: 'xnat_error'
-                    });
-                    
-                    // Do we need this ???
-                    // ipcRenderer.send('upload_finished', transfer.id);
-                    console_log(`UploadStatus: xnat_error. ${transfer_signature(transfer)}`)
-                } else {
-                    console_log(`COMMIT::SUCCESS-301 ${transfer_signature(transfer)}::${series_id}`)
-                    
-                    session_link = `${xnat_server}/data/archive/projects/${project_id}/subjects/${subject_id}/experiments/${expt_label}?format=html`
-
-                    try {
-                        await db_uploads._updateById(transfer.id, { 
-                            status: 'finished',
-                            session_link: session_link
-                        })
-
-                        Helper.notify(`Upload is finished. Session: ${transfer.url_data.expt_label}`); // session label
-                        nedb_logger.success(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + `Session ${transfer.url_data.expt_label} uploaded successfully.`, transfer.url_data);
-                        
-                        ipcRenderer.send('progress_cell', {
-                            table: '#upload_monitor_table',
-                            id: transfer.id,
-                            field: 'status',
-                            value: 'finished'
-                        });
-                        
-                        ipcRenderer.send('upload_finished', transfer.id);
-                        console_log(`UploadStatus: finished 2. ${transfer_signature(transfer)}`)
-                    } catch (err1) {
-                        console_log({err1})
-                    }
-                }
-            }
+            await uploadCommit(transfer, res, series_id)
         }
 
         return true
@@ -1164,13 +1009,11 @@ function handleUploadError(transfer, series_id, segment_index, err) {
     }
 }
 
-function closeThisWindow(timeout = 0, force = false) {
-    if (true || force) {
-        setTimeout(function() {
-            const window = remote.getCurrentWindow();
-            window.close();
-        }, timeout)
-    }
+function closeThisWindow(timeout = 0) {
+    setTimeout(function() {
+        const window = remote.getCurrentWindow();
+        window.close();
+    }, timeout)
 }
 
 async function update_transfer_summary(transfer_id, property, new_value, callback = false) {
@@ -1202,7 +1045,7 @@ function respawn_transfer(transfer_id, series_id, segment_index, success) {
     console.log({transfer_progress})
     console.log({total_upload_time: _time_offset(uploadStartTimer)});
 
-    closeThisWindow(2000, true)
+    closeThisWindow(2000)
     
     //ipcRenderer.sendTo(webContentsId, channel, [, arg1][, arg2][, ...])
     //do_transfer(series_id, success);

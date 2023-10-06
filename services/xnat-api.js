@@ -5,6 +5,9 @@ const settings = new ElectronStore();
 const https = require('https');
 
 
+const { remote } = require('electron');
+const electron_log = remote ? remote.require('./services/electron_log') : require('./electron_log');
+
 class XNATAPI {
     constructor(xnat_server, user_auth) {
         this.xnat_server = xnat_server
@@ -39,8 +42,16 @@ class XNATAPI {
         return axios.delete(this.xnat_server + url_path, this.axios_config())
     }
 
-    axios_post(url_path, params) {
-        return axios.post(this.xnat_server + url_path, params, this.axios_config())
+    axios_post(url_path, params, config = null) {
+        if (!config) {
+            config = this.axios_config()
+        }
+        electron_log.info('AXIOS_POST', {
+            url: this.xnat_server + url_path,
+            params,
+            config
+        })
+        return axios.post(this.xnat_server + url_path, params, config)
     }
 
     catch_handler(err, resolve, reject) {
