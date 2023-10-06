@@ -305,11 +305,10 @@ function getCurrentTime() {
     return `${year}-${month}-${day}_${hours}:${minutes}:${seconds}.${milliseconds}`;
 }
 
-exports.simpleLog = (msg, filename = 'xdc-log-3', forceLog = false) => {
-    if (!forceLog) {
-        return
-    }
-    
+// TODO add dev toggle to enable simpleLog
+exports.simpleLog = (msg, filename = 'xdc--log') => {
+    return
+
     const date = getCurrentTime()
     const filepath = `${filename}.log`
     const longMsg = `${date}: ${msg}\n`
@@ -344,7 +343,7 @@ exports.stripTags = (html) => {
     if (typeof html !== 'string') {
         return ''
     }
-    
+
     return html
         .replace(/<br *\/?>/gi, "\n")
         .replace(/\r+/gi, "")

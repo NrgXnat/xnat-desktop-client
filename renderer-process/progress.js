@@ -150,17 +150,17 @@ function _init_upload_progress_table() {
                             break;
 
                         case 'finished':
-                            content = `
-                                <button class="btn btn-info" 
-                                    data-toggle="modal" 
-                                    data-target="#upload-details"
-                                    data-id="${row.id}"
-                                    data-session_label="${row.session_label}"
-                                    data-show_transfer_rate="false"
-                                    ><i class="fas fa-upload"></i> Details</button>
-                            ` + btn_delete;
+                            content = `Moving to archive`
                             break;
-                            // content = `Moving to archive`
+                            // content = `
+                            //     <button class="btn btn-info" 
+                            //         data-toggle="modal" 
+                            //         data-target="#upload-details"
+                            //         data-id="${row.id}"
+                            //         data-session_label="${row.session_label}"
+                            //         data-show_transfer_rate="false"
+                            //         ><i class="fas fa-upload"></i> Details</button>
+                            // ` + btn_delete;
                             // break;
                             
                         case 'xnat_error':
@@ -1732,7 +1732,7 @@ ipcRenderer.on('upload_finished', async function(e, transfer_id){
 
     await remove_finished_upload(transfer_id)
 
-    simpleLog(`upload_finished::${transfer_id} DONE (${transfer.url_data.expt_label})`, 'xdc--upload_finished', true)
+    simpleLog(`upload_finished::${transfer_id} DONE (${transfer.url_data.expt_label})`, 'xdc--upload_finished')
 
 
     let $modal_content = $(`#upload-details [data-id=${transfer_id}]`);
@@ -1902,7 +1902,7 @@ ipcRenderer.on('progress_cell',function(e, item){
             }
             $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
             if (percent === 100 && is_upload) {
-                $progress_bar.text('Archiving 2');
+                $progress_bar.text('Archiving');
             }
         }
         
