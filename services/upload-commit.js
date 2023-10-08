@@ -26,28 +26,14 @@ function transfer_signature(transfer) {
     return `[W:${window.id}] ${transfer.url_data.expt_label} ${series_info} [${transfer.id}/${transfer.session_id}]`
 }
 
-async function update_transfer_summary(transfer_id, property, new_value, callback = false) {
-    let transfer = await db_uploads._getById(transfer_id)
-
-    if (transfer) {
-        transfer.summary = transfer.summary || {}
-        transfer.summary[property] = transfer.summary[property] || []
-        transfer.summary[property].push(new_value)
-    
-        await db_uploads._replaceDoc(transfer_id, transfer);
-    }
-
-    if (callback) {
-        callback()
-    }
-}
-
 function getUserAgentString() {
     return remote.getCurrentWindow().webContents.getUserAgent();
 }
 
 exports.uploadCommit = async (transfer, res, series_id = '') => {
     try {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+
         let xnat_server = transfer.xnat_server, 
             project_id = transfer.url_data.project_id,
             subject_id = transfer.url_data.subject_id,
@@ -160,13 +146,12 @@ exports.uploadCommit = async (transfer, res, series_id = '') => {
                 console_log(`COMMIT::ERROR ${transfer_signature(transfer)}::${series_id}`)
                 electron_log.error('commit_error', commit_url, jsonStringify(err.response))
 
-                let error_message = `[${remote.getCurrentWindow().id}: ]` + `Session commit failed (status code: ${err.response.status} - "${err.response.statusText}"). ${stripTags(err.response.data)}`;
+                const errorDataMessage = stripTags(err.response.data)
+                let error_message = `[${remote.getCurrentWindow().id}: ]` + `Session commit failed (status code: ${err.response.status} - "${err.response.statusText}"). ${errorDataMessage}`;
                 nedb_logger.error(transfer.id, 'upload', error_message, jsonStringify(err.response));
 
                 await db_uploads._updateProperty(transfer.id, 'status', 'xnat_error');
 
-                update_transfer_summary(transfer.id, 'commit_errors', error_message);
-                
                 ipcRenderer.send('progress_cell', {
                     table: '#upload_monitor_table',
                     id: transfer.id,
@@ -177,6 +162,11 @@ exports.uploadCommit = async (transfer, res, series_id = '') => {
                 // Do we need this ???
                 // ipcRenderer.send('upload_finished', transfer.id);
                 console_log(`UploadStatus: xnat_error. ${transfer_signature(transfer)}`)
+
+                if ( err.response.status === 500 && errorDataMessage.includes(`FAILED: Unable to archive ${expt_label}: null`) ) {
+                    return false
+                }
+                
             } else {
                 console_log(`COMMIT::SUCCESS-301 ${transfer_signature(transfer)}::${series_id}`)
                 
@@ -205,6 +195,8 @@ exports.uploadCommit = async (transfer, res, series_id = '') => {
                 }
             }
         }
+
+        return true
     } catch (err) {
         console_log('Upload Commit Error: ', err.message)
         throw err

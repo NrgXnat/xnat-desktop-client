@@ -45,7 +45,6 @@ const { MizerError } = require('../services/errors');
 const CONSTANTS = require('../services/constants');
 const rimraf = require('rimraf');
 
-let summary_log = {};
 let transfer_progress = [];
 let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
 
@@ -197,8 +196,6 @@ async function doUpload(transfer, series_id, segment_index) {
         return;
     }
 
-    let updated_summary = await set_transfer_totals_summary(transfer)
-    
     const selectedSeriesIndex = transfer.series.findIndex(ss => series_id === ss.seriesInstanceUid);
     const selected_series = transfer.series[selectedSeriesIndex]
 
@@ -263,33 +260,6 @@ async function doUpload(transfer, series_id, segment_index) {
         nedb_logger.error(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + error.message, error);
         console_log(error); // Test with throwing random errors (and rejecting promises)
     });
-}
-
-function set_transfer_totals_summary(transfer) {
-    if (!transfer.summary || isEmptyObject(transfer.summary)) {
-
-        let total_files = transfer.series.reduce((total, ss) => {
-            return ss.data.length + total
-        }, 0);
-    
-        let total_size = transfer.series.reduce((total, ss) => {
-            let filesize_index = ss.dataIndex.indexOf('filesize')
-
-            let series_size = ss.data.reduce((tt, item) => {
-                return tt + item[filesize_index];
-            }, 0);
-
-            return series_size + total
-        }, 0);
-
-        return db_uploads._updateProperty(transfer.id, 'summary', {
-            total_files: [total_files],
-            total_size: [total_size]
-        })
-    } else {
-        return Promise.resolve(0)
-    }
-    
 }
 
 async function copy_and_anonymize(transfer, series_id, segment_index, filePaths, contexts, variables, csrfToken) {
@@ -516,10 +486,28 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         console_log(`${transfer_signature(transfer)} zzz::${series_id}||${segment_index} /${res.status}/`)
         
         if (transfer.series_ids.length === 0) {
-            // TODO (SINGLE UPLOAD) - queue
             _queue_.removeProcessedTransfer(transfer.id)
 
-            await uploadCommit(transfer, res, series_id)
+            const commitOnceFile = path.join(get_temp_upload_path(), 'commit--' + transfer.id)
+            if (!fs.existsSync(commitOnceFile)) {
+                fs.writeFileSync(commitOnceFile)
+
+                const maxCommitRetries = 4
+                let commitTryCount = 0, commitSuccess = false
+
+                do {
+                    if (commitTryCount > 0) {
+                        await new Promise((resolve) => setTimeout(resolve, 10000))
+                        console_log(`COMMIT::RETRY-${commitTryCount} ${transfer_signature(transfer)}::${series_id}`)
+                    }
+                    commitSuccess = await uploadCommit(transfer, res, series_id)
+                    commitTryCount++
+                } while (!commitSuccess && commitTryCount < maxCommitRetries)
+
+                fs.unlinkSync(commitOnceFile)
+            } else {
+                console_log('commitOnceFileExistsError', `Commit in progress: ${transfer.url_data.expt_label}`)
+            }
         }
 
         return true
@@ -932,9 +920,8 @@ function handleUploadError(transfer, series_id, segment_index, err) {
     _queue_.remove(transfer.id, series_id, segment_index);
 
     if (log_and_respawn) {
-        update_transfer_summary(transfer.id, 'upload_errors', Helper.errorMessage(err), function() {
-            respawn_transfer(transfer.id, series_id, segment_index, false)
-        });
+        nedb_logger.error(transfer.id, 'upload', Helper.errorMessage(err));
+        respawn_transfer(transfer.id, series_id, segment_index, false)
     } else {
         // TODO (SINGLE UPLOAD) - queue
         _queue_.remove_many(transfer.id);
@@ -1016,23 +1003,6 @@ function closeThisWindow(timeout = 0) {
     }, timeout)
 }
 
-async function update_transfer_summary(transfer_id, property, new_value, callback = false) {
-    summary_log_update(transfer_id, property, new_value)
-    let transfer = await db_uploads._getById(transfer_id)
-
-    if (transfer) {
-        transfer.summary = transfer.summary || {}
-        transfer.summary[property] = transfer.summary[property] || []
-        transfer.summary[property].push(new_value)
-    
-        await db_uploads._replaceDoc(transfer_id, transfer);
-    }
-
-    if (callback) {
-        callback()
-    }
-}
-
 // TODO (SINGLE UPLOAD) - fix this
 function respawn_transfer(transfer_id, series_id, segment_index, success) {
     console_red('respawn_transfer', {transfer_id, series_id, segment_index, success})
@@ -1046,9 +1016,6 @@ function respawn_transfer(transfer_id, series_id, segment_index, success) {
     console.log({total_upload_time: _time_offset(uploadStartTimer)});
 
     closeThisWindow(2000)
-    
-    //ipcRenderer.sendTo(webContentsId, channel, [, arg1][, arg2][, ...])
-    //do_transfer(series_id, success);
 }
 
 function get_temp_upload_path() {
@@ -1056,7 +1023,7 @@ function get_temp_upload_path() {
 }
 
 function transfer_tpl(transfer) {
-    my_transfer = {
+    let my_transfer = {
         transfer_id: transfer.id,
         rows: []
     };
@@ -1083,17 +1050,4 @@ function transfer_signature(transfer) {
 
     const series_info = `(SER: ${transfer.series_ids.length}|${transfer.done_series_ids.length} of ${transfer.series.length})`
     return `[W:${window.id}] ${transfer.url_data.expt_label} ${series_info} [${transfer.id}/${transfer.session_id}]`
-}
-
-
-function summary_log_update(transfer_id, prop, val) {
-    summary_log[transfer_id] = summary_log[transfer_id] || {}
-    summary_log[transfer_id][prop] = summary_log[transfer_id][prop] || []
-
-    summary_log[transfer_id][prop].push(val)
-
-    //console_red('summary_log_update', summary_log)
-
-    // TODO remove comment and add promise
-    //db_uploads.updateProperty(transfer_id, 'summary', summary_log[transfer_id])
 }
