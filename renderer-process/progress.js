@@ -152,14 +152,16 @@ function _init_upload_progress_table() {
                         case 'finished':
                             content = `Moving to archive`
                             break;
-                            content = `
-                            <button class="btn btn-block btn-success" 
-                                data-toggle="modal" 
-                                data-target="#upload-success-log"
-                                data-id="${row.id}"
-                                ><i class="fas fa-download"></i> Log</button>
-                            `;
-                            break;
+                            // content = `
+                            //     <button class="btn btn-info" 
+                            //         data-toggle="modal" 
+                            //         data-target="#upload-details"
+                            //         data-id="${row.id}"
+                            //         data-session_label="${row.session_label}"
+                            //         data-show_transfer_rate="false"
+                            //         ><i class="fas fa-upload"></i> Details</button>
+                            // ` + btn_delete;
+                            // break;
                             
                         case 'xnat_error':
                             content = `
@@ -1708,7 +1710,7 @@ function progress_bar_html(my_value, my_text = '') {
 }
 
 ipcRenderer.on('upload_finished', async function(e, transfer_id){
-    simpleLog(`upload_finished::${transfer_id}`, 'xdc--queue')
+    console_red('ipc_triggered__upload_finished', {transfer_id})
     let _transfer = await db_uploads._getById(transfer_id)
     let transfer = lodashCloneDeep(_transfer)
 
@@ -1730,7 +1732,7 @@ ipcRenderer.on('upload_finished', async function(e, transfer_id){
 
     await remove_finished_upload(transfer_id)
 
-    simpleLog(`upload_finished::${transfer_id} DONE`, 'xdc--queue')
+    simpleLog(`upload_finished::${transfer_id} DONE (${transfer.url_data.expt_label})`, 'xdc--upload_finished')
 
 
     let $modal_content = $(`#upload-details [data-id=${transfer_id}]`);
@@ -1900,7 +1902,7 @@ ipcRenderer.on('progress_cell',function(e, item){
             }
             $progress_bar.attr('aria-valuenow', item.value).css('width', percent + '%');
             if (percent === 100 && is_upload) {
-                $progress_bar.text('Archiving 2');
+                $progress_bar.text('Archiving');
             }
         }
         

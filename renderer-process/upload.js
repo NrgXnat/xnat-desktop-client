@@ -4439,7 +4439,6 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
             }
         }
     }
-    
 
     let upload_digest = {
         id: Helper.uuidv4(),
@@ -4466,7 +4465,11 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
         transfer_start: Helper.unix_timestamp(),
         table_rows: table_rows,
         status: 0,
-        canceled: false
+        canceled: false,
+        summary: {
+            total_files: [_files.length],
+            total_size: [total_size]
+        }
     };
 
     const max_upload_chunk_size = settings.get('max_upload_chunk_size', MAX_UPLOAD_CHUNK_SIZE)
