@@ -1585,102 +1585,139 @@ function update_downloads_cancel_status(new_cancel_status) {
 
 }
 
-function remove_transfers(include_canceled) {
+async function remove_transfers(include_canceled) {
+    const uploadsIds = await uploads_to_delete(include_canceled)
+    const downloadIds = await downloads_to_delete(include_canceled)
+
+    console.log({include_canceled, uploadsIds, downloadIds});
+
     Promise.all([
-        remove_finished_uploads(include_canceled), 
-        remove_finished_downloads(include_canceled)
-    ]).then(([removed_uploads, removed_download]) => {
-        console_red('remove_transfers -> then', {removed_uploads, removed_download})
-        Helper.pnotify(`Clear Completed Transfers`,  `Downloads Removed: ${removed_download}
+        archive_uploads(uploadsIds), 
+        archive_downloads(downloadIds)
+    ]).then(([removed_uploads, removed_downloads]) => {
+        console_red('remove_transfers -> then', {removed_uploads, removed_downloads})
+        Helper.pnotify(`Clear Completed Transfers`,  `Downloads Removed: ${removed_downloads}
         Uploads Removed: ${removed_uploads}`, 'success');
 
-        //_init_download_progress_table();
-        //_init_upload_progress_table();
+        if (removed_uploads) {
+            _init_upload_progress_table()
+        }
+        if (removed_downloads) {
+            _init_download_progress_table()
+        }
     })
 }
 
-function remove_finished_uploads(remove_canceled = false) {
-    return new Promise((resolve, reject) => {
-        db_uploads.listAll((err, my_transfers) => {
-            let to_archive = [];
-            let delete_ids = [];
-    
-            my_transfers.forEach((transfer) => {
-                // validate current user/server
-                if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
-                    let include_canceled = remove_canceled && transfer.canceled === true;
-                    
-                    if (transfer.status === 'finished' || include_canceled) {
-                        delete_ids.push(transfer._id);
-                        to_archive.push(transfer)
-                    }
-                }
-            });
+async function uploads_to_delete(remove_canceled = false) {
+	let delete_ids = []
+	try {
+		let my_transfers = await db_uploads._listAll()
 
-            console_red('remove_finished_uploads', {to_archive, delete_ids})
-    
-            if (delete_ids.length) {
-                db_uploads().remove({_id: {$in: delete_ids}}, {multi: true}, (err, numRemoved) => {
-                    console.log(`Removed ${numRemoved} from ${delete_ids.length} from db.uploads`)
-        
-                    db_uploads_archive().insert(to_archive, function (err, newDocs) {
-                        //console.log(`Added ${newDocs.length} from ${to_archive.length} into db.uploads_archive`)
-        
-                        _init_upload_progress_table();
-    
-                        resolve(numRemoved)
-                    });
-                })
-            } else {
-                resolve(0)
-            }
-    
-        })
-    })
-
+		my_transfers.forEach((transfer) => {
+			if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username &&
+                (transfer.status === 'finished' || transfer.status === 'complete_with_errors' || (remove_canceled && transfer.canceled))
+			) {
+				delete_ids.push(transfer.id);
+			}
+		})
+	} catch (err) {
+        electron_log.error('uploads_to_delete', err.message)
+	}
+	
+	return delete_ids
 }
 
-function remove_finished_downloads(remove_canceled = false) {
-    return new Promise((resolve, reject) => {
-        db_downloads.listAll((err, my_transfers) => {
-            let to_archive = [];
-            let delete_ids = [];
-
-            console_red('my_transfers', {my_transfers})
-    
-            my_transfers.forEach((transfer) => {
-                // validate current user/server
-                if (transfer.server === xnat_server && transfer.user === user_auth.username) {
-                    let include_canceled = remove_canceled && transfer.canceled === true;
-                    if (transfer.status === 'finished' || transfer.status === 'complete_with_errors' || include_canceled) {
-                        delete_ids.push(transfer._id);
-                        to_archive.push(transfer)
-                    }
-                }
+function archive_uploads(delete_ids) {
+    return new Promise(async (resolve, reject) => {
+		try {
+			if (delete_ids.length) {
+                let to_archive = []
                 
-            });
+                const transfers = await db_uploads._listAll({ id: { $in: delete_ids } })
 
-            console_red('remove_finished_downloads', {to_archive, delete_ids})
-
-            if (delete_ids.length) {
-                db_downloads().remove({_id: {$in: delete_ids}}, {multi: true}, (err, numRemoved) => {
-                    console.log(`Removed ${numRemoved} from ${delete_ids.length} from db.uploads`)
-        
-                    db_downloads_archive().insert(to_archive, function (err, newDocs) {
-                        //console.log(`Added ${newDocs.length} from ${to_archive.length} into db.uploads_archive`)
-        
-                        _init_download_progress_table();
-    
-                        resolve(numRemoved)
-                    });
-                })
-            } else {
-                resolve(0);
-            }
-    
-        })
+                for (let i = 0; i < transfers.length; i++) {
+                    let transfer_copy = lodashCloneDeep(transfers[i])
+                
+                    transfer_copy.series = [] // remove large data set from series
+                    transfer_copy.checksums = [] // remove no longer needed checksums
+                    to_archive.push(transfer_copy)
+                }
+				
+				db_uploads().remove({id: {$in: delete_ids}}, {multi: true}, (err, numRemoved) => {
+					if (err) {
+						reject(err)
+						return
+					}
+					console.log(`Removed ${numRemoved} from ${delete_ids.length} from db.uploads`)
+		
+					db_uploads_archive().insert(to_archive, function (err, newDocs) {
+						if (err) {
+							reject(err)
+							return
+						}
+						console.log(`Added ${newDocs.length} from ${to_archive.length} into db.uploads_archive`)
+		
+						resolve(numRemoved)
+					})
+				})
+			} else {
+				resolve(0)
+			}
+		} catch (err) {
+			reject(err)
+		}
     })
+}
 
+async function downloads_to_delete(remove_canceled = false) {
+	let delete_ids = []
+	try {
+		let my_transfers = await db_downloads._listAll()
+	
+		my_transfers.forEach((transfer) => {
+			if (transfer.server === xnat_server && transfer.user === user_auth.username &&
+                (transfer.status === 'finished' || transfer.status === 'complete_with_errors' || (remove_canceled && transfer.canceled))
+			) {
+				delete_ids.push(transfer.id);
+			}
+		})
+	} catch (err) {
+        electron_log.error('downloads_to_delete', err.message)
+	}
+	
+	return delete_ids
+}
+
+function archive_downloads(delete_ids) {
+    return new Promise(async (resolve, reject) => {
+		try {
+			if (delete_ids.length) {
+				const to_archive = await db_downloads._listAll({ id: { $in: delete_ids } })
+				
+				db_downloads().remove({id: {$in: delete_ids}}, {multi: true}, (err, numRemoved) => {
+					if (err) {
+						reject(err)
+						return
+					}
+					console.log(`Removed ${numRemoved} from ${delete_ids.length} from db.downloads`)
+		
+					db_downloads_archive().insert(to_archive, function (err, newDocs) {
+						if (err) {
+							reject(err)
+							return
+						}
+						console.log(`Added ${newDocs.length} from ${to_archive.length} into db.downloads_archive`)
+		
+						resolve(numRemoved)
+					})
+				})
+			} else {
+				resolve(0)
+			}
+		} catch (err) {
+			reject(err)
+		}
+    })
 }
 
 function pause_btn_content(status) {
@@ -1730,10 +1767,10 @@ ipcRenderer.on('upload_finished', async function(e, transfer_id){
         await generate_pdf_receipt(transfer_id)
     }
 
-    await remove_finished_upload(transfer_id)
+    await archive_uploads([transfer_id])
+    _init_upload_progress_table()
 
     simpleLog(`upload_finished::${transfer_id} DONE (${transfer.url_data.expt_label})`, 'xdc--upload_finished')
-
 
     let $modal_content = $(`#upload-details [data-id=${transfer_id}]`);
 
@@ -1750,48 +1787,16 @@ ipcRenderer.on('upload_finished', async function(e, transfer_id){
     }
 })
 
+ipcRenderer.on('download_finished', async function(e, transfer_id){
+    await archive_downloads([transfer_id])
+    _init_download_progress_table()
 
-function remove_finished_upload(transfer_id) {
-    return new Promise(async (resolve, reject) => {
-        let transfer = await db_uploads._getById(transfer_id)
+    let $modal_content = $$(`#download-details [data-id=${transfer_id}]`);
 
-        let to_archive = [];
-        let delete_ids = [];
-
-
-        // validate current user/server
-        if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
-            if (transfer.status === 'finished') {
-                delete_ids.push(transfer._id)
-                let transfer_copy = lodashCloneDeep(transfer)
-                
-                transfer_copy.series = [] // remove large data set from series
-                transfer_copy.checksums = [] // remove no longer needed checksums
-                to_archive.push(transfer_copy)
-            }
-        }
-
-        console_red('remove_finished_uploads', {to_archive, delete_ids})
-
-        if (delete_ids.length) {
-            db_uploads().remove({_id: {$in: delete_ids}}, {multi: true}, (err, numRemoved) => {
-                console.log(`Removed ${numRemoved} from ${delete_ids.length} from db.uploads`)
-    
-                db_uploads_archive().insert(to_archive, function (err, newDocs) {
-                    //console.log(`Added ${newDocs.length} from ${to_archive.length} into db.uploads_archive`)
-    
-                    _init_upload_progress_table();
-
-                    resolve(numRemoved)
-                });
-            })
-        } else {
-            resolve(0)
-        }
-
-    })
-
-}
+    if ($modal_content.is(':visible')) {
+        $$(`#download-details`).modal('hide');
+    }
+})
 
 async function generate_pdf_receipt_html(transfer_id) {
     let transfer = await db_uploads._getById(transfer_id)

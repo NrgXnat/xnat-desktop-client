@@ -239,6 +239,11 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
             value: final_status
         });
 
+
+        if (final_status === 'finished') {
+            ipc.send('download_finished', transfer_id);
+        }
+
         return;
     }
 
