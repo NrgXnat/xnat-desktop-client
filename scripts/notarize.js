@@ -1,5 +1,6 @@
 require('dotenv').config();
-const { notarize } = require('electron-notarize');
+const { notarize } = require('@electron/notarize');
+
 
 function isBlank(value) {
     return !value || 0 === value.trim().length;
@@ -13,8 +14,9 @@ exports.default = async function notarizing(context) {
 
     const appleId = process.env.APPLEID;
     const appleIdPassword = process.env.APPLEIDPASS;
-    if (isBlank(appleId) || isBlank(appleIdPassword)) {
-        console.info('One or both of APPLEID and APPLEIDPASS variables were blank. Skipping notarization step.');
+    const teamId = process.env.APPLETEAMID;
+    if (isBlank(appleId) || isBlank(appleIdPassword) || isBlank(teamId)) {
+        console.info('Please check if all of the following variables are set: APPLEID, APPLEIDPASS and APPLETEAMID. Skipping notarization step.');
         return;
     }
 
@@ -23,8 +25,9 @@ exports.default = async function notarizing(context) {
     return await notarize({
         appBundleId: 'com.xnatapp.app',
         appPath: `${appOutDir}/${appName}.app`,
-        appleId: process.env.APPLEID,
-        appleIdPassword: process.env.APPLEIDPASS,
+        appleId,
+        appleIdPassword,
+        teamId
     });
 };
 
