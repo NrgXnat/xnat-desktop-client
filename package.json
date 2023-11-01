@@ -33,7 +33,7 @@
     "patch-java-binding": "./patch-java-binding.sh",
     "postinstall": "run-script-os",
     "postinstall:win32": "electron-builder install-app-deps",
-    "postinstall:default": "find build_resources -name \"._*\" -exec rm '{}' \\;; find build_resources/jre -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \\;; ./patch-java-binding.sh; electron-builder install-app-deps;",
+    "postinstall:default": "find build_resources -name \"._*\" -exec rm '{}' \\;; find build_resources/jre -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \\;; ./patch-java-binding.sh; node ./scripts/fix-dmg-builder.js; electron-builder install-app-deps;",
     "cleanstall": "run-script-os",
     "cleanstall:win32": "rmdir /s /q node_modules & yarn install",
     "cleanstall:default": "rm -rf node_modules ; yarn install"
@@ -102,10 +102,10 @@
     "xml2js": "^0.4.19"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.1.0",
     "devtron": "^1.4.0",
     "electron": "^3.1.13",
     "electron-builder": "^21.2.0",
-    "electron-notarize": "^1.0.0",
     "electron-packager": "^10.1.2",
     "node-sass-chokidar": "^1.4.0",
     "npm-run-all": "^4.1.2",
