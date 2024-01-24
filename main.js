@@ -169,6 +169,17 @@ function initialize () {
     uploadWindow.on('closed', function () {
       uploadWindow = null
     });
+
+    // FIX upload EPERM error (with config.json)
+    uploadWindow.webContents.on('console-message', function(event, level, message, line, sourceId) {
+      const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
+      
+      if ( level === 2 && message.startsWith(distinctError) ) {
+        console.log('--------------> [console-message] UPLOAD window EPERM error: ' + message)
+        uploadWindow.webContents.reload()
+      }
+    })
+
     uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload-manager.html'));
     updateUserAgentString(uploadWindow);
 
@@ -177,6 +188,16 @@ function initialize () {
     downloadWindow.on('closed', function () {
       downloadWindow = null
     });
+    // FIX download EPERM error (with config.json)
+    downloadWindow.webContents.on('console-message', function(event, level, message, line, sourceId) {
+      const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
+      
+      if ( level === 2 && message.startsWith(distinctError) ) {
+        console.log('--------------> [console-message] DOWNLOAD window EPERM error: ' + message)
+        downloadWindow.webContents.reload()
+      }
+    })
+
     downloadWindow.loadURL(path.join('file://', __dirname, '/sections/_download.html'));
     updateUserAgentString(downloadWindow);
 
@@ -227,6 +248,16 @@ function initialize () {
       
       mainWindow = null
     });
+
+    // FIX main EPERM error (with config.json)
+    mainWindow.webContents.on('console-message', function(event, level, message, line, sourceId) {
+      const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
+      
+      if ( level === 2 && message.startsWith(distinctError) ) {
+        console.log('--------------> [console-message] MAIN window EPERM error: ' + message)
+        mainWindow.webContents.reload()
+      }
+    })
     
     // Protocol handler for win32
     if (process.platform == 'win32' || process.platform == 'linux') {
