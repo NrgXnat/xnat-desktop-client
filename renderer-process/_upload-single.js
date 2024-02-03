@@ -372,7 +372,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         adapter: httpAdapter,
         auth: user_auth,
         maxContentLength: (1024 * 1024 * 1024 * 1024), // default 10MB - must be increased ~ 1TB
-        maxRedirects: 0, // default 5, has to be 0 to avoid back pressure (RAM filling)
+        maxRedirects: 1, // default 5, has to be 0 to avoid back pressure (RAM filling)
         headers: {
             'User-Agent': userAgentString,
             'Content-Type': 'application/zip',
