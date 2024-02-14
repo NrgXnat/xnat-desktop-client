@@ -13,8 +13,8 @@ require('promise.prototype.finally').shim();
 const xml2js = require('xml2js');
 const swal = require('sweetalert');
 
-const remote = require('electron').remote;
-const electron_log = remote.require('./services/electron_log');
+const { require: nodeRequire, app } = require('@electron/remote')
+const electron_log = nodeRequire('./services/electron_log');
 
 const FileSaver = require('file-saver');
 const zlib = require('zlib');
@@ -22,12 +22,10 @@ const zlib = require('zlib');
 const unzipper = require('unzipper');
 const sha1 = require('sha1');
 
-const app = remote.app;
+const db_downloads = nodeRequire('./services/db/downloads')
 
-const db_downloads = remote.require('./services/db/downloads')
-
-const nedb_logger = remote.require('./services/db/nedb_logger')
-const nedb_log_reader = remote.require('./services/db/nedb_log_reader')
+const nedb_logger = nodeRequire('./services/db/nedb_logger')
+const nedb_log_reader = nodeRequire('./services/db/nedb_log_reader')
 
 const dom_context = '#home-section';
 const { $$, $on } = require('./../services/selector_factory')(dom_context)

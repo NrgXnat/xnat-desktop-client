@@ -4,10 +4,16 @@ const path = require('path')
 
 const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
-const auth = require('../auth')
+const auth = require('../auth_main')
 const sha1 = require('sha1')
 
-const app = require('electron').remote ? require('electron').remote.app : require('electron').app
+// const app = require('electron').remote ? require('electron').remote.app : require('electron').app
+let app;
+if (process.type === 'renderer') {
+    app = require('@electron/remote').app
+} else {
+    app = require('electron').app
+}
 
 
 let db_filename = `nedb-logger`;

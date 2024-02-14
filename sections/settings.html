@@ -454,10 +454,9 @@
     </section>
     
     <script type="text/javascript">
-        require('./renderer-process/settings')
-
-        //$('#settings-section').trigger('page:load');
-        Helper.pageLoadTrigger('#settings-section');
-
+        const path = require('path');
+        const modulePath = path.join(__dirname, '..', 'renderer-process', 'settings');
+        require(modulePath);
+        Helper.pageLoadTrigger('#settings-section'); 
     </script>
 </template>

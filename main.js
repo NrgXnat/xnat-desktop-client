@@ -2,19 +2,31 @@ const path = require('path')
 const fs = require('fs')
 const glob = require('glob')
 const electron = require('electron')
-const { app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol } = electron
+const { app, session, BrowserWindow, ipcMain, shell, Tray, dialog, protocol } = electron
+
+require('@electron/remote/main').initialize()
+const enableRemoteModule = require('@electron/remote/main').enable;
+
 const { autoUpdater } = require('electron-updater')
 const electron_log = require('./services/electron_log')
 
 const { isDevEnv, getUpdateChannel } = require('./services/app_utils')
 
-const auth = require('./services/auth')
+const { allow_insecure_ssl } = require('./services/auth_main')
 
 const { runMigrations } = require('./services/migrations')
-const appMetaData = require('./package.json')
 
-const ElectronStore = require('electron-store')
+// const appMetaData = require('./package.json')
+// const ElectronStore = require('electron-store')
+// const settings = new ElectronStore();
+
+const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
+console.log('--------SETTINGS: ' + settings.path);
+const loginsData = settings.get('logins');
+console.log({loginsData});
+
+
 
 // windows
 let mainWindow = null, downloadWindow = null, uploadWindow = null;
@@ -77,7 +89,7 @@ function initialize_usr_local_lib_app() {
   let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
   const iconPath = path.join(__dirname, iconSource);
 
-  function createWindow() {
+  async function createWindow() {
     var windowOptions = {
       width: 800,
       minWidth: 768,
@@ -85,17 +97,24 @@ function initialize_usr_local_lib_app() {
       title: app.getName(),
       icon: iconPath,
       show: true,
-      frame: false
+      frame: false,
+      webPreferences: {
+        nodeIntegration: true, // Enable Node Integration
+        contextIsolation: false, // If you enable nodeIntegration, you might need to disable contextIsolation
+      }
     };
 
     mainWindow = new BrowserWindow(windowOptions);
+    enableRemoteModule(mainWindow.webContents);
     mainWindow.loadURL(path.join('file://', __dirname, '/index_alt.html'));
     updateUserAgentString(mainWindow);
 
     if (isDevEnv()) {
       mainWindow.webContents.openDevTools()
       mainWindow.maximize()
-      require('devtron').install()
+      // require('devtron').install()
+      // const devtronPath = path.join(__dirname, 'node_modules', 'devtron');
+      // await session.defaultSession.loadExtension(devtronPath);
     }
 
     mainWindow.on('closed', function () {
@@ -141,7 +160,8 @@ function initialize () {
   let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
   const iconPath = path.join(__dirname, iconSource);
 
-  function createWindow() {
+  async function createWindow() {
+    console.log('---- createWindow ---- INITIALIZED');
     var windowOptions = {
       width: 1080,
       minWidth: 788,
@@ -149,10 +169,15 @@ function initialize () {
       height: 840,
       title: app.getName(),
       icon: iconPath,
-      show: true
+      show: true,
+      webPreferences: {
+        nodeIntegration: true, // Enable Node Integration
+        contextIsolation: false, // If you enable nodeIntegration, you might need to disable contextIsolation
+      }
     };
     
     mainWindow = new BrowserWindow(windowOptions);
+    enableRemoteModule(mainWindow.webContents);
     mainWindow.loadURL(path.join('file://', __dirname, '/index.html'));
     updateUserAgentString(mainWindow);
 
@@ -161,11 +186,16 @@ function initialize () {
       height: 700,
       alwaysOnTop: false,
       show: false,
-      top: mainWindow
+      top: mainWindow,
+      webPreferences: {
+        nodeIntegration: true, // Enable Node Integration
+        contextIsolation: false, // If you enable nodeIntegration, you might need to disable contextIsolation
+      }
     };
 
     // Upload window
     uploadWindow = new BrowserWindow(childOptions)
+    enableRemoteModule(uploadWindow.webContents)
     uploadWindow.on('closed', function () {
       uploadWindow = null
     });
@@ -185,6 +215,7 @@ function initialize () {
 
     // Download window
     downloadWindow = new BrowserWindow(childOptions)
+    enableRemoteModule(downloadWindow.webContents);
     downloadWindow.on('closed', function () {
       downloadWindow = null
     });
@@ -207,15 +238,18 @@ function initialize () {
     if (isDevEnv()) {
       mainWindow.webContents.openDevTools()
       mainWindow.maximize()
-      require('devtron').install()
+      // require('devtron').install()
+      // const devtronPath = path.join(__dirname, 'node_modules', 'devtron');
+      // console.log({devtronPath});
+      // await session.defaultSession.loadExtension(devtronPath);
 
-      uploadWindow.show()
-      uploadWindow.webContents.openDevTools()
-      uploadWindow.maximize()
+      // uploadWindow.show()
+      // uploadWindow.webContents.openDevTools()
+      // uploadWindow.maximize()
 
-      downloadWindow.show()
-      downloadWindow.webContents.openDevTools()
-      downloadWindow.maximize()
+      // downloadWindow.show()
+      // downloadWindow.webContents.openDevTools()
+      // downloadWindow.maximize()
     }
 
 
@@ -378,9 +412,9 @@ function initialize () {
   app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
     // On certificate error we disable default behaviour (stop loading the page)
     // and we then say "it is all fine - true" to the callback
-    log('***** CERT ERROR ******', auth.allow_insecure_ssl(), app.allow_insecure_ssl);
+    log('***** CERT ERROR ******', allow_insecure_ssl(), app.allow_insecure_ssl);
     
-    if (app.allow_insecure_ssl || auth.allow_insecure_ssl()) {
+    if (app.allow_insecure_ssl || allow_insecure_ssl()) {
       event.preventDefault();
       callback(true);
       //post_message('custom_error', 'Certificate OK', 'All OK');
@@ -448,7 +482,7 @@ function post_message(type, ...args) {
 //
 // Returns true if the current version of the app should quit instead of
 // launching.
-function isSecondInstance() {
+function isSecondInstanceOld() {
   // if (process.mas) return false;
 
   return app.makeSingleInstance((argv, workingDirectory) => {
@@ -467,6 +501,32 @@ function isSecondInstance() {
       
     }
   })
+}
+
+function isSecondInstance() {
+  const gotTheLock = app.requestSingleInstanceLock();
+
+  if (!gotTheLock) {
+      // This is a second instance, we should quit.
+      return true;
+  }
+
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+
+      // Protocol handler for win32
+      // argv: An array of the second instance’s (command line / deep linked) arguments
+      if (process.platform == 'win32' || process.platform == 'linux') {
+        handle_protocol_request(argv.slice(1), 'app.makeSingleInstance');
+      }
+    }
+  });
+
+  // This is the first instance.
+  return false;
 }
 
 function handle_protocol_request(url, place) {
@@ -796,6 +856,7 @@ ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base, show
 ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
 
   const uploadWindowSingle = new BrowserWindow({show : false})//to just open the browser in background
+  enableRemoteModule(uploadWindowSingle.webContents);
 
   uploadWindowSingle.on('close', function() {
     console.log('close: ', uploadWindowSingle.id)
@@ -865,3 +926,11 @@ ipcMain.on('single_upload_finished', (e, window_id) => {
 ipcMain.on('respawn_transfer', (e, transfer_id, series_id, segment_index, success) => {
   uploadWindow.webContents.send('respawn_transfer', transfer_id, series_id, segment_index, success);
 })
+
+ipcMain.handle('get-app-info', () => {
+  return {
+    appPath: app.getAppPath(),
+    version: app.getVersion(),
+    userDataPath: app.getPath('userData')
+  };
+});

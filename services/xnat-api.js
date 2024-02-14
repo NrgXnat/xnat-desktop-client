@@ -4,9 +4,14 @@ const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
 const https = require('https');
 
-
-const { remote } = require('electron');
-const electron_log = remote ? remote.require('./services/electron_log') : require('./electron_log');
+// const electron_log = process.type === 'renderer' ? nodeRequire('./services/electron_log') : require('./electron_log');
+let electron_log;
+if (process.type === 'renderer') {
+    const nodeRequire = require('@electron/remote').require
+    electron_log = nodeRequire('./services/electron_log')
+} else {
+    electron_log = require('./electron_log')
+}
 
 class XNATAPI {
     constructor(xnat_server, user_auth) {

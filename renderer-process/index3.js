@@ -2,14 +2,15 @@ const electron = require('electron');
 const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
 const ipcRenderer = electron.ipcRenderer
-const app = electron.remote.app
+const { app, require: nodeRequire } = require('@electron/remote');
 const shell = electron.shell
 const isOnline = require('is-online');
 const auth = require('../services/auth');
 const api = require('../services/api');
 const tempDir = require('temp-dir');
-const path = require('path')
-const remote = require('electron').remote;
+const fs = require('fs');
+const path = require('path');
+// const remote = require('electron').remote;
 
 const ipcEventHandlers = require('../services/ipc-event-handlers')
 
@@ -34,7 +35,7 @@ electron.crashReporter.start({
 */
 
 try {
-    let mizer = remote.require('./mizer');
+    let mizer = nodeRequire('./mizer');
 } catch(e) {
     if (process.platform === "win32" && e.message.includes('nodejavabridge_bindings.node')) {
         $('#win_install_cpp').modal({
@@ -50,7 +51,7 @@ try {
 
 const swal = require('sweetalert');
 
-const electron_log = electron.remote.require('./services/electron_log');
+const electron_log = nodeRequire('./services/electron_log');
 
 const {URL} = require('url');
 
@@ -94,6 +95,45 @@ function loadPage(page) {
 
         if (link.href.endsWith(page)) {
             console_log('Our page: ' + page);
+
+            let pathParts = [__dirname, '..']
+            if (!page.startsWith('sections/')) {
+                pathParts.push('sections')
+            }
+            pathParts.push(page)
+
+            // Step 1: Read the HTML file content
+            const htmlPath = path.join(...pathParts);
+            console.log({htmlPath});
+            const htmlContent = fs.readFileSync(htmlPath, 'utf8');
+
+            // Step 2: Create a temporary DOM element (e.g., a DIV) to hold the HTML content
+            const tempDomElement = document.createElement('div');
+            tempDomElement.innerHTML = htmlContent;
+
+            // Step 3: Use querySelector to find the template or specific content
+            // Assuming '.task-template' is a class inside your login.html that you want to clone
+            let template = tempDomElement.querySelector('.task-template');
+            if (template) {
+                // Step 4: Clone the template content and insert it into the main document
+                let clone = document.importNode(template.content, true);
+                let contentContainer = document.querySelector('.content');
+                contentContainer.innerHTML = ''; // Clear existing content if necessary
+                contentContainer.appendChild(clone);
+
+                // Now, find and execute the script
+                const scriptTag = contentContainer.querySelector('script[type="text/javascript"]');
+                if (scriptTag) {
+                    eval(scriptTag.textContent || scriptTag.innerText);
+                }
+
+                document.body.scrollTop = 0;
+                settings.set('active_page', page); 
+                return;
+            }
+            // =====
+
+            /*
             let template = link.import.querySelector('.task-template')
             let clone = document.importNode(template.content, true)
         
@@ -107,6 +147,7 @@ function loadPage(page) {
             settings.set('active_page', page); 
 
             return;
+            */
         }
 
     });

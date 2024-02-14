@@ -1,5 +1,6 @@
 const electron = require('electron');
-const { ipcRenderer, remote } = electron;
+const { ipcRenderer } = electron;
+const { require: nodeRequire, getCurrentWindow } = require('@electron/remote')
 
 const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
@@ -9,9 +10,9 @@ const XNATAPI = require('./xnat-api')
 const auth = require('./auth');
 const { jsonStringify, stripTags } = require('../services/app_utils')
 
-const db_uploads = remote.require('./services/db/uploads')
-const nedb_logger = remote.require('./services/db/nedb_logger')
-const electron_log = remote.require('./services/electron_log');
+const db_uploads = nodeRequire('./services/db/uploads')
+const nedb_logger = nodeRequire('./services/db/nedb_logger')
+const electron_log = nodeRequire('./services/electron_log');
 
 
 function console_log(...log_this) {
@@ -20,14 +21,14 @@ function console_log(...log_this) {
 }
 
 function transfer_signature(transfer) {
-    const window = remote.getCurrentWindow()
+    const window = getCurrentWindow()
 
     const series_info = `(SER: ${transfer.series_ids.length}|${transfer.done_series_ids.length} of ${transfer.series.length})`
     return `[W:${window.id}] ${transfer.url_data.expt_label} ${series_info} [${transfer.id}/${transfer.session_id}]`
 }
 
 function getUserAgentString() {
-    return remote.getCurrentWindow().webContents.getUserAgent();
+    return getCurrentWindow().webContents.getUserAgent();
 }
 
 exports.uploadCommit = async (transfer, res, series_id = '') => {
@@ -116,7 +117,7 @@ exports.uploadCommit = async (transfer, res, series_id = '') => {
 
             if (num_updated) {
                 Helper.notify(`Upload is finished. Session: ${expt_label}`); // session label
-                nedb_logger.success(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + `Session ${expt_label} uploaded successfully.`, jsonStringify(transfer.url_data));
+                nedb_logger.success(transfer.id, 'upload', `[${getCurrentWindow().id}: ]` + `Session ${expt_label} uploaded successfully.`, jsonStringify(transfer.url_data));
                 
                 // have to split this out bc a 301 indicates archival and goes into the catch block, whereas 200 means prearchived so we are in fact finished
                 await db_uploads._updateProperty(transfer.id, 'status', 'finished');
@@ -147,7 +148,7 @@ exports.uploadCommit = async (transfer, res, series_id = '') => {
                 electron_log.error('commit_error', commit_url, jsonStringify(err.response))
 
                 const errorDataMessage = stripTags(err.response.data)
-                let error_message = `[${remote.getCurrentWindow().id}: ]` + `Session commit failed (status code: ${err.response.status} - "${err.response.statusText}"). ${errorDataMessage}`;
+                let error_message = `[${getCurrentWindow().id}: ]` + `Session commit failed (status code: ${err.response.status} - "${err.response.statusText}"). ${errorDataMessage}`;
                 nedb_logger.error(transfer.id, 'upload', error_message, jsonStringify(err.response));
 
                 await db_uploads._updateProperty(transfer.id, 'status', 'xnat_error');
@@ -179,7 +180,7 @@ exports.uploadCommit = async (transfer, res, series_id = '') => {
                     })
 
                     Helper.notify(`Upload is finished. Session: ${expt_label}`); // session label
-                    nedb_logger.success(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + `Session ${expt_label} uploaded successfully.`, jsonStringify(transfer.url_data));
+                    nedb_logger.success(transfer.id, 'upload', `[${getCurrentWindow().id}: ]` + `Session ${expt_label} uploaded successfully.`, jsonStringify(transfer.url_data));
                     
                     ipcRenderer.send('progress_cell', {
                         table: '#upload_monitor_table',

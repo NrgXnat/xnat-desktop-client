@@ -1,5 +1,5 @@
-const { ipcRenderer, remote } = require('electron')
-const app = remote.app
+const { ipcRenderer } = require('electron')
+const { require: nodeRequire, app } = require('@electron/remote')
 const fs = require('fs')
 const path = require('path')
 const getSize = require('get-folder-size')
@@ -20,9 +20,9 @@ const user_settings = require('../services/user_settings')
 const ResetManager = require('../services/reset-manager')
 const FlowReset = new ResetManager();
 const ExperimentLabel = require('../services/experiment_label')
-const mizer = remote.require('./mizer')
-const db_uploads = remote.require('./services/db/uploads')
-const electron_log = remote.require('./services/electron_log')
+const mizer = nodeRequire('./mizer')
+const db_uploads = nodeRequire('./services/db/uploads')
+const electron_log = nodeRequire('./services/electron_log')
 const XNATAPI = require('../services/xnat-api')
 const { 
     random_string, 
@@ -4449,10 +4449,6 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
 
     console.log({upload_digest});
 
-    // todo: remove this
-    // const target_path = path.resolve(remote.app.getPath('desktop'), `upload_digest-${Date.now()}.json`)
-    // objToJsonFile(upload_digest, target_path);
-    
     try {
         const newItem = await db_uploads._insertDoc(upload_digest)
 

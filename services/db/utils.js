@@ -1,12 +1,12 @@
-const { getApp } = require('../app_utils')
+const { getAppInfo } = require('../app_utils')
 const { glob } = require('glob')
 const path = require('path')
 const lodashCloneDeep = require('lodash/cloneDeep')
 
 
-exports.getJsonDbFiles = (dbType = '*') => {
-    const app = getApp()
-    const appDataDir = app.getPath('userData')
+exports.getJsonDbFiles = async (dbType = '*') => {
+    const appInfo = await getAppInfo()
+    const appDataDir = appInfo.userDataPath
     const sha1_match = '[a-f0-9]'.repeat(40)
     const fileRegex = dbType === '*' ? `db.*.${sha1_match}.json` : `db.${dbType}.${sha1_match}.json`
 

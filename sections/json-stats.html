@@ -13,7 +13,9 @@
         </div>
 
         <script type="text/javascript">
-            require('./renderer-process/json-stats')
+            const path = require('path');
+            const modulePath = path.join(__dirname, '..', 'renderer-process', 'json-stats');
+            require(modulePath);
             Helper.pageLoadTrigger('#json-stats');
         </script>
 

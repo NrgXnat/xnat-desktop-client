@@ -7,11 +7,9 @@ const ipcRenderer = require('electron').ipcRenderer
 const swal = require('sweetalert');
 const fs = require('fs');
 
-const remote = require('electron').remote;
+const { require: nodeRequire, app } = require('@electron/remote')
 
-const electron_log = remote.require('./services/electron_log');
-
-const app = remote.app
+const electron_log = nodeRequire('./services/electron_log');
 
 const auth = require('../services/auth');
 const user_settings = require('../services/user_settings');
@@ -695,6 +693,7 @@ $on('click', '#save-pdf-destination', function(e) {
 })
 
 $on('click', '[data-js="show-user-data-folder"]', function() {
+    console.log('clicked')
     ipcRenderer.send('shell.showItemInFolder', app.getPath('userData') + path.sep + '.')
 })
 

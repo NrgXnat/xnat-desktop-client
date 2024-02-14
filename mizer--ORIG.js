@@ -1,24 +1,34 @@
 const mizer = exports;
 const path = require('path');
+const fs = require('fs');
+
+//console.log(__dirname);
 
 
 const _app_path = __dirname;
 
-let java, jarDir, importClass, appendClasspath;
+/*
+fs.writeFileSync('mizer.js.txt', "MizerLibs: [" + _app_path +  "]" + path.resolve(_app_path, '..', 'app.asar.unpacked', 'libs') + "/", (err) => {
+    if (err) throw err;
+    console.log('Error writing mizer.js.txt');
+});
+*/
+
+let java;
+let jarDir;
 
 if (path.extname(_app_path) === '.asar') {
   const java_node_modules_dir = path.resolve(_app_path, '..', 'app.asar.unpacked', 'node_modules', 'java')
   java = require(java_node_modules_dir)
   jarDir = path.resolve(_app_path, '..', 'app.asar.unpacked', 'libs') + "/"
 } else {
-  importClass = require('java-bridge').importClass
-  appendClasspath = require('java-bridge').appendClasspath
+  java = require('java')
   jarDir = _app_path + "/libs/"
 }
 
 console.log(jarDir);
 
-const jarClassPaths = ["classes",
+["classes",
     "antlr-runtime-3.5.2.jar",
     "antlr4-runtime-4.7.1.jar",
     "commons-compress-1.20.jar",
@@ -47,23 +57,14 @@ const jarClassPaths = ["classes",
     "slf4j-api-1.7.30.jar",
     "slf4j-log4j12-1.7.30.jar",
     "spring-core-4.3.30.RELEASE.jar",
-    "transaction-1.8.8.jar"].map(jar => jarDir + jar);
+    "transaction-1.8.8.jar"].forEach(jar => java.classpath.push(jarDir + jar))
 
-appendClasspath(jarClassPaths);
+const mizers = java.newInstanceSync("java.util.ArrayList");
+mizers.addSync(java.newInstanceSync("org.nrg.dcm.edit.mizer.DE4Mizer"));
+const scriptFactory = java.newInstanceSync("org.nrg.dicom.dicomedit.DE6ScriptFactory");
+mizers.addSync(java.newInstanceSync("org.nrg.dicom.dicomedit.mizer.DE6Mizer", scriptFactory));
 
-const mizersClass = importClass("java.util.ArrayList");
-const mizers = new mizersClass()
-
-const de4MizerClass = importClass("org.nrg.dcm.edit.mizer.DE4Mizer")
-mizers.add(new de4MizerClass());
-
-const scriptFactoryClass = importClass("org.nrg.dicom.dicomedit.DE6ScriptFactory");
-const scriptFactory = new scriptFactoryClass()
-const de6MizerClass = importClass("org.nrg.dicom.dicomedit.mizer.DE6Mizer")
-mizers.add(new de6MizerClass(scriptFactory));
-
-const mizerServiceClass = importClass("org.nrg.dicom.mizer.service.impl.BaseMizerService")
-const mizerService = new mizerServiceClass(mizers);
+const mizerService = java.newInstanceSync("org.nrg.dicom.mizer.service.impl.BaseMizerService", mizers);
 
 /**
  * Creates a Java Properties object from a hash of values. This object is what the Mizer service expects for
@@ -71,22 +72,21 @@ const mizerService = new mizerServiceClass(mizers);
  *
  * Add more variables to the return from this function by calling:
  *
- * variables.setProperty('variableName', 'variableValue');
+ * variables.setPropertySync('variableName', 'variableValue');
  *
  * @param variables A hash of variable names and values.
  *
  * @return A Java Properties object containing the submitted names and values.
  */
 mizer.getVariables = (variables) => {
-    const propertiesClass = importClass("java.util.Properties");
-    const properties = new propertiesClass()
+    const properties = java.newInstanceSync("java.util.Properties");
     // console.log('-----------------------------------');
     // console.log(variables);
     // console.log('-----------------------------------');
     
     if (variables) {
         Object.keys(variables).forEach(key => {
-            properties.setProperty(key, variables[key]);
+            properties.setPropertySync(key, variables[key]);
         });
     }
 
@@ -95,55 +95,46 @@ mizer.getVariables = (variables) => {
 
 /**
  * Add variables, such as from {@link #getVariables()} above, to the return from this function by calling
- * context.add(variables).
+ * context.addSync(variables).
  *
  * @param script The script for which a context should be created.
  *
  * @return A script context.
  */
 mizer.getScriptContext = (script) => {
-    const contextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
-    const context = new contextClass();
+    const context = java.newInstanceSync("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
 
-    // context.setScriptSync(script);
-    context.setScript(script);
+    context.setScriptSync(script);
 
     return context;
 };
 
 /**
  * Add variables, such as from {@link #getVariables()} above, to the return from this function by calling
- * context.add(variables).
+ * context.addSync(variables).
  *
  * @param scripts The scripts for which contexts should be created.
  *
  * @return A list of script contexts.
  */
 mizer.getScriptContexts = (scripts) => {
-    const ArrayListClass = importClass("java.util.ArrayList");
-    const arrayList = new ArrayListClass();
+    const contexts = java.newInstanceSync("java.util.ArrayList");
 
     scripts.forEach(script => {
         const context = mizer.getScriptContext(script);
-        arrayList.add(context);
+        contexts.addSync(context);
     });
 
-    return arrayList;
+    return contexts;
 };
 
 /**
  * Gets variables that are referenced in the contexts.
  */
-mizer.getReferencedVariables = async (contexts) => {
-    console.log('---------> getReferencedVariables');
+mizer.getReferencedVariables = (contexts) => {
     //return mizerService.getReferencedVariablesSync(contexts);
     const variableMap = {};
-    // const variables = mizerService.getReferencedVariablesSync(contexts);
-    const variables = await mizerService.getReferencedVariables(contexts);
-
-    console.log({contexts, variables});
-
-
+    const variables = mizerService.getReferencedVariablesSync(contexts);
     
     let itr = variables.iteratorSync();
     
@@ -154,20 +145,7 @@ mizer.getReferencedVariables = async (contexts) => {
         let variableValue = initialValue ? initialValue.asStringSync() : "";
         variableMap[variable.getNameSync()] = variableValue;
     }
-
-
-/*
     
-    let itr = variables.iterator();
-    
-    while (itr.hasNext()) {
-        variable = itr.next();
-        
-        let initialValue = variable.getInitialValue();
-        let variableValue = initialValue ? initialValue.asString() : "";
-        variableMap[variable.getName()] = variableValue;
-    }
-*/    
     
     // for (let i = 0; i < variables.sizeSync(); i++) {
     //     console.log('***********************************', variables.sizeSync(), variables[i]);
@@ -193,11 +171,10 @@ mizer.getReferencedVariables = async (contexts) => {
  * @param variables A Java Properties object to pass for variable substitution.
  */
 mizer.anonymize_old = (source, contexts, variables) => {
-    const FileClass = importClass("java.io.File");
-    const dicom = FileClass(source);
+    const dicom = java.newInstanceSync("java.io.File", source);
 
-    contexts.forEach(context => context.add(variables));
-    mizerService.anonymize(dicom, contexts);
+    contexts.forEach(context => context.addSync(variables));
+    mizerService.anonymizeSync(dicom, contexts);
 };
 
 /**
@@ -209,53 +186,34 @@ mizer.anonymize_old = (source, contexts, variables) => {
  * @param variables A Java Properties object to pass for variable substitution.
  */
 mizer.anonymize = (source, contexts, variables) => {
-    const FileClass = importClass("java.io.File");
-    const dicom = FileClass(source);
-
-    console.log({contexts});
-
-    /*
-    let itr = contexts.iterator();
-    while (itr.hasNext()) {
-        context = itr.next();
-        context.add(variables);
-    }
-    */
+    const dicom = java.newInstanceSync("java.io.File", source);
 
     let itr = contexts.iteratorSync();
     while (itr.hasNextSync()) {
         context = itr.nextSync();
         context.addSync(variables);
 
-        console.log(context);
+        //console.log(context);
     }
-    
-    mizerService.anonymize(dicom, contexts);
+    mizerService.anonymizeSync(dicom, contexts);
 };
 
 mizer.anonymize_single = (source, script, variables) => {
-    const PropertiesClass = importClass("java.util.Properties");
-    const properties = new PropertiesClass();
+    const properties = java.newInstanceSync("java.util.Properties");
 
     if (variables) {
         Object.keys(variables).forEach(key => {
-            properties.setProperty(key, variables[key]);
+            properties.setPropertySync(key, variables[key]);
         });
     }
 
-    const FileClass = importClass("java.io.File");
-    const file = FileClass(source);
+    const file = java.newInstanceSync("java.io.File", source);
+    const context = java.newInstanceSync("org.nrg.dicom.mizer.service.impl.MizerContextWithScript", properties);
+    context.setScriptSync(script);
 
-    const ContextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
-    const context = new ContextClass(properties)
-    context.setScript(script);
+    const list = java.callStaticMethodSync("java.util.Collections", "singletonList", context);
 
-    // const list = java.callStaticMethod("java.util.Collections", "singletonList", context);
-    const CollectionsClass = importClass("java.util.Collections")
-    const collections = new CollectionsClass()
-    const list = collections.singletonList(context);
-
-    mizerService.anonymize(file, list);
+    mizerService.anonymizeSync(file, list);
 };
 
 mizer.get_scripts_anon_vars = (scripts) => {

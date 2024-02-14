@@ -1,5 +1,6 @@
 const electron = require('electron');
-const { ipcRenderer, remote } = electron;
+const { ipcRenderer } = electron;
+const { require: nodeRequire, getCurrentWindow, getGlobal } = require('@electron/remote')
 const fs = require('fs');
 const fx = require('mkdir-recursive');
 const path = require('path');
@@ -23,20 +24,20 @@ const lodashCloneDeep = require('lodash/cloneDeep')
 
 const auth = require('../services/auth');
 
-const mizer = remote.require('./mizer');
+const mizer = nodeRequire('./mizer');
 const XNATAPI = require('../services/xnat-api')
 
-const db_uploads = remote.require('./services/db/uploads')
+const db_uploads = nodeRequire('./services/db/uploads')
 
 const { uploadCommit } = require('../services/upload-commit')
 
 const { console_red } = require('../services/logger');
 
-const electron_log = remote.require('./services/electron_log');
+const electron_log = nodeRequire('./services/electron_log');
 
 const user_settings = require('../services/user_settings');
 
-const nedb_logger = remote.require('./services/db/nedb_logger')
+const nedb_logger = nodeRequire('./services/db/nedb_logger')
 
 // const { copy_anonymize_stream } = require('../services/upload/copy_anonymize_stream');
 const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes, simpleLog, jsonStringify, stripTags } = require('../services/app_utils')
@@ -46,11 +47,11 @@ const CONSTANTS = require('../services/constants');
 const rimraf = require('rimraf');
 
 let transfer_progress = [];
-let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
+let userAgentString = getCurrentWindow().webContents.getUserAgent();
 
-// let { _queue_ } = remote.require('./services/_queue_')
-let { _queue_ } = remote.getGlobal('shared');
-let globalWindows = remote.getGlobal('windows');
+// let { _queue_ } = nodeRequire('./services/_queue_')
+let { _queue_ } = getGlobal('shared');
+let globalWindows = getGlobal('windows');
 
 
 const dom_context = '#upload-single';
@@ -153,7 +154,7 @@ ipcRenderer.on('single_upload_data', async function(e, transfer_id, series_id, s
     if (!settings.get('global_pause') && transfer_copy !== null) {
         uploadStartTimer = performance.now()
         
-        const window = remote.getCurrentWindow()
+        const window = getCurrentWindow()
         globalWindows.add(window.id)
 
         doUpload(transfer_copy, series_id, segment_index)
@@ -257,7 +258,7 @@ async function doUpload(transfer, series_id, segment_index) {
     .catch(function(error) {
         simpleLog(`(window: ${WINDOW_ID}) xnat_api.anon_scripts catch`, 'xdc--queue')
         electron_log.error(error);
-        nedb_logger.error(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + error.message, error);
+        nedb_logger.error(transfer.id, 'upload', `[${getCurrentWindow().id}: ]` + error.message, error);
         console_log(error); // Test with throwing random errors (and rejecting promises)
     });
 }
@@ -453,7 +454,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         try {
             data.transfer = await mark_uploaded(transfer.id, series_id, segment_index);
 
-            nedb_logger.success(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + `Series uploaded ${series_id}, segment[${segment_index}].`);
+            nedb_logger.success(transfer.id, 'upload', `[${getCurrentWindow().id}: ]` + `Series uploaded ${series_id}, segment[${segment_index}].`);
             
             // TODO (SINGLE UPLOAD) - queue
             _queue_.remove(transfer.id, series_id, segment_index);
@@ -998,7 +999,7 @@ function handleUploadError(transfer, series_id, segment_index, err) {
 
 function closeThisWindow(timeout = 0) {
     setTimeout(function() {
-        const window = remote.getCurrentWindow();
+        const window = getCurrentWindow();
         window.close();
     }, timeout)
 }
@@ -1046,7 +1047,7 @@ function _time_offset(start_time) {
 }
 
 function transfer_signature(transfer) {
-    const window = remote.getCurrentWindow()
+    const window = getCurrentWindow()
 
     const series_info = `(SER: ${transfer.series_ids.length}|${transfer.done_series_ids.length} of ${transfer.series.length})`
     return `[W:${window.id}] ${transfer.url_data.expt_label} ${series_info} [${transfer.id}/${transfer.session_id}]`

@@ -1,4 +1,5 @@
-const {remote, ipcRenderer, shell} = require('electron')
+const {ipcRenderer, shell} = require('electron')
+const { require: nodeRequire } = require('@electron/remote')
 
 require('promise.prototype.finally').shim();
 const ElectronStore = require('electron-store');
@@ -6,19 +7,19 @@ const settings = new ElectronStore();
 const swal = require('sweetalert');
 const prettyBytes = require('pretty-bytes');
 const FileSaver = require('file-saver');
-const electron_log = remote.require('./services/electron_log');
+const electron_log = nodeRequire('./services/electron_log');
 
 
-const db_uploads = remote.require('./services/db/uploads')
-const db_uploads_archive = remote.require('./services/db/uploads_archive')
-const db_downloads = remote.require('./services/db/downloads')
-const db_downloads_archive = remote.require('./services/db/downloads_archive')
+const db_uploads = nodeRequire('./services/db/uploads')
+const db_uploads_archive = nodeRequire('./services/db/uploads_archive')
+const db_downloads = nodeRequire('./services/db/downloads')
+const db_downloads_archive = nodeRequire('./services/db/downloads_archive')
 
 const user_settings = require('../services/user_settings')
 const tempDir = require('temp-dir')
 const lodashCloneDeep = require('lodash/cloneDeep')
 
-const nedb_log_reader = remote.require('./services/db/nedb_log_reader')
+const nedb_log_reader = nodeRequire('./services/db/nedb_log_reader')
 const moment = require('moment');
 const ejs_template = require('../services/ejs_template')
 

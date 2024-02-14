@@ -1,4 +1,4 @@
-const electron = require('electron')
+const { ipcRenderer, app } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const checksum = require('checksum')
@@ -10,24 +10,35 @@ const settings = new ElectronStore()
 const tempDir = require('temp-dir')
 const rimraf = require('rimraf')
 
-exports.isDevEnv = () => {
-    // return process.argv && process.argv.length >= 3 && /--debug/.test(process.argv[2]);
+// exports.getApp = () => electron.remote ? electron.remote.app : electron.app
+exports.getAppInfo = () => {
+    // Check if the code is running in the renderer process
+    if (process.type === 'renderer') {
+      // Use IPC to request the data from the main process
+      return ipcRenderer.invoke('get-app-info');
+    } else {
+      // If in the main process, directly return the information
+      return Promise.resolve({
+        appPath: app.getAppPath(),
+        version: app.getVersion(),
+        userDataPath: app.getPath('userData')
+      });
+    }
+  }
 
-    // console.log(process.argv)
-    // console.log(process.mainModule.filename);
-    // alternative
-    return process.mainModule.filename.indexOf('app.asar') === -1;
+exports.isDevEnv = () => {
+    return process.argv.includes('--dev')
 }
 
-exports.getApp = () => electron.remote ? electron.remote.app : electron.app
-
-exports.currentVersionChannel = () => {
-    const app = this.getApp()
-    const versionString = app.getVersion()
-    
-    return versionString.includes("-beta") ? "beta" : 
-        versionString.includes("-alpha") ? "alpha" :
+exports.currentVersionChannel = async () => {
+    try {
+      const appInfo = await this.getAppInfo()
+      return appInfo.version.includes("-beta") ? "beta" : 
+        appInfo.version.includes("-alpha") ? "alpha" :
         "latest";
+    } catch (error) {
+        console.error('Failed to get app information:', error);
+    }
 }
 
 exports.getUpdateChannel = () => {

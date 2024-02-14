@@ -1,6 +1,6 @@
-const remote = require('electron').remote
-const app = remote.app
-const { autoUpdater } = remote.require("electron-updater")
+const { require: nodeRequire, app } = require('@electron/remote')
+
+const { autoUpdater } = nodeRequire("electron-updater")
 const store = require('store2')
 const { getUpdateChannel, setUpdateChannel } = require('../services/app_utils')
 

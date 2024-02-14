@@ -232,8 +232,10 @@
 
         
         <script type="text/javascript">
-            require('./renderer-process/progress');
-            Helper.pageLoadTrigger('#progress-section');
+            const path = require('path');
+            const modulePath = path.join(__dirname, '..', 'renderer-process', 'progress');
+            require(modulePath);
+            Helper.pageLoadTrigger('#progress-section'); 
         </script>
 
     </section>

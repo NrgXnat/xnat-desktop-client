@@ -5,10 +5,9 @@ const ipc = require('electron').ipcRenderer
 const auth = require('../services/auth');
 const api = require('../services/api');
 
-const remote = require('electron').remote;
+const { require: nodeRequire, app } = require('@electron/remote')
 
-const electron_log = remote.require('./services/electron_log');
-const app = remote.app
+const electron_log = nodeRequire('./services/electron_log');
 
 let xnat_server = '';
 let user_auth = {
@@ -18,10 +17,14 @@ let user_auth = {
 
 let allow_insecure_ssl;
 
-const ejs_template = require('../services/ejs_template')
+// const ejs_template = require('../services/ejs_template')
+
+Helper.pageLoadLog('-------- LOOOOGIN')
 
 $(document).on('page:load', '#login-section', async function(e){
     let logins = settings.get('logins') || [];
+
+    console.log({logins});
     
     if (logins.length) {
         logins.forEach(function(el) {

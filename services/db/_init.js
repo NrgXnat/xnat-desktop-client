@@ -3,7 +3,7 @@ const path = require('path');
 
 const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
-const auth = require('../auth');
+const auth = require('../auth_main');
 const sha1 = require('sha1');
 const electron_log = require('../electron_log');
 
@@ -34,7 +34,13 @@ module.exports = (db_id, user_specific = true) => {
         }
     }
 
-    const app = require('electron').remote ? require('electron').remote.app : require('electron').app;
+    // const app = require('electron').remote ? require('electron').remote.app : require('electron').app;
+    let app;
+    if (process.type === 'renderer') {
+        app = require('@electron/remote').app
+    } else {
+        app = require('electron').app
+    }
 
     let db_filename = user_specific ? `${db_id}.${db_sha1}` : db_id;
     let db_path = path.join(app.getPath('userData'), `db.${db_filename}.json`);

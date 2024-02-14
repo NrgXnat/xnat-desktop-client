@@ -1,15 +1,16 @@
-const electron = require('electron')
-const { ipcRenderer, remote } = electron
+const { ipcRenderer } = require('electron')
+
+const { getGlobal, require: nodeRequire } = require('@electron/remote');
 
 const ElectronStore = require('electron-store')
 const settings = new ElectronStore()
 
 const auth = require('../services/auth')
-const db_uploads = remote.require('./services/db/uploads')
+const db_uploads = nodeRequire('./services/db/uploads')
 const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes, simpleLog } = require('../services/app_utils')
 
 const { console_red } = require('../services/logger')
-const electron_log = remote.require('./services/electron_log')
+const electron_log = nodeRequire('./services/electron_log')
 
 const CONSTANTS = require('../services/constants');
 
@@ -81,7 +82,7 @@ if (!settings.has('global_pause')) {
 }
 
 // let { _queue_ } = require('../services/_queue_')
-let { _queue_ } = remote.getGlobal('shared');
+let { _queue_ } = getGlobal('shared');
 
 let isDoingTransfer = false;
 

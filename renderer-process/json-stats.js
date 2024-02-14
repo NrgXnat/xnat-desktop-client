@@ -1,5 +1,5 @@
-const { ipcRenderer, remote } = require('electron');
-const app = remote.app
+const { ipcRenderer } = require('electron');
+const { require: nodeRequire, app } = require('@electron/remote')
 
 const path = require('path')
 const fs = require('fs')
@@ -8,10 +8,10 @@ const swal = require('sweetalert')
 
 const ejs_template = require('../services/ejs_template')
 
-const db_uploads = remote.require('./services/db/uploads')
-const db_uploads_archive = remote.require('./services/db/uploads_archive')
-const db_downloads = remote.require('./services/db/downloads')
-const db_downloads_archive = remote.require('./services/db/downloads_archive')
+const db_uploads = nodeRequire('./services/db/uploads')
+const db_uploads_archive = nodeRequire('./services/db/uploads_archive')
+const db_downloads = nodeRequire('./services/db/downloads')
+const db_downloads_archive = nodeRequire('./services/db/downloads_archive')
 
 const dom_context = '#json-stats'
 const { $$, $on } = require('../services/selector_factory')(dom_context)

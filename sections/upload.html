@@ -1048,8 +1048,9 @@
 
 
         <script type="text/javascript">
-            require('./renderer-process/upload')
-
+            const path = require('path');
+            const modulePath = path.join(__dirname, '..', 'renderer-process', 'upload');
+            require(modulePath);
             Helper.pageLoadTrigger('#upload-section'); 
         </script>
 

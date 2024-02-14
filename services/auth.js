@@ -3,7 +3,11 @@ const settings = new ElectronStore()
 const axios = require('axios')
 const store = require('store2')
 const sha1 = require('sha1')
-const { ipcRenderer, remote } = require('electron')
+const { ipcRenderer } = require('electron')
+if (process.type !== 'renderer') {
+    console.trace("auth.js loaded in main:");
+}
+const { getGlobal, session } = require('@electron/remote');
 const { URL } = require('url')
 const lodashCloneDeep = require('lodash/cloneDeep')
 const isPlainObject = require('lodash/isPlainObject')
@@ -120,7 +124,7 @@ const auth = {
             password: user_auth.password
         })
 
-        ipcRenderer.send('log', 'set_user_auth', {user_auth__SET: remote.getGlobal('user_auth')})
+        ipcRenderer.send('log', 'set_user_auth', {user_auth__SET: getGlobal('user_auth')})
     },
 
     remove_user_auth: () => {
@@ -130,7 +134,7 @@ const auth = {
             password: null
         })
 
-        ipcRenderer.send('log', 'remove_user_auth', {user_auth__REMOVE: remote.getGlobal('user_auth')})
+        ipcRenderer.send('log', 'remove_user_auth', {user_auth__REMOVE: getGlobal('user_auth')})
     },
 
     set_allow_insecure_ssl: (new_status) => {
@@ -158,12 +162,12 @@ const auth = {
     },
 
     get_user_auth: () => {
-        return remote.getGlobal('user_auth');
+        return getGlobal('user_auth');
 
         // if cached
         // return {
-        //     username: remote.getGlobal('user_auth').username,
-        //     password: remote.getGlobal('user_auth').password
+        //     username: getGlobal('user_auth').username,
+        //     password: getGlobal('user_auth').password
         // };
     },
 
@@ -232,7 +236,7 @@ const auth = {
             }
             
             // Query cookies associated with a specific url.
-            remote.session.defaultSession.cookies.get({url: slash_url}, (error, cookies) => {
+            session.defaultSession.cookies.get({url: slash_url}, (error, cookies) => {
                 if (cookies.length) {
                     cookies.forEach(item => {
                         if (item.name === 'JSESSIONID') {
