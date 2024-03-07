@@ -20,7 +20,13 @@ const user_settings = require('../services/user_settings');
 
 const XNATAPI = require('../services/xnat-api')
 
-const test_environment = isDevEnv() || currentVersionChannel() === 'alpha';
+
+async function isTestEnvironment() {
+    const currentChannel = await currentVersionChannel()
+    const isAlphaChannel = currentChannel === 'alpha'
+    return isDevEnv() || isAlphaChannel;
+}
+
 
 /*
  * TOOLS-637 Removing crashpad reporting until we can verify no PHI at risk
@@ -35,7 +41,8 @@ electron.crashReporter.start({
 */
 
 try {
-    let mizer = nodeRequire('./mizer');
+    const mizer = nodeRequire('./mizer');
+    // const mizer = require('../mizer')
 } catch(e) {
     if (process.platform === "win32" && e.message.includes('nodejavabridge_bindings.node')) {
         $('#win_install_cpp').modal({
@@ -430,8 +437,9 @@ async function flush_user_cache () {
 
 // ===============
 // hide UI elements that are used for testing purposes
-$(document).on('page:load', function(e){
-    if (!test_environment) {
+$(document).on('page:load', async function(e){
+    const isTestEnv = await isTestEnvironment()
+    if (!isTestEnv) {
         $('[data-app-testing]').hide()
     }
 });

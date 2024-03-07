@@ -99,7 +99,7 @@ if (initJava) {
  *
  * @return A Java Properties object containing the submitted names and values.
  */
-mizer.getVariables = async (variables) => {
+mizer.getVariables = (variables) => {
     const PropertiesClass = importClass("java.util.Properties");
     const properties = new PropertiesClass()
 
@@ -109,36 +109,12 @@ mizer.getVariables = async (variables) => {
     // console.log('-----------------------------------');
     
     if (variables) {
-        for (let key in variables) {
-            // console.log(`${key} => ${variables[key]}`);
-            await properties.setPropertySync(key, variables[key]);
-        }
-        // Object.keys(variables).forEach(key => {
-        //     properties.setPropertySync(key, variables[key]);
-        // });
+        Object.keys(variables).forEach(key => {
+            properties.setPropertySync(key, variables[key]);
+        });
     }
 
     return properties;
-};
-
-/**
- * Add variables, such as from {@link #getVariables()} above, to the return from this function by calling
- * context.add(variables).
- *
- * @param script The script for which a context should be created.
- *
- * @return A script context.
- */
-mizer.getScriptContext = async (script) => {
-    const ContextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
-    const context = new ContextClass();
-
-    // console.log({getScriptContext__context: context});
-
-    // context.setScriptSync(script);
-    await context.setScriptSync(script);
-
-    return context;
 };
 
 /**
@@ -159,53 +135,13 @@ mizer.getScriptContexts = async (scripts) => {
     // });
 
     for (let i = 0; i < scripts.length; i++) {
-        const context = await mizer.getScriptContext(scripts[i]);
-        await arrayList.addSync(context);
+        const context = await mizer._getScriptContext(scripts[i]);
+        arrayList.addSync(context);
     }
 
     return arrayList;
 };
 
-/**
- * Gets variables that are referenced in the contexts.
- */
-mizer.getReferencedVariables = (contexts) => {
-    const variableMap = {};
-    const variables = mizerService.getReferencedVariablesSync(contexts);
-
-    // console.log({contexts, variables});
-    
-    let itr = variables.iteratorSync();
-    
-    while (itr.hasNextSync()) {
-        let variable = itr.nextSync();
-        
-        let initialValue = variable.getInitialValueSync();
-        let variableValue = initialValue ? initialValue.asStringSync() : "";
-        variableMap[variable.getNameSync()] = variableValue;
-    }
-    
-    console.log('************* REFERENCED VARIABLES ************************');
-    console.log({variableMap});
-    
-    return variableMap;
-};
-
-/**
- * Anonymizes the DICOM object source using the supplied scripts. If variables have already been set on the script
- * contexts, the variables parameter can be omitted.
- *
- * @param source    The DICOM object to anonymize.
- * @param contexts  The script contexts to use for anonymization.
- * @param variables A Java Properties object to pass for variable substitution.
- */
-mizer.anonymize_old = (source, contexts, variables) => {
-    const FileClass = importClass("java.io.File");
-    const dicom = new FileClass(source);
-
-    contexts.forEach(context => context.add(variables));
-    mizerService.anonymize(dicom, contexts);
-};
 
 /**
  * Anonymizes the DICOM object source using the supplied scripts. If variables have already been set on the script
@@ -225,7 +161,7 @@ mizer.anonymize = async (source, contexts, variables) => {
     while (itr.hasNextSync()) {
         let context = itr.nextSync();
         //console.log({context__0: context});
-        await context.addSync(variables);
+        context.addSync(variables);
     }
 
     try {
@@ -239,34 +175,10 @@ mizer.anonymize = async (source, contexts, variables) => {
     
 };
 
-mizer.anonymize_single = (source, script, variables) => {
-    const PropertiesClass = importClass("java.util.Properties");
-    const properties = new PropertiesClass();
-
-    if (variables) {
-        Object.keys(variables).forEach(key => {
-            properties.setProperty(key, variables[key]);
-        });
-    }
-
-    const FileClass = importClass("java.io.File");
-    const file = new FileClass(source);
-
-    const ContextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
-    const context = new ContextClass(properties)
-    context.setScript(script);
-
-    // const list = java.callStaticMethod("java.util.Collections", "singletonList", context);
-    const CollectionsClass = importClass("java.util.Collections")
-    const collections = new CollectionsClass()
-    const list = collections.singletonList(context);
-
-    mizerService.anonymize(file, list);
-};
-
 mizer.get_scripts_anon_vars = (scripts) => {
     const contexts = mizer.getScriptContexts(scripts);
-    return mizer.getReferencedVariables(contexts);
+    // console.log({get_scripts_anon_vars__contexts: contexts});
+    return mizer._getReferencedVariables(contexts);
 }
 
 mizer.generateAlterPixelCode = (rectangles) => {
@@ -284,3 +196,51 @@ mizer.generateAlterPixelCode = (rectangles) => {
 mizer.isMizerError = (error_message) => {
     return error_message && error_message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0
 }
+
+
+/**
+ * Add variables, such as from {@link #getVariables()} above, to the return from this function by calling
+ * context.add(variables).
+ *
+ * @param script The script for which a context should be created.
+ *
+ * @return A script context.
+ */
+mizer._getScriptContext = async (script) => {
+    const ContextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
+    const context = new ContextClass();
+
+    // console.log({getScriptContext__context: context});
+
+    // context.setScriptSync(script);
+    await context.setScriptSync(script);
+
+    return context;
+};
+
+/**
+ * Gets variables that are referenced in the contexts.
+ */
+mizer._getReferencedVariables = (contexts) => {
+    //return mizerService.getReferencedVariablesSync(contexts);
+    const variableMap = {};
+    // const variables = mizerService.getReferencedVariablesSync(contexts);
+    const variables = mizerService.getReferencedVariablesSync(contexts);
+
+    // console.log({contexts, variables});
+    
+    let itr = variables.iteratorSync();
+    
+    while (itr.hasNextSync()) {
+        let variable = itr.nextSync();
+        
+        let initialValue = variable.getInitialValueSync();
+        let variableValue = initialValue ? initialValue.asStringSync() : "";
+        variableMap[variable.getNameSync()] = variableValue;
+    }
+    
+    console.log('************* REFERENCED VARIABLES ************************');
+    console.log({variableMap});
+    
+    return variableMap;
+};

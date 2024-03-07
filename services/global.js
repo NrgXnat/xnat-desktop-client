@@ -119,4 +119,9 @@ global.user_auth = {
     password: null
 };
 
+global.xnat_auth_cookies = {
+    JSESSIONID: null,
+    SESSION_EXPIRATION_TIME: null
+}
+
 module.exports = global

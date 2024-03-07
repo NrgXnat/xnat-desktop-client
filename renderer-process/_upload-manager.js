@@ -14,6 +14,19 @@ const electron_log = nodeRequire('./services/electron_log')
 
 const CONSTANTS = require('../services/constants');
 
+const Singleton = nodeRequire('./services/singleton');
+const singletonInstance = Singleton.getInstance();
+console.log(__filename, 'getRandomNumber', singletonInstance.getRandomNumber()); // This will log the random number
+
+let thisVersionChannel
+(async () => {
+    thisVersionChannel = await currentVersionChannel()
+})()
+
+let logger_enabled = isDevEnv() || ['alpha', 'beta'].includes(thisVersionChannel)
+
+console_log({logger_enabled});
+
 function console_log(...log_this) {
     if (!logger_enabled) {
         return;
@@ -24,10 +37,6 @@ function console_log(...log_this) {
     //console.trace('<<<<== UPLOAD TRACE ==>>>>');
     ipcRenderer.send('log', ...log_this);
 }
-
-let logger_enabled = isDevEnv() || ['alpha', 'beta'].includes(currentVersionChannel())
-
-console_log({logger_enabled});
 
 
 ipcRenderer.on('start_upload',function(e, item){

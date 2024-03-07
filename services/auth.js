@@ -216,50 +216,54 @@ const auth = {
         }
     },
 
-    get_jsession_cookie: (xnat_url = false) => {
-        return new Promise((resolve, reject) => {
-            let xnat_server;
-
-            if (xnat_url) {
-                xnat_server = xnat_url
-            } else if (settings.has('xnat_server')) {
-                xnat_server = settings.get('xnat_server')
-            } else {
-                reject('get_jsession_cookie() error: no server URL provided')
-            }
-
-            let slash_url = xnat_server + '/';
-            
-            let jsession = {
-                id: null,
-                expiration: null
-            }
-            
-            // Query cookies associated with a specific url.
-            session.defaultSession.cookies.get({url: slash_url}, (error, cookies) => {
-                if (cookies.length) {
-                    cookies.forEach(item => {
-                        if (item.name === 'JSESSIONID') {
-                            jsession.id = item.value
-                        }
+    get_jsession_cookie: async (xnat_url = false) => {
+        console.log('get_jsession_cookie 1');
+        let xnat_server;
     
-                        if (item.name === 'SESSION_EXPIRATION_TIME') {
-                            jsession.expiration = item.value;
-                        }
-                    });
-                    
-                    if (jsession.id && jsession.expiration) {
-                        resolve(`JSESSIONID=${jsession.id}; SESSION_EXPIRATION_TIME=${jsession.expiration};`);
-                    } else {
-                        reject(xnat_url + ' [No JSESSIONID Cookie]')
+        if (xnat_url) {
+            xnat_server = xnat_url;
+        } else if (settings.has('xnat_server')) {
+            xnat_server = settings.get('xnat_server');
+        } else {
+            throw new Error('get_jsession_cookie() error: no server URL provided');
+        }
+    
+        let slash_url = xnat_server + '/';
+    
+        let jsession = {
+            id: null,
+            expiration: null
+        };
+    
+        try {
+            console.log('get_jsession_cookie 2');
+            const cookies = await session.defaultSession.cookies.get({ url: slash_url });
+            console.log('KOLACICI: ', cookies);
+    
+            if (cookies.length) {
+                cookies.forEach(item => {
+                    if (item.name === 'JSESSIONID') {
+                        jsession.id = item.value;
                     }
-                    
+    
+                    if (item.name === 'SESSION_EXPIRATION_TIME') {
+                        jsession.expiration = item.value;
+                    }
+                });
+    
+                if (jsession.id && jsession.expiration) {
+                    return `JSESSIONID=${jsession.id}; SESSION_EXPIRATION_TIME=${jsession.expiration};`;
                 } else {
-                    reject(xnat_url + ' [No Cookies]')
+                    throw new Error(xnat_url + ' [No JSESSIONID Cookie]');
                 }
-                
-            })
-        });
+    
+            } else {
+                throw new Error(xnat_url + ' [No Cookies]');
+            }
+        } catch (error) {
+            console.error('Error fetching cookies: ', error);
+            throw error; // Propagate the error to the caller
+        }
     },
 
     anonymize_response: (response, anon = '***REMOVED***') => {

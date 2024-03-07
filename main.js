@@ -10,23 +10,19 @@ const enableRemoteModule = require('@electron/remote/main').enable;
 const { autoUpdater } = require('electron-updater')
 const electron_log = require('./services/electron_log')
 
-const { isDevEnv, getUpdateChannel } = require('./services/app_utils')
+const { isDevEnv, getUpdateChannel, parseSetCookieHeader } = require('./services/app_utils')
 
 const { allow_insecure_ssl } = require('./services/auth_main')
 
 const { runMigrations } = require('./services/migrations')
 
+const Singleton = require('./services/singleton');
+const singletonInstance = Singleton.getInstance();
+log('getRandomNumber', singletonInstance.getRandomNumber())
+
 // const appMetaData = require('./package.json')
-// const ElectronStore = require('electron-store')
-// const settings = new ElectronStore();
-
-const ElectronStore = require('electron-store');
-const settings = new ElectronStore();
-console.log('--------SETTINGS: ' + settings.path);
-const loginsData = settings.get('logins');
-console.log({loginsData});
-
-
+const ElectronStore = require('electron-store')
+const settings = new ElectronStore()
 
 // windows
 let mainWindow = null, downloadWindow = null, uploadWindow = null;
@@ -62,7 +58,16 @@ if (isDevEnv()) {
     let allWindows = BrowserWindow.getAllWindows()
     let allWindowsIds = allWindows.map(win => win.id)
     console.log(`All Win: ${allWindowsIds}`)
-  }, 5000)
+
+    // session.defaultSession.cookies.get({ url: 'https://uar.xnat.flywheel.io/' })
+    //     .then((cookies) => {
+    //         console.log('Cookies for https://uar.xnat.flywheel.io:', cookies);
+    //     })
+    //     .catch((error) => {
+    //         console.error('Error getting cookies for https://uar.xnat.flywheel.io', error);
+    //     });
+
+  }, 30000)
 }
 
 
@@ -82,6 +87,20 @@ async function initApp() {
   }
 }
 
+function setWebPreferences() {
+  const additionalArguments = process.argv.reduce((all, arg) => {
+    if (arg.startsWith('--')) {
+      all.push(`${arg}-main-process`)
+    }
+    return all
+  }, [])
+
+  return {
+    nodeIntegration: true, // Enable Node Integration
+    contextIsolation: false, // If you enable nodeIntegration, you might need to disable contextIsolation
+    additionalArguments 
+  }
+}
 
 function initialize_usr_local_lib_app() {
   devToolsLog('initialize_usr_local_lib_app triggered')
@@ -98,10 +117,7 @@ function initialize_usr_local_lib_app() {
       icon: iconPath,
       show: true,
       frame: false,
-      webPreferences: {
-        nodeIntegration: true, // Enable Node Integration
-        contextIsolation: false, // If you enable nodeIntegration, you might need to disable contextIsolation
-      }
+      webPreferences: setWebPreferences()
     };
 
     mainWindow = new BrowserWindow(windowOptions);
@@ -170,10 +186,7 @@ function initialize () {
       title: app.getName(),
       icon: iconPath,
       show: true,
-      webPreferences: {
-        nodeIntegration: true, // Enable Node Integration
-        contextIsolation: false, // If you enable nodeIntegration, you might need to disable contextIsolation
-      }
+      webPreferences: setWebPreferences()
     };
     
     mainWindow = new BrowserWindow(windowOptions);
@@ -181,16 +194,65 @@ function initialize () {
     mainWindow.loadURL(path.join('file://', __dirname, '/index.html'));
     updateUserAgentString(mainWindow);
 
+
+    // Intercept all responses
+    const filter = { urls: ['*://*/*'] }; // Filter to match all URLs
+    session.defaultSession.webRequest.onHeadersReceived(filter, (details, callback) => {
+      // Log the URL and Response Headers
+      // console.log('URL:', details.url);
+      // console.log('Status Code:', details.statusCode);
+
+      const urlObject = new URL(details.url);
+      const baseUrl = `${urlObject.protocol}//${urlObject.hostname}`;
+
+      const setCookieHeaders = details.responseHeaders['Set-Cookie'] || details.responseHeaders['set-cookie'];
+      if (setCookieHeaders) {
+        // console.log('Set-Cookie Headers:', setCookieHeaders);
+
+        // Optionally, parse and manually handle these cookies.
+        for (let singleCookie of setCookieHeaders) {
+          if (singleCookie.startsWith('JSESSIONID') || singleCookie.startsWith('SESSION_EXPIRATION_TIME')) {
+            const cookieObj = parseSetCookieHeader(singleCookie)
+            cookieObj.url = baseUrl
+
+            // console.log({cookieObj});
+
+            session.defaultSession.cookies.set(cookieObj).then(() => {
+              global.xnat_auth_cookies[cookieObj.name] = cookieObj.value
+              // console.log(`${cookieObj.name} cookie set successfully`);
+            }, (error) => {
+              console.error(`Error setting ${cookieObj.name} cookie`, error);
+            });
+          }
+        }
+      }
+
+      // Continue without modification
+      callback({ cancel: false, responseHeaders: details.responseHeaders });
+    });
+
+    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      const xnat_server = settings.get('xnat_server')
+      if (
+        xnat_server &&
+        details.url.startsWith(xnat_server) &&
+        global.xnat_auth_cookies.JSESSIONID && 
+        global.xnat_auth_cookies.SESSION_EXPIRATION_TIME
+      ) {
+        const newCookies = `JSESSIONID=${global.xnat_auth_cookies.JSESSIONID}; SESSION_EXPIRATION_TIME=${global.xnat_auth_cookies.SESSION_EXPIRATION_TIME};`
+        details.requestHeaders['Cookie'] = newCookies
+      }
+      
+      callback({ cancel: false, requestHeaders: details.requestHeaders });
+    });
+
     var childOptions = {
       width: 1200,
       height: 700,
       alwaysOnTop: false,
       show: false,
       top: mainWindow,
-      webPreferences: {
-        nodeIntegration: true, // Enable Node Integration
-        contextIsolation: false, // If you enable nodeIntegration, you might need to disable contextIsolation
-      }
+      webPreferences: setWebPreferences()
     };
 
     // Upload window
@@ -243,13 +305,13 @@ function initialize () {
       // console.log({devtronPath});
       // await session.defaultSession.loadExtension(devtronPath);
 
-      // uploadWindow.show()
-      // uploadWindow.webContents.openDevTools()
-      // uploadWindow.maximize()
+      uploadWindow.show()
+      uploadWindow.webContents.openDevTools()
+      uploadWindow.maximize()
 
-      // downloadWindow.show()
-      // downloadWindow.webContents.openDevTools()
-      // downloadWindow.maximize()
+      downloadWindow.show()
+      downloadWindow.webContents.openDevTools()
+      downloadWindow.maximize()
     }
 
 
@@ -482,26 +544,6 @@ function post_message(type, ...args) {
 //
 // Returns true if the current version of the app should quit instead of
 // launching.
-function isSecondInstanceOld() {
-  // if (process.mas) return false;
-
-  return app.makeSingleInstance((argv, workingDirectory) => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore()
-      }
-      mainWindow.focus()
-
-
-      // Protocol handler for win32
-      // argv: An array of the second instance’s (command line / deep linked) arguments
-      if (process.platform == 'win32' || process.platform == 'linux') {
-        handle_protocol_request(argv.slice(1), 'app.makeSingleInstance');
-      }
-      
-    }
-  })
-}
 
 function isSecondInstance() {
   const gotTheLock = app.requestSingleInstanceLock();
@@ -807,6 +849,7 @@ ipcMain.on('force_reauthenticate', (e, login_data) => {
 
 // shell.showItemInFolder only brings opened window to front if called from main process
 ipcMain.on('shell.showItemInFolder', (e, full_path) => {
+  log({full_path})
   shell.showItemInFolder(full_path)
 })
 
@@ -854,8 +897,12 @@ ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base, show
 })
 
 ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
+  console.log('------- init_upload_single -------');
 
-  const uploadWindowSingle = new BrowserWindow({show : false})//to just open the browser in background
+  const uploadWindowSingle = new BrowserWindow({
+    show: false,
+    webPreferences: setWebPreferences()
+  })//to just open the browser in background
   enableRemoteModule(uploadWindowSingle.webContents);
 
   uploadWindowSingle.on('close', function() {

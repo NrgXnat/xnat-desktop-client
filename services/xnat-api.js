@@ -3,6 +3,7 @@ const { sortAlpha } = require('./app_utils');
 const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
 const https = require('https');
+const { getGlobal, session } = require('@electron/remote');
 
 // const electron_log = process.type === 'renderer' ? nodeRequire('./services/electron_log') : require('./electron_log');
 let electron_log;
@@ -28,10 +29,22 @@ class XNATAPI {
         // TODO resolve circular dependency and replace allow_insecure_ssl with method auth.allow_insecure_ssl()
         httpsOptions.rejectUnauthorized = !allow_insecure_ssl
 
-        return {
+        const reponse = {
             httpsAgent: new https.Agent(httpsOptions),
-            auth: this.user_auth
+            auth: this.user_auth,
         }
+
+        // const xnat_auth_cookies = getGlobal('xnat_auth_cookies')
+
+        // console.log({xnat_auth_cookies});
+
+        // if (xnat_auth_cookies.JSESSIONID && xnat_auth_cookies.SESSION_EXPIRATION_TIME) {
+        //     reponse.headers = {
+        //         'Cookie': `JSESSIONID=${xnat_auth_cookies.JSESSIONID}; SESSION_EXPIRATION_TIME=${xnat_auth_cookies.SESSION_EXPIRATION_TIME};`
+        //     }
+        // }
+
+        return reponse
     }
 
     //******** axios helpers ********* */
@@ -39,8 +52,11 @@ class XNATAPI {
         return axios.get(this.xnat_server + url_path, this.axios_config())
     }
 
-    axios_put(url_path) {
-        return axios.put(this.xnat_server + url_path, this.axios_config())
+    axios_put(url_path, config = null) {
+        if (!config) {
+            config = this.axios_config()
+        }
+        return axios.put(this.xnat_server + url_path, config)
     }
 
     axios_delete(url_path) {
@@ -395,6 +411,7 @@ class XNATAPI {
                 
                 resolve(scripts);
             }).catch(err => {
+                console.log({anon_scripts_err: err})
                 reject(err);
             })
         });
@@ -455,6 +472,56 @@ class XNATAPI {
     
         //console.log(weeded_script_lines);
         return weeded_script_lines.join("\n");
+    }
+
+    async get_jsession_cookie (xnat_url = false) {
+        console.log('get_jsession_cookie 1');
+        let xnat_server;
+    
+        if (xnat_url) {
+            xnat_server = xnat_url;
+        } else if (settings.has('xnat_server')) {
+            xnat_server = settings.get('xnat_server');
+        } else {
+            throw new Error('get_jsession_cookie() error: no server URL provided');
+        }
+    
+        let slash_url = xnat_server + '/';
+    
+        let jsession = {
+            id: null,
+            expiration: null
+        };
+    
+        try {
+            console.log('get_jsession_cookie 2');
+            const cookies = await session.defaultSession.cookies.get({ url: slash_url });
+            console.log('KOLACICI: ', cookies);
+    
+            if (cookies.length) {
+                cookies.forEach(item => {
+                    if (item.name === 'JSESSIONID') {
+                        jsession.id = item.value;
+                    }
+    
+                    if (item.name === 'SESSION_EXPIRATION_TIME') {
+                        jsession.expiration = item.value;
+                    }
+                });
+    
+                if (jsession.id && jsession.expiration) {
+                    return `JSESSIONID=${jsession.id}; SESSION_EXPIRATION_TIME=${jsession.expiration};`;
+                } else {
+                    throw new Error(xnat_url + ' [No JSESSIONID Cookie]');
+                }
+    
+            } else {
+                throw new Error(xnat_url + ' [No Cookies]');
+            }
+        } catch (error) {
+            console.error('Error fetching cookies: ', error);
+            throw error; // Propagate the error to the caller
+        }
     }
 }
 

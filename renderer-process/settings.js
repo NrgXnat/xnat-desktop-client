@@ -693,8 +693,9 @@ $on('click', '#save-pdf-destination', function(e) {
 })
 
 $on('click', '[data-js="show-user-data-folder"]', function() {
-    console.log('clicked')
-    ipcRenderer.send('shell.showItemInFolder', app.getPath('userData') + path.sep + '.')
+    const folderPath = path.join(app.getPath('userData'), '.')
+    console.log('clicked', folderPath)
+    ipcRenderer.send('shell.showItemInFolder', folderPath)
 })
 
 $on('click', '[data-js="clear-app-cache"]', async function() {

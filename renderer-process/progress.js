@@ -15,6 +15,15 @@ const db_uploads_archive = nodeRequire('./services/db/uploads_archive')
 const db_downloads = nodeRequire('./services/db/downloads')
 const db_downloads_archive = nodeRequire('./services/db/downloads_archive')
 
+const Singleton = nodeRequire('./services/singleton');
+const singletonInstance = Singleton.getInstance();
+console.log(__filename, 'getRandomNumber', singletonInstance.getRandomNumber()); // This will log the random number
+
+const mizer = nodeRequire('./mizer')
+// const mizer = require('../mizer')
+const XNATAPI = require('../services/xnat-api')
+const fs = require('fs')
+
 const user_settings = require('../services/user_settings')
 const tempDir = require('temp-dir')
 const lodashCloneDeep = require('lodash/cloneDeep')
@@ -25,11 +34,12 @@ const ejs_template = require('../services/ejs_template')
 
 const path = require('path')
 
-const { objArrayToCSV, objToJsonFile, simpleLog } = require('../services/app_utils');
+const { objArrayToCSV, objToJsonFile, simpleLog, uuidv4 } = require('../services/app_utils');
 const { getScanFilesProperty } = require('../services/db/utils');
 
 const { console_red } = require('../services/logger');
 const auth = require('../services/auth')
+const { copy_and_anonymize_segment } = require('../services/upload-test')
 
 const CONSTANTS = require('../services/constants');
 
@@ -37,6 +47,7 @@ const dom_context = '#progress-section';
 const { $$, $on } = require('./../services/selector_factory')(dom_context)
 
 const NProgress = require('nprogress');
+
 NProgress.configure({ 
     trickle: false,
     easing: 'ease',
@@ -2036,6 +2047,105 @@ $on('click', 'button[data-js="test_checksum"]', async function() {
             simpleLog(segments, 'xdc-chunks')
         }
     }
+})
+
+
+
+$on('click', 'button[data-js="test_anonymization"]', async function() {
+    console.log('test_anonymization')
+
+    console.log(__dirname)
+    const target = "D://_TEMP_/_MIZER_/copy.dcm"
+
+    
+
+    if (!fs.existsSync(target)) {
+        console.log(`FILE target doesnt exist: ${target}`)
+        return
+    }
+
+    const scripts = [
+        "version \"6.1\"\nproject != \"Unassigned\" ? (0008,1030) := project\n(0010,0010) := subject\n(0010,0020) := session"
+    ]
+    // add pixel anon
+    scripts.push("version \"6.1\"\nalterPixels[\"rectangle\", \"l=79, t=111, r=134, b=183\", \"solid\", \"v=100\"]\nalterPixels[\"rectangle\", \"l=168, t=133, r=213, b=214\", \"solid\", \"v=100\"]")
+
+    const script_variables = mizer.get_scripts_anon_vars(scripts)
+
+    const anon_variables = {
+        "project": "ProjectOneX",
+        "subject": "DARKO42X",
+        "experiment_label": "DARKO42X",
+        "session": "DARKO42_MR_4X"
+    }
+    
+    let contexts = mizer.getScriptContexts(scripts);
+    
+    // Convert the JS map anonValues into a Java Properties object.
+    let variables = mizer.getVariables(anon_variables);
+
+    console.log({script_variables, contexts, variables});
+    
+    try {
+        await mizer.anonymize(target, contexts, variables);
+        console.log(`FILE target ANONYMIZED: ${target}`)
+    } catch (err) {
+        console.log(`FILE target ERROR`, err)
+    }
+
+})
+
+async function getContexts(xnat_api, transfer, series_id) {
+    try {
+        let scripts = await xnat_api.anon_scripts(transfer.url_data.project_id)
+
+        let pixel_anon_series = transfer.pixel_anon ? transfer.pixel_anon.find(sd => series_id === sd.series_id) : false
+        // pixel_anon_series = false
+        if (pixel_anon_series) {
+            let series_script = mizer.generateAlterPixelCode(pixel_anon_series.rectangles);
+            
+            if (series_script.length) {
+                scripts.push(series_script)
+            }
+        }
+
+        let contexts = await mizer.getScriptContexts(scripts)
+        
+        console.log({context_scripts: scripts, contexts, pixel_anon_series, series_id})
+
+        return contexts
+    } catch (err) {
+        console.error(err);
+        throw err
+    }
+}
+
+$on('click', 'button[data-js="test_anonymization_bulk"]', async function() {
+    console.log($(this).data('js'))
+    console.log(__dirname)
+    const basePath = 'D://_TEMP_/_MIZER_/'
+    const destinationPath = path.join('D://_TEMP_/_MIZER_/sample2-slim--copy/', uuidv4())
+
+    const transfer_content = fs.readFileSync(`${basePath}sample2-slim.json`)
+    const transfer = JSON.parse(transfer_content)
+    console.log({transfer});
+
+    const xnat_api = new XNATAPI(xnat_server, user_auth);
+
+    try {
+        // Process each path sequentially using async/await
+        for (const selected_series of transfer.series) {
+            const contexts = await getContexts(xnat_api, transfer, selected_series.seriesInstanceUid)
+
+            for (let seg_i = 0; seg_i < selected_series.segments.length; seg_i++) {
+                await copy_and_anonymize_segment(transfer, selected_series.seriesInstanceUid, seg_i, contexts, destinationPath)
+            }
+        }
+        console.log('All segments processed successfully.');
+    } catch (error) {
+        console.error('Error processing paths:', error);
+    }
+
 })
 
 async function getUploads() {

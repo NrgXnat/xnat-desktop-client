@@ -21,6 +21,7 @@ const ResetManager = require('../services/reset-manager')
 const FlowReset = new ResetManager();
 const ExperimentLabel = require('../services/experiment_label')
 const mizer = nodeRequire('./mizer')
+// const mizer = require('../mizer')
 const db_uploads = nodeRequire('./services/db/uploads')
 const electron_log = nodeRequire('./services/electron_log')
 const XNATAPI = require('../services/xnat-api')
@@ -2829,13 +2830,14 @@ $on('change', '#file_upload_folder', function(e) {
     console.log(this.files.length);
 
     if (this.files.length) {
-        $('#upload_folder').val(this.files[0].path);
-
-        let pth = this.files[0].path;
+        const baseDirectoryPath = this.files[0].webkitRelativePath.split('/')[0];
+        const uploadFolderName = this.files[0].path.substring(0, this.files[0].path.length - this.files[0].webkitRelativePath.length) + baseDirectoryPath
+        console.log({uploadFolderName});
+        $('#upload_folder').val(uploadFolderName);
 
         // todo - ADD "Processing here instead in dicomParse() method"
         // to fix large folder traverse "freeze" the interface (also add async traverse)
-        getSizeAsPromised(pth)
+        getSizeAsPromised(uploadFolderName)
             .then(function(response){
                 console.log(response);
 
@@ -2849,22 +2851,22 @@ $on('change', '#file_upload_folder', function(e) {
                     })
                     .then((proceed) => {
                         if (proceed) {
-                            _files = walkSync(pth);
+                            _files = walkSync(uploadFolderName);
                             console.log(_files);
 
                             $('#file_upload_folder').val('');
-                            dicomParse(_files, pth);
+                            dicomParse(_files, uploadFolderName);
                         } else {
                             $('#upload_folder, #file_upload_folder').val('');
                         }
                     });
                 } else {
-                    _files = walkSync(pth);
+                    _files = walkSync(uploadFolderName);
                     console.log(_files);
 
                     setTimeout(function() {
                         $('#file_upload_folder').val('');
-                        dicomParse(_files, pth)
+                        dicomParse(_files, uploadFolderName)
                     }, 0)
                 }
                 
