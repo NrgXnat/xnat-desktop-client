@@ -106,6 +106,9 @@ jobs:
                 unzip ${JAVA_TARGET}.zip
                 sudo mv ${JAVA_TARGET}/zulu-8.jdk /Library/Java/JavaVirtualMachines
                 rm -rf ${JAVA_TARGET}*
+                JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
+                ln -s $JAVA_HOME/include/darwin/jni_md.h \
+                    $JAVA_HOME/include/jni_md.h
                 echo "JDK ${JAVA_TARGET} installed, using version: $(/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java -version 2>&1 | grep Server)"
             } || {
                 echo "Existing JDK found, using version: $(/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java -version 2>&1 | grep Server)"
@@ -149,7 +152,7 @@ jobs:
       - run:
           name: Install and build node dependencies
           command: |
-            JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
+            export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
             yarn install
       - save_cache:
           key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
