@@ -61,8 +61,8 @@ console.log(jarDir);
 const mizers = java.newInstanceSync("java.util.ArrayList");
 mizers.addSync(java.newInstanceSync("org.nrg.dcm.edit.mizer.DE4Mizer"));
 const scriptFactory = java.newInstanceSync("org.nrg.dicom.dicomedit.DE6ScriptFactory");
-mizers.addSync(java.newInstanceSync("org.nrg.dicom.dicomedit.mizer.DE6Mizer", scriptFactory));
-
+const applicatorFactory = java.newInstanceSync("org.nrg.dicom.dicomedit.ScriptApplicatorFactory", scriptFactory);
+mizers.addSync(java.newInstanceSync("org.nrg.dicom.dicomedit.mizer.DE6Mizer", applicatorFactory));
 const mizerService = java.newInstanceSync("org.nrg.dicom.mizer.service.impl.BaseMizerService", mizers);
 
 /**
