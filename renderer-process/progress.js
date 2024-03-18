@@ -2133,8 +2133,18 @@ $on('click', 'button[data-js="test_anonymization_bulk"]', async function() {
     const xnat_api = new XNATAPI(xnat_server, user_auth);
 
     try {
+        /*
         // Process each path sequentially using async/await
         for (const selected_series of transfer.series) {
+            const contexts = await getContexts(xnat_api, transfer, selected_series.seriesInstanceUid)
+
+            for (let seg_i = 0; seg_i < selected_series.segments.length; seg_i++) {
+                await copy_and_anonymize_segment(transfer, selected_series.seriesInstanceUid, seg_i, contexts, destinationPath)
+            }
+        }
+        */
+        for (let i = 0; i < transfer.series.length; i++) {
+            const selected_series = transfer.series[i]
             const contexts = await getContexts(xnat_api, transfer, selected_series.seriesInstanceUid)
 
             for (let seg_i = 0; seg_i < selected_series.segments.length; seg_i++) {
@@ -2146,6 +2156,34 @@ $on('click', 'button[data-js="test_anonymization_bulk"]', async function() {
         console.error('Error processing paths:', error);
     }
 
+})
+
+$on('click', 'button[data-js="test_anonymization_bulk_2"]', async function() {
+    console.log($(this).data('js'))
+    console.log(__dirname)
+    const basePath = 'D://_TEMP_/_MIZER_/'
+    const destinationPath = path.join('D://_TEMP_/_MIZER_/sample2-slim--copy/', uuidv4())
+
+    const transfer_content = fs.readFileSync(`${basePath}sample2-slim.json`)
+    const transfer = JSON.parse(transfer_content)
+    console.log({transfer});
+
+    const xnat_api = new XNATAPI(xnat_server, user_auth);
+
+    try {
+        // Process each path sequentially using async/await
+        for (let i = 0; i < transfer.series.length; i++) {
+            const selected_series = transfer.series[i]
+            const contexts = await getContexts(xnat_api, transfer, selected_series.seriesInstanceUid)
+
+            for (let seg_i = 0; seg_i < selected_series.segments.length; seg_i++) {
+                await copy_and_anonymize_segment(transfer, selected_series.seriesInstanceUid, seg_i, contexts, destinationPath)
+            }
+        }
+        console.log('All segments processed successfully.');
+    } catch (error) {
+        console.error('Error processing paths:', error);
+    }
 })
 
 async function getUploads() {

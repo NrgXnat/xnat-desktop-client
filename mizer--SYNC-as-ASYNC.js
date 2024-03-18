@@ -239,21 +239,6 @@ mizer.anonymize = async (source, contexts, variables) => {
     
 };
 
-mizer.anonymizeSimple = async (source, contexts) => {
-    const FileClass = importClass("java.io.File");
-    const dicom = new FileClass(source);
-
-    try {
-        const resultX = await mizerService.anonymize(dicom, contexts);
-        console.log(`Anonymized: ${source}`);
-    } catch (err) {
-        console.log(`==== ANON_ERR ====> ${source}`);
-        console.log({ANON_ERR: err});
-        throw err
-    }
-    
-};
-
 mizer.anonymize_single = (source, script, variables) => {
     const PropertiesClass = importClass("java.util.Properties");
     const properties = new PropertiesClass();

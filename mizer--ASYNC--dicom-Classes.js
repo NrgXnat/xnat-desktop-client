@@ -4,7 +4,7 @@ const path = require('path');
 
 const _app_path = __dirname;
 
-let java, jarDir, importClass, appendClasspath, mizerService;
+let java, jarDir, importClass, importClassAsync, appendClasspath, mizerService;
 
 let initJava = false
 
@@ -25,6 +25,7 @@ if (path.extname(_app_path) === '.asar') {
   }
   
   importClass = require('java-bridge').importClass
+  importClassAsync = require('java-bridge').importClassAsync
   appendClasspath = require('java-bridge').appendClasspath
   jarDir = _app_path + "/libs/"
 }
@@ -32,6 +33,10 @@ if (path.extname(_app_path) === '.asar') {
 console.log(jarDir);
 
 if (initJava) {
+    doInitJava()
+}
+
+async function doInitJava() {
     const jarClassPaths = ["classes",
         "antlr-runtime-3.5.2.jar",
         "antlr4-runtime-4.7.1.jar",
@@ -69,20 +74,25 @@ if (initJava) {
     const mizersClass = importClass("java.util.ArrayList");
     const mizers = new mizersClass()
 
-    const de4MizerClass = importClass("org.nrg.dcm.edit.mizer.DE4Mizer")
-    mizers.addSync(new de4MizerClass());
+    // const de4MizerClass = importClass("org.nrg.dcm.edit.mizer.DE4Mizer")
+    const de4MizerClass = await importClass("org.nrg.dcm.edit.mizer.DE4Mizer")
+    const de4Mizer = await de4MizerClass.newInstanceAsync()
+    mizers.addSync(de4Mizer);
 
-    const scriptFactoryClass = importClass("org.nrg.dicom.dicomedit.DE6ScriptFactory");
-    const scriptFactory = new scriptFactoryClass()
-    const de6MizerClass = importClass("org.nrg.dicom.dicomedit.mizer.DE6Mizer")
-    mizers.addSync(new de6MizerClass(scriptFactory));
+    // const scriptFactoryClass = importClass("org.nrg.dicom.dicomedit.DE6ScriptFactory");
+    // const scriptFactory = new scriptFactoryClass()
 
-    // console.log({ROOT__mizers: mizers});
+    const scriptFactoryClass = await importClassAsync("org.nrg.dicom.dicomedit.DE6ScriptFactory");
+    const scriptFactory = await scriptFactoryClass.newInstanceAsync()
 
-    const mizerServiceClass = importClass("org.nrg.dicom.mizer.service.impl.BaseMizerService")
-    mizerService = new mizerServiceClass(mizers);
+    // const de6MizerClass = importClass("org.nrg.dicom.dicomedit.mizer.DE6Mizer")
+    const de6MizerClass = await importClassAsync("org.nrg.dicom.dicomedit.mizer.DE6Mizer")
+    const de6Mizer = await de6MizerClass.newInstanceAsync(scriptFactory)
+    mizers.addSync(de6Mizer);
 
-    // console.log({ROOT__mizerService: mizerService});
+
+    const mizerServiceClass = await importClassAsync("org.nrg.dicom.mizer.service.impl.BaseMizerService")
+    mizerService = await mizerServiceClass.newInstanceAsync(mizers);
 }
 
 
@@ -99,7 +109,7 @@ if (initJava) {
  *
  * @return A Java Properties object containing the submitted names and values.
  */
-mizer.getVariables = async (variables) => {
+mizer.getVariables = (variables) => {
     const PropertiesClass = importClass("java.util.Properties");
     const properties = new PropertiesClass()
 
@@ -111,7 +121,7 @@ mizer.getVariables = async (variables) => {
     if (variables) {
         for (let key in variables) {
             // console.log(`${key} => ${variables[key]}`);
-            await properties.setPropertySync(key, variables[key]);
+            properties.setPropertySync(key, variables[key]);
         }
         // Object.keys(variables).forEach(key => {
         //     properties.setPropertySync(key, variables[key]);
@@ -129,14 +139,14 @@ mizer.getVariables = async (variables) => {
  *
  * @return A script context.
  */
-mizer.getScriptContext = async (script) => {
+mizer.getScriptContext = (script) => {
     const ContextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
     const context = new ContextClass();
 
     // console.log({getScriptContext__context: context});
 
     // context.setScriptSync(script);
-    await context.setScriptSync(script);
+    context.setScriptSync(script);
 
     return context;
 };
@@ -149,7 +159,7 @@ mizer.getScriptContext = async (script) => {
  *
  * @return A list of script contexts.
  */
-mizer.getScriptContexts = async (scripts) => {
+mizer.getScriptContexts = (scripts) => {
     const ArrayListClass = importClass("java.util.ArrayList");
     const arrayList = new ArrayListClass();
 
@@ -159,8 +169,8 @@ mizer.getScriptContexts = async (scripts) => {
     // });
 
     for (let i = 0; i < scripts.length; i++) {
-        const context = await mizer.getScriptContext(scripts[i]);
-        await arrayList.addSync(context);
+        const context = mizer.getScriptContext(scripts[i]);
+        arrayList.addSync(context);
     }
 
     return arrayList;
@@ -225,26 +235,11 @@ mizer.anonymize = async (source, contexts, variables) => {
     while (itr.hasNextSync()) {
         let context = itr.nextSync();
         //console.log({context__0: context});
-        await context.addSync(variables);
+        context.addSync(variables);
     }
 
     try {
-        const resultX = await mizerService.anonymize(dicom, contexts);
-        console.log(`Anonymized: ${source}`);
-    } catch (err) {
-        console.log(`==== ANON_ERR ====> ${source}`);
-        console.log({ANON_ERR: err});
-        throw err
-    }
-    
-};
-
-mizer.anonymizeSimple = async (source, contexts) => {
-    const FileClass = importClass("java.io.File");
-    const dicom = new FileClass(source);
-
-    try {
-        const resultX = await mizerService.anonymize(dicom, contexts);
+        await mizerService.anonymizeSync(dicom, contexts);
         console.log(`Anonymized: ${source}`);
     } catch (err) {
         console.log(`==== ANON_ERR ====> ${source}`);

@@ -4,6 +4,8 @@ const path = require('path')
 const fx = require('mkdir-recursive')
 const archiver = require('archiver')
 
+const lodashCloneDeep = require('lodash/cloneDeep')
+
 const { require: nodeRequire } = require('@electron/remote')
 const mizer = nodeRequire('./mizer');
 // const mizer = require('../mizer')
@@ -18,23 +20,29 @@ exports.copy_and_anonymize_segment = async (transfer, series_id, segment_index, 
     const filePaths = getSegmentFiles(transfer, series_id, segment_index)
     const variables = await mizer.getVariables(transfer.anon_variables);
 
+    let itr = contexts.iteratorSync();
+    while (itr.hasNextSync()) {
+        let context = itr.nextSync();
+        await context.addSync(variables);
+    }
+
     const new_dirpath = createTargetDir(target_path);
     
     const archive = initArchive(new_dirpath)
 
-    function filepathsPromiseGenerator(filePaths) {
-        // clone ...  contexts
+    function filepathsPromiseGenerator(filePaths, contexts) {
+        // TODO:
+        // clone ...  contexts, and probably all other params
         // 
         return filePaths.map(filePath => copyAnonArchive(filePath, new_dirpath, archive, contexts, variables))
     }
 
-    async function retryAsyncOperation(maxRetries) {
+    async function retryAsyncOperation(maxRetries, contexts) {
         let attempt = 1;
     
-        async function tryAsyncOperation(funcs) {
+        async function tryAsyncOperation(funcs, contexts) {
             try {
                 const filesWithErrors = await promiseSerial(funcs);
-                console.log(`${attempt}. Errors: `, filesWithErrors)
                 
                 if (filesWithErrors.length === 0) {
                     console.log(`SUCCESS in ${attempt}. attempt`);
@@ -44,16 +52,20 @@ exports.copy_and_anonymize_segment = async (transfer, series_id, segment_index, 
                     archive.finalize();
 
                     return true;
-                } else if (attempt < maxRetries) {
-                    console.log(`Attempt ${attempt} FAILED`, {filesWithErrors});
-
-                    attempt++;
-                    return await tryAsyncOperation(filepathsPromiseGenerator(filesWithErrors));
                 } else {
-                    console.log('ABORT');
+                    console.log(`${attempt}. Errors: `, filesWithErrors)
 
-                    archive.abort();
-                    return false;
+                    if (attempt < maxRetries) {
+                        console.log(`Attempt ${attempt} FAILED`, {filesWithErrors});
+    
+                        attempt++;
+                        return await tryAsyncOperation(filepathsPromiseGenerator(filesWithErrors, contexts));
+                    } else {
+                        console.log('ABORT');
+    
+                        archive.abort();
+                        return false;
+                    }
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -62,11 +74,11 @@ exports.copy_and_anonymize_segment = async (transfer, series_id, segment_index, 
                 return false;
             }
         }
-    
-        return await tryAsyncOperation(filepathsPromiseGenerator(filePaths));
+
+        return await tryAsyncOperation(filepathsPromiseGenerator(filePaths, contexts), contexts);
     }
 
-    const success = await retryAsyncOperation(20);
+    const success = await retryAsyncOperation(20, contexts);
     console.log('Was operation successful?', success);
 
     return success
@@ -168,6 +180,7 @@ function initArchive(target_path) {
 
 function copyAnonArchive(fileData, new_dirpath, archive, contexts, variables) {
 
+    // TODO - fix the source of this problem
     const source = typeof fileData === "string" ? fileData : fileData.source
 
     return function() {
@@ -212,8 +225,10 @@ function copyAnonArchive(fileData, new_dirpath, archive, contexts, variables) {
                         fs.writeFileSync(target, fs.readFileSync(source), 'wx')
                     }
     
-                    await mizer.anonymize(target, contexts, variables);
-                    console.log('CUSTOM_JAVA_VARS', {contexts, variables});
+                    // await mizer.anonymize(target, contexts, variables);
+                    await mizer.anonymizeSimple(target, contexts);
+                    //console.log('CUSTOM_JAVA_VARS', {contexts, variables});
+                    console.log('CUSTOM_JAVA_VARS', {contexts});
                     console.count('anonymized')
                     
                     // fileData.anon_checksum = await file_checksum(target)
@@ -231,7 +246,7 @@ function copyAnonArchive(fileData, new_dirpath, archive, contexts, variables) {
                         reject(new MizerError(error.message, source));
                     } else if (error.message && (error.message.indexOf('java.util.ConcurrentModificationException') >= 0 || error.message.indexOf('java.lang.NullPointerException') >= 0)) {
                         console.log('CUSTOM_JAVA_ERROR: ', error.message)
-                        console.log('CUSTOM_JAVA_ERROR_VARS', {contexts, variables});
+                        console.log('CUSTOM_JAVA_ERROR_VARS', {contexts});
                         // reject(new MizerError(error.message, source));
                         fs.unlink(target, (err) => {
                             if (err) {

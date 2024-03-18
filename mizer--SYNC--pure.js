@@ -99,7 +99,7 @@ if (initJava) {
  *
  * @return A Java Properties object containing the submitted names and values.
  */
-mizer.getVariables = async (variables) => {
+mizer.getVariables = (variables) => {
     const PropertiesClass = importClass("java.util.Properties");
     const properties = new PropertiesClass()
 
@@ -111,7 +111,7 @@ mizer.getVariables = async (variables) => {
     if (variables) {
         for (let key in variables) {
             // console.log(`${key} => ${variables[key]}`);
-            await properties.setPropertySync(key, variables[key]);
+            properties.setPropertySync(key, variables[key]);
         }
         // Object.keys(variables).forEach(key => {
         //     properties.setPropertySync(key, variables[key]);
@@ -129,14 +129,14 @@ mizer.getVariables = async (variables) => {
  *
  * @return A script context.
  */
-mizer.getScriptContext = async (script) => {
+mizer.getScriptContext = (script) => {
     const ContextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
     const context = new ContextClass();
 
     // console.log({getScriptContext__context: context});
 
     // context.setScriptSync(script);
-    await context.setScriptSync(script);
+    context.setScriptSync(script);
 
     return context;
 };
@@ -149,7 +149,7 @@ mizer.getScriptContext = async (script) => {
  *
  * @return A list of script contexts.
  */
-mizer.getScriptContexts = async (scripts) => {
+mizer.getScriptContexts = (scripts) => {
     const ArrayListClass = importClass("java.util.ArrayList");
     const arrayList = new ArrayListClass();
 
@@ -159,8 +159,8 @@ mizer.getScriptContexts = async (scripts) => {
     // });
 
     for (let i = 0; i < scripts.length; i++) {
-        const context = await mizer.getScriptContext(scripts[i]);
-        await arrayList.addSync(context);
+        const context = mizer.getScriptContext(scripts[i]);
+        arrayList.addSync(context);
     }
 
     return arrayList;
@@ -215,7 +215,7 @@ mizer.anonymize_old = (source, contexts, variables) => {
  * @param contexts  The script contexts to use for anonymization.
  * @param variables A Java Properties object to pass for variable substitution.
  */
-mizer.anonymize = async (source, contexts, variables) => {
+mizer.anonymize = (source, contexts, variables) => {
     const FileClass = importClass("java.io.File");
     const dicom = new FileClass(source);
 
@@ -225,26 +225,12 @@ mizer.anonymize = async (source, contexts, variables) => {
     while (itr.hasNextSync()) {
         let context = itr.nextSync();
         //console.log({context__0: context});
-        await context.addSync(variables);
+        context.addSync(variables);
     }
 
     try {
-        const resultX = await mizerService.anonymize(dicom, contexts);
-        console.log(`Anonymized: ${source}`);
-    } catch (err) {
-        console.log(`==== ANON_ERR ====> ${source}`);
-        console.log({ANON_ERR: err});
-        throw err
-    }
-    
-};
-
-mizer.anonymizeSimple = async (source, contexts) => {
-    const FileClass = importClass("java.io.File");
-    const dicom = new FileClass(source);
-
-    try {
-        const resultX = await mizerService.anonymize(dicom, contexts);
+        console.log({mizerService});
+        mizerService.anonymize(dicom, contexts);
         console.log(`Anonymized: ${source}`);
     } catch (err) {
         console.log(`==== ANON_ERR ====> ${source}`);
