@@ -194,7 +194,27 @@ mizer.anonymize = (source, contexts, variables) => {
 
         //console.log(context);
     }
-    mizerService.anonymizeSync(dicom, contexts);
+    const anonResult = mizerService.anonymizeSync(dicom, contexts);
+    
+    const anonMessages = anonResult.getMessageSync().split("\n")
+
+    /*
+    console.log('-------- anonResult ------------')
+    console.log({
+        _message: anonResult.getMessageSync(),
+        _messages: anonResult.getMessagesSync(),
+        _severity: anonResult.getSeveritySync(),
+        _hashCode: anonResult.hashCodeSync(),
+        _toString: anonResult.toStringSync(),
+        anonResult
+    });
+    */
+
+    for (const anonMsg of anonMessages) {
+        if (anonMsg.startsWith("Rejected:")) {
+            throw new Error(`AnonymizationRejected - ${anonMsg}`);
+        }
+    }
 };
 
 mizer.anonymize_single = (source, script, variables) => {
@@ -234,4 +254,8 @@ mizer.generateAlterPixelCode = (rectangles) => {
 
 mizer.isMizerError = (error_message) => {
     return error_message && error_message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0
+}
+
+mizer.isMizerRejected = (error_message) => {
+    return error_message && error_message.indexOf('AnonymizationRejected') >= 0
 }

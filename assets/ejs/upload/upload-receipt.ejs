@@ -24,7 +24,13 @@
                                     <li>
                                         <%= series[single_series].filenames[i] %>
                                         <ul>
-                                            <li>Checksum (local): <%= series[single_series].anon_checksums[i] %></li>
+                                            <li>
+                                                <% if (series[single_series].anon_checksums[i]) { %>
+                                                    Checksum (local): <%= series[single_series].anon_checksums[i] %>
+                                                <% } else { %>
+                                                    <span style="color: red">Rejected</span>
+                                                <% } %>
+                                            </li>
                                         </ul>
                                     </li>
                                 <% } %>
