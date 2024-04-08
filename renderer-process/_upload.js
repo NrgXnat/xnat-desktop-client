@@ -571,7 +571,8 @@ async function copy_and_anonymize(transfer, series_id, filePaths, contexts, vari
         //url: 'http://localhost:3007',
         adapter: httpAdapter,
         auth: user_auth,
-        maxContentLength: (1024 * 1024 * 1024 * 1024), // default 10MB - must be increased ~ 1TB
+        maxContentLength: Infinity, // default 10MB - must be increased
+        maxBodyLength: Infinity, // default 10MB - must be increased
         maxRedirects: 1, 
         onUploadProgress: function (progressEvent) {
             // Do whatever you want with the native progress event
