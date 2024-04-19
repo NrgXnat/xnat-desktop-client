@@ -459,6 +459,11 @@ async function doUpload(transfer, series_id) {
             }
         }
 
+        // adding an empty script to prevent error message in v3.2.5 (after introducing ScriptApplicatorFactory)
+        if (scripts.length === 0) {
+            scripts.push('')
+        }
+
         contexts = mizer.getScriptContexts(scripts);
 
         // Convert the JS map anonValues into a Java Properties object.
