@@ -38,18 +38,17 @@ console.log(jarDir);
     "dcm4che-core-2.0.29.jar",
     "dcm4che-iod-2.0.29.jar",
     "dcm4che-net-2.0.29.jar",
-    "dicom-edit4-1.1.0.jar",
-    "dicom-edit6-6.5.0.jar",
-    "dicomtools-1.8.8.jar",
-    "framework-1.8.8.jar",
+    "dicom-edit4-1.8.10.jar",
+    "dicom-edit6-6.6.0.jar",
+    "dicomtools-1.8.10.jar",
+    "framework-1.8.10.jar",
     "guava-20.0.jar",
     "jai-imageio-core-1.3.0.jar",
     "jai-imageio-jpeg2000-1.3.0.jar",
     "java-uuid-generator-3.1.4.jar",
     "jcl-over-slf4j-1.7.30.jar",
     "log4j-1.2.17.jar",
-    "mizer-1.2.4.jar",
-    "pixelEditor-1.3.0.jar",
+    "mizer-1.8.10.jar",
     "pixelmed-nrg-20200327.jar",
     "pixelmed-codec-20200328.jar",
     "pixelmed-imageio-20200328.jar",
@@ -57,13 +56,13 @@ console.log(jarDir);
     "slf4j-api-1.7.30.jar",
     "slf4j-log4j12-1.7.30.jar",
     "spring-core-4.3.30.RELEASE.jar",
-    "transaction-1.8.8.jar"].forEach(jar => java.classpath.push(jarDir + jar))
+    "transaction-1.8.10.jar"].forEach(jar => java.classpath.push(jarDir + jar))
 
 const mizers = java.newInstanceSync("java.util.ArrayList");
 mizers.addSync(java.newInstanceSync("org.nrg.dcm.edit.mizer.DE4Mizer"));
 const scriptFactory = java.newInstanceSync("org.nrg.dicom.dicomedit.DE6ScriptFactory");
-mizers.addSync(java.newInstanceSync("org.nrg.dicom.dicomedit.mizer.DE6Mizer", scriptFactory));
-
+const applicatorFactory = java.newInstanceSync("org.nrg.dicom.dicomedit.ScriptApplicatorFactory", scriptFactory);
+mizers.addSync(java.newInstanceSync("org.nrg.dicom.dicomedit.mizer.DE6Mizer", applicatorFactory));
 const mizerService = java.newInstanceSync("org.nrg.dicom.mizer.service.impl.BaseMizerService", mizers);
 
 /**
@@ -195,7 +194,27 @@ mizer.anonymize = (source, contexts, variables) => {
 
         //console.log(context);
     }
-    mizerService.anonymizeSync(dicom, contexts);
+    const anonResult = mizerService.anonymizeSync(dicom, contexts);
+    
+    const anonMessages = anonResult.getMessageSync().split("\n")
+
+    /*
+    console.log('-------- anonResult ------------')
+    console.log({
+        _message: anonResult.getMessageSync(),
+        _messages: anonResult.getMessagesSync(),
+        _severity: anonResult.getSeveritySync(),
+        _hashCode: anonResult.hashCodeSync(),
+        _toString: anonResult.toStringSync(),
+        anonResult
+    });
+    */
+
+    for (const anonMsg of anonMessages) {
+        if (anonMsg.startsWith("Rejected:")) {
+            throw new Error(`AnonymizationRejected - ${anonMsg}`);
+        }
+    }
 };
 
 mizer.anonymize_single = (source, script, variables) => {
@@ -235,4 +254,8 @@ mizer.generateAlterPixelCode = (rectangles) => {
 
 mizer.isMizerError = (error_message) => {
     return error_message && error_message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0
+}
+
+mizer.isMizerRejected = (error_message) => {
+    return error_message && error_message.indexOf('AnonymizationRejected') >= 0
 }
