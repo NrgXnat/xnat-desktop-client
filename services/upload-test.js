@@ -6,6 +6,18 @@ const archiver = require('archiver')
 
 const lodashCloneDeep = require('lodash/cloneDeep')
 
+function customCloneDeep(obj) {
+    const clonedObj = lodashCloneDeep(obj);
+    
+    for (const key in obj) {
+      if (typeof obj[key] === 'function') {
+        clonedObj[key] = obj[key];
+      }
+    }
+    
+    return clonedObj;
+}
+
 const { require: nodeRequire } = require('@electron/remote')
 const mizer = nodeRequire('./mizer');
 // const mizer = require('../mizer')
@@ -25,6 +37,9 @@ exports.copy_and_anonymize_segment = async (transfer, series_id, segment_index, 
         let context = itr.nextSync();
         await context.addSync(variables);
     }
+
+    console.log(`${transfer.id}_${series_id}__${segment_index}`, contexts)
+    // const _contexts = customCloneDeep(contexts)
 
     const new_dirpath = createTargetDir(target_path);
     

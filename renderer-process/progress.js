@@ -2162,9 +2162,9 @@ $on('click', 'button[data-js="test_anonymization_bulk_2"]', async function() {
     console.log($(this).data('js'))
     console.log(__dirname)
     const basePath = 'D://_TEMP_/_MIZER_/'
-    const destinationPath = path.join('D://_TEMP_/_MIZER_/sample2-slim--copy/', uuidv4())
+    const destinationPath = path.join('D://_TEMP_/_MIZER_/sample3-slim--copy/', uuidv4())
 
-    const transfer_content = fs.readFileSync(`${basePath}sample2-slim.json`)
+    const transfer_content = fs.readFileSync(`${basePath}sample3-slim.json`)
     const transfer = JSON.parse(transfer_content)
     console.log({transfer});
 

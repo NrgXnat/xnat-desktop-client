@@ -2515,9 +2515,11 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
 
         // **********************************************************************
 
+        const anon_variables = await mizer.get_scripts_anon_vars(scripts)
+
         project_settings.computed = {
             scripts: scripts,
-            anon_variables: mizer.get_scripts_anon_vars(scripts),
+            anon_variables,
             experiment_labels: project_session_labels.concat(project_prearchived_session_labels).concat(db_project_upload_labels),
             pet_tracers: get_pet_tracers(project_settings.pet_tracers, site_wide_settings.pet_tracers, user_defined_pet_tracers(settings))
         }
