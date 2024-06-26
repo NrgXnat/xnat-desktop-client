@@ -218,7 +218,14 @@ mizer.anonymize_old = (source, contexts, variables) => {
  * @param contexts  The script contexts to use for anonymization.
  * @param variables A Java Properties object to pass for variable substitution.
  */
+let isMizerAnonBusy = false;
 mizer.anonymize = async (source, contexts, variables) => {
+
+    if (isMizerAnonBusy) {
+        await waitForNotBusy();
+    }
+    isMizerAnonBusy = true
+    
     const FileClass = importClass("java.io.File");
     const dicom = new FileClass(source);
 
@@ -234,13 +241,26 @@ mizer.anonymize = async (source, contexts, variables) => {
     try {
         const resultX = await mizerService.anonymize(dicom, contexts);
         console.log(`Anonymized: ${source}`);
+        isMizerAnonBusy = false
     } catch (err) {
         console.log(`==== ANON_ERR ====> ${source}`);
         console.log({ANON_ERR: err});
+        isMizerAnonBusy = false
         throw err
     }
     
 };
+
+function waitForNotBusy() {
+    return new Promise(resolve => {
+        const interval = setInterval(() => {
+            if (!isMizerAnonBusy) {
+                clearInterval(interval);
+                resolve();
+            }
+        }, 50);
+    });
+}
 
 mizer.anonymizeSimple = async (source, contexts) => {
     const FileClass = importClass("java.io.File");
