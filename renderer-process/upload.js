@@ -51,7 +51,8 @@ const {
     CSV_UPLOAD_FIELDS,
     MAX_UPLOAD_CHUNK_SIZE,
     MAX_UPLOAD_CHUNK_COUNT,
-    UPLOAD_CHUNKING
+    UPLOAD_CHUNKING,
+    DISABLE_IMAGE_ANONYMIZATION_FOR_MODALITIES
 } = require('../services/constants')
 
 
@@ -1255,6 +1256,24 @@ function get_session_by_series(_series_id) {
     return found_session;
 }
 
+function get_series_by_id(_series_id) {
+    let return_series;
+    session_map.forEach(function(cur_session, key) {
+        /************************** */
+        let series_data = get_session_series(cur_session);
+        /************************** */
+
+        let found_series = series_data.find(series => series.series_id == _series_id)
+        
+        if (found_series !== undefined) {
+            return_series = found_series
+        }
+
+    });
+
+    return return_series;
+}
+
 $on('click', '[data-js-create-template]', function() {
     console.log({rectangle_state_registry});
     if (rectangle_state_registry.length === 0) {
@@ -1955,6 +1974,13 @@ async function display_series_thumb(series, index, cornerstone) {
                 el: $(this).get(0)
             })
         })
+
+        const current_series = get_series_by_id(series.series_id);
+
+        if (DISABLE_IMAGE_ANONYMIZATION_FOR_MODALITIES.includes(current_series.modality.toUpperCase())) {
+            resolve(false)
+            return
+        }
     
         let element = cornerstone_enable_thumb_element();
     
