@@ -4,23 +4,9 @@ const path = require('path')
 const fx = require('mkdir-recursive')
 const archiver = require('archiver')
 
-const lodashCloneDeep = require('lodash/cloneDeep')
-
-function customCloneDeep(obj) {
-    const clonedObj = lodashCloneDeep(obj);
-    
-    for (const key in obj) {
-      if (typeof obj[key] === 'function') {
-        clonedObj[key] = obj[key];
-      }
-    }
-    
-    return clonedObj;
-}
 
 const { require: nodeRequire } = require('@electron/remote')
 const mizer = nodeRequire('./mizer');
-// const mizer = require('../mizer')
 
 const { file_checksum, uuidv4, promiseSerial } = require('./app_utils')
 const { MizerError } = require('../services/errors');
@@ -32,30 +18,23 @@ exports.copy_and_anonymize_segment = async (transfer, series_id, segment_index, 
     const filePaths = getSegmentFiles(transfer, series_id, segment_index)
     const variables = await mizer.getVariables(transfer.anon_variables);
 
-    let itr = contexts.iteratorSync();
-    while (itr.hasNextSync()) {
-        let context = itr.nextSync();
-        await context.addSync(variables);
-    }
-
-    console.log(`${transfer.id}_${series_id}__${segment_index}`, contexts)
-    // const _contexts = customCloneDeep(contexts)
+    console.log(`CONTEXTS::${transfer.id}_${series_id}__${segment_index}`, contexts)
 
     const new_dirpath = createTargetDir(target_path);
     
     const archive = initArchive(new_dirpath)
 
-    function filepathsPromiseGenerator(filePaths, contexts) {
+    function filepathsPromiseGenerator(filePaths) {
         // TODO:
         // clone ...  contexts, and probably all other params
         // 
         return filePaths.map(filePath => copyAnonArchive(filePath, new_dirpath, archive, contexts, variables))
     }
 
-    async function retryAsyncOperation(maxRetries, contexts) {
+    async function retryAsyncOperation(maxRetries) {
         let attempt = 1;
     
-        async function tryAsyncOperation(funcs, contexts) {
+        async function tryAsyncOperation(funcs) {
             try {
                 const filesWithErrors = await promiseSerial(funcs);
                 
@@ -74,7 +53,7 @@ exports.copy_and_anonymize_segment = async (transfer, series_id, segment_index, 
                         console.log(`Attempt ${attempt} FAILED`, {filesWithErrors});
     
                         attempt++;
-                        return await tryAsyncOperation(filepathsPromiseGenerator(filesWithErrors, contexts));
+                        return await tryAsyncOperation(filepathsPromiseGenerator(filesWithErrors));
                     } else {
                         console.log('ABORT');
     
@@ -90,10 +69,10 @@ exports.copy_and_anonymize_segment = async (transfer, series_id, segment_index, 
             }
         }
 
-        return await tryAsyncOperation(filepathsPromiseGenerator(filePaths, contexts), contexts);
+        return await tryAsyncOperation(filepathsPromiseGenerator(filePaths));
     }
 
-    const success = await retryAsyncOperation(20, contexts);
+    const success = await retryAsyncOperation(20);
     console.log('Was operation successful?', success);
 
     return success
@@ -168,7 +147,6 @@ function initArchive(target_path) {
 
     // Fires when the entry's input has been processed and appended to the archive.
     archive.on('entry', async (entry_data) => {
-        /*
         fs.unlink(entry_data.sourcePath, (err) => {
             if (err) {
                 console.error(err)
@@ -176,7 +154,6 @@ function initArchive(target_path) {
                 console.log(`-- ZIP file "${entry_data.sourcePath}" was deleted.`);
             }
         });
-        */
     })
     /**************************************************** */
     /**************************************************** */
@@ -240,8 +217,8 @@ function copyAnonArchive(fileData, new_dirpath, archive, contexts, variables) {
                         fs.writeFileSync(target, fs.readFileSync(source), 'wx')
                     }
     
-                    // await mizer.anonymize(target, contexts, variables);
-                    await mizer.anonymizeSimple(target, contexts);
+                    await mizer.anonymize(target, contexts, variables);
+                    // await mizer.anonymizeSimple(target, contexts);
                     //console.log('CUSTOM_JAVA_VARS', {contexts, variables});
                     console.log('CUSTOM_JAVA_VARS', {contexts});
                     console.count('anonymized')
@@ -288,3 +265,79 @@ function copyAnonArchive(fileData, new_dirpath, archive, contexts, variables) {
     }
 }
 
+
+// ************************** from progress.js *******************************
+/*
+const testBasePath = 'D://__XNAT__/__ANON_TEST__/'
+const bulkAnon1_JSON = 'b9dd2b2c-bddf-4b08-ae34-e6c7d94a0c60--1717000215389.json'
+const bulkAnon2_JSON = 'c64b4123-64f0-4fe0-be18-8f8557515277--1717000569981.json'
+
+
+async function getContexts(xnat_api, transfer, series_id) {
+    try {
+        let scripts = await xnat_api.anon_scripts(transfer.url_data.project_id)
+
+        let pixel_anon_series = transfer.pixel_anon ? transfer.pixel_anon.find(sd => series_id === sd.series_id) : false
+        // pixel_anon_series = false
+        if (pixel_anon_series) {
+            let series_script = mizer.generateAlterPixelCode(pixel_anon_series.rectangles);
+            
+            if (series_script.length) {
+                scripts.push(series_script)
+            }
+        }
+
+        let contexts = await mizer.getScriptContexts(scripts)
+        
+        console.log({context_scripts: scripts, contexts, pixel_anon_series, series_id})
+
+        return contexts
+    } catch (err) {
+        console.error(err);
+        throw err
+    }
+}
+
+async function local_anonymization(jsonFileName) {
+    const jsonFilePath = path.join(testBasePath, jsonFileName)
+    const transfer_content = fs.readFileSync(jsonFilePath)
+    const transfer = JSON.parse(transfer_content)
+
+    const destinationPath = path.join(testBasePath, 'ANON', transfer.id, ('' + new Date().getTime()))
+
+    console.log({transfer, destinationPath});
+
+    const xnat_api = new XNATAPI(xnat_server, user_auth);
+
+    try {
+        // Process each path sequentially using async/await
+        for (let i = 0; i < transfer.series.length; i++) {
+            const selected_series = transfer.series[i]
+            const contexts = await getContexts(xnat_api, transfer, selected_series.seriesInstanceUid)
+
+            for (let seg_i = 0; seg_i < selected_series.segments.length; seg_i++) {
+                await copy_and_anonymize_segment(transfer, selected_series.seriesInstanceUid, seg_i, contexts, destinationPath)
+            }
+        }
+        console.log(`${jsonFileName}: All segments processed successfully.`);
+    } catch (error) {
+        console.error(`${jsonFileName} - Error processing paths:`, error);
+    }
+}
+
+$on('click', 'button[data-js="test_anonymization_bulk"]', async function() {
+    console.log($(this).data('js'))
+
+    await local_anonymization(bulkAnon1_JSON)
+    
+    console_red('test_anonymization_bulk: DONE')
+})
+
+$on('click', 'button[data-js="test_anonymization_bulk_2"]', async function() {
+    console.log($(this).data('js'))
+
+    await local_anonymization(bulkAnon2_JSON)
+    
+    console_red('test_anonymization_bulk_2: DONE')
+})
+*/

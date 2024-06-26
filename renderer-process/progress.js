@@ -1,8 +1,3 @@
-const testBasePath = 'D://__XNAT__/__ANON_TEST__/'
-const bulkAnon1_JSON = '2f868b61-9677-40cf-ad46-d5ed442a66b6--1716476163050.json'
-const bulkAnon2_JSON = 'sample3-slim.json'
-
-
 const {ipcRenderer, shell} = require('electron')
 const { require: nodeRequire } = require('@electron/remote')
 
@@ -2098,74 +2093,6 @@ $on('click', 'button[data-js="test_anonymization"]', async function() {
         console.log(`FILE target ERROR`, err)
     }
 
-})
-
-async function getContexts(xnat_api, transfer, series_id) {
-    try {
-        let scripts = await xnat_api.anon_scripts(transfer.url_data.project_id)
-
-        let pixel_anon_series = transfer.pixel_anon ? transfer.pixel_anon.find(sd => series_id === sd.series_id) : false
-        // pixel_anon_series = false
-        if (pixel_anon_series) {
-            let series_script = mizer.generateAlterPixelCode(pixel_anon_series.rectangles);
-            
-            if (series_script.length) {
-                scripts.push(series_script)
-            }
-        }
-
-        let contexts = await mizer.getScriptContexts(scripts)
-        
-        console.log({context_scripts: scripts, contexts, pixel_anon_series, series_id})
-
-        return contexts
-    } catch (err) {
-        console.error(err);
-        throw err
-    }
-}
-
-async function local_anonymization(jsonFileName) {
-    const jsonFilePath = path.join(testBasePath, jsonFileName)
-    const transfer_content = fs.readFileSync(jsonFilePath)
-    const transfer = JSON.parse(transfer_content)
-
-    const destinationPath = path.join(testBasePath, 'ANON', transfer.id, ('' + new Date().getTime()))
-
-    console.log({transfer, destinationPath});
-
-    const xnat_api = new XNATAPI(xnat_server, user_auth);
-
-    try {
-        // Process each path sequentially using async/await
-        for (let i = 0; i < transfer.series.length; i++) {
-            const selected_series = transfer.series[i]
-            const contexts = await getContexts(xnat_api, transfer, selected_series.seriesInstanceUid)
-
-            for (let seg_i = 0; seg_i < selected_series.segments.length; seg_i++) {
-                await copy_and_anonymize_segment(transfer, selected_series.seriesInstanceUid, seg_i, contexts, destinationPath)
-            }
-        }
-        console.log(`${jsonFileName}: All segments processed successfully.`);
-    } catch (error) {
-        console.error(`${jsonFileName} - Error processing paths:`, error);
-    }
-}
-
-$on('click', 'button[data-js="test_anonymization_bulk"]', async function() {
-    console.log($(this).data('js'))
-
-    await local_anonymization(bulkAnon1_JSON)
-    
-    console_red('test_anonymization_bulk: DONE')
-})
-
-$on('click', 'button[data-js="test_anonymization_bulk_2"]', async function() {
-    console.log($(this).data('js'))
-
-    await local_anonymization(bulkAnon2_JSON)
-    
-    console_red('test_anonymization_bulk_2: DONE')
 })
 
 async function getUploads() {
