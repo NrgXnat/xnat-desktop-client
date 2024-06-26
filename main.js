@@ -870,30 +870,29 @@ ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base, show
   }
 
   const window_to_PDF = new BrowserWindow({show : false})//to just open the browser in background
-  window_to_PDF.loadURL(`file://${html_filepath}`) //give the file link you want to display
+  window_to_PDF.loadFile(html_filepath) //give the file link you want to display
 
-  window_to_PDF.webContents.once('did-finish-load', () => {
-    window_to_PDF.webContents.printToPDF(pdf_settings, function(err, data) {
-      if (err) {
-        devToolsLog(err)
-      } else {
-        try {
-          fs.writeFileSync(pdf_filepath, data)
-          fs.unlinkSync(html_filepath)
-        } catch (err) {
-          devToolsLog(err)
+  window_to_PDF.webContents.on('did-finish-load', () => {
+    window_to_PDF.webContents.printToPDF(pdf_settings).then(data => {
+      try {
+        fs.writeFileSync(pdf_filepath, data)
+        fs.unlinkSync(html_filepath)
+        console.log(`Wrote PDF successfully to ${pdf_filepath}`)
+
+        if (show_in_folder) {
+          shell.showItemInFolder(pdf_filepath)
         }
+      } catch (err) {
+        devToolsLog(err)
       }
-      
-      window_to_PDF.close()
 
-      if (show_in_folder) {
-        shell.showItemInFolder(pdf_filepath)
-      }
+      window_to_PDF.close()
+    }).catch(error => {
+      console.log(`Failed to write PDF to ${pdf_filepath}: `, error)
+
+      window_to_PDF.close()
     })
-    
   });
-  
 })
 
 ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
