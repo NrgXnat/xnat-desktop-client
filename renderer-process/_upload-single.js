@@ -234,7 +234,7 @@ async function doUpload(transfer, series_id, segment_index) {
     //mizer.get_mizer_scripts(xnat_server, user_auth, project_id)
     const xnat_api = new XNATAPI(xnat_server, user_auth);
     xnat_api.anon_scripts(project_id)
-    .then(scripts => {
+    .then(async scripts => {
         let pixel_anon_series = transfer.pixel_anon ? transfer.pixel_anon.find(sd => series_id === sd.series_id) : false
         if (pixel_anon_series) {
             let series_script = mizer.generateAlterPixelCode(pixel_anon_series.rectangles);
@@ -250,10 +250,10 @@ async function doUpload(transfer, series_id, segment_index) {
 
         console_log({anon_scripts: scripts});
 
-        contexts = mizer.getScriptContexts(scripts);
+        contexts = await mizer.getScriptContexts(scripts);
 
         // Convert the JS map anonValues into a Java Properties object.
-        variables = mizer.getVariables(transfer.anon_variables);
+        variables = await mizer.getVariables(transfer.anon_variables);
         // console_log(variables);
 
         console.log({transfer, series_id, segment_index, _files, contexts, variables, csrfToken, scripts});
@@ -1015,7 +1015,7 @@ function handleUploadError(transfer, series_id, segment_index, err) {
 
 function closeThisWindow(timeout = 0) {
     if (timeout > 0) {
-        return
+        // return
     }
     setTimeout(function() {
         const window = getCurrentWindow();
