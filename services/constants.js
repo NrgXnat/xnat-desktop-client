@@ -17,6 +17,7 @@ module.exports = Object.freeze({
         'CR', 'CT', 'MR', 'PT', 'DX', 'ECG', 'EPS', 'ES', 'GM', 'HD', 
         'IO', 'MG', 'NM', 'OP', 'OPT', 'RF', 'SM', 'US', 'XA', 'XC', 'OT'
     ],
+    DISABLE_IMAGE_ANONYMIZATION_FOR_MODALITIES: ['RTDOSE'], // all uppercase
     CSV_UPLOAD_FIELDS: [
         {
             name: "id",

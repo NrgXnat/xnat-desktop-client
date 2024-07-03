@@ -1,5 +1,5 @@
-const { ipcRenderer, remote } = require('electron')
-const app = remote.app
+const { ipcRenderer } = require('electron')
+const { require: nodeRequire, app } = require('@electron/remote')
 const fs = require('fs')
 const path = require('path')
 const getSize = require('get-folder-size')
@@ -20,9 +20,10 @@ const user_settings = require('../services/user_settings')
 const ResetManager = require('../services/reset-manager')
 const FlowReset = new ResetManager();
 const ExperimentLabel = require('../services/experiment_label')
-const mizer = remote.require('./mizer')
-const db_uploads = remote.require('./services/db/uploads')
-const electron_log = remote.require('./services/electron_log')
+const mizer = nodeRequire('./mizer')
+// const mizer = require('../mizer')
+const db_uploads = nodeRequire('./services/db/uploads')
+const electron_log = nodeRequire('./services/electron_log')
 const XNATAPI = require('../services/xnat-api')
 const { 
     random_string, 
@@ -50,7 +51,8 @@ const {
     CSV_UPLOAD_FIELDS,
     MAX_UPLOAD_CHUNK_SIZE,
     MAX_UPLOAD_CHUNK_COUNT,
-    UPLOAD_CHUNKING
+    UPLOAD_CHUNKING,
+    DISABLE_IMAGE_ANONYMIZATION_FOR_MODALITIES
 } = require('../services/constants')
 
 
@@ -1254,6 +1256,24 @@ function get_session_by_series(_series_id) {
     return found_session;
 }
 
+function get_series_by_id(_series_id) {
+    let return_series;
+    session_map.forEach(function(cur_session, key) {
+        /************************** */
+        let series_data = get_session_series(cur_session);
+        /************************** */
+
+        let found_series = series_data.find(series => series.series_id == _series_id)
+        
+        if (found_series !== undefined) {
+            return_series = found_series
+        }
+
+    });
+
+    return return_series;
+}
+
 $on('click', '[data-js-create-template]', function() {
     console.log({rectangle_state_registry});
     if (rectangle_state_registry.length === 0) {
@@ -1954,6 +1974,13 @@ async function display_series_thumb(series, index, cornerstone) {
                 el: $(this).get(0)
             })
         })
+
+        const current_series = get_series_by_id(series.series_id);
+
+        if (DISABLE_IMAGE_ANONYMIZATION_FOR_MODALITIES.includes(current_series.modality.toUpperCase())) {
+            resolve(false)
+            return
+        }
     
         let element = cornerstone_enable_thumb_element();
     
@@ -2514,9 +2541,11 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
 
         // **********************************************************************
 
+        const anon_variables = await mizer.get_scripts_anon_vars(scripts)
+
         project_settings.computed = {
             scripts: scripts,
-            anon_variables: mizer.get_scripts_anon_vars(scripts),
+            anon_variables,
             experiment_labels: project_session_labels.concat(project_prearchived_session_labels).concat(db_project_upload_labels),
             pet_tracers: get_pet_tracers(project_settings.pet_tracers, site_wide_settings.pet_tracers, user_defined_pet_tracers(settings))
         }
@@ -2829,13 +2858,14 @@ $on('change', '#file_upload_folder', function(e) {
     console.log(this.files.length);
 
     if (this.files.length) {
-        $('#upload_folder').val(this.files[0].path);
-
-        let pth = this.files[0].path;
+        const baseDirectoryPath = this.files[0].webkitRelativePath.split('/')[0];
+        const uploadFolderName = this.files[0].path.substring(0, this.files[0].path.length - this.files[0].webkitRelativePath.length) + baseDirectoryPath
+        console.log({uploadFolderName});
+        $('#upload_folder').val(uploadFolderName);
 
         // todo - ADD "Processing here instead in dicomParse() method"
         // to fix large folder traverse "freeze" the interface (also add async traverse)
-        getSizeAsPromised(pth)
+        getSizeAsPromised(uploadFolderName)
             .then(function(response){
                 console.log(response);
 
@@ -2849,22 +2879,22 @@ $on('change', '#file_upload_folder', function(e) {
                     })
                     .then((proceed) => {
                         if (proceed) {
-                            _files = walkSync(pth);
+                            _files = walkSync(uploadFolderName);
                             console.log(_files);
 
                             $('#file_upload_folder').val('');
-                            dicomParse(_files, pth);
+                            dicomParse(_files, uploadFolderName);
                         } else {
                             $('#upload_folder, #file_upload_folder').val('');
                         }
                     });
                 } else {
-                    _files = walkSync(pth);
+                    _files = walkSync(uploadFolderName);
                     console.log(_files);
 
                     setTimeout(function() {
                         $('#file_upload_folder').val('');
-                        dicomParse(_files, pth)
+                        dicomParse(_files, uploadFolderName)
                     }, 0)
                 }
                 
@@ -4449,10 +4479,6 @@ async function storeUpload(url_data, session_id, series_ids, _anon_variables) {
 
     console.log({upload_digest});
 
-    // todo: remove this
-    // const target_path = path.resolve(remote.app.getPath('desktop'), `upload_digest-${Date.now()}.json`)
-    // objToJsonFile(upload_digest, target_path);
-    
     try {
         const newItem = await db_uploads._insertDoc(upload_digest)
 

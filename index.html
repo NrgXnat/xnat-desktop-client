@@ -232,7 +232,9 @@
         window.$ = window.jQuery = require('jquery');
         
         store = require('store2');
-        Helper = require('./assets/js/helpers');
+        window.Helper = Helper = require('./assets/js/helpers');
+
+        console.log({window_Helper: window.Helper});
 
     </script>
 
@@ -321,7 +323,7 @@
         //     Helper.pnotify('Title', 'Some message.', 'notice');
         // }, 2000)
         
-        var app = require('electron').remote.app
+        const { app } = require('@electron/remote')
         $('#version-number').text('v' + app.getVersion())
         
     </script>

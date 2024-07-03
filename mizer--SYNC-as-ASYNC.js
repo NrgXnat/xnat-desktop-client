@@ -42,17 +42,18 @@ if (initJava) {
         "dcm4che-core-2.0.29.jar",
         "dcm4che-iod-2.0.29.jar",
         "dcm4che-net-2.0.29.jar",
-        "dicom-edit4-1.8.10.jar",
-        "dicom-edit6-6.6.1.jar",
-        "dicomtools-1.8.10.jar",
-        "framework-1.8.10.jar",
+        "dicom-edit4-1.1.0.jar",
+        "dicom-edit6-6.5.0.jar",
+        "dicomtools-1.8.8.jar",
+        "framework-1.8.8.jar",
         "guava-20.0.jar",
         "jai-imageio-core-1.3.0.jar",
         "jai-imageio-jpeg2000-1.3.0.jar",
         "java-uuid-generator-3.1.4.jar",
         "jcl-over-slf4j-1.7.30.jar",
         "log4j-1.2.17.jar",
-        "mizer-1.8.10.1.jar",
+        "mizer-1.2.4.jar",
+        "pixelEditor-1.3.0.jar",
         "pixelmed-nrg-20200327.jar",
         "pixelmed-codec-20200328.jar",
         "pixelmed-imageio-20200328.jar",
@@ -60,7 +61,7 @@ if (initJava) {
         "slf4j-api-1.7.30.jar",
         "slf4j-log4j12-1.7.30.jar",
         "spring-core-4.3.30.RELEASE.jar",
-        "transaction-1.8.10.jar"].map(jar => jarDir + jar);
+        "transaction-1.8.8.jar"].map(jar => jarDir + jar);
 
     appendClasspath(jarClassPaths);
 
@@ -73,12 +74,8 @@ if (initJava) {
 
     const scriptFactoryClass = importClass("org.nrg.dicom.dicomedit.DE6ScriptFactory");
     const scriptFactory = new scriptFactoryClass()
-
-    const scriptApplicatorFactory = importClass("org.nrg.dicom.dicomedit.ScriptApplicatorFactory");
-    const applicatorFactory = new scriptApplicatorFactory(scriptFactory)
-
     const de6MizerClass = importClass("org.nrg.dicom.dicomedit.mizer.DE6Mizer")
-    mizers.addSync(new de6MizerClass(applicatorFactory));
+    mizers.addSync(new de6MizerClass(scriptFactory));
 
     // console.log({ROOT__mizers: mizers});
 
@@ -218,14 +215,7 @@ mizer.anonymize_old = (source, contexts, variables) => {
  * @param contexts  The script contexts to use for anonymization.
  * @param variables A Java Properties object to pass for variable substitution.
  */
-let isMizerAnonBusy = false;
 mizer.anonymize = async (source, contexts, variables) => {
-
-    if (isMizerAnonBusy) {
-        await waitForNotBusy();
-    }
-    isMizerAnonBusy = true
-    
     const FileClass = importClass("java.io.File");
     const dicom = new FileClass(source);
 
@@ -237,34 +227,6 @@ mizer.anonymize = async (source, contexts, variables) => {
         //console.log({context__0: context});
         await context.addSync(variables);
     }
-
-    try {
-        const resultX = await mizerService.anonymize(dicom, contexts);
-        console.log(`Anonymized: ${source}`);
-        isMizerAnonBusy = false
-    } catch (err) {
-        console.log(`==== ANON_ERR ====> ${source}`);
-        console.log({ANON_ERR: err});
-        isMizerAnonBusy = false
-        throw err
-    }
-    
-};
-
-function waitForNotBusy() {
-    return new Promise(resolve => {
-        const interval = setInterval(() => {
-            if (!isMizerAnonBusy) {
-                clearInterval(interval);
-                resolve();
-            }
-        }, 50);
-    });
-}
-
-mizer.anonymizeSimple = async (source, contexts) => {
-    const FileClass = importClass("java.io.File");
-    const dicom = new FileClass(source);
 
     try {
         const resultX = await mizerService.anonymize(dicom, contexts);
@@ -302,9 +264,8 @@ mizer.anonymize_single = (source, script, variables) => {
     mizerService.anonymize(file, list);
 };
 
-mizer.get_scripts_anon_vars = async (scripts) => {
-    console.log('==========****** mizer.get_scripts_anon_vars ******===============')
-    const contexts = await mizer.getScriptContexts(scripts);
+mizer.get_scripts_anon_vars = (scripts) => {
+    const contexts = mizer.getScriptContexts(scripts);
     return mizer.getReferencedVariables(contexts);
 }
 

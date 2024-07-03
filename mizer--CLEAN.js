@@ -42,17 +42,18 @@ if (initJava) {
         "dcm4che-core-2.0.29.jar",
         "dcm4che-iod-2.0.29.jar",
         "dcm4che-net-2.0.29.jar",
-        "dicom-edit4-1.8.10.jar",
-        "dicom-edit6-6.6.1.jar",
-        "dicomtools-1.8.10.jar",
-        "framework-1.8.10.jar",
+        "dicom-edit4-1.1.0.jar",
+        "dicom-edit6-6.5.0.jar",
+        "dicomtools-1.8.8.jar",
+        "framework-1.8.8.jar",
         "guava-20.0.jar",
         "jai-imageio-core-1.3.0.jar",
         "jai-imageio-jpeg2000-1.3.0.jar",
         "java-uuid-generator-3.1.4.jar",
         "jcl-over-slf4j-1.7.30.jar",
         "log4j-1.2.17.jar",
-        "mizer-1.8.10.1.jar",
+        "mizer-1.2.4.jar",
+        "pixelEditor-1.3.0.jar",
         "pixelmed-nrg-20200327.jar",
         "pixelmed-codec-20200328.jar",
         "pixelmed-imageio-20200328.jar",
@@ -60,7 +61,7 @@ if (initJava) {
         "slf4j-api-1.7.30.jar",
         "slf4j-log4j12-1.7.30.jar",
         "spring-core-4.3.30.RELEASE.jar",
-        "transaction-1.8.10.jar"].map(jar => jarDir + jar);
+        "transaction-1.8.8.jar"].map(jar => jarDir + jar);
 
     appendClasspath(jarClassPaths);
 
@@ -73,12 +74,8 @@ if (initJava) {
 
     const scriptFactoryClass = importClass("org.nrg.dicom.dicomedit.DE6ScriptFactory");
     const scriptFactory = new scriptFactoryClass()
-
-    const scriptApplicatorFactory = importClass("org.nrg.dicom.dicomedit.ScriptApplicatorFactory");
-    const applicatorFactory = new scriptApplicatorFactory(scriptFactory)
-
     const de6MizerClass = importClass("org.nrg.dicom.dicomedit.mizer.DE6Mizer")
-    mizers.addSync(new de6MizerClass(applicatorFactory));
+    mizers.addSync(new de6MizerClass(scriptFactory));
 
     // console.log({ROOT__mizers: mizers});
 
@@ -102,7 +99,7 @@ if (initJava) {
  *
  * @return A Java Properties object containing the submitted names and values.
  */
-mizer.getVariables = async (variables) => {
+mizer.getVariables = (variables) => {
     const PropertiesClass = importClass("java.util.Properties");
     const properties = new PropertiesClass()
 
@@ -112,36 +109,12 @@ mizer.getVariables = async (variables) => {
     // console.log('-----------------------------------');
     
     if (variables) {
-        for (let key in variables) {
-            // console.log(`${key} => ${variables[key]}`);
-            await properties.setPropertySync(key, variables[key]);
-        }
-        // Object.keys(variables).forEach(key => {
-        //     properties.setPropertySync(key, variables[key]);
-        // });
+        Object.keys(variables).forEach(key => {
+            properties.setPropertySync(key, variables[key]);
+        });
     }
 
     return properties;
-};
-
-/**
- * Add variables, such as from {@link #getVariables()} above, to the return from this function by calling
- * context.add(variables).
- *
- * @param script The script for which a context should be created.
- *
- * @return A script context.
- */
-mizer.getScriptContext = async (script) => {
-    const ContextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
-    const context = new ContextClass();
-
-    // console.log({getScriptContext__context: context});
-
-    // context.setScriptSync(script);
-    await context.setScriptSync(script);
-
-    return context;
 };
 
 /**
@@ -162,18 +135,96 @@ mizer.getScriptContexts = async (scripts) => {
     // });
 
     for (let i = 0; i < scripts.length; i++) {
-        const context = await mizer.getScriptContext(scripts[i]);
-        await arrayList.addSync(context);
+        const context = await mizer._getScriptContext(scripts[i]);
+        arrayList.addSync(context);
     }
 
     return arrayList;
 };
 
+
+/**
+ * Anonymizes the DICOM object source using the supplied scripts. If variables have already been set on the script
+ * contexts, the variables parameter can be omitted.
+ *
+ * @param source    The DICOM object to anonymize.
+ * @param contexts  The script contexts to use for anonymization.
+ * @param variables A Java Properties object to pass for variable substitution.
+ */
+mizer.anonymize = async (source, contexts, variables) => {
+    const FileClass = importClass("java.io.File");
+    const dicom = new FileClass(source);
+
+    //console.log({CNTXTS_0: contexts})
+
+    let itr = contexts.iteratorSync();
+    while (itr.hasNextSync()) {
+        let context = itr.nextSync();
+        //console.log({context__0: context});
+        context.addSync(variables);
+    }
+
+    try {
+        const resultX = await mizerService.anonymize(dicom, contexts);
+        console.log(`Anonymized: ${source}`);
+    } catch (err) {
+        console.log(`==== ANON_ERR ====> ${source}`);
+        console.log({ANON_ERR: err});
+        throw err
+    }
+    
+};
+
+mizer.get_scripts_anon_vars = (scripts) => {
+    const contexts = mizer.getScriptContexts(scripts);
+    // console.log({get_scripts_anon_vars__contexts: contexts});
+    return mizer._getReferencedVariables(contexts);
+}
+
+mizer.generateAlterPixelCode = (rectangles) => {
+    let lines = rectangles.map(rect => {
+      return `alterPixels["rectangle", "l=${Math.round(rect[0])}, t=${Math.round(rect[1])}, r=${Math.round(rect[2])}, b=${Math.round(rect[3])}", "solid", "v=100"]`;
+    })
+    
+    if (lines.length) {
+      lines.unshift(`version "6.1"`)
+    }
+    
+    return lines.join("\n");
+}
+
+mizer.isMizerError = (error_message) => {
+    return error_message && error_message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0
+}
+
+
+/**
+ * Add variables, such as from {@link #getVariables()} above, to the return from this function by calling
+ * context.add(variables).
+ *
+ * @param script The script for which a context should be created.
+ *
+ * @return A script context.
+ */
+mizer._getScriptContext = async (script) => {
+    const ContextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
+    const context = new ContextClass();
+
+    // console.log({getScriptContext__context: context});
+
+    // context.setScriptSync(script);
+    await context.setScriptSync(script);
+
+    return context;
+};
+
 /**
  * Gets variables that are referenced in the contexts.
  */
-mizer.getReferencedVariables = (contexts) => {
+mizer._getReferencedVariables = (contexts) => {
+    //return mizerService.getReferencedVariablesSync(contexts);
     const variableMap = {};
+    // const variables = mizerService.getReferencedVariablesSync(contexts);
     const variables = mizerService.getReferencedVariablesSync(contexts);
 
     // console.log({contexts, variables});
@@ -193,133 +244,3 @@ mizer.getReferencedVariables = (contexts) => {
     
     return variableMap;
 };
-
-/**
- * Anonymizes the DICOM object source using the supplied scripts. If variables have already been set on the script
- * contexts, the variables parameter can be omitted.
- *
- * @param source    The DICOM object to anonymize.
- * @param contexts  The script contexts to use for anonymization.
- * @param variables A Java Properties object to pass for variable substitution.
- */
-mizer.anonymize_old = (source, contexts, variables) => {
-    const FileClass = importClass("java.io.File");
-    const dicom = new FileClass(source);
-
-    contexts.forEach(context => context.add(variables));
-    mizerService.anonymize(dicom, contexts);
-};
-
-/**
- * Anonymizes the DICOM object source using the supplied scripts. If variables have already been set on the script
- * contexts, the variables parameter can be omitted.
- *
- * @param source    The DICOM object to anonymize.
- * @param contexts  The script contexts to use for anonymization.
- * @param variables A Java Properties object to pass for variable substitution.
- */
-let isMizerAnonBusy = false;
-mizer.anonymize = async (source, contexts, variables) => {
-
-    if (isMizerAnonBusy) {
-        await waitForNotBusy();
-    }
-    isMizerAnonBusy = true
-    
-    const FileClass = importClass("java.io.File");
-    const dicom = new FileClass(source);
-
-    //console.log({CNTXTS_0: contexts})
-
-    let itr = contexts.iteratorSync();
-    while (itr.hasNextSync()) {
-        let context = itr.nextSync();
-        //console.log({context__0: context});
-        await context.addSync(variables);
-    }
-
-    try {
-        const resultX = await mizerService.anonymize(dicom, contexts);
-        console.log(`Anonymized: ${source}`);
-        isMizerAnonBusy = false
-    } catch (err) {
-        console.log(`==== ANON_ERR ====> ${source}`);
-        console.log({ANON_ERR: err});
-        isMizerAnonBusy = false
-        throw err
-    }
-    
-};
-
-function waitForNotBusy() {
-    return new Promise(resolve => {
-        const interval = setInterval(() => {
-            if (!isMizerAnonBusy) {
-                clearInterval(interval);
-                resolve();
-            }
-        }, 50);
-    });
-}
-
-mizer.anonymizeSimple = async (source, contexts) => {
-    const FileClass = importClass("java.io.File");
-    const dicom = new FileClass(source);
-
-    try {
-        const resultX = await mizerService.anonymize(dicom, contexts);
-        console.log(`Anonymized: ${source}`);
-    } catch (err) {
-        console.log(`==== ANON_ERR ====> ${source}`);
-        console.log({ANON_ERR: err});
-        throw err
-    }
-    
-};
-
-mizer.anonymize_single = (source, script, variables) => {
-    const PropertiesClass = importClass("java.util.Properties");
-    const properties = new PropertiesClass();
-
-    if (variables) {
-        Object.keys(variables).forEach(key => {
-            properties.setProperty(key, variables[key]);
-        });
-    }
-
-    const FileClass = importClass("java.io.File");
-    const file = new FileClass(source);
-
-    const ContextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
-    const context = new ContextClass(properties)
-    context.setScript(script);
-
-    // const list = java.callStaticMethod("java.util.Collections", "singletonList", context);
-    const CollectionsClass = importClass("java.util.Collections")
-    const collections = new CollectionsClass()
-    const list = collections.singletonList(context);
-
-    mizerService.anonymize(file, list);
-};
-
-mizer.get_scripts_anon_vars = async (scripts) => {
-    console.log('==========****** mizer.get_scripts_anon_vars ******===============')
-    const contexts = await mizer.getScriptContexts(scripts);
-    return mizer.getReferencedVariables(contexts);
-}
-
-mizer.generateAlterPixelCode = (rectangles) => {
-    let lines = rectangles.map(rect => {
-      return `alterPixels["rectangle", "l=${Math.round(rect[0])}, t=${Math.round(rect[1])}, r=${Math.round(rect[2])}, b=${Math.round(rect[3])}", "solid", "v=100"]`;
-    })
-    
-    if (lines.length) {
-      lines.unshift(`version "6.1"`)
-    }
-    
-    return lines.join("\n");
-}
-
-mizer.isMizerError = (error_message) => {
-    return error_message && error_message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0
-}

@@ -1,5 +1,6 @@
 const electron = require('electron');
-const { ipcRenderer, remote } = electron;
+const { ipcRenderer } = electron;
+const { require: nodeRequire, getCurrentWindow, getGlobal } = require('@electron/remote')
 const fs = require('fs');
 const fx = require('mkdir-recursive');
 const path = require('path');
@@ -23,20 +24,21 @@ const lodashCloneDeep = require('lodash/cloneDeep')
 
 const auth = require('../services/auth');
 
-const mizer = remote.require('./mizer');
+const mizer = nodeRequire('./mizer');
+// const mizer = require('../mizer')
 const XNATAPI = require('../services/xnat-api')
 
-const db_uploads = remote.require('./services/db/uploads')
+const db_uploads = nodeRequire('./services/db/uploads')
 
 const { uploadCommit } = require('../services/upload-commit')
 
 const { console_red } = require('../services/logger');
 
-const electron_log = remote.require('./services/electron_log');
+const electron_log = nodeRequire('./services/electron_log');
 
 const user_settings = require('../services/user_settings');
 
-const nedb_logger = remote.require('./services/db/nedb_logger')
+const nedb_logger = nodeRequire('./services/db/nedb_logger')
 
 // const { copy_anonymize_stream } = require('../services/upload/copy_anonymize_stream');
 const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes, simpleLog, jsonStringify, stripTags } = require('../services/app_utils')
@@ -46,18 +48,22 @@ const CONSTANTS = require('../services/constants');
 const rimraf = require('rimraf');
 
 let transfer_progress = [];
-let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
+let userAgentString = getCurrentWindow().webContents.getUserAgent();
 
-// let { _queue_ } = remote.require('./services/_queue_')
-let { _queue_ } = remote.getGlobal('shared');
-let globalWindows = remote.getGlobal('windows');
+// let { _queue_ } = nodeRequire('./services/_queue_')
+let { _queue_ } = getGlobal('shared');
+let globalWindows = getGlobal('windows');
 
 
 const dom_context = '#upload-single';
 const { $$, $on } = require('./../services/selector_factory')(dom_context)
 
+let thisVersionChannel
+(async () => {
+    thisVersionChannel = await currentVersionChannel()
+})()
 
-let logger_enabled = isDevEnv() || ['alpha', 'beta'].includes(currentVersionChannel())
+let logger_enabled = isDevEnv() || ['alpha', 'beta'].includes(thisVersionChannel)
 
 function console_log(...log_this) {
     if (!logger_enabled) {
@@ -153,7 +159,7 @@ ipcRenderer.on('single_upload_data', async function(e, transfer_id, series_id, s
     if (!settings.get('global_pause') && transfer_copy !== null) {
         uploadStartTimer = performance.now()
         
-        const window = remote.getCurrentWindow()
+        const window = getCurrentWindow()
         globalWindows.add(window.id)
 
         doUpload(transfer_copy, series_id, segment_index)
@@ -228,9 +234,7 @@ async function doUpload(transfer, series_id, segment_index) {
     //mizer.get_mizer_scripts(xnat_server, user_auth, project_id)
     const xnat_api = new XNATAPI(xnat_server, user_auth);
     xnat_api.anon_scripts(project_id)
-    .then(scripts => {
-        // console_log(scripts);
-
+    .then(async scripts => {
         let pixel_anon_series = transfer.pixel_anon ? transfer.pixel_anon.find(sd => series_id === sd.series_id) : false
         if (pixel_anon_series) {
             let series_script = mizer.generateAlterPixelCode(pixel_anon_series.rectangles);
@@ -244,20 +248,22 @@ async function doUpload(transfer, series_id, segment_index) {
             }
         }
 
-        contexts = mizer.getScriptContexts(scripts);
+        console_log({anon_scripts: scripts});
+
+        contexts = await mizer.getScriptContexts(scripts);
 
         // Convert the JS map anonValues into a Java Properties object.
-        variables = mizer.getVariables(transfer.anon_variables);
+        variables = await mizer.getVariables(transfer.anon_variables);
         // console_log(variables);
 
-        console.log({transfer, series_id, segment_index, _files, contexts, variables, csrfToken});
+        console.log({transfer, series_id, segment_index, _files, contexts, variables, csrfToken, scripts});
 
         copy_and_anonymize(transfer, series_id, segment_index, _files, contexts, variables, csrfToken)
     })
     .catch(function(error) {
         simpleLog(`(window: ${WINDOW_ID}) xnat_api.anon_scripts catch`, 'xdc--queue')
         electron_log.error(error);
-        nedb_logger.error(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + error.message, error);
+        nedb_logger.error(transfer.id, 'upload', `[${getCurrentWindow().id}: ]` + error.message, error);
         console_log(error); // Test with throwing random errors (and rejecting promises)
     });
 }
@@ -339,12 +345,22 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         qs += '&SUBTYPE=' + subtype;
     }
 
+    console.log({transfer__url_data: transfer.url_data});
+
     // if overwrite is undefined
     overwrite = overwrite || 'none'
     
     let upload_timer = performance.now();
+    console.log('--BEFORE get_jsession_cookie')
+    let jsession_cookie;
+    try {
+        jsession_cookie = await auth.get_jsession_cookie()
+    } catch(err) {
+        console.log({err})
+    }
+    console.log('--AFTER get_jsession_cookie')
 
-    let jsession_cookie = await auth.get_jsession_cookie()
+    console.log({jsession_cookie});
 
     const prog = progressStream({
         time: 1000,
@@ -433,6 +449,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         return await db_uploads._insertChecksums(transfer_id, checksums)
     }
 
+    console.log({request_settings});
     xnat_api.heartbeat_start();
     axios(request_settings)
     .then(async (res) => {
@@ -453,7 +470,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         try {
             data.transfer = await mark_uploaded(transfer.id, series_id, segment_index);
 
-            nedb_logger.success(transfer.id, 'upload', `[${remote.getCurrentWindow().id}: ]` + `Series uploaded ${series_id}, segment[${segment_index}].`);
+            nedb_logger.success(transfer.id, 'upload', `[${getCurrentWindow().id}: ]` + `Series uploaded ${series_id}, segment[${segment_index}].`);
             
             // TODO (SINGLE UPLOAD) - queue
             _queue_.remove(transfer.id, series_id, segment_index);
@@ -490,7 +507,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
 
             const commitOnceFile = path.join(get_temp_upload_path(), 'commit--' + transfer.id)
             if (!fs.existsSync(commitOnceFile)) {
-                fs.writeFileSync(commitOnceFile)
+                fs.writeFileSync(commitOnceFile, transfer_signature(transfer))
 
                 const maxCommitRetries = 4
                 let commitTryCount = 0, commitSuccess = false
@@ -550,7 +567,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
                 
                 // TODO - handle source read error
                 readStream.once('error', (error) => {
-                    console_red(`Read error:`, {source, target, targetDir, error});
+                    console_red(`Read error:`, {source, target, error});
                 });
                 
         
@@ -573,7 +590,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
                             fs.writeFileSync(target, fs.readFileSync(source), 'wx')
                         }
         
-                        mizer.anonymize(target, contexts, variables);
+                        await mizer.anonymize(target, contexts, variables);
                         console.count('anonymized')
                         
                         fileData.anon_checksum = await file_checksum(target)
@@ -957,7 +974,7 @@ function handleUploadError(transfer, series_id, segment_index, err) {
                     ipcRenderer.send('upload_finished', transfer.id);
                     ipcRenderer.send('refresh_progress_tables');
 
-                    closeThisWindow()
+                    closeThisWindow(1)
                 }
             );
         } else if (non_retriable_error) {
@@ -982,7 +999,7 @@ function handleUploadError(transfer, series_id, segment_index, err) {
                     ipcRenderer.send('custom_error_with_details', 'API Request Error', subtitle, err.message)
                     ipcRenderer.send('upload_finished', transfer.id);
 
-                    closeThisWindow()
+                    closeThisWindow(1)
                 }
             );
         } else {
@@ -991,14 +1008,17 @@ function handleUploadError(transfer, series_id, segment_index, err) {
                 err
             })
 
-            closeThisWindow()
+            closeThisWindow(1)
         }
     }
 }
 
 function closeThisWindow(timeout = 0) {
+    if (timeout > 0) {
+        // return
+    }
     setTimeout(function() {
-        const window = remote.getCurrentWindow();
+        const window = getCurrentWindow();
         window.close();
     }, timeout)
 }
@@ -1046,7 +1066,7 @@ function _time_offset(start_time) {
 }
 
 function transfer_signature(transfer) {
-    const window = remote.getCurrentWindow()
+    const window = getCurrentWindow()
 
     const series_info = `(SER: ${transfer.series_ids.length}|${transfer.done_series_ids.length} of ${transfer.series.length})`
     return `[W:${window.id}] ${transfer.url_data.expt_label} ${series_info} [${transfer.id}/${transfer.session_id}]`

@@ -1,5 +1,6 @@
 require('promise.prototype.finally').shim();
-const { ipcRenderer, remote } = require('electron')
+const { ipcRenderer } = require('electron')
+const { require: nodeRequire } = require('@electron/remote')
 
 const ElectronStore = require('electron-store')
 const settings = new ElectronStore()
@@ -9,8 +10,8 @@ const path = require('path')
 const FileSaver = require('file-saver')
 const tempDir = require('temp-dir')
 
-const db_uploads_archive = remote.require('./services/db/uploads_archive')
-const db_downloads_archive = remote.require('./services/db/downloads_archive')
+const db_uploads_archive = nodeRequire('./services/db/uploads_archive')
+const db_downloads_archive = nodeRequire('./services/db/downloads_archive')
 
 const dom_context = '#progress-archive-section';
 const { $$, $on } = require('./../services/selector_factory')(dom_context)
@@ -181,13 +182,6 @@ function _init_upload_archive_table() {
             console.log(transfer)
             if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
                 let study_label = transfer.session_data.studyId ? transfer.session_data.studyId : transfer.session_data.studyInstanceUid;
-
-                /*
-                if (transfer.anon_variables.experiment_label === 'DARKO_1_MR_12') {
-                    const target_path = path.resolve(remote.app.getPath('desktop'), '--JUNK--', 'XNAT-DEBUG', `upload_archive-digest--${transfer.anon_variables.experiment_label}--${Date.now()}.json`)
-                    objToJsonFile(transfer, target_path)
-                }
-                */
 
                 let session_datetime = '';
                 if (transfer.session_data.studyDate) {

@@ -1,17 +1,31 @@
-const electron = require('electron')
-const { ipcRenderer, remote } = electron
+const { ipcRenderer } = require('electron')
+
+const { getGlobal, require: nodeRequire } = require('@electron/remote');
 
 const ElectronStore = require('electron-store')
 const settings = new ElectronStore()
 
 const auth = require('../services/auth')
-const db_uploads = remote.require('./services/db/uploads')
+const db_uploads = nodeRequire('./services/db/uploads')
 const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes, simpleLog } = require('../services/app_utils')
 
 const { console_red } = require('../services/logger')
-const electron_log = remote.require('./services/electron_log')
+const electron_log = nodeRequire('./services/electron_log')
 
 const CONSTANTS = require('../services/constants');
+
+const Singleton = nodeRequire('./services/singleton');
+const singletonInstance = Singleton.getInstance();
+console.log(__filename, 'getRandomNumber', singletonInstance.getRandomNumber()); // This will log the random number
+
+let thisVersionChannel
+(async () => {
+    thisVersionChannel = await currentVersionChannel()
+})()
+
+let logger_enabled = isDevEnv() || ['alpha', 'beta'].includes(thisVersionChannel)
+
+console_log({logger_enabled});
 
 function console_log(...log_this) {
     if (!logger_enabled) {
@@ -23,10 +37,6 @@ function console_log(...log_this) {
     //console.trace('<<<<== UPLOAD TRACE ==>>>>');
     ipcRenderer.send('log', ...log_this);
 }
-
-let logger_enabled = isDevEnv() || ['alpha', 'beta'].includes(currentVersionChannel())
-
-console_log({logger_enabled});
 
 
 ipcRenderer.on('start_upload',function(e, item){
@@ -81,7 +91,7 @@ if (!settings.has('global_pause')) {
 }
 
 // let { _queue_ } = require('../services/_queue_')
-let { _queue_ } = remote.getGlobal('shared');
+let { _queue_ } = getGlobal('shared');
 
 let isDoingTransfer = false;
 

@@ -1,4 +1,6 @@
-const electron = require('electron');
+const { ipcRenderer: ipc, shell, crashReporter } = require('electron');
+const { getCurrentWindow, require: nodeRequire } = require('@electron/remote');
+
 const fs = require('fs');
 const fx = require('mkdir-recursive');
 const path = require('path');
@@ -10,14 +12,11 @@ const https = require('https');
 const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
 
-const ipc = electron.ipcRenderer;
 
-const remote = electron.remote;
 const auth = require('../services/auth');
 
 const sha1 = require('sha1');
 const unzipper = require('unzipper');
-const shell = electron.shell;
 
 const filesize = require('filesize');
 
@@ -25,23 +24,23 @@ const tempDir = require('temp-dir');
 
 const isOnline = require('is-online');
 
-const electron_log = remote.require('./services/electron_log');
+const electron_log = nodeRequire('./services/electron_log');
 
-const nedb_logger = remote.require('./services/db/nedb_logger')
+const nedb_logger = nodeRequire('./services/db/nedb_logger')
 
 const prettyBytes = require('pretty-bytes');
 const humanizeDuration = require('humanize-duration');
 
 const { console_red } = require('../services/logger');
 
-const db_downloads = remote.require('./services/db/downloads');
+const db_downloads = nodeRequire('./services/db/downloads');
 
-let userAgentString = remote.getCurrentWindow().webContents.getUserAgent();
+let userAgentString = getCurrentWindow().webContents.getUserAgent();
 
 /*
  * TOOLS-637 Removing crashpad reporting until we can verify no PHI at risk
 const appMetaData = require('../package.json');
-electron.crashReporter.start({
+crashReporter.start({
     companyName: appMetaData.author,
     productName: appMetaData.name,
     productVersion: appMetaData.version,

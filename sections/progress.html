@@ -27,6 +27,9 @@
                     <!-- <button type="button" class="btn btn-gray float-right"><i class="fas fa-archive"></i> Archive</button> -->
                     <a class="btn btn-gray" href="progress-archive.html"><i class="fas fa-folder-open"></i> View Archived Transfers</a>
                     <!-- <button type="button" class="btn btn-gray" data-js="test_checksum"> Test Store Checksums</button> -->
+                    <!--<button type="button" class="btn-sm" data-js="test_anonymization">Test Anon</button>-->
+                    <!--<button type="button" class="btn-sm" data-js="test_anonymization_bulk">Test AnonBulk</button>-->
+                    <!--<button type="button" class="btn-sm" data-js="test_anonymization_bulk_2">Test AB 2</button>-->
                 </div>
             </div>
 
@@ -232,8 +235,10 @@
 
         
         <script type="text/javascript">
-            require('./renderer-process/progress');
-            Helper.pageLoadTrigger('#progress-section');
+            const path = require('path');
+            const modulePath = path.join(__dirname, '..', 'renderer-process', 'progress');
+            require(modulePath);
+            Helper.pageLoadTrigger('#progress-section'); 
         </script>
 
     </section>

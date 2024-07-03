@@ -7,7 +7,7 @@ log.transports.file.level = isDevEnv() ? 'debug' : 'warn'
 log.transports.file.maxSize = 10 * 1024 * 1024
 
 // in order clear() to work
-log.transports.file.file = log.transports.file.findLogPath()
+// log.transports.file.file = log.transports.file.findLogPath()
 
 log.silly('Electron Log silly');
 log.debug('Electron Log debug');

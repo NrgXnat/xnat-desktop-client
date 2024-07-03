@@ -197,7 +197,9 @@
 
 
         <script type="text/javascript">
-            require('./renderer-process/progress-archive');
+            const path = require('path');
+            const modulePath = path.join(__dirname, '..', 'renderer-process', 'progress-archive');
+            require(modulePath);
             Helper.pageLoadTrigger('#progress-archive-section');
         </script>
 

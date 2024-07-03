@@ -2,19 +2,27 @@ const path = require('path')
 const fs = require('fs')
 const glob = require('glob')
 const electron = require('electron')
-const { app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol } = electron
+const { app, session, BrowserWindow, ipcMain, shell, Tray, dialog, protocol } = electron
+
+require('@electron/remote/main').initialize()
+const enableRemoteModule = require('@electron/remote/main').enable;
+
 const { autoUpdater } = require('electron-updater')
 const electron_log = require('./services/electron_log')
 
-const { isDevEnv, getUpdateChannel } = require('./services/app_utils')
+const { isDevEnv, getUpdateChannel, parseSetCookieHeader } = require('./services/app_utils')
 
-const auth = require('./services/auth')
+const { allow_insecure_ssl } = require('./services/auth_main')
 
 const { runMigrations } = require('./services/migrations')
-const appMetaData = require('./package.json')
 
+const Singleton = require('./services/singleton');
+const singletonInstance = Singleton.getInstance();
+log('getRandomNumber', singletonInstance.getRandomNumber())
+
+// const appMetaData = require('./package.json')
 const ElectronStore = require('electron-store')
-const settings = new ElectronStore();
+const settings = new ElectronStore()
 
 // windows
 let mainWindow = null, downloadWindow = null, uploadWindow = null;
@@ -50,7 +58,16 @@ if (isDevEnv()) {
     let allWindows = BrowserWindow.getAllWindows()
     let allWindowsIds = allWindows.map(win => win.id)
     console.log(`All Win: ${allWindowsIds}`)
-  }, 5000)
+
+    // session.defaultSession.cookies.get({ url: 'https://uar.xnat.flywheel.io/' })
+    //     .then((cookies) => {
+    //         console.log('Cookies for https://uar.xnat.flywheel.io:', cookies);
+    //     })
+    //     .catch((error) => {
+    //         console.error('Error getting cookies for https://uar.xnat.flywheel.io', error);
+    //     });
+
+  }, 30000)
 }
 
 
@@ -70,6 +87,20 @@ async function initApp() {
   }
 }
 
+function setWebPreferences() {
+  const additionalArguments = process.argv.reduce((all, arg) => {
+    if (arg.startsWith('--')) {
+      all.push(`${arg}-main-process`)
+    }
+    return all
+  }, [])
+
+  return {
+    nodeIntegration: true, // Enable Node Integration
+    contextIsolation: false, // If you enable nodeIntegration, you might need to disable contextIsolation
+    additionalArguments 
+  }
+}
 
 function initialize_usr_local_lib_app() {
   devToolsLog('initialize_usr_local_lib_app triggered')
@@ -77,7 +108,7 @@ function initialize_usr_local_lib_app() {
   let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
   const iconPath = path.join(__dirname, iconSource);
 
-  function createWindow() {
+  async function createWindow() {
     var windowOptions = {
       width: 800,
       minWidth: 768,
@@ -85,17 +116,21 @@ function initialize_usr_local_lib_app() {
       title: app.getName(),
       icon: iconPath,
       show: true,
-      frame: false
+      frame: false,
+      webPreferences: setWebPreferences()
     };
 
     mainWindow = new BrowserWindow(windowOptions);
+    enableRemoteModule(mainWindow.webContents);
     mainWindow.loadURL(path.join('file://', __dirname, '/index_alt.html'));
     updateUserAgentString(mainWindow);
 
     if (isDevEnv()) {
       mainWindow.webContents.openDevTools()
       mainWindow.maximize()
-      require('devtron').install()
+      // require('devtron').install()
+      // const devtronPath = path.join(__dirname, 'node_modules', 'devtron');
+      // await session.defaultSession.loadExtension(devtronPath);
     }
 
     mainWindow.on('closed', function () {
@@ -141,7 +176,8 @@ function initialize () {
   let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
   const iconPath = path.join(__dirname, iconSource);
 
-  function createWindow() {
+  async function createWindow() {
+    console.log('---- createWindow ---- INITIALIZED');
     var windowOptions = {
       width: 1080,
       minWidth: 788,
@@ -149,23 +185,79 @@ function initialize () {
       height: 840,
       title: app.getName(),
       icon: iconPath,
-      show: true
+      show: true,
+      webPreferences: setWebPreferences()
     };
     
     mainWindow = new BrowserWindow(windowOptions);
+    enableRemoteModule(mainWindow.webContents);
     mainWindow.loadURL(path.join('file://', __dirname, '/index.html'));
     updateUserAgentString(mainWindow);
+
+
+    // Intercept all responses
+    const filter = { urls: ['*://*/*'] }; // Filter to match all URLs
+    session.defaultSession.webRequest.onHeadersReceived(filter, (details, callback) => {
+      // Log the URL and Response Headers
+      // console.log('URL:', details.url);
+      // console.log('Status Code:', details.statusCode);
+
+      const urlObject = new URL(details.url);
+      const baseUrl = `${urlObject.protocol}//${urlObject.hostname}`;
+
+      const setCookieHeaders = details.responseHeaders['Set-Cookie'] || details.responseHeaders['set-cookie'];
+      if (setCookieHeaders) {
+        // console.log('Set-Cookie Headers:', setCookieHeaders);
+
+        // Optionally, parse and manually handle these cookies.
+        for (let singleCookie of setCookieHeaders) {
+          if (singleCookie.startsWith('JSESSIONID') || singleCookie.startsWith('SESSION_EXPIRATION_TIME')) {
+            const cookieObj = parseSetCookieHeader(singleCookie)
+            cookieObj.url = baseUrl
+
+            // console.log({cookieObj});
+
+            session.defaultSession.cookies.set(cookieObj).then(() => {
+              global.xnat_auth_cookies[cookieObj.name] = cookieObj.value
+              // console.log(`${cookieObj.name} cookie set successfully`);
+            }, (error) => {
+              console.error(`Error setting ${cookieObj.name} cookie`, error);
+            });
+          }
+        }
+      }
+
+      // Continue without modification
+      callback({ cancel: false, responseHeaders: details.responseHeaders });
+    });
+
+    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      const xnat_server = settings.get('xnat_server')
+      if (
+        xnat_server &&
+        details.url.startsWith(xnat_server) &&
+        global.xnat_auth_cookies.JSESSIONID && 
+        global.xnat_auth_cookies.SESSION_EXPIRATION_TIME
+      ) {
+        const newCookies = `JSESSIONID=${global.xnat_auth_cookies.JSESSIONID}; SESSION_EXPIRATION_TIME=${global.xnat_auth_cookies.SESSION_EXPIRATION_TIME};`
+        details.requestHeaders['Cookie'] = newCookies
+      }
+      
+      callback({ cancel: false, requestHeaders: details.requestHeaders });
+    });
 
     var childOptions = {
       width: 1200,
       height: 700,
       alwaysOnTop: false,
       show: false,
-      top: mainWindow
+      top: mainWindow,
+      webPreferences: setWebPreferences()
     };
 
     // Upload window
     uploadWindow = new BrowserWindow(childOptions)
+    enableRemoteModule(uploadWindow.webContents)
     uploadWindow.on('closed', function () {
       uploadWindow = null
     });
@@ -185,6 +277,7 @@ function initialize () {
 
     // Download window
     downloadWindow = new BrowserWindow(childOptions)
+    enableRemoteModule(downloadWindow.webContents);
     downloadWindow.on('closed', function () {
       downloadWindow = null
     });
@@ -207,7 +300,10 @@ function initialize () {
     if (isDevEnv()) {
       mainWindow.webContents.openDevTools()
       mainWindow.maximize()
-      require('devtron').install()
+      // require('devtron').install()
+      // const devtronPath = path.join(__dirname, 'node_modules', 'devtron');
+      // console.log({devtronPath});
+      // await session.defaultSession.loadExtension(devtronPath);
 
       uploadWindow.show()
       uploadWindow.webContents.openDevTools()
@@ -378,9 +474,9 @@ function initialize () {
   app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
     // On certificate error we disable default behaviour (stop loading the page)
     // and we then say "it is all fine - true" to the callback
-    log('***** CERT ERROR ******', auth.allow_insecure_ssl(), app.allow_insecure_ssl);
+    log('***** CERT ERROR ******', allow_insecure_ssl(), app.allow_insecure_ssl);
     
-    if (app.allow_insecure_ssl || auth.allow_insecure_ssl()) {
+    if (app.allow_insecure_ssl || allow_insecure_ssl()) {
       event.preventDefault();
       callback(true);
       //post_message('custom_error', 'Certificate OK', 'All OK');
@@ -448,25 +544,31 @@ function post_message(type, ...args) {
 //
 // Returns true if the current version of the app should quit instead of
 // launching.
+
 function isSecondInstance() {
-  // if (process.mas) return false;
+  const gotTheLock = app.requestSingleInstanceLock();
 
-  return app.makeSingleInstance((argv, workingDirectory) => {
+  if (!gotTheLock) {
+      // This is a second instance, we should quit.
+      return true;
+  }
+
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
     if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore()
-      }
-      mainWindow.focus()
-
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
 
       // Protocol handler for win32
       // argv: An array of the second instance’s (command line / deep linked) arguments
       if (process.platform == 'win32' || process.platform == 'linux') {
         handle_protocol_request(argv.slice(1), 'app.makeSingleInstance');
       }
-      
     }
-  })
+  });
+
+  // This is the first instance.
+  return false;
 }
 
 function handle_protocol_request(url, place) {
@@ -747,6 +849,7 @@ ipcMain.on('force_reauthenticate', (e, login_data) => {
 
 // shell.showItemInFolder only brings opened window to front if called from main process
 ipcMain.on('shell.showItemInFolder', (e, full_path) => {
+  log({full_path})
   shell.showItemInFolder(full_path)
 })
 
@@ -767,35 +870,39 @@ ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base, show
   }
 
   const window_to_PDF = new BrowserWindow({show : false})//to just open the browser in background
-  window_to_PDF.loadURL(`file://${html_filepath}`) //give the file link you want to display
+  window_to_PDF.loadFile(html_filepath) //give the file link you want to display
 
-  window_to_PDF.webContents.once('did-finish-load', () => {
-    window_to_PDF.webContents.printToPDF(pdf_settings, function(err, data) {
-      if (err) {
-        devToolsLog(err)
-      } else {
-        try {
-          fs.writeFileSync(pdf_filepath, data)
-          fs.unlinkSync(html_filepath)
-        } catch (err) {
-          devToolsLog(err)
+  window_to_PDF.webContents.on('did-finish-load', () => {
+    window_to_PDF.webContents.printToPDF(pdf_settings).then(data => {
+      try {
+        fs.writeFileSync(pdf_filepath, data)
+        fs.unlinkSync(html_filepath)
+        console.log(`Wrote PDF successfully to ${pdf_filepath}`)
+
+        if (show_in_folder) {
+          shell.showItemInFolder(pdf_filepath)
         }
+      } catch (err) {
+        devToolsLog(err)
       }
-      
-      window_to_PDF.close()
 
-      if (show_in_folder) {
-        shell.showItemInFolder(pdf_filepath)
-      }
+      window_to_PDF.close()
+    }).catch(error => {
+      console.log(`Failed to write PDF to ${pdf_filepath}: `, error)
+
+      window_to_PDF.close()
     })
-    
   });
-  
 })
 
 ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
+  console.log('------- init_upload_single -------');
 
-  const uploadWindowSingle = new BrowserWindow({show : false})//to just open the browser in background
+  const uploadWindowSingle = new BrowserWindow({
+    show: false,
+    webPreferences: setWebPreferences()
+  })//to just open the browser in background
+  enableRemoteModule(uploadWindowSingle.webContents);
 
   uploadWindowSingle.on('close', function() {
     console.log('close: ', uploadWindowSingle.id)
@@ -865,3 +972,11 @@ ipcMain.on('single_upload_finished', (e, window_id) => {
 ipcMain.on('respawn_transfer', (e, transfer_id, series_id, segment_index, success) => {
   uploadWindow.webContents.send('respawn_transfer', transfer_id, series_id, segment_index, success);
 })
+
+ipcMain.handle('get-app-info', () => {
+  return {
+    appPath: app.getAppPath(),
+    version: app.getVersion(),
+    userDataPath: app.getPath('userData')
+  };
+});
