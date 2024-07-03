@@ -22,12 +22,22 @@ exports.default = async function notarizing(context) {
 
     const appName = context.packager.appInfo.productFilename;
 
-    return await notarize({
-        appBundleId: 'com.xnatapp.app',
-        appPath: `${appOutDir}/${appName}.app`,
-        appleId,
-        appleIdPassword,
-        teamId
-    });
+    try {
+        return await notarize({
+            appBundleId: 'com.xnatapp.app',
+            appPath: `${appOutDir}/${appName}.app`,
+            appleId,
+            appleIdPassword,
+            teamId
+        });
+    }  catch (error) {
+        console.error('Error during notarization:', error);
+        
+        if (error.response) {
+            console.error('Notarization response:', error.response);
+        }
+        throw error;
+    }
+    
 };
 
