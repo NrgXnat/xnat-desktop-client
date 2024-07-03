@@ -27,16 +27,23 @@ jobs:
           key: cache-${CACHE_VERSION}-win-linux-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
           name: Install httpie
-          command: choco install httpie
+          command: |
+            curl -SsL https://packages.httpie.io/deb/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/httpie.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/httpie.gpg] https://packages.httpie.io/deb ./" | sudo tee /etc/apt/sources.list.d/httpie.list > /dev/null
+            sudo apt update
+            sudo apt install httpie
+            http --version
       - run:
           name: Install NVM and node
           command: |
-            choco install nvm
+            set +e
+            http --body https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh | bash
+            export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            source ~/.bashrc
             nvm install ${NODE_VERSION}
-            nvm use ${NODE_VERSION}
-            node -v
-            npm -v
-            yarn -v
+            nvm alias default ${NODE_VERSION}
+            nvm use default
       - run:
           name: Create link to Windows 64-bit JRE
           command: ln -s /opt/java/win-x64/jre build_resources/jre/win-x64
