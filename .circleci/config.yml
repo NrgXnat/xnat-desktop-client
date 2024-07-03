@@ -76,8 +76,8 @@ jobs:
       <<: *build_config
 
     macos:
-      xcode: "13.4.1"
-      resource_class: macos.x86.medium.gen2
+      xcode: "15.4"
+      resource_class: macos.m1.medium.gen1
 
     working_directory: ~/build
 
