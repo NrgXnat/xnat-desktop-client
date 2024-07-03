@@ -33,7 +33,7 @@
     "patch-java-binding": "./patch-java-binding.sh",
     "postinstall": "run-script-os",
     "postinstall:win32": "electron-builder install-app-deps",
-    "postinstall:default": "find build_resources -name \"._*\" -exec rm '{}' \\;; find build_resources/jre -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \\;; ./patch-java-binding.sh; node ./scripts/fix-dmg-builder.js; electron-builder install-app-deps;",
+    "postinstall:default": "find build_resources -name \"._*\" -exec rm '{}' \\;; find build_resources/jre -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \\;; ./patch-java-binding.sh; electron-builder install-app-deps;",
     "cleanstall": "run-script-os",
     "cleanstall:win32": "rmdir /s /q node_modules & yarn install",
     "cleanstall:default": "rm -rf node_modules ; yarn install"

@@ -2,7 +2,7 @@ build_config: &build_config
   BUILD_IMAGE_NAME: xnat/node-java-build
   BUILD_IMAGE_TAG: latest
   CACHE_VERSION: v2
-  NODE_VERSION: "v10.24.1"
+  NODE_VERSION: "v18.18.2"
   NVM_VERSION: "0.39.1"
   JAVA_VERSION: "zulu8.72.0.17-ca-jdk8.0.382"
   JDK_ROOT: "https://cdn.azul.com/zulu/bin"
@@ -142,11 +142,6 @@ jobs:
             # Last, make sure there are no read-only files! These cause the update process to fail.
             find build_resources/jre/mac -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \;
       - run:
-          name: Donwload and install Python@2
-          command: |
-            http -d https://www.python.org/ftp/python/2.7.18/python-2.7.18-macosx10.9.pkg
-            sudo installer -pkg python-2.7.18-macosx10.9.pkg -target /
-      - run:
           name: Install and build node dependencies
           command: |
             export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
@@ -161,7 +156,6 @@ jobs:
           name: Build Mac executable and installer
           command: |
             export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
-            export PYTHON_PATH=/usr/local/bin/python
             yarn dist-mac
       - run:
           name: Copy build artifacts to artifacts folder
