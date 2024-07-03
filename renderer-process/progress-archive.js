@@ -522,7 +522,9 @@ $on('shown.bs.modal', '#upload-archive-details', function(e) {
 
 $on('click', '[data-js-view-receipt-link]', function(e) {
     const pdf_receipt_path = $(this).data('pdf_receipt_path')
-    ipcRenderer.send('shell.showItemInFolder', pdf_receipt_path)
+    if (pdf_receipt_path) {
+        ipcRenderer.send('shell.showItemInFolder', pdf_receipt_path)
+    }
 })
 
 $on('show.bs.modal', '#upload-archive-success-log', function(e) {
@@ -540,10 +542,14 @@ $on('show.bs.modal', '#upload-archive-success-log', function(e) {
             session_label: my_transfer.url_data.expt_label
         });
 
-        $$('[data-js-view-receipt-link]').data({
-            pdf_receipt_path: my_transfer.pdf_receipt_path
-        });
-    
+        if (my_transfer.pdf_receipt_path) {
+            $$('[data-js-view-receipt-link]').prop('disabled', false).attr('title', '').data({
+                pdf_receipt_path: my_transfer.pdf_receipt_path
+            });
+        } else {
+            $$('[data-js-view-receipt-link]').prop('disabled', true).attr('title', 'Feature disabled in settings for this transfer')
+        }
+
         for (key in my_transfer.session_data) {
             $log_text.append(`<p><b>${key}</b>: <span>${my_transfer.session_data[key]}</span></p>\n`);
         }
