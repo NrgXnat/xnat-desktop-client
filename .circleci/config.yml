@@ -92,23 +92,51 @@ jobs:
             nvm install v${NODE_VERSION}
             nvm alias default v${NODE_VERSION}
             nvm use default
+      - checkout
+      - restore_cache:
+          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
+      - run:
+          name: Download and expand JREs for Mac
+          command: |
+            for BUILD_ARCH in arm64 x64; do
+              [[ -d build_resources/jre/mac-${BUILD_ARCH} ]] && {
+                [[ $(find build_resources/jre/mac-${BUILD_ARCH} -mindepth 1 -maxdepth 1 -type d -name bin | wc -l | tr -d ' ') == 0 ||
+                   ! -f build_resources/jre/mac-${BUILD_ARCH}/bin/java ||
+                   $(build_resources/jre/mac-${BUILD_ARCH}/bin/java -version 2>&1 | grep Server | wc -l | tr -d ' ') == 0 ]] && {
+                    echo "The JRE at build_resources/jre/mac-${BUILD_ARCH} is displeasing to me, deleting"
+                    rm -rf build_resources/jre/mac-${BUILD_ARCH}
+                 }
+              }
+              [[ ! -d build_resources/jre/mac-${BUILD_ARCH} ]] && {
+                  TARGET_ARCH="${BUILD_ARCH}"
+                  [[ "${BUILD_ARCH}" == "arm64" ]] && { TARGET_ARCH="aarch64"; }
+                  JAVA_TARGET="${JAVA_VERSION}-macosx_${TARGET_ARCH}"
+                  echo "No JDK found for ${BUILD_ARCH}, downloading ${JDK_ROOT}/${JAVA_TARGET}.tar.gz"
+                  mkdir -p build_resources/jre
+                  http --download --output=build_resources/jre/${JAVA_TARGET}.tar.gz ${JDK_ROOT}/${JAVA_TARGET}.tar.gz
+                  tar xf build_resources/jre/${JAVA_TARGET}.tar.gz --directory build_resources/jre
+                  cp -R build_resources/jre/${JAVA_TARGET}/zulu-8.jdk/Contents/Home/jre build_resources/jre/mac-${BUILD_ARCH}
+                  echo "JRE installed, using version: $(build_resources/jre/mac-${BUILD_ARCH}/bin/java -version 2>&1 | grep Server)"
+              } || {
+                  echo "Existing JRE found, using version: $(build_resources/jre/mac-${BUILD_ARCH}/bin/java -version 2>&1 | grep Server)"
+              }
+              # Last, make sure there are no read-only files! These cause the update process to fail.
+              find build_resources/jre/mac-${BUILD_ARCH} -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \;
+            done
       - run:
           name: Download and install JDK
           command: |
             [[ ! -d /Library/Java/JavaVirtualMachines/zulu-8.jdk ]] && {
-                export JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
-                echo "No JDK found, downloading ${JAVA_VERSION}"
-                http --download ${JDK_ROOT}/${JAVA_TARGET}.zip
-                unzip ${JAVA_TARGET}.zip
-                sudo mv ${JAVA_TARGET}/zulu-8.jdk /Library/Java/JavaVirtualMachines
-                rm -rf ${JAVA_TARGET}*
+                JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
+                [[ ! -d build_resources/jre/${JAVA_TARGET} ]] && {
+                  http --download --output=build_resources/jre/${JAVA_TARGET}.tar.gz ${JDK_ROOT}/${JAVA_TARGET}.tar.gz
+                  tar xf build_resources/jre/${JAVA_TARGET}.tar.gz --directory build_resources/jre
+                }
+                sudo cp -R build_resources/jre/${JAVA_TARGET}/zulu-8.jdk /Library/Java/JavaVirtualMachines
                 echo "JDK ${JAVA_TARGET} installed, using version: $(/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java -version 2>&1 | grep Server)"
             } || {
                 echo "Existing JDK found, using version: $(/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java -version 2>&1 | grep Server)"
             }
-      - checkout
-      - restore_cache:
-          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
           name: Copy installed JDK to application folder
           command: |
@@ -119,25 +147,6 @@ jobs:
             }
             [[ -f /Applications/XNAT-Desktop-Client.app/Contents/Resources/jre/lib/jli/libjli.dylib ]] || { echo "Tried to install libjli.dylib but something went wrong"; }
       - run:
-          name: Download and expand JRE for Mac
-          command: |
-            [[ -d build_resources/jre/mac ]] && {
-                [[ $(find build_resources/jre/mac -mindepth 1 -maxdepth 1 -type d -name bin | wc -l | tr -d ' ') == 0 ||
-                   ! -f build_resources/jre/mac/bin/java ||
-                   $(build_resources/jre/mac/bin/java -version 2>&1 | grep ${JAVA_TOKEN} | wc -l | tr -d ' ') == 0 ]] && {
-                    rm -rf build_resources/jre/mac;
-                 }
-            }
-            [[ ! -d build_resources/jre/mac ]] && {
-                mkdir -p build_resources/jre
-                cp -R /Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/jre build_resources/jre/mac
-                echo "JRE installed, using version: $(build_resources/jre/mac/bin/java -version 2>&1 | grep Server)"
-            } || {
-                echo "Existing JRE found, using version: $(build_resources/jre/mac/bin/java -version 2>&1 | grep Server)"
-            }
-            # Last, make sure there are no read-only files! These cause the update process to fail.
-            find build_resources/jre/mac -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \;
-      - run:
           name: Install and build node dependencies
           command: |
             export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
@@ -146,8 +155,10 @@ jobs:
           key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
           paths:
             - node_modules
-            - build_resources/jre/mac
+            - build_resources/jre/mac-arm64
+            - build_resources/jre/mac-x64
             - /Applications/XNAT-Desktop-Client.app
+            - /Library/Java/JavaVirtualMachines/zulu-8.jdk
       - run:
           name: Build Mac executable and installer
           command: |

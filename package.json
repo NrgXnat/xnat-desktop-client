@@ -24,16 +24,17 @@
     "pack-mac": "electron-builder --mac --dir",
     "dist-win-x64": "electron-builder --win --x64 -p always",
     "dist-win": "electron-builder --win -p always",
-    "dist-mac": "electron-builder --mac -p always",
+    "dist-mac": "electron-builder --mac --x64 --arm64 -p always",
+    "dist-mac-x64": "electron-builder --mac --x64 -p always",
+    "dist-mac-arm64": "electron-builder --mac --arm64 -p always",
     "dist-linux": "electron-builder --linux -p always",
     "dist-linux-x64": "electron-builder --linux --x64 -p always",
     "package-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --icon=assets/icons/mac/XDC.icns --prune=true --out=release-builds",
     "package-win": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=win32 --arch=ia32 --icon=assets/icons/win/XDC.ico --prune=true --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"Electron XNAT App\"",
     "package-linux": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=linux --arch=x64 --icon=assets/icons/png/XDC.png --prune=true --out=release-builds",
-    "patch-java-binding": "./patch-java-binding.sh",
     "postinstall": "run-script-os",
     "postinstall:win32": "electron-builder install-app-deps",
-    "postinstall:default": "find build_resources -name \"._*\" -exec rm '{}' \\;; find build_resources/jre -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \\;; ./patch-java-binding.sh; electron-builder install-app-deps;",
+    "postinstall:default": "find build_resources -name \"._*\" -exec rm '{}' \\;; find build_resources/jre -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \\;; electron-builder install-app-deps;",
     "cleanstall": "run-script-os",
     "cleanstall:win32": "rmdir /s /q node_modules & yarn install",
     "cleanstall:default": "rm -rf node_modules ; yarn install"
@@ -118,7 +119,6 @@
     "generateUpdatesFilesForAllChannels": true,
     "afterSign": "scripts/notarize.js",
     "asarUnpack": [
-      "node_modules/java/**/*",
       "node_modules/async/**/*",
       "node_modules/lodash/**/*",
       "libs/**/*"
@@ -159,7 +159,7 @@
       ],
       "extraResources": [
         {
-          "from": "build_resources/jre/mac",
+          "from": "build_resources/jre/mac-${arch}",
           "to": "jre"
         }
       ],
