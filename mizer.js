@@ -4,13 +4,11 @@ const path = require('path');
 
 const _app_path = __dirname;
 
-let java, jarDir, importClass, appendClasspath, mizerService;
+let jarDir, importClass, appendClasspath, mizerService;
 
 let initJava = false
 
 if (path.extname(_app_path) === '.asar') {
-  const java_node_modules_dir = path.resolve(_app_path, '..', 'app.asar.unpacked', 'node_modules', 'java')
-  java = require(java_node_modules_dir)
   jarDir = path.resolve(_app_path, '..', 'app.asar.unpacked', 'libs') + "/"
 } else {
   ensureJvm = require('java-bridge').ensureJvm

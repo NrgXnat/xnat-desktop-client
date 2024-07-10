@@ -79,7 +79,6 @@ async function initApp() {
   } else {
     await runMigrations()
     if (is_usr_local_lib_writable()) {
-      fix_java_path()
       initialize()
     } else {
       initialize_usr_local_lib_app()
@@ -609,89 +608,6 @@ function is_usr_local_lib_writable() {
 	return true;
 }
 
-function fix_java_path() {
-  const fs = require('fs');
-  const isSymlink = require('is-symlink');
-  const glob = require('glob');
-
-  const _app_path = __dirname;
-  const jre_search_base = path.resolve(_app_path, '..', 'jre');
-
-  let java_config_path, java_jre_path;
-  let jvm_file, jre_search_path;
-  let path_separator = ':';
-
-
-  if (path.extname(_app_path) === '.asar') {
-    java_config_path = path.resolve(_app_path, '..', 'app.asar.unpacked', 'node_modules', 'java', 'build', 'jvm_dll_path.json');
-
-    if (process.platform === 'win32') {
-      path_separator = ';'
-      jre_search_path = jre_search_base + '/**/jvm.dll';
-      jvm_file = glob.sync(jre_search_path)[0];
-      java_jre_path = path.resolve(jvm_file, '..');
-
-    } else if (process.platform === 'darwin') {
-
-      create_jre_symlink('libjvm.dylib', jre_search_base);
-      create_jre_symlink('libjli.dylib', jre_search_base);
-
-    } else { // linux
-      // temporary fix until we resolve symlink issue
-      return;
-
-      if (process.arch === 'x64') {
-        jre_search_path = jre_search_base + '/lib/amd64/**/libjvm.so';
-      } else {
-        jre_search_path = jre_search_base + '/lib/i386/**/libjvm.so';
-      }
-
-      jvm_file = glob.sync(jre_search_path)[0];
-      java_jre_path = path.resolve(jvm_file, '..');
-
-      // attempt
-      let libjvm_symlink = '/usr/local/lib/libjvm.so';
-      if (!isSymlink.sync(libjvm_symlink)) {
-        fs.symlinkSync(java_jre_path + '/libjvm.so', libjvm_symlink);
-      }
-    }
-
-    /*
-    fs.writeFileSync(path.resolve(_app_path, '..', 'jvm_file.txt'), jre_search_path+"\n"+'jvm_file:'+jvm_file+"\n"+java_jre_path, (err) => {
-        if (err) throw err;
-        console.log('The file has been saved!');
-    });
-    */
-    //java_jre_path = path.resolve(_app_path, '..', 'jre', 'bin', 'client');
-
-    if (process.platform === 'win32') {
-      java_jre_path = '"' + path_separator + java_jre_path.replace(/\\/g, '\\\\') + '"';
-      
-      fs.writeFileSync(java_config_path, java_jre_path, (err) => {
-        if (err) throw err;
-        console.log('The file has been saved!');
-      });
-    }
-
-  }
-}
-
-// filename = 'libjvm.dylib'
-function create_jre_symlink(filename, jre_search_base, local_lib_path = '/usr/local/lib') {
-  const isSymlink = require('is-symlink');
-
-  let jre_search_path = jre_search_base + '/**/' + filename;
-  let jvm_file = glob.sync(jre_search_path)[0];
-  
-  // to fix @rpath error on Mac
-  let libjvm_symlink = local_lib_path + '/' + filename;
-  if (isSymlink.sync(libjvm_symlink)) {
-    fs.unlinkSync(libjvm_symlink);
-  }
-  fs.symlinkSync(jvm_file, libjvm_symlink);
-}
-
-
 const showErrorBox = (title, msg) => {
   dialog.showErrorBox(title, msg)
 };
@@ -708,7 +624,6 @@ const showMessageBox = (options) => {
 
   dialog.showMessageBox(my_options);
 };
-
 
 ipcMain.on('download_and_install', (e) => {
   autoUpdater.downloadUpdate();

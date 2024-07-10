@@ -121,6 +121,8 @@
     "asarUnpack": [
       "node_modules/async/**/*",
       "node_modules/lodash/**/*",
+      "node_modules/java-bridge/**",
+      "node_modules/java-bridge-*/**",
       "libs/**/*"
     ],
     "directories": {
