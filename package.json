@@ -24,7 +24,7 @@
     "pack-mac": "electron-builder --mac --dir",
     "dist-win-x64": "electron-builder --win --x64 -p always",
     "dist-win": "electron-builder --win -p always",
-    "dist-mac": "electron-builder --mac --x64 --arm64 -p always",
+    "dist-mac": "electron-builder --mac --x64 -p always",
     "dist-mac-x64": "electron-builder --mac --x64 -p always",
     "dist-mac-arm64": "electron-builder --mac --arm64 -p always",
     "dist-linux": "electron-builder --linux -p always",
