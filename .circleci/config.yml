@@ -194,7 +194,7 @@ jobs:
     executor: win/server-2019
     steps:
       - run: Write-Host "Hello, Windows"
-      - run: cd .\project\
+      - run: pwd
       - run: nvm install 18.20.4
       - run: nvm use 18.20.4
       - run: npm install --global yarn
