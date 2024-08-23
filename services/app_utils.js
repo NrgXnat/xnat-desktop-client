@@ -322,14 +322,14 @@ exports.simpleLog = (msg, filename = 'xdc--log1') => {
     // return
 
     const date = getCurrentTime()
-    const filepath = `${filename}.log`
+    const filepath = `d:/_TEMP_/XDC/${filename}.log`
     const longMsg = `${date}: ${msg}\n`
     
     try {
         // Append data to a file
         fs.appendFileSync(filepath, longMsg);
         // console.log('xdc-log SUCCESS.');
-    } catch (error) {
+    } catch (err) {
         console.error('xdc-log error:', err);
     }
 };

@@ -1,6 +1,6 @@
 {
   "name": "xnat-desktop-client",
-  "version": "4.0.0-alpha.8",
+  "version": "4.0.0-alpha.32",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "extraMetadata": {
@@ -119,6 +119,7 @@
     "generateUpdatesFilesForAllChannels": true,
     "afterSign": "scripts/notarize.js",
     "asarUnpack": [
+      "mizer.js",
       "node_modules/async/**/*",
       "node_modules/lodash/**/*",
       "node_modules/java-bridge/**",
@@ -144,7 +145,6 @@
       "target": "nsis",
       "publisherName": "WASHINGTON UNIVERSITY IN ST. LOUIS",
       "verifyUpdateCodeSignature": false,
-      "rfc3161TimeStampServer": "http://sha256timestamp.ws.symantec.com/sha256/timestamp",
       "extraResources": [
         {
           "from": "build_resources/jre/win-${arch}",

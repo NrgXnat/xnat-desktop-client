@@ -1,33 +1,90 @@
 const mizer = exports;
 const path = require('path');
+const javaBridge = require('java-bridge');
+
+
+const { simpleLog } = require('./services/app_utils')
+
+
+function console_log(log_this) {
+    simpleLog(log_this, 'xdc--log-custom');
+    console.log('Logging: ', log_this);
+}
+
+
+
+
+
 
 
 const _app_path = __dirname;
 
 let jarDir, importClass, appendClasspath, mizerService;
+let ensureJvm = javaBridge.ensureJvm
+
+let javaBridgeJar = false
 
 let initJava = false
 
-if (path.extname(_app_path) === '.asar') {
-  jarDir = path.resolve(_app_path, '..', 'app.asar.unpacked', 'libs') + "/"
-} else {
-  ensureJvm = require('java-bridge').ensureJvm
+console_log(__filename)
 
+if (path.extname(_app_path) === '.asar') {
+    try {
+        console_log('PACKAGED App')
+        const javaBinaryPath = path.resolve(_app_path, '..', 'app.asar.unpacked', 'node_modules', 'java-bridge-win32-x64-msvc', 'java.win32-x64-msvc.node')
+        console_log(`javaBinaryPath: ${javaBinaryPath}`)
+
+        ensureJvm({
+            // libPath: javaBinaryPath
+            // libPath: 'C:\Program Files\Java\jre1.8.0_181\bin\server\jvm.dll'
+            // libPath: 'C:/Program Files/XNAT-Desktop-Client/resources/jre/bin/server/jvm.dll',
+            isPackagedElectron: true
+        });
+
+        console_log('initJava true')
+        initJava = true
+
+        console_log('ensureJvm Success')
+    } catch (err) {
+        console_log('DARKO')
+        let errorString = JSON.stringify(err, Object.getOwnPropertyNames(err));
+        console_log(errorString)
+    }
+
+    importClass = javaBridge.importClass
+    appendClasspath = javaBridge.appendClasspath
+    jarDir = path.resolve(_app_path, '..', 'app.asar.unpacked', 'libs') + "/"
+    javaBridgeJar = path.resolve(_app_path, '..', 'app.asar.unpacked', 'node_modules', 'java-bridge', 'dist', 'JavaBridge.jar')
+    console_log('jarDir: ' + jarDir)
+
+} else {
   try {
-    ensureJvm({
-        isPackagedElectron: true
-    });
+    // ensureJvm({ isPackagedElectron: true });
     initJava = true
   } catch (err) {
     console.log(err);
   }
   
-  importClass = require('java-bridge').importClass
-  appendClasspath = require('java-bridge').appendClasspath
+  importClass = javaBridge.importClass
+  appendClasspath = javaBridge.appendClasspath
   jarDir = _app_path + "/libs/"
 }
 
-console.log(jarDir);
+console_log(jarDir);
+
+async function getAndStoreJavaVersion() {
+    try {
+        const javaVersion = await javaBridge.getJavaVersion();
+        console_log(`Java version: ${javaVersion}`);
+    } catch (error) {
+        let errorString = JSON.stringify(error, Object.getOwnPropertyNames(error));
+        console_log(`Error getting Java version: ${errorString}`);
+    }
+}
+
+// Call the function
+getAndStoreJavaVersion();
+
 
 if (initJava) {
     const jarClassPaths = ["classes",
@@ -62,6 +119,10 @@ if (initJava) {
 
     appendClasspath(jarClassPaths);
 
+    if (javaBridgeJar) {
+        // appendClasspath(javaBridgeJar)
+    }
+
 
     const mizersClass = importClass("java.util.ArrayList");
     const mizers = new mizersClass()
@@ -84,6 +145,8 @@ if (initJava) {
     mizerService = new mizerServiceClass(mizers);
 
     // console.log({ROOT__mizerService: mizerService});
+} else {
+    console_log('initJava is FALSE')
 }
 
 

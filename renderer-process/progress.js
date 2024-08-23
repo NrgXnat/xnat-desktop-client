@@ -2079,7 +2079,7 @@ $on('click', 'button[data-js="test_anonymization"]', async function() {
         "session": "DARKO42_MR_4X"
     }
     
-    let contexts = mizer.getScriptContexts(scripts);
+    let contexts = await mizer.getScriptContexts(scripts);
     
     // Convert the JS map anonValues into a Java Properties object.
     let variables = mizer.getVariables(anon_variables);

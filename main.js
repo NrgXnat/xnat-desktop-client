@@ -4,6 +4,7 @@ const glob = require('glob')
 const electron = require('electron')
 const { app, session, BrowserWindow, ipcMain, shell, Tray, dialog, protocol } = electron
 
+
 require('@electron/remote/main').initialize()
 const enableRemoteModule = require('@electron/remote/main').enable;
 

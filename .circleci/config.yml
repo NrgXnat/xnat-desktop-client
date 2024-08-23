@@ -199,6 +199,15 @@ jobs:
       - run: nvm use 18.20.4
       - run: npm install --global yarn
       - run: yarn --version
+      - run:
+          name: Check if it is a master branch
+          command: |
+            if ($Env:CIRCLE_BRANCH -eq 'master') {
+                Write-Host "The branch is master."
+            } else {
+                Write-Host "The branch is not master. It is '$Env:CIRCLE_BRANCH'."
+            }
+
 
 workflows:
 
