@@ -70,7 +70,7 @@ function console_log(...log_this) {
         return;
     }
 
-    electron_log.info(...log_this);
+    // electron_log.info(...log_this);
     console.log(...log_this);
     //console.trace('<<<<== UPLOAD TRACE ==>>>>');
     ipcRenderer.send('log', ...log_this);
@@ -322,15 +322,19 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
     });
     
     // Fires when the entry's input has been processed and appended to the archive.
-    archive.on('entry', async (entry_data) => {
-        fs.unlink(entry_data.sourcePath, (err) => {
-            if (err) {
-                electron_log.error(err)
-                nedb_logger.error(transfer.id, 'upload', err.message, err);
-            } else {
-                //console_red(`-- ZIP file "${entry_data.sourcePath}" was deleted.`);
-            }
-        });
+    archive.on('entry', async (entryData) => {
+        return
+        setTimeout(function (entry_data) {
+            fs.unlink(entry_data.sourcePath, (err) => {
+                if (err) {
+                    console_log(`-- ZIP file "${entry_data.sourcePath}" delete ERROR!!!`);
+                    electron_log.error(err)
+                    nedb_logger.error(transfer.id, 'upload', err.message, err);
+                } else {
+                    console_log(`-- ZIP file "${entry_data.sourcePath}" was deleted.`);
+                }
+            });
+        }, 10000, entryData);
     })
 
     /**************************************************** */
@@ -387,7 +391,9 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         //url: 'http://localhost:3007',
         adapter: httpAdapter,
         auth: user_auth,
-        maxContentLength: (1024 * 1024 * 1024 * 1024), // default 10MB - must be increased ~ 1TB
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        // maxContentLength: (1024 * 1024 * 1024 * 1024), // default 10MB - must be increased ~ 1TB
         maxRedirects: 1, // default 5, has to be 0 to avoid back pressure (RAM filling)
         headers: {
             'User-Agent': userAgentString,
@@ -456,7 +462,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         console_red('zip upload done - res')
         xnat_api.heartbeat_stop();
 
-        await new Promise(resolve => rimraf(new_dirpath, { disableGlob: true }, resolve))
+        // await new Promise(resolve => rimraf(new_dirpath, { disableGlob: true }, resolve))
 
         const checksums_updated = await storeChecksums(transfer.id)
         console_red('store_checksums DONE', checksums_updated);
@@ -534,7 +540,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
     })
     .catch(async err => {
         xnat_api.heartbeat_stop();
-        await new Promise(resolve => rimraf(new_dirpath, { disableGlob: true }, resolve))
+        // await new Promise(resolve => rimraf(new_dirpath, { disableGlob: true }, resolve))
 
         console_log({
             CATCH_ERROR: err,
@@ -589,13 +595,16 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
                             //fs.copyFileSync(source, target, fs.constants.COPYFILE_EXCL);
                             fs.writeFileSync(target, fs.readFileSync(source), 'wx')
                         }
+
+                        const oldFilesize = getFilesizeInBytes(target)
         
-                        await mizer.anonymize(target, contexts, variables);
+                        const mizerAnonymizeResult = await mizer.anonymize(target, contexts, variables);
+                        console.log({mizerAnonymizeResult})
                         console.count('anonymized')
                         
                         fileData.anon_checksum = await file_checksum(target)
                         checksumIndex.push(fileData)
-
+                        simpleLog(`(window: ${WINDOW_ID}) - ${path.basename(target)}: ${oldFilesize}b ===> ${getFilesizeInBytes(target)}b`, 'xdc--anonsize')
                         archive.file(target, { name: path.basename(target) });
 
                         resolve(false)
@@ -1035,7 +1044,9 @@ function respawn_transfer(transfer_id, series_id, segment_index, success) {
     console.log({transfer_progress})
     console.log({total_upload_time: _time_offset(uploadStartTimer)});
 
-    closeThisWindow(2000)
+    // if (success) {
+        closeThisWindow(2000)
+    // }
 }
 
 function get_temp_upload_path() {

@@ -414,7 +414,7 @@ function initialize () {
     devToolsLog('app.ready triggered')
     createWindow();
 
-    /*
+    
     let log_paths = {
       getAppPath: app.getAppPath(),
       home: app.getPath('home'),
@@ -423,10 +423,11 @@ function initialize () {
       temp: app.getPath('temp'),
       desktop: app.getPath('desktop'),
       logs: app.getPath('logs'),
-      documents: app.getPath('documents')
+      documents: app.getPath('documents'),
+      resourcesPath: process.resourcesPath
     };
     log(log_paths)
-    */
+    
     devToolsLog('app.ready DONE')
   })
 

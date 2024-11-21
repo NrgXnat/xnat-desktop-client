@@ -1,6 +1,6 @@
 {
   "name": "xnat-desktop-client",
-  "version": "4.0.0-alpha.32",
+  "version": "4.0.0-alpha.2061",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "extraMetadata": {
@@ -119,7 +119,6 @@
     "generateUpdatesFilesForAllChannels": true,
     "afterSign": "scripts/notarize.js",
     "asarUnpack": [
-      "mizer.js",
       "node_modules/async/**/*",
       "node_modules/lodash/**/*",
       "node_modules/java-bridge/**",

@@ -18,7 +18,8 @@
   WriteRegStr HKCR "xnats\shell\Open" "" ""
   WriteRegStr HKCR "xnats\shell\Open\command" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME} %1"
 
-  AccessControl::GrantOnFile "$INSTDIR\resources\app.asar.unpacked\node_modules\java\build\jvm_dll_path.json" "(BU)" "GenericRead + GenericWrite"
+  File /oname=$INSTDIR\msvcr100.dll "${BUILD_RESOURCES_DIR}\jre\win-x64\bin\msvcr100.dll"
+
   AccessControl::GrantOnFile "$INSTDIR\xlectric.log" "(BU)" "GenericRead + GenericWrite"
   #AccessControl::SetFileOwner "C:\test.txt" "DARKOSSD\Darko"
   Pop $0 ; "error" on errors

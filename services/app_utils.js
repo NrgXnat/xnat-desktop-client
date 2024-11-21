@@ -320,9 +320,14 @@ function getCurrentTime() {
 // TODO add dev toggle to enable simpleLog
 exports.simpleLog = (msg, filename = 'xdc--log1') => {
     // return
-
     const date = getCurrentTime()
-    const filepath = `d:/_TEMP_/XDC/${filename}.log`
+
+    const logDir = path.join(require('os').homedir(), 'XDC-Logs');
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir);
+    }
+    const filepath = path.join(logDir, `${filename}.log`);
+
     const longMsg = `${date}: ${msg}\n`
     
     try {

@@ -41,7 +41,7 @@ electron.crashReporter.start({
 */
 
 try {
-    const mizer = nodeRequire('./mizer');
+    // const mizer = nodeRequire('./mizer');
     // const mizer = require('../mizer')
 } catch(e) {
     if (process.platform === "win32" && e.message.includes('nodejavabridge_bindings.node')) {

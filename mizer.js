@@ -1,83 +1,105 @@
 const mizer = exports;
 const path = require('path');
-const javaBridge = require('java-bridge');
 
 
-const { simpleLog } = require('./services/app_utils')
+// const { app } = require('@electron/remote');
+const appIsPackaged = path.extname(__dirname) === '.asar'
 
+const basePath = appIsPackaged
+  ? path.join(process.resourcesPath, 'app.asar.unpacked')
+  : __dirname;
+
+const jarDir = path.join(basePath, 'libs/');
+
+const javaBridge = appIsPackaged ? require(path.join(basePath, 'node_modules', 'java-bridge')) : require('java-bridge');
+const { importClass, appendClasspath, ensureJvm, getJavaLibPath, JavaVersion } = javaBridge;
+// const { importClass, appendClasspath, ensureJvm, getJavaLibPath, JavaVersion } = require('java-bridge');
+
+
+
+
+
+const { simpleLog } = require('./services/app_utils');
 
 function console_log(log_this) {
-    simpleLog(log_this, 'xdc--log-custom');
+    simpleLog(log_this, 'xdc--log-custom-fixed');
     console.log('Logging: ', log_this);
 }
 
 
 
-
-
-
-
-const _app_path = __dirname;
-
-let jarDir, importClass, appendClasspath, mizerService;
-let ensureJvm = javaBridge.ensureJvm
-
-let javaBridgeJar = false
-
+let mizerService;
 let initJava = false
 
 console_log(__filename)
 
-if (path.extname(_app_path) === '.asar') {
+if (appIsPackaged) {
     try {
         console_log('PACKAGED App')
-        const javaBinaryPath = path.resolve(_app_path, '..', 'app.asar.unpacked', 'node_modules', 'java-bridge-win32-x64-msvc', 'java.win32-x64-msvc.node')
-        console_log(`javaBinaryPath: ${javaBinaryPath}`)
 
+        let libPath;
+
+        switch (require('os').platform()) {
+            case 'win32':
+                libPath = path.join(process.resourcesPath, 'jre', 'bin', 'server', 'jvm.dll')
+                break
+            case 'darwin':
+                libPath = path.join(process.resourcesPath, 'jre', 'lib', 'server', 'libjvm.dylib')
+                break
+            case 'linux':
+                libPath = path.join(process.resourcesPath, 'jre', 'lib', 'amd64', 'server', 'libjvm.so')
+                break
+        }
+
+        console_log(`${require('os').platform()} jvm: ${libPath}`)
+        
         ensureJvm({
-            // libPath: javaBinaryPath
-            // libPath: 'C:\Program Files\Java\jre1.8.0_181\bin\server\jvm.dll'
-            // libPath: 'C:/Program Files/XNAT-Desktop-Client/resources/jre/bin/server/jvm.dll',
-            isPackagedElectron: true
+            isPackagedElectron: true,
+            libPath: libPath,
+            version: JavaVersion.VER_1_8,
+            opts: [
+                '-Xms2048m',     // 2GB initial heap
+                '-Xmx4096m',     // 4GB max heap
+                '-XX:+UseG1GC'   // G1 Garbage Collector - better for large heaps
+            ],
         });
 
-        console_log('initJava true')
+        // ensureJvm({
+        //     isPackagedElectron: true,
+        //     libPath: 'C:\\Program Files\\XNAT-Desktop-Client\\resources\\jre\\bin\\server\\jvm.dll',
+        //     version: JavaVersion.VER_1_8
+        // });
+
         initJava = true
 
-        console_log('ensureJvm Success')
+        console_log('initJava PACKAGED: true')
     } catch (err) {
-        console_log('DARKO')
+        console_log('initJava PACKAGED: false')
         let errorString = JSON.stringify(err, Object.getOwnPropertyNames(err));
         console_log(errorString)
     }
 
-    importClass = javaBridge.importClass
-    appendClasspath = javaBridge.appendClasspath
-    jarDir = path.resolve(_app_path, '..', 'app.asar.unpacked', 'libs') + "/"
-    javaBridgeJar = path.resolve(_app_path, '..', 'app.asar.unpacked', 'node_modules', 'java-bridge', 'dist', 'JavaBridge.jar')
-    console_log('jarDir: ' + jarDir)
-
 } else {
-  try {
-    // ensureJvm({ isPackagedElectron: true });
+    // ensureJvm()
+    // console_log(`libPath: ${path.join(__dirname, 'build_resources', 'jre', 'win-x64', 'bin', 'server', 'jvm.dll')}`)
+    ensureJvm({
+        // isPackagedElectron: false,
+        // libPath: 'C:\\Program Files\\XNAT-Desktop-Client\\resources\\jre\\bin\\server\\jvm.dll',
+        // libPath: path.join(__dirname, 'build_resources', 'jre', 'win-x64', 'bin', 'server', 'jvm.dll'),
+        // version: JavaVersion.VER_1_8
+    });
     initJava = true
-  } catch (err) {
-    console.log(err);
-  }
-  
-  importClass = javaBridge.importClass
-  appendClasspath = javaBridge.appendClasspath
-  jarDir = _app_path + "/libs/"
 }
 
-console_log(jarDir);
+console_log('jarDir: ' + jarDir)
 
 async function getAndStoreJavaVersion() {
     try {
         const javaVersion = await javaBridge.getJavaVersion();
+        console_log(`getJavaLibPath: ${getJavaLibPath()}`)
         console_log(`Java version: ${javaVersion}`);
-    } catch (error) {
-        let errorString = JSON.stringify(error, Object.getOwnPropertyNames(error));
+    } catch (err) {
+        let errorString = JSON.stringify(err, Object.getOwnPropertyNames(err));
         console_log(`Error getting Java version: ${errorString}`);
     }
 }
@@ -118,10 +140,6 @@ if (initJava) {
         "transaction-1.8.10.jar"].map(jar => jarDir + jar);
 
     appendClasspath(jarClassPaths);
-
-    if (javaBridgeJar) {
-        // appendClasspath(javaBridgeJar)
-    }
 
 
     const mizersClass = importClass("java.util.ArrayList");
@@ -299,10 +317,17 @@ mizer.anonymize = async (source, contexts, variables) => {
         await context.addSync(variables);
     }
 
+    /*
+    mizerService.anonymizeSync(dicom, contexts);
+    isMizerAnonBusy = false
+    */
+    
     try {
         const resultX = await mizerService.anonymize(dicom, contexts);
-        console.log(`Anonymized: ${source}`);
+        simpleLog(`Anonymized: ${path.basename(source)}`);
+        console.log(`Anonymized: ${path.basename(source)}`);
         isMizerAnonBusy = false
+        return resultX
     } catch (err) {
         console.log(`==== ANON_ERR ====> ${source}`);
         console.log({ANON_ERR: err});
