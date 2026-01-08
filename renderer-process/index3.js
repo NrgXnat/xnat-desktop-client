@@ -247,11 +247,13 @@ async function protocol_request(e, url) {
     
                 let last_download_index = url_object.pathname.lastIndexOf('/download/');
                 let upload_slash_index = url_object.pathname.lastIndexOf('/upload/')
-                let last_upload_index = upload_slash_index === -1 ? url_object.pathname.lastIndexOf('/upload') : upload_slash_index 
+                let last_upload_index = upload_slash_index === -1 ? url_object.pathname.lastIndexOf('/upload') : upload_slash_index
+                let auth_index = url_object.pathname.lastIndexOf('/auth');
                 let is_upload;
+                let is_auth = false;
                 let rest_xml = '';
-    
-                // is it upload or download
+
+                // is it upload, download, or auth
                 if (last_download_index >= 0) {
                     server += url_object.pathname.substr(0, last_download_index);
                     is_upload = false;
@@ -260,9 +262,13 @@ async function protocol_request(e, url) {
                 } else if (last_upload_index >= 0) {
                     server += url_object.pathname.substr(0, last_upload_index);
                     is_upload = true;
+                } else if (auth_index >= 0) {
+                    server += url_object.pathname.substr(0, auth_index);
+                    is_upload = false;
+                    is_auth = true;
                 } else {
                     // protocol match, but path is invalid URL not handled
-                    throw_new_error('Invalid Path', `Requested URL: ${url_object.pathname.replace('\?.*','')} \ncontains invalid path with neither '/upload' nor '/download' segments.`);
+                    throw_new_error('Invalid Path', `Requested URL: ${url_object.pathname.replace('\?.*','')} \ncontains invalid path with neither '/upload', '/download', nor '/auth' segments.`);
                 }
                 
 
@@ -334,8 +340,17 @@ async function protocol_request(e, url) {
                     handleTokenLogin(url_data);
                 }
 
-                // add ipc send (to home) + plus redirect
-                if (is_upload) {
+                // Handle authentication, upload, or download
+                if (is_auth) {
+                    // Authentication completed - close any waiting dialog and redirect to home
+                    swal.close(); // Close the "Waiting for Authentication" dialog
+                    settings.delete('pending_browser_auth'); // Clean up pending state
+
+                    ipcRenderer.send('redirect', 'home.html');
+
+                    Helper.pnotify('Authentication Successful',
+                        `Logged in to ${url_data.SERVER} as ${url_data.USERNAME}`);
+                } else if (is_upload) {
                     ipcRenderer.send('launch_upload', url_data);
                 } else {
                     // add ipc send (to home) + plus redirect
@@ -684,13 +699,32 @@ ipcRenderer.on('display_allow_unverified_ssl', function(e) {
 
 ipcRenderer.on('clearVersion2DbFiles', function(e) {
     swal({
-        title: "Old transfer data removed!", 
-        text: "Due to data format incompatibility with the current release, transfers that were stored in the previous version of XNAT Desktop Client are now removed.", 
+        title: "Old transfer data removed!",
+        text: "Due to data format incompatibility with the current release, transfers that were stored in the previous version of XNAT Desktop Client are now removed.",
         icon: "info",
         closeOnEsc: false,
         closeOnClickOutside: false
     });
 })
+
+// Check for pending browser authentication timeout
+function checkPendingAuthTimeout() {
+    if (settings.has('pending_browser_auth')) {
+        const pending = settings.get('pending_browser_auth');
+        const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+        if (Date.now() - pending.timestamp > TIMEOUT_MS) {
+            settings.delete('pending_browser_auth');
+            swal.close();
+            swal('Authentication Timeout',
+                'Browser authentication timed out. Please try again.',
+                'warning');
+        }
+    }
+}
+
+// Check every 30 seconds for pending auth timeout
+setInterval(checkPendingAuthTimeout, 30000);
 
 
 

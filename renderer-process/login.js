@@ -152,6 +152,72 @@ $(document).on('click', '#remove_login', function(e){
     });
 });
 
+$(document).on('click', '#browser_login_btn', function(e){
+    e.preventDefault();
+
+    let server_url = $('#server').val().trim();
+    if (!server_url) {
+        swal('Server Required', 'Please enter a server URL first.', 'warning');
+        return;
+    }
+
+    // Normalize server URL - add protocol if missing
+    if (server_url.indexOf('http://') !== 0 && server_url.indexOf('https://') !== 0) {
+        server_url = 'https://' + server_url;
+    }
+    server_url = server_url.replace(/\/$/, ''); // Remove trailing slash
+
+    allow_insecure_ssl = $('#allow_insecure_ssl').is(':checked');
+    app.allow_insecure_ssl = allow_insecure_ssl;
+
+    // Build login URL with client_auth parameter
+    const loginUrl = `${server_url}/app/template/Login.vm?client_auth=true`;
+
+    // Store server info for when protocol handler receives the token
+    settings.set('pending_browser_auth', {
+        server: server_url,
+        allow_insecure_ssl: allow_insecure_ssl,
+        timestamp: Date.now()
+    });
+
+    // Open in default browser
+    const shell = require('electron').shell;
+    const opened = shell.openExternal(loginUrl);
+
+    if (!opened) {
+        electron_log.error('Failed to open browser for authentication');
+        swal('Browser Error', 'Failed to open your default browser. Please check your system settings.', 'error');
+        settings.delete('pending_browser_auth');
+        app.allow_insecure_ssl = false;
+        return;
+    }
+
+    // Close the login modal
+    $('#login').modal('hide');
+
+    // Show waiting message
+    swal({
+        title: 'Waiting for Authentication',
+        text: 'Please complete the login process in your browser. This window will automatically update when authentication is complete.',
+        icon: 'info',
+        buttons: {
+            cancel: {
+                text: 'Cancel',
+                value: false,
+                visible: true
+            }
+        },
+        closeOnClickOutside: false,
+        closeOnEsc: true
+    }).then((value) => {
+        if (value === false) {
+            // User cancelled
+            settings.delete('pending_browser_auth');
+            app.allow_insecure_ssl = false;
+        }
+    });
+});
+
 
 function login_attempt(xnat_server, user_auth) {
     auth.login_promise(xnat_server, user_auth)
