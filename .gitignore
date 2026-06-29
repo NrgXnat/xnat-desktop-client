@@ -11,3 +11,4 @@ package-lock.json
 /*.log
 /codesign*
 /*.env
+.yarn/
