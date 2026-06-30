@@ -2,6 +2,7 @@ const { ipcRenderer } = require('electron')
 const { require: nodeRequire, app } = require('@electron/remote')
 const fs = require('fs')
 const path = require('path')
+const getFilePath = require('../services/get_file_path')
 const getSize = require('get-folder-size')
 const prettyBytes = require('pretty-bytes')
 //require('promise.prototype.finally').shim()
@@ -2859,7 +2860,8 @@ $on('change', '#file_upload_folder', function(e) {
 
     if (this.files.length) {
         const baseDirectoryPath = this.files[0].webkitRelativePath.split('/')[0];
-        const uploadFolderName = this.files[0].path.substring(0, this.files[0].path.length - this.files[0].webkitRelativePath.length) + baseDirectoryPath
+        const firstFilePath = getFilePath(this.files[0]);
+        const uploadFolderName = firstFilePath.substring(0, firstFilePath.length - this.files[0].webkitRelativePath.length) + baseDirectoryPath
         console.log({uploadFolderName});
         $('#upload_folder').val(uploadFolderName);
 
@@ -3709,7 +3711,7 @@ async function validate_csv_upload(csv_path) {
 
 $on('change', '#upload-section [data-csv-file-upload]', async function(e) {
     if (this.files.length === 1) {
-        let jsonArray = await validate_csv_upload(this.files[0].path);
+        let jsonArray = await validate_csv_upload(getFilePath(this.files[0]));
 
         if (jsonArray !== false) {
             let default_data = $('#custom_upload_multiple_tbl').bootstrapTable('getData')

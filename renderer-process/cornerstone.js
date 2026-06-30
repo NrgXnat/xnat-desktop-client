@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 const ipc = require('electron').ipcRenderer
+const getFilePath = require('../services/get_file_path')
 const swal = require('sweetalert');
 
 const remote = require('@electron/remote');
@@ -134,7 +135,7 @@ function dynamicExample() {
     // file selected by the user
     $(document).on('change', '#selectFile', function(e) {
         let file = e.target.files[0];
-        let dir = file.path;
+        let dir = getFilePath(file);
         let _files = walkSync(dir);
 
         const imageIds = _files.map(file => `wadouri:http://localhost:7714/?path=${file}`);

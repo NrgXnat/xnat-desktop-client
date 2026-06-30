@@ -2,6 +2,7 @@ const ipcRenderer = require('electron').ipcRenderer;
 const shell = require('electron').shell;
 
 const fs = require('fs');
+const getFilePath = require('../services/get_file_path');
 
 const path = require('path');
 const ElectronStore = require('electron-store');
@@ -99,13 +100,14 @@ $(document).on('change', '#download_destination_file', function(e) {
     let $ds = $$('#set_default_local_storage')
 
     if (this.files.length) {
-        if (isReallyWritable(this.files[0].path)) {
-            $input.val(this.files[0].path);
+        const selectedPath = getFilePath(this.files[0]);
+        if (isReallyWritable(selectedPath)) {
+            $input.val(selectedPath);
 
-            let not_default_dir = this.files[0].path !== settings.get('default_local_storage')
+            let not_default_dir = selectedPath !== settings.get('default_local_storage')
             $ds.toggle(not_default_dir)
         } else {
-            Helper.pnotify(null, `Selected location "${this.files[0].path}" is not accessible.`, 'error', 3000);
+            Helper.pnotify(null, `Selected location "${selectedPath}" is not accessible.`, 'error', 3000);
         }
     }
 
@@ -118,7 +120,7 @@ $(document).on('change', '#xnt_manifest_file', function(e) {
     let $input = $('#xnt_manifest_text');
 
     if (this.files.length) {
-        $input.val(this.files[0].path);
+        $input.val(getFilePath(this.files[0]));
     }
 
     $(this).val('');

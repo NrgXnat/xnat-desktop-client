@@ -6,6 +6,7 @@ const settings = new ElectronStore();
 const ipcRenderer = require('electron').ipcRenderer
 const swal = require('sweetalert');
 const fs = require('fs');
+const getFilePath = require('../services/get_file_path');
 
 const { require: nodeRequire, app } = require('@electron/remote')
 
@@ -483,10 +484,11 @@ $(document).on('click', '#save_default_email_address', function(e) {
 });
 
 $(document).on('change', '#file_default_local_storage', function(e) {
-    settings.set('default_local_storage', this.files[0].path);
-    $('#default_local_storage').val(this.files[0].path);
+    const selectedPath = getFilePath(this.files[0]);
+    settings.set('default_local_storage', selectedPath);
+    $('#default_local_storage').val(selectedPath);
 
-    Helper.pnotify(null, `Default local storage path successfully updated! (${this.files[0].path})`);
+    Helper.pnotify(null, `Default local storage path successfully updated! (${selectedPath})`);
 });
 
 $(document).on('submit', '#userForm', function(e) {
@@ -583,7 +585,7 @@ $(document).on('click', '.js_remove_suppress_anon_warning', function(e){
 
 
 $(document).on('change', '#file_temp_folder_alt', function(e) {
-    let alt_path = this.files[0].path;
+    let alt_path = getFilePath(this.files[0]);
     if (alt_path) {
         if (isReallyWritable(alt_path)) {
             console.log('WRITABLE', alt_path);
@@ -654,7 +656,7 @@ $on('click', '#change-pdf-receipt-settings', function() {
 
 $on('change', '#pdf_destination_folder', function(e) {
     if (this.files.length) {
-        let pth = this.files[0].path;
+        let pth = getFilePath(this.files[0]);
 
         $$('#pdf_destination').val(pth);
     }
