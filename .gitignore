@@ -11,3 +11,12 @@ package-lock.json
 /*.log
 /codesign*
 /*.env
+
+# Yarn (Berry) - using node-modules linker + corepack (packageManager field)
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*

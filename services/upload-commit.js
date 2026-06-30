@@ -2,7 +2,6 @@ const electron = require('electron');
 const { ipcRenderer } = electron;
 const { require: nodeRequire, getCurrentWindow } = require('@electron/remote')
 
-const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
 
 const CONSTANTS = require('./constants');
@@ -79,7 +78,7 @@ exports.uploadCommit = async (transfer, res, series_id = '') => {
             https_agent_options.rejectUnauthorized = false // insecure SSL at request level
         }
         commit_request_settings.httpsAgent = new https.Agent(https_agent_options)
-        commit_request_settings.adapter =  httpAdapter
+        commit_request_settings.adapter = 'http'
 
 
         let commit_data = {};
