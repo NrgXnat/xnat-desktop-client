@@ -1,3 +1,4 @@
+require('../../db/nedb_compat')
 const Datastore = require('nedb')
 const { getJsonDbFiles, optimizeUploadDigest } = require('../../db/utils')
 const electron_log = require('../../electron_log');
