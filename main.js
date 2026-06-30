@@ -49,6 +49,18 @@ electron.crashReporter.start({
 
 global = require('./services/global');
 
+// Electron 37 changed the webContents 'console-message' event signature from
+// (event, level, message, line, sourceId) to (event, details). Normalize both
+// shapes into { isError, message } so handlers work across Electron versions.
+function parseConsoleMessage(...args) {
+  if (args.length === 1 && args[0] && typeof args[0] === 'object') {
+    const details = args[0]
+    return { isError: details.level === 'error', message: details.message || '' }
+  }
+  const [level, message] = args
+  return { isError: level === 2, message: message || '' }
+}
+
 if (isDevEnv()) {
   setInterval(function() {
     console.log(`Queue items: ${global.shared._queue_.items.length}`)
@@ -138,9 +150,9 @@ function initialize_usr_local_lib_app() {
     });
 
     // handle crash events
-    mainWindow.webContents.on('crashed', (e) => {
+    mainWindow.webContents.on('render-process-gone', (event, details) => {
       mainWindow.webContents.reload()
-      electron_log.error('mainWindow crashed')
+      electron_log.error('mainWindow render process gone: ' + (details && details.reason))
     });
   }
 
@@ -263,10 +275,11 @@ function initialize () {
     });
 
     // FIX upload EPERM error (with config.json)
-    uploadWindow.webContents.on('console-message', function(event, level, message, line, sourceId) {
+    uploadWindow.webContents.on('console-message', function(event, ...args) {
+      const { isError, message } = parseConsoleMessage(...args)
       const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
-      
-      if ( level === 2 && message.startsWith(distinctError) ) {
+
+      if ( isError && message.startsWith(distinctError) ) {
         console.log('--------------> [console-message] UPLOAD window EPERM error: ' + message)
         uploadWindow.webContents.reload()
       }
@@ -282,10 +295,11 @@ function initialize () {
       downloadWindow = null
     });
     // FIX download EPERM error (with config.json)
-    downloadWindow.webContents.on('console-message', function(event, level, message, line, sourceId) {
+    downloadWindow.webContents.on('console-message', function(event, ...args) {
+      const { isError, message } = parseConsoleMessage(...args)
       const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
-      
-      if ( level === 2 && message.startsWith(distinctError) ) {
+
+      if ( isError && message.startsWith(distinctError) ) {
         console.log('--------------> [console-message] DOWNLOAD window EPERM error: ' + message)
         downloadWindow.webContents.reload()
       }
@@ -316,21 +330,21 @@ function initialize () {
 
 
     // handle crash events
-    mainWindow.webContents.on('crashed', (e) => {
+    mainWindow.webContents.on('render-process-gone', (event, details) => {
       mainWindow.webContents.reload()
       uploadWindow.webContents.reload()
       downloadWindow.webContents.reload()
-      electron_log.error('mainWindow crashed')
+      electron_log.error('mainWindow render process gone: ' + (details && details.reason))
     });
 
-    uploadWindow.webContents.on('crashed', (e) => {
+    uploadWindow.webContents.on('render-process-gone', (event, details) => {
       uploadWindow.webContents.reload()
-      electron_log.error('uploadWindow crashed')
+      electron_log.error('uploadWindow render process gone: ' + (details && details.reason))
     });
 
-    downloadWindow.webContents.on('crashed', (e) => {
+    downloadWindow.webContents.on('render-process-gone', (event, details) => {
       downloadWindow.webContents.reload()
-      electron_log.error('downloadWindow crashed')
+      electron_log.error('downloadWindow render process gone: ' + (details && details.reason))
     });
 
     mainWindow.on('closed', function () {
@@ -346,10 +360,11 @@ function initialize () {
     });
 
     // FIX main EPERM error (with config.json)
-    mainWindow.webContents.on('console-message', function(event, level, message, line, sourceId) {
+    mainWindow.webContents.on('console-message', function(event, ...args) {
+      const { isError, message } = parseConsoleMessage(...args)
       const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
-      
-      if ( level === 2 && message.startsWith(distinctError) ) {
+
+      if ( isError && message.startsWith(distinctError) ) {
         console.log('--------------> [console-message] MAIN window EPERM error: ' + message)
         mainWindow.webContents.reload()
       }
@@ -830,8 +845,9 @@ ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
     console.log('dom-ready:' + uploadWindowSingle.id)
   })
 
-  uploadWindowSingle.webContents.on('console-message', function(event, level, message, line, sourceId) {
-    if (level === 2) {
+  uploadWindowSingle.webContents.on('console-message', function(event, ...args) {
+    const { isError, message } = parseConsoleMessage(...args)
+    if (isError) {
       console.log(`renderer console.error (win: ${uploadWindowSingle.id}): ${message}`)
       console.log(message)
     }
@@ -839,9 +855,9 @@ ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
     const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
     const distinctError2 = 'Uncaught ReferenceError: require is not defined';
     const distinctError3 = "Uncaught (in promise) TypeError: Cannot read property 'canceled' of null";
-    
-    if ( level === 2 && ( 
-        message.startsWith(distinctError) || 
+
+    if ( isError && (
+        message.startsWith(distinctError) ||
         message.startsWith(distinctError2) || 
         message.startsWith(distinctError3) 
       ) 
@@ -867,12 +883,8 @@ ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
   });
 
 
-  uploadWindowSingle.webContents.once('plugin-crashed', () => {
-    console.log('plugin-crashed:' + uploadWindowSingle.id)
-  });
-
-  uploadWindowSingle.webContents.once('crashed', () => {
-    console.log('crashed:' + uploadWindowSingle.id)
+  uploadWindowSingle.webContents.once('render-process-gone', (event, details) => {
+    console.log('render-process-gone:' + uploadWindowSingle.id + ' reason: ' + (details && details.reason))
   });
   
 })

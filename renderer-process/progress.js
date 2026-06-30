@@ -1859,9 +1859,7 @@ async function generate_pdf_receipt(transfer_id) {
 
     const pdf_settings = {
         landscape: user_settings.getDefault('receipt_pdf_settings--orientation', 'landscape') === 'landscape',
-        marginsType: 0,
         printBackground: false,
-        printSelectionOnly: false,
         pageSize: user_settings.getDefault('receipt_pdf_settings--pagesize', 'Letter')
     }
 
