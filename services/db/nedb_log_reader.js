@@ -1,3 +1,4 @@
+require('./nedb_compat');
 const Datastore = require('nedb');
 const path = require('path')
 

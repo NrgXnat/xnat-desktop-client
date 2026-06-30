@@ -1,3 +1,4 @@
+require('./nedb_compat');
 const Logger = require('nedb-logger')
 
 const path = require('path')
