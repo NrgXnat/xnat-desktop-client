@@ -5,7 +5,7 @@ const fs = require('fs');
 const ipc = require('electron').ipcRenderer
 const swal = require('sweetalert');
 
-const remote = require('electron').remote;
+const remote = require('@electron/remote');
 
 const electron_log = remote.require('./services/electron_log');
 
