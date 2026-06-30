@@ -1,5 +1,6 @@
 const electron = require('electron');
 const ElectronStore = require('electron-store');
+const getFilePath = require('../services/get_file_path');
 const settings = new ElectronStore();
 const ipcRenderer = electron.ipcRenderer
 const { app, require: nodeRequire } = require('@electron/remote');
@@ -516,7 +517,7 @@ $(document).on('show.bs.modal', '#alt_upload_method_modal', function(e) {
 
 $(document).on('change', '#file_temp_folder_alternative', function(e) {
     if (this.files.length) {
-        $('#temp_folder_alternative').val(this.files[0].path);
+        $('#temp_folder_alternative').val(getFilePath(this.files[0]));
     }
 })
 
