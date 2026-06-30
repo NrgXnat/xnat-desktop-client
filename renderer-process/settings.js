@@ -6,6 +6,7 @@ const settings = new ElectronStore();
 const ipcRenderer = require('electron').ipcRenderer
 const swal = require('sweetalert');
 const fs = require('fs');
+const Tagify = require('@yaireo/tagify');
 
 const { require: nodeRequire, app } = require('@electron/remote')
 
@@ -38,11 +39,20 @@ $on('page:load', dom_context, async function(e){
     show_max_upload_chunk_size();
     show_max_upload_chunk_count();
 
-    $('input[data-role="tagsinput"]').tagsinput({
-        onTagExists: function(item, $tag) {
-            $tag.hide().fadeIn();
-        }
-    });
+    // PET tracers tag input (Tagify). The stored value is a comma-separated
+    // string; originalInputValueFormat keeps the underlying input's value in
+    // that same format so $('#default_pet_tracers').val() works unchanged.
+    const petTracersEl = document.getElementById('default_pet_tracers');
+    if (petTracersEl) {
+        const petTracersTagify = new Tagify(petTracersEl, {
+            originalInputValueFormat: valuesArr => valuesArr.map(item => item.value).join(',')
+        });
+        // Attach after construction so parsing the stored value on load does
+        // not pre-enable the save button.
+        petTracersTagify.on('change', function() {
+            $('#save_default_pet_tracers').prop('disabled', false);
+        });
+    }
 
     if (settings.get('send_crash_reports', false) === true) {
         $('#send-crash-reports').val('1')
@@ -395,10 +405,6 @@ $(document).on('input', '#default_email_address', function(e) {
     $('#save_default_email_address').prop('disabled', false);
 });
 
-
-$(document).on('itemAdded itemRemoved', '#default_pet_tracers', function(e) {
-    $('#save_default_pet_tracers').prop('disabled', false);
-});
 
 $(document).on('click', '#save_default_pet_tracers', function(e) {
     e.preventDefault();
