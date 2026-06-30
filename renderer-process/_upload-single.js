@@ -5,7 +5,6 @@ const fs = require('fs');
 const fx = require('mkdir-recursive');
 const path = require('path');
 const axios = require('axios');
-const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
 const isRetryAllowed = require('is-retry-allowed');
 const progressStream = require('progress-stream');
@@ -389,7 +388,7 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
         method: 'post',
         url: xnat_server + `/data/services/import?import-handler=DICOM-zip&PROJECT_ID=${project_id}&SUBJECT_ID=${subject_id}&EXPT_LABEL=${expt_label}${qs}&overwrite=${overwrite}&rename=true&prevent_anon=true&prevent_auto_commit=true&SOURCE=uploader&autoArchive=AutoArchive` + '&XNAT_CSRF=' + csrfToken,
         //url: 'http://localhost:3007',
-        adapter: httpAdapter,
+        adapter: 'http',
         auth: user_auth,
         maxContentLength: Infinity,
         maxBodyLength: Infinity,

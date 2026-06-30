@@ -6,7 +6,6 @@ const fx = require('mkdir-recursive');
 const path = require('path');
 const axios = require('axios');
 require('promise.prototype.finally').shim();
-const httpAdapter = require('axios/lib/adapters/http');
 const https = require('https');
 
 const ElectronStore = require('electron-store');
@@ -294,7 +293,7 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
     let request_settings = {
         auth: user_auth_fix,
         responseType: 'stream',
-        adapter: httpAdapter,
+        adapter: 'http',
         headers: {
             'Cookie': jsession_cookie,
             'User-Agent': userAgentString

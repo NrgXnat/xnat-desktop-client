@@ -26,7 +26,7 @@ exports.default = async function notarizing(context) {
         console.log('Attempting Notarization...')
 
         await notarize({
-            appBundleId: 'com.xnatapp.app',
+            tool: 'notarytool',
             appPath: `${appOutDir}/${appName}.app`,
             appleId,
             appleIdPassword,
