@@ -143,7 +143,11 @@
       "icon": "assets/icons/win/XDC.ico",
       "target": "nsis",
       "signtoolOptions": {
-        "publisherName": "WASHINGTON UNIVERSITY IN ST. LOUIS"
+        "publisherName": "WASHINGTON UNIVERSITY IN ST. LOUIS",
+        "sign": "./scripts/esigner-sign.js",
+        "signingHashAlgorithms": [
+          "sha256"
+        ]
       },
       "verifyUpdateCodeSignature": false,
       "extraResources": [
