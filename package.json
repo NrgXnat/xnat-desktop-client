@@ -1,6 +1,6 @@
 {
   "name": "xnat-desktop-client",
-  "version": "3.2.5",
+  "version": "3.2.6",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "extraMetadata": {
@@ -12,11 +12,11 @@
     "sass-cli": "sass --watch XNAT/scss:assets/css",
     "dev-win": "start yarn sass-cli & start yarn electron-dev",
     "electron-start": "electron .",
-    "electron-dev": "electron . --debug",
+    "electron-dev": "electron . --inspect --dev",
     "electron-rebuild": "electron-rebuild -f -s",
     "sass": "npm-run-all -s sass:build sass:watch",
-    "sass:build": "node-sass-chokidar XNAT/scss/style.scss assets/css/style.css --output-style compressed --source-map true",
-    "sass:watch": "node-sass-chokidar XNAT/scss/ -o assets/css/ -w -r --output-style compressed --source-map true",
+    "sass:build": "sass XNAT/scss/style.scss assets/css/style.css --style=compressed --source-map",
+    "sass:watch": "sass XNAT/scss/:assets/css/ --watch --style=compressed --source-map",
     "pack-win": "electron-builder --win --dir",
     "pack-win-x64": "electron-builder --win --x64 --dir",
     "pack-linux": "electron-builder --linux --dir",
@@ -24,16 +24,17 @@
     "pack-mac": "electron-builder --mac --dir",
     "dist-win-x64": "electron-builder --win --x64 -p always",
     "dist-win": "electron-builder --win -p always",
-    "dist-mac": "electron-builder --mac -p always",
+    "dist-mac": "electron-builder --mac --x64 -p always",
+    "dist-mac-x64": "electron-builder --mac --x64 -p always",
+    "dist-mac-arm64": "electron-builder --mac --arm64 -p always",
     "dist-linux": "electron-builder --linux -p always",
     "dist-linux-x64": "electron-builder --linux --x64 -p always",
     "package-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --icon=assets/icons/mac/XDC.icns --prune=true --out=release-builds",
     "package-win": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=win32 --arch=ia32 --icon=assets/icons/win/XDC.ico --prune=true --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"Electron XNAT App\"",
     "package-linux": "electron-packager . electron-xnat-app --overwrite --asar=true --platform=linux --arch=x64 --icon=assets/icons/png/XDC.png --prune=true --out=release-builds",
-    "patch-java-binding": "./patch-java-binding.sh",
     "postinstall": "run-script-os",
     "postinstall:win32": "electron-builder install-app-deps",
-    "postinstall:default": "find build_resources -name \"._*\" -exec rm '{}' \\;; find build_resources/jre -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \\;; ./patch-java-binding.sh; node ./scripts/fix-dmg-builder.js; electron-builder install-app-deps;",
+    "postinstall:default": "find build_resources -name \"._*\" -exec rm '{}' \\;; find build_resources/jre -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \\;; electron-builder install-app-deps;",
     "cleanstall": "run-script-os",
     "cleanstall:win32": "rmdir /s /q node_modules & yarn install",
     "cleanstall:default": "rm -rf node_modules ; yarn install"
@@ -41,12 +42,13 @@
   "author": "Washington University in St. Louis",
   "license": "ISC",
   "dependencies": {
+    "@electron/remote": "^2.1.1",
     "anno.js": "^1.0.3",
     "archiver": "^2.1.1",
     "axios": "^0.21.1",
     "blockui-npm": "^1.0.0",
     "bootstrap": "^4.0.0",
-    "bootstrap-table": "^1.16.0",
+    "bootstrap-table": "1.20.2",
     "bootstrap4-tagsinput-douglasanpa": "^4.1.2",
     "bytes": "^3.1.2",
     "checksum": "^0.1.1",
@@ -59,8 +61,8 @@
     "dicom-parser": "^1.8.21",
     "ejs": "^3.1.6",
     "electron-first-run": "^3.0.0",
-    "electron-log": "^2.2.17",
-    "electron-store": "1.3.0",
+    "electron-log": "^4.4.8",
+    "electron-store": "8.1.0",
     "electron-updater": "~4.2.0",
     "file-saver": "^1.3.8",
     "filesize": "^3.6.1",
@@ -72,11 +74,10 @@
     "is-online": "^7.0.0",
     "is-retry-allowed": "^1.2.0",
     "is-symlink": "^1.0.0",
-    "java": "^0.12.1",
+    "java-bridge": "^2.4.0",
     "jquery": "^3.3.1",
     "jquery.scrollintoview": "^1.9.4",
     "lodash": "^4.17.5",
-    "lokijs": "^1.5.3",
     "magic-check": "^1.0.3",
     "mime-types": "^2.1.18",
     "mkdir-recursive": "^0.4.0",
@@ -87,10 +88,12 @@
     "pnotify": "^3.2.1",
     "popper.js": "^1.12.9",
     "pretty-bytes": "^5.1.0",
+    "progress-stream": "^2.0.0",
     "promise.prototype.finally": "^3.1.0",
     "rimraf": "^3.0.2",
     "sha1": "^1.1.1",
     "store2": "^2.7.0",
+    "stream-throttle": "^0.1.3",
     "sudo-prompt": "^8.2.5",
     "sweetalert": "^2.1.0",
     "sweetalert2": "^9.15.1",
@@ -100,15 +103,15 @@
     "xml2js": "^0.4.19"
   },
   "devDependencies": {
-    "@electron/notarize": "^2.1.0",
+    "@electron/notarize": "^2.5.0",
     "devtron": "^1.4.0",
-    "electron": "^3.1.13",
-    "electron-builder": "^21.2.0",
-    "electron-packager": "^10.1.2",
-    "node-sass-chokidar": "^1.4.0",
-    "npm-run-all": "^4.1.2",
-    "run-script-os": "^1.1.3",
-    "ws": "3.3.2"
+    "electron": "^28.1.4",
+    "electron-builder": "^24.13.3",
+    "electron-packager": "^17.1.2",
+    "npm-run-all": "^4.1.5",
+    "run-script-os": "^1.1.6",
+    "sass": "^1.70.0",
+    "ws": "8.16.0"
   },
   "build": {
     "appId": "com.xnatapp.app",
@@ -116,9 +119,10 @@
     "generateUpdatesFilesForAllChannels": true,
     "afterSign": "scripts/notarize.js",
     "asarUnpack": [
-      "node_modules/java/**/*",
       "node_modules/async/**/*",
       "node_modules/lodash/**/*",
+      "node_modules/java-bridge/**",
+      "node_modules/java-bridge-*/**",
       "libs/**/*"
     ],
     "directories": {
@@ -140,7 +144,6 @@
       "target": "nsis",
       "publisherName": "WASHINGTON UNIVERSITY IN ST. LOUIS",
       "verifyUpdateCodeSignature": false,
-      "rfc3161TimeStampServer": "http://sha256timestamp.ws.symantec.com/sha256/timestamp",
       "extraResources": [
         {
           "from": "build_resources/jre/win-${arch}",
@@ -157,7 +160,7 @@
       ],
       "extraResources": [
         {
-          "from": "build_resources/jre/mac",
+          "from": "build_resources/jre/mac-${arch}",
           "to": "jre"
         }
       ],

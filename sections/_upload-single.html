@@ -3,18 +3,20 @@
 
 <head>
     <meta charset="utf-8">
-    <title>XNAT Desktop Client - Download</title>
+    <title>XNAT Desktop Client - Upload</title>
 
-    <body>
+    <body id="upload-single">
 
-        <h1>Download</h1>
+        <h1>Upload Single</h1>
+
+        <h3>Window ID: <span id="window_id"></span></h3>
 
         <script>
             window.$ = window.jQuery = require('jquery');
             store = require('store2');
             Helper = require('./../assets/js/helpers');
 
-            require('./../renderer-process/_download')
+            require('./../renderer-process/_upload-single')
         </script>
 
     </body>

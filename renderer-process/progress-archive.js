@@ -1,5 +1,6 @@
 require('promise.prototype.finally').shim();
-const { ipcRenderer, remote } = require('electron')
+const { ipcRenderer } = require('electron')
+const { require: nodeRequire } = require('@electron/remote')
 
 const ElectronStore = require('electron-store')
 const settings = new ElectronStore()
@@ -7,9 +8,10 @@ const prettyBytes = require('pretty-bytes')
 const path = require('path')
 
 const FileSaver = require('file-saver')
+const tempDir = require('temp-dir')
 
-const db_uploads_archive = remote.require('./services/db/uploads_archive')
-const db_downloads_archive = remote.require('./services/db/downloads_archive')
+const db_uploads_archive = nodeRequire('./services/db/uploads_archive')
+const db_downloads_archive = nodeRequire('./services/db/downloads_archive')
 
 const dom_context = '#progress-archive-section';
 const { $$, $on } = require('./../services/selector_factory')(dom_context)
@@ -180,13 +182,6 @@ function _init_upload_archive_table() {
             console.log(transfer)
             if (transfer.xnat_server === xnat_server && transfer.user === user_auth.username) {
                 let study_label = transfer.session_data.studyId ? transfer.session_data.studyId : transfer.session_data.studyInstanceUid;
-
-                /*
-                if (transfer.anon_variables.experiment_label === 'DARKO_1_MR_12') {
-                    const target_path = path.resolve(remote.app.getPath('desktop'), '--JUNK--', 'XNAT-DEBUG', `upload_archive-digest--${transfer.anon_variables.experiment_label}--${Date.now()}.json`)
-                    objToJsonFile(transfer, target_path)
-                }
-                */
 
                 let session_datetime = '';
                 if (transfer.session_data.studyDate) {
@@ -527,11 +522,14 @@ $on('shown.bs.modal', '#upload-archive-details', function(e) {
 
 $on('click', '[data-js-view-receipt-link]', function(e) {
     const pdf_receipt_path = $(this).data('pdf_receipt_path')
-    ipcRenderer.send('shell.showItemInFolder', pdf_receipt_path)
+    if (pdf_receipt_path) {
+        ipcRenderer.send('shell.showItemInFolder', pdf_receipt_path)
+    }
 })
 
 $on('show.bs.modal', '#upload-archive-success-log', function(e) {
     var transfer_id = $(e.relatedTarget).data('id');
+    $(this).find('.modal-content').attr('data-id', transfer_id)
     db_uploads_archive.getById(transfer_id, (err, my_transfer) => {
         console.log(my_transfer);
         console.log($(e.currentTarget));
@@ -544,10 +542,14 @@ $on('show.bs.modal', '#upload-archive-success-log', function(e) {
             session_label: my_transfer.url_data.expt_label
         });
 
-        $$('[data-js-view-receipt-link]').data({
-            pdf_receipt_path: my_transfer.pdf_receipt_path
-        });
-    
+        if (my_transfer.pdf_receipt_path) {
+            $$('[data-js-view-receipt-link]').prop('disabled', false).attr('title', '').data({
+                pdf_receipt_path: my_transfer.pdf_receipt_path
+            });
+        } else {
+            $$('[data-js-view-receipt-link]').prop('disabled', true).attr('title', 'Feature disabled in settings for this transfer')
+        }
+
         for (key in my_transfer.session_data) {
             $log_text.append(`<p><b>${key}</b>: <span>${my_transfer.session_data[key]}</span></p>\n`);
         }
@@ -573,6 +575,34 @@ $on('show.bs.modal', '#upload-archive-success-log', function(e) {
 
     //_init_upload_details_table(id)
 });
+
+$on('click', '[data-js-save-session-as-json]', function() {
+    let id = $(this).closest('.modal-content').attr('data-id');
+
+    console.log({id});
+
+    swal({
+        title: "Notice!",
+        text: "Export session data as JSON file?",
+        icon: "warning",
+        buttons: {
+            yes: "Export JSON",
+            cancel: "Cancel"
+        },
+
+        closeOnEsc: true,
+        dangerMode: true
+    })
+    .then(async (toDownload) => {
+        if (toDownload === "yes") {
+            let transfer = await db_uploads_archive._getById(id)
+            let my_path = path.resolve(tempDir, `${id}--${Date.now()}.json`)
+            objToJsonFile(transfer, my_path)
+
+            ipcRenderer.send('shell.showItemInFolder', my_path)
+        }
+    });
+})
 
 
 function _init_download_details_table(transfer_id) {

@@ -1,4 +1,4 @@
-const electron = require('electron')
+const { ipcRenderer, app } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const checksum = require('checksum')
@@ -10,28 +10,40 @@ const settings = new ElectronStore()
 const tempDir = require('temp-dir')
 const rimraf = require('rimraf')
 
+// exports.getApp = () => electron.remote ? electron.remote.app : electron.app
+exports.getAppInfo = () => {
+    // Check if the code is running in the renderer process
+    if (process.type === 'renderer') {
+        // Use IPC to request the data from the main process - returns a Promise
+        return ipcRenderer.invoke('get-app-info');
+    } else {
+        // If in the main process, directly return the information
+        return Promise.resolve({
+            appPath: app.getAppPath(),
+            version: app.getVersion(),
+            userDataPath: app.getPath('userData')
+        });
+    }
+}
+
 exports.isDevEnv = () => {
-    // return process.argv && process.argv.length >= 3 && /--debug/.test(process.argv[2]);
-
-    // console.log(process.argv)
-    // console.log(process.mainModule.filename);
-    // alternative
-    return process.mainModule.filename.indexOf('app.asar') === -1;
+    return process.argv.includes('--dev') || process.argv.includes('--dev-main-process')
 }
 
-exports.getApp = () => electron.remote ? electron.remote.app : electron.app
-
-exports.currentVersionChannel = () => {
-    const app = this.getApp()
-    const versionString = app.getVersion()
-    
-    return versionString.includes("-beta") ? "beta" : 
-        versionString.includes("-alpha") ? "alpha" :
+exports.currentVersionChannel = async () => {
+    try {
+      const appInfo = await this.getAppInfo()
+      return appInfo.version.includes("-beta") ? "beta" : 
+        appInfo.version.includes("-alpha") ? "alpha" :
         "latest";
+    } catch (error) {
+        console.error('Failed to get app information:', error);
+    }
 }
 
-exports.getUpdateChannel = () => {
-    return settings.get('electron-updater-channel', this.currentVersionChannel())
+exports.getUpdateChannel = async () => {
+    const currentVersionChannel = await this.currentVersionChannel()
+    return settings.get('electron-updater-channel', currentVersionChannel)
 }
 
 exports.setUpdateChannel = (channel) => {
@@ -42,17 +54,20 @@ exports.setUpdateChannel = (channel) => {
 }
 
 exports.clearDefaultTempFiles = () => {
-    return new Promise((resolve, reject) => {
-        const directory = path.resolve(tempDir, '_xdc_temp', '*')
+    const defaultTempDir = path.resolve(tempDir, '_xdc_temp')
 
-        rimraf(directory, {disableGlob: false}, error => {
-            if (error) {
-                reject(error)
-            } else {
-                resolve(true)
-            }
-        })
-    })
+    if (fs.existsSync(defaultTempDir) && fs.lstatSync(defaultTempDir).isDirectory()) {
+        const dirGlob = path.join(defaultTempDir, '*')
+
+        try {
+            rimraf.sync(dirGlob, { disableGlob: false })
+            return `Temp directory '${defaultTempDir}' is now empty.`
+        } catch (err) {
+            throw err
+        }
+    }
+
+    return `Temp directory '${defaultTempDir}' does not exist.`
 }
 
 exports.objToJsonFile = (jsonObject, target_path) => {
@@ -283,4 +298,108 @@ exports.alNumDashUnderscore = (input, replacedBy = "_") => {
 
 exports.arrayUnique = (arr) => {
     return arr.filter((item, pos) => arr.indexOf(item) === pos)
+}
+exports.getFilesizeInBytes = (filename) => {
+    const stats = fs.statSync(filename)
+    return stats.size // fileSizeInBytes
+}
+
+function getCurrentTime() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-11, so we add 1
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+    
+    return `${year}-${month}-${day}_${hours}:${minutes}:${seconds}.${milliseconds}`;
+}
+
+// TODO add dev toggle to enable simpleLog
+exports.simpleLog = (msg, filename = 'xdc--log1') => {
+    // return
+    const date = getCurrentTime()
+
+    const logDir = path.join(require('os').homedir(), 'XDC-Logs');
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir);
+    }
+    const filepath = path.join(logDir, `${filename}.log`);
+
+    const longMsg = `${date}: ${msg}\n`
+    
+    try {
+        // Append data to a file
+        fs.appendFileSync(filepath, longMsg);
+        // console.log('xdc-log SUCCESS.');
+    } catch (err) {
+        console.error('xdc-log error:', err);
+    }
+};
+
+exports.jsonStringify = (obj) => {
+    const getCircularReplacer = () => {
+        const seen = new WeakSet()
+        return (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+                if (seen.has(value)) {
+                    return '_circRef_'
+                }
+                seen.add(value)
+            }
+            return value
+        }
+    };
+    
+    return JSON.stringify(obj, getCircularReplacer())
+};
+
+exports.stripTags = (html) => {
+    if (typeof html !== 'string') {
+        return ''
+    }
+
+    return html
+        .replace(/<br *\/?>/gi, "\n")
+        .replace(/\r+/gi, "")
+        .replace(/(<([^>]+)>)/gi, " ")
+        .replace(/\t+/g, " ")
+        .replace(/ +/g, " ")
+        .replace(/ ?\n ?/gi, "\n")
+        .replace(/\n+/gi, "\n")
+        .trim();
+}
+
+exports.parseSetCookieHeader = (setCookieString) => {
+    const attributes = setCookieString.split(';').map(attr => attr.trim());
+    const cookie = {
+        name: '',
+        value: '',
+        Secure: false,
+        HttpOnly: false
+    };
+
+    attributes.forEach((attr, index) => {
+        if (index === 0) {
+            // First attribute should be the name=value pair
+            const [name, value] = attr.split('=');
+            cookie.name = name;
+            cookie.value = value;
+        } else {
+            // Other attributes
+            if (attr.toLowerCase() === 'secure') {
+                cookie.Secure = true;
+            } else if (attr.toLowerCase() === 'httponly') {
+                cookie.HttpOnly = true;
+            } else {
+                // Handle other attributes like Path, Domain, Max-Age, Expires
+                const [attrName, attrValue] = attr.split('=');
+                cookie[attrName] = attrValue || true; // Set to true for boolean attributes without a value
+            }
+        }
+    });
+
+    return cookie;
 }

@@ -105,7 +105,9 @@
     </section>
 
     <script type="text/javascript">
-        require('./renderer-process/home');
+        const path = require('path');
+        const modulePath = path.join(__dirname, '..', 'renderer-process', 'home');
+        require(modulePath);
         Helper.pageLoadTrigger('#home-section');
     </script>
 </template>

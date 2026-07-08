@@ -12,9 +12,9 @@ module.exports.listAll = (callback) => { // callback(err, docs)
     db().find({}, callback);
 }
 
-module.exports._listAll = () => {
+module.exports._listAll = (filter = {}) => {
     return new Promise((resolve, reject) => {
-        db().find({}, (err, doc) => {
+        db().find(filter, (err, doc) => {
             if (err) reject(err)
             resolve(doc)
         });
@@ -43,6 +43,15 @@ module.exports._getByIdCopy = (id) => { // callback(err, doc)
     })
 }
 
+module.exports._insertChecksums = (id, checksums) => { // callback(err, doc)
+    return new Promise((resolve, reject) => {
+        db().update({ id: id }, { $push: { checksums: { $each: checksums } } }, {}, (err, num) => {
+            if (err) reject(err)
+            resolve(num)
+        });
+    })
+}
+
 
 module.exports._replaceDoc = (id, doc) => { // callback(err, num)
     // just in case
@@ -50,10 +59,12 @@ module.exports._replaceDoc = (id, doc) => { // callback(err, num)
         delete doc._id
     }
 
+    let docClone = lodashCloneDeep(doc)
+
     return new Promise((resolve, reject) => {
-        db().update({id: id}, doc, {}, (err, num) => {
+        db().update({id: id}, docClone, {}, (err, num) => {
             if (err) reject(err)
-            resolve(doc)
+            resolve(docClone)
         })
     })
     
@@ -75,6 +86,17 @@ module.exports.updateProperty = (id, property, value, callback) => { // callback
 module.exports._updateProperty = (id, property, value) => { 
     return new Promise((resolve, reject) => {
         db().update({ id: id }, { $set: { [property]: value } }, (err, num) => {
+            if (err) reject(err)
+            resolve(num)
+        });
+    });
+}
+
+module.exports._updateById = (transfer_id, set_object) => { 
+    return new Promise((resolve, reject) => {
+        db().update({ id: transfer_id }, { 
+            $set: set_object 
+        }, (err, num) => {
             if (err) reject(err)
             resolve(num)
         });

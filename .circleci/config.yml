@@ -1,52 +1,50 @@
 build_config: &build_config
-  BUILD_IMAGE_NAME: xnat/node-java-build
-  BUILD_IMAGE_TAG: latest
   CACHE_VERSION: v2
-  NODE_VERSION: "v14.20.0"
-  NVM_VERSION: "0.39.1"
-  JAVA_VERSION: "zulu8.64.0.19-ca-jdk8.0.345"
+  NODE_VERSION: "18.20.3"
   JDK_ROOT: "https://cdn.azul.com/zulu/bin"
+  JAVA_VERSION: "zulu8.78.0.19-ca-jdk8.0.412"
 
-version: 2
+version: 2.1
+
+orbs:
+  win: circleci/windows@5.0
 
 jobs:
 
-  build_win_and_linux:
+  build_linux:
 
     environment:
       <<: *build_config
 
     docker:
-      - image: ${BUILD_IMAGE_NAME}:${BUILD_IMAGE_TAG}
-
-    working_directory: ~/build
+      - image: cimg/node:${NODE_VERSION}
 
     steps:
       - checkout
       - restore_cache:
-          key: cache-${CACHE_VERSION}-win-linux-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-linux-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
-          name: Create link to Windows 64-bit JRE
-          command: ln -s /opt/java/win-x64/jre build_resources/jre/win-x64
-      - run:
-          name: Create link to Linux 64-bit JRE
-          command: ln -s /opt/java/linux-x64 build_resources/jre/linux-x64
+          name: Validate JDK/JRE and install if necessary
+          command: |
+              [[ ! -d build_resources/${JAVA_VERSION}-linux_x64 ]] && {
+                [[ -d build_resources/jre/linux-x64 ]] && { rm -rf build_resources/jre/linux-x64; }
+                wget -nc ${JDK_ROOT}/${JAVA_VERSION}-linux_x64.tar.gz
+                tar xf ${JAVA_VERSION}-linux_x64.tar.gz -C build_resources
+                cp -R build_resources/${JAVA_VERSION}-linux_x64/jre build_resources/jre/linux-x64
+                rm -f ${JAVA_VERSION}-linux_x64.tar.gz
+              }
       - run:
           name: Install and build node dependencies
           command: yarn install
       - save_cache:
-          key: cache-${CACHE_VERSION}-win-linux-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-linux-{{ .Branch }}-{{ checksum "package.json" }}
           paths:
             - node_modules
-      - run:
-          name: Build Windows 64-bit executable and installer
-          command: |
-              export JAVA_HOME="${JAVA_HOME_WIN}"
-              yarn dist-win-x64
+            - build_resources/jre
       - run:
           name: Build Linux 64-bit executable and installer
           command: |
-              export JAVA_HOME="${JAVA_HOME_LINUX}"
+              export JAVA_HOME="$(pwd)/build_resources/${JAVA_VERSION}-linux_x64"
               yarn dist-linux-x64
       - run:
           name: Copy build artifacts to artifacts folder
@@ -76,10 +74,8 @@ jobs:
       <<: *build_config
 
     macos:
-      xcode: "13.4.1"
-      resource_class: macos.x86.medium.gen2
-
-    working_directory: ~/build
+      xcode: 15.3.0
+      resource_class: macos.m1.medium.gen1
 
     steps:
       - run:
@@ -93,29 +89,54 @@ jobs:
             echo "export NVM_DIR=\""'${HOME}'"/.nvm\"" >> ~/.bash_profile
             echo "[ -s \""'${NVM_DIR}'"/nvm.sh\" ] && source \""'${NVM_DIR}'"/nvm.sh\"" >> ~/.bash_profile
             source ${HOME}/.nvm/nvm.sh
-            nvm install ${NODE_VERSION}
-            nvm alias default ${NODE_VERSION}
+            nvm install v${NODE_VERSION}
+            nvm alias default v${NODE_VERSION}
             nvm use default
+      - checkout
+      - restore_cache:
+          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
+      - run:
+          name: Download and expand JREs for Mac
+          command: |
+            for BUILD_ARCH in arm64 x64; do
+              [[ -d build_resources/jre/mac-${BUILD_ARCH} ]] && {
+                [[ $(find build_resources/jre/mac-${BUILD_ARCH} -mindepth 1 -maxdepth 1 -type d -name bin | wc -l | tr -d ' ') == 0 ||
+                   ! -f build_resources/jre/mac-${BUILD_ARCH}/bin/java ||
+                   $(build_resources/jre/mac-${BUILD_ARCH}/bin/java -version 2>&1 | grep Server | wc -l | tr -d ' ') == 0 ]] && {
+                    echo "The JRE at build_resources/jre/mac-${BUILD_ARCH} is displeasing to me, deleting"
+                    rm -rf build_resources/jre/mac-${BUILD_ARCH}
+                 }
+              }
+              [[ ! -d build_resources/jre/mac-${BUILD_ARCH} ]] && {
+                  TARGET_ARCH="${BUILD_ARCH}"
+                  [[ "${BUILD_ARCH}" == "arm64" ]] && { TARGET_ARCH="aarch64"; }
+                  JAVA_TARGET="${JAVA_VERSION}-macosx_${TARGET_ARCH}"
+                  echo "No JDK found for ${BUILD_ARCH}, downloading ${JDK_ROOT}/${JAVA_TARGET}.tar.gz"
+                  mkdir -p build_resources/jre
+                  http --download --output=build_resources/jre/${JAVA_TARGET}.tar.gz ${JDK_ROOT}/${JAVA_TARGET}.tar.gz
+                  tar xf build_resources/jre/${JAVA_TARGET}.tar.gz --directory build_resources/jre
+                  cp -R build_resources/jre/${JAVA_TARGET}/zulu-8.jdk/Contents/Home/jre build_resources/jre/mac-${BUILD_ARCH}
+                  echo "JRE installed, using version: $(build_resources/jre/mac-${BUILD_ARCH}/bin/java -version 2>&1 | grep Server)"
+              } || {
+                  echo "Existing JRE found, using version: $(build_resources/jre/mac-${BUILD_ARCH}/bin/java -version 2>&1 | grep Server)"
+              }
+              # Last, make sure there are no read-only files! These cause the update process to fail.
+              find build_resources/jre/mac-${BUILD_ARCH} -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \;
+            done
       - run:
           name: Download and install JDK
           command: |
             [[ ! -d /Library/Java/JavaVirtualMachines/zulu-8.jdk ]] && {
                 JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
-                echo "No JDK found, downloading ${JAVA_VERSION}"
-                http --download ${JDK_ROOT}/${JAVA_TARGET}.zip
-                unzip ${JAVA_TARGET}.zip
-                sudo mv ${JAVA_TARGET}/zulu-8.jdk /Library/Java/JavaVirtualMachines
-                rm -rf ${JAVA_TARGET}*
-                JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
-                ln -s $JAVA_HOME/include/darwin/jni_md.h \
-                    $JAVA_HOME/include/jni_md.h
+                [[ ! -d build_resources/jre/${JAVA_TARGET} ]] && {
+                  http --download --output=build_resources/jre/${JAVA_TARGET}.tar.gz ${JDK_ROOT}/${JAVA_TARGET}.tar.gz
+                  tar xf build_resources/jre/${JAVA_TARGET}.tar.gz --directory build_resources/jre
+                }
+                sudo cp -R build_resources/jre/${JAVA_TARGET}/zulu-8.jdk /Library/Java/JavaVirtualMachines
                 echo "JDK ${JAVA_TARGET} installed, using version: $(/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java -version 2>&1 | grep Server)"
             } || {
                 echo "Existing JDK found, using version: $(/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java -version 2>&1 | grep Server)"
             }
-      - checkout
-      - restore_cache:
-          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
       - run:
           name: Copy installed JDK to application folder
           command: |
@@ -126,30 +147,6 @@ jobs:
             }
             [[ -f /Applications/XNAT-Desktop-Client.app/Contents/Resources/jre/lib/jli/libjli.dylib ]] || { echo "Tried to install libjli.dylib but something went wrong"; }
       - run:
-          name: Download and expand JRE for Mac
-          command: |
-            [[ -d build_resources/jre/mac ]] && {
-                [[ $(find build_resources/jre/mac -mindepth 1 -maxdepth 1 -type d -name bin | wc -l | tr -d ' ') == 0 ||
-                   ! -f build_resources/jre/mac/bin/java ||
-                   $(build_resources/jre/mac/bin/java -version 2>&1 | grep ${JAVA_TOKEN} | wc -l | tr -d ' ') == 0 ]] && {
-                    rm -rf build_resources/jre/mac;
-                 }
-            }
-            [[ ! -d build_resources/jre/mac ]] && {
-                mkdir -p build_resources/jre
-                cp -R /Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/jre build_resources/jre/mac
-                echo "JRE installed, using version: $(build_resources/jre/mac/bin/java -version 2>&1 | grep Server)"
-            } || {
-                echo "Existing JRE found, using version: $(build_resources/jre/mac/bin/java -version 2>&1 | grep Server)"
-            }
-            # Last, make sure there are no read-only files! These cause the update process to fail.
-            find build_resources/jre/mac -type f -perm +444 ! -perm +222 -exec chmod +w '{}' \;
-      - run:
-          name: Donwload and install Python@2
-          command: |
-            http -d https://www.python.org/ftp/python/2.7.18/python-2.7.18-macosx10.9.pkg
-            sudo installer -pkg python-2.7.18-macosx10.9.pkg -target /
-      - run:
           name: Install and build node dependencies
           command: |
             export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
@@ -158,13 +155,14 @@ jobs:
           key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
           paths:
             - node_modules
-            - build_resources/jre/mac
+            - build_resources/jre/mac-arm64
+            - build_resources/jre/mac-x64
             - /Applications/XNAT-Desktop-Client.app
+            - /Library/Java/JavaVirtualMachines/zulu-8.jdk
       - run:
           name: Build Mac executable and installer
           command: |
             export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
-            export PYTHON_PATH=/usr/local/bin/python
             yarn dist-mac
       - run:
           name: Copy build artifacts to artifacts folder
@@ -188,6 +186,29 @@ jobs:
       - store_artifacts:
           path: artifacts
 
+  build_win:
+
+    environment:
+      <<: *build_config
+
+    executor: win/server-2019
+    steps:
+      - run: Write-Host "Hello, Windows"
+      - run: pwd
+      - run: nvm install 18.20.4
+      - run: nvm use 18.20.4
+      - run: npm install --global yarn
+      - run: yarn --version
+      - run:
+          name: Check if it is a master branch
+          command: |
+            if ($Env:CIRCLE_BRANCH -eq 'master') {
+                Write-Host "The branch is master."
+            } else {
+                Write-Host "The branch is not master. It is '$Env:CIRCLE_BRANCH'."
+            }
+
+
 workflows:
 
   version: 2
@@ -195,7 +216,9 @@ workflows:
   build_all:
 
     jobs:
-      - build_win_and_linux:
+      - build_linux:
           context: dxm
       - build_mac:
+          context: dxm
+      - build_win:
           context: dxm

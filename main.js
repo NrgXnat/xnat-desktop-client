@@ -2,19 +2,28 @@ const path = require('path')
 const fs = require('fs')
 const glob = require('glob')
 const electron = require('electron')
-const { app, BrowserWindow, ipcMain, shell, Tray, dialog, protocol } = electron
+const { app, session, BrowserWindow, ipcMain, shell, Tray, dialog, protocol } = electron
+
+
+require('@electron/remote/main').initialize()
+const enableRemoteModule = require('@electron/remote/main').enable;
+
 const { autoUpdater } = require('electron-updater')
 const electron_log = require('./services/electron_log')
 
-const { isDevEnv, getUpdateChannel } = require('./services/app_utils')
+const { isDevEnv, getUpdateChannel, parseSetCookieHeader } = require('./services/app_utils')
 
-const auth = require('./services/auth')
+const { allow_insecure_ssl } = require('./services/auth_main')
 
 const { runMigrations } = require('./services/migrations')
-const appMetaData = require('./package.json')
 
+const Singleton = require('./services/singleton');
+const singletonInstance = Singleton.getInstance();
+log('getRandomNumber', singletonInstance.getRandomNumber())
+
+// const appMetaData = require('./package.json')
 const ElectronStore = require('electron-store')
-const settings = new ElectronStore();
+const settings = new ElectronStore()
 
 // windows
 let mainWindow = null, downloadWindow = null, uploadWindow = null;
@@ -38,10 +47,30 @@ electron.crashReporter.start({
 });
 */
 
-global.user_auth = {
-  username: null,
-  password: null
-};
+global = require('./services/global');
+
+if (isDevEnv()) {
+  setInterval(function() {
+    console.log(`Queue items: ${global.shared._queue_.items.length}`)
+    console.log(`Queue items: `, global.shared._queue_.items)
+    console.log(`Queue processed: ${global.shared._queue_._processed.length}`)
+    console.log(`Upload Windows: ${global.windows.upload}`)
+  
+    let allWindows = BrowserWindow.getAllWindows()
+    let allWindowsIds = allWindows.map(win => win.id)
+    console.log(`All Win: ${allWindowsIds}`)
+
+    // session.defaultSession.cookies.get({ url: 'https://uar.xnat.flywheel.io/' })
+    //     .then((cookies) => {
+    //         console.log('Cookies for https://uar.xnat.flywheel.io:', cookies);
+    //     })
+    //     .catch((error) => {
+    //         console.error('Error getting cookies for https://uar.xnat.flywheel.io', error);
+    //     });
+
+  }, 30000)
+}
+
 
 initApp()
 
@@ -51,7 +80,6 @@ async function initApp() {
   } else {
     await runMigrations()
     if (is_usr_local_lib_writable()) {
-      fix_java_path()
       initialize()
     } else {
       initialize_usr_local_lib_app()
@@ -59,6 +87,20 @@ async function initApp() {
   }
 }
 
+function setWebPreferences() {
+  const additionalArguments = process.argv.reduce((all, arg) => {
+    if (arg.startsWith('--')) {
+      all.push(`${arg}-main-process`)
+    }
+    return all
+  }, [])
+
+  return {
+    nodeIntegration: true, // Enable Node Integration
+    contextIsolation: false, // If you enable nodeIntegration, you might need to disable contextIsolation
+    additionalArguments 
+  }
+}
 
 function initialize_usr_local_lib_app() {
   devToolsLog('initialize_usr_local_lib_app triggered')
@@ -66,7 +108,7 @@ function initialize_usr_local_lib_app() {
   let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
   const iconPath = path.join(__dirname, iconSource);
 
-  function createWindow() {
+  async function createWindow() {
     var windowOptions = {
       width: 800,
       minWidth: 768,
@@ -74,17 +116,21 @@ function initialize_usr_local_lib_app() {
       title: app.getName(),
       icon: iconPath,
       show: true,
-      frame: false
+      frame: false,
+      webPreferences: setWebPreferences()
     };
 
     mainWindow = new BrowserWindow(windowOptions);
+    enableRemoteModule(mainWindow.webContents);
     mainWindow.loadURL(path.join('file://', __dirname, '/index_alt.html'));
     updateUserAgentString(mainWindow);
 
     if (isDevEnv()) {
       mainWindow.webContents.openDevTools()
       mainWindow.maximize()
-      require('devtron').install()
+      // require('devtron').install()
+      // const devtronPath = path.join(__dirname, 'node_modules', 'devtron');
+      // await session.defaultSession.loadExtension(devtronPath);
     }
 
     mainWindow.on('closed', function () {
@@ -130,7 +176,8 @@ function initialize () {
   let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
   const iconPath = path.join(__dirname, iconSource);
 
-  function createWindow() {
+  async function createWindow() {
+    console.log('---- createWindow ---- INITIALIZED');
     var windowOptions = {
       width: 1080,
       minWidth: 788,
@@ -138,34 +185,112 @@ function initialize () {
       height: 840,
       title: app.getName(),
       icon: iconPath,
-      show: true
+      show: true,
+      webPreferences: setWebPreferences()
     };
     
     mainWindow = new BrowserWindow(windowOptions);
+    enableRemoteModule(mainWindow.webContents);
     mainWindow.loadURL(path.join('file://', __dirname, '/index.html'));
     updateUserAgentString(mainWindow);
+
+
+    // Intercept all responses
+    const filter = { urls: ['*://*/*'] }; // Filter to match all URLs
+    session.defaultSession.webRequest.onHeadersReceived(filter, (details, callback) => {
+      // Log the URL and Response Headers
+      // console.log('URL:', details.url);
+      // console.log('Status Code:', details.statusCode);
+
+      const urlObject = new URL(details.url);
+      const baseUrl = `${urlObject.protocol}//${urlObject.hostname}`;
+
+      const setCookieHeaders = details.responseHeaders['Set-Cookie'] || details.responseHeaders['set-cookie'];
+      if (setCookieHeaders) {
+        // console.log('Set-Cookie Headers:', setCookieHeaders);
+
+        // Optionally, parse and manually handle these cookies.
+        for (let singleCookie of setCookieHeaders) {
+          if (singleCookie.startsWith('JSESSIONID') || singleCookie.startsWith('SESSION_EXPIRATION_TIME')) {
+            const cookieObj = parseSetCookieHeader(singleCookie)
+            cookieObj.url = baseUrl
+
+            // console.log({cookieObj});
+
+            session.defaultSession.cookies.set(cookieObj).then(() => {
+              global.xnat_auth_cookies[cookieObj.name] = cookieObj.value
+              // console.log(`${cookieObj.name} cookie set successfully`);
+            }, (error) => {
+              console.error(`Error setting ${cookieObj.name} cookie`, error);
+            });
+          }
+        }
+      }
+
+      // Continue without modification
+      callback({ cancel: false, responseHeaders: details.responseHeaders });
+    });
+
+    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      const xnat_server = settings.get('xnat_server')
+      if (
+        xnat_server &&
+        details.url.startsWith(xnat_server) &&
+        global.xnat_auth_cookies.JSESSIONID && 
+        global.xnat_auth_cookies.SESSION_EXPIRATION_TIME
+      ) {
+        const newCookies = `JSESSIONID=${global.xnat_auth_cookies.JSESSIONID}; SESSION_EXPIRATION_TIME=${global.xnat_auth_cookies.SESSION_EXPIRATION_TIME};`
+        details.requestHeaders['Cookie'] = newCookies
+      }
+      
+      callback({ cancel: false, requestHeaders: details.requestHeaders });
+    });
 
     var childOptions = {
       width: 1200,
       height: 700,
       alwaysOnTop: false,
       show: false,
-      top: mainWindow
+      top: mainWindow,
+      webPreferences: setWebPreferences()
     };
 
     // Upload window
     uploadWindow = new BrowserWindow(childOptions)
+    enableRemoteModule(uploadWindow.webContents)
     uploadWindow.on('closed', function () {
       uploadWindow = null
     });
-    uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload.html'));
+
+    // FIX upload EPERM error (with config.json)
+    uploadWindow.webContents.on('console-message', function(event, level, message, line, sourceId) {
+      const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
+      
+      if ( level === 2 && message.startsWith(distinctError) ) {
+        console.log('--------------> [console-message] UPLOAD window EPERM error: ' + message)
+        uploadWindow.webContents.reload()
+      }
+    })
+
+    uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload-manager.html'));
     updateUserAgentString(uploadWindow);
 
     // Download window
     downloadWindow = new BrowserWindow(childOptions)
+    enableRemoteModule(downloadWindow.webContents);
     downloadWindow.on('closed', function () {
       downloadWindow = null
     });
+    // FIX download EPERM error (with config.json)
+    downloadWindow.webContents.on('console-message', function(event, level, message, line, sourceId) {
+      const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
+      
+      if ( level === 2 && message.startsWith(distinctError) ) {
+        console.log('--------------> [console-message] DOWNLOAD window EPERM error: ' + message)
+        downloadWindow.webContents.reload()
+      }
+    })
+
     downloadWindow.loadURL(path.join('file://', __dirname, '/sections/_download.html'));
     updateUserAgentString(downloadWindow);
 
@@ -175,7 +300,10 @@ function initialize () {
     if (isDevEnv()) {
       mainWindow.webContents.openDevTools()
       mainWindow.maximize()
-      require('devtron').install()
+      // require('devtron').install()
+      // const devtronPath = path.join(__dirname, 'node_modules', 'devtron');
+      // console.log({devtronPath});
+      // await session.defaultSession.loadExtension(devtronPath);
 
       uploadWindow.show()
       uploadWindow.webContents.openDevTools()
@@ -216,6 +344,16 @@ function initialize () {
       
       mainWindow = null
     });
+
+    // FIX main EPERM error (with config.json)
+    mainWindow.webContents.on('console-message', function(event, level, message, line, sourceId) {
+      const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
+      
+      if ( level === 2 && message.startsWith(distinctError) ) {
+        console.log('--------------> [console-message] MAIN window EPERM error: ' + message)
+        mainWindow.webContents.reload()
+      }
+    })
     
     // Protocol handler for win32
     if (process.platform == 'win32' || process.platform == 'linux') {
@@ -226,10 +364,9 @@ function initialize () {
     handle_protocol_request(startupExternalUrl, 'createWindow')
     
   }
-
-  function prepareAutoUpdate() {
+  async function prepareAutoUpdate() {
     autoUpdater.autoDownload = false;
-    autoUpdater.channel = getUpdateChannel();
+    autoUpdater.channel = await getUpdateChannel();
     // setting "channel" sets "allowDowngrade" to true, so change allowDowngrade after the channel property is set
     autoUpdater.allowDowngrade = autoUpdater.channel === 'latest'
     // debugging with autoUpdater.logger not required but still useful
@@ -277,7 +414,7 @@ function initialize () {
     devToolsLog('app.ready triggered')
     createWindow();
 
-    /*
+    
     let log_paths = {
       getAppPath: app.getAppPath(),
       home: app.getPath('home'),
@@ -286,10 +423,11 @@ function initialize () {
       temp: app.getPath('temp'),
       desktop: app.getPath('desktop'),
       logs: app.getPath('logs'),
-      documents: app.getPath('documents')
+      documents: app.getPath('documents'),
+      resourcesPath: process.resourcesPath
     };
     log(log_paths)
-    */
+    
     devToolsLog('app.ready DONE')
   })
 
@@ -336,9 +474,9 @@ function initialize () {
   app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
     // On certificate error we disable default behaviour (stop loading the page)
     // and we then say "it is all fine - true" to the callback
-    log('***** CERT ERROR ******', auth.allow_insecure_ssl(), app.allow_insecure_ssl);
+    log('***** CERT ERROR ******', allow_insecure_ssl(), app.allow_insecure_ssl);
     
-    if (app.allow_insecure_ssl || auth.allow_insecure_ssl()) {
+    if (app.allow_insecure_ssl || allow_insecure_ssl()) {
       event.preventDefault();
       callback(true);
       //post_message('custom_error', 'Certificate OK', 'All OK');
@@ -406,25 +544,31 @@ function post_message(type, ...args) {
 //
 // Returns true if the current version of the app should quit instead of
 // launching.
+
 function isSecondInstance() {
-  // if (process.mas) return false;
+  const gotTheLock = app.requestSingleInstanceLock();
 
-  return app.makeSingleInstance((argv, workingDirectory) => {
+  if (!gotTheLock) {
+      // This is a second instance, we should quit.
+      return true;
+  }
+
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
     if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore()
-      }
-      mainWindow.focus()
-
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
 
       // Protocol handler for win32
       // argv: An array of the second instance’s (command line / deep linked) arguments
       if (process.platform == 'win32' || process.platform == 'linux') {
         handle_protocol_request(argv.slice(1), 'app.makeSingleInstance');
       }
-      
     }
-  })
+  });
+
+  // This is the first instance.
+  return false;
 }
 
 function handle_protocol_request(url, place) {
@@ -465,89 +609,6 @@ function is_usr_local_lib_writable() {
 	return true;
 }
 
-function fix_java_path() {
-  const fs = require('fs');
-  const isSymlink = require('is-symlink');
-  const glob = require('glob');
-
-  const _app_path = __dirname;
-  const jre_search_base = path.resolve(_app_path, '..', 'jre');
-
-  let java_config_path, java_jre_path;
-  let jvm_file, jre_search_path;
-  let path_separator = ':';
-
-
-  if (path.extname(_app_path) === '.asar') {
-    java_config_path = path.resolve(_app_path, '..', 'app.asar.unpacked', 'node_modules', 'java', 'build', 'jvm_dll_path.json');
-
-    if (process.platform === 'win32') {
-      path_separator = ';'
-      jre_search_path = jre_search_base + '/**/jvm.dll';
-      jvm_file = glob.sync(jre_search_path)[0];
-      java_jre_path = path.resolve(jvm_file, '..');
-
-    } else if (process.platform === 'darwin') {
-
-      create_jre_symlink('libjvm.dylib', jre_search_base);
-      create_jre_symlink('libjli.dylib', jre_search_base);
-
-    } else { // linux
-      // temporary fix until we resolve symlink issue
-      return;
-
-      if (process.arch === 'x64') {
-        jre_search_path = jre_search_base + '/lib/amd64/**/libjvm.so';
-      } else {
-        jre_search_path = jre_search_base + '/lib/i386/**/libjvm.so';
-      }
-
-      jvm_file = glob.sync(jre_search_path)[0];
-      java_jre_path = path.resolve(jvm_file, '..');
-
-      // attempt
-      let libjvm_symlink = '/usr/local/lib/libjvm.so';
-      if (!isSymlink.sync(libjvm_symlink)) {
-        fs.symlinkSync(java_jre_path + '/libjvm.so', libjvm_symlink);
-      }
-    }
-
-    /*
-    fs.writeFileSync(path.resolve(_app_path, '..', 'jvm_file.txt'), jre_search_path+"\n"+'jvm_file:'+jvm_file+"\n"+java_jre_path, (err) => {
-        if (err) throw err;
-        console.log('The file has been saved!');
-    });
-    */
-    //java_jre_path = path.resolve(_app_path, '..', 'jre', 'bin', 'client');
-
-    if (process.platform === 'win32') {
-      java_jre_path = '"' + path_separator + java_jre_path.replace(/\\/g, '\\\\') + '"';
-      
-      fs.writeFileSync(java_config_path, java_jre_path, (err) => {
-        if (err) throw err;
-        console.log('The file has been saved!');
-      });
-    }
-
-  }
-}
-
-// filename = 'libjvm.dylib'
-function create_jre_symlink(filename, jre_search_base, local_lib_path = '/usr/local/lib') {
-  const isSymlink = require('is-symlink');
-
-  let jre_search_path = jre_search_base + '/**/' + filename;
-  let jvm_file = glob.sync(jre_search_path)[0];
-  
-  // to fix @rpath error on Mac
-  let libjvm_symlink = local_lib_path + '/' + filename;
-  if (isSymlink.sync(libjvm_symlink)) {
-    fs.unlinkSync(libjvm_symlink);
-  }
-  fs.symlinkSync(jvm_file, libjvm_symlink);
-}
-
-
 const showErrorBox = (title, msg) => {
   dialog.showErrorBox(title, msg)
 };
@@ -565,7 +626,6 @@ const showMessageBox = (options) => {
   dialog.showMessageBox(my_options);
 };
 
-
 ipcMain.on('download_and_install', (e) => {
   autoUpdater.downloadUpdate();
 })
@@ -574,7 +634,6 @@ ipcMain.on('download_and_install', (e) => {
 ipcMain.on('redirect', (e, item) => {
   post_message('load:page', item);
 })
-
 
 ipcMain.on('launch_download_modal', (e, item) => {
   post_message('load:page', 'home.html');
@@ -590,11 +649,13 @@ ipcMain.on('log', (e, ...args) => {
   log(...args)
 })
 
+ipcMain.on('main_log', (e, ...args) => {
+  console.log(...args)
+})
 
 ipcMain.on('download_progress', (e, item) =>{
   post_message('download_progress', item);
 })
-
 
 ipcMain.on('upload_progress', (e, item) => {
   post_message('upload_progress', item);
@@ -642,8 +703,17 @@ ipcMain.on('start_upload', (e, item) => {
 })
 
 ipcMain.on('cancel_upload', (e, transfer_id) => {
-  log('cancel_upload event (main.js)');
-  uploadWindow.webContents.send('cancel_upload', transfer_id);
+  // uploadWindow.webContents.send('cancel_upload', transfer_id);
+
+  for(let i = 0; i < global.windows.upload.length; i++) {
+    let uploadBrowserWindow = BrowserWindow.fromId(global.windows.upload[i])
+
+    if (uploadBrowserWindow) {
+      console.log(`window ID: ${global.windows.upload[i]} - cancel upload`)
+      uploadBrowserWindow.webContents.send('cancel_upload', transfer_id);
+      // uploadBrowserWindow.close()
+    }
+  }
 })
 
 ipcMain.on('start_download', (e, item) => {
@@ -659,6 +729,10 @@ ipcMain.on('cancel_download', (e, transfer_id) => {
 
 ipcMain.on('upload_finished', (e, transfer_id) => {
   post_message('upload_finished', transfer_id);
+})
+
+ipcMain.on('download_finished', (e, transfer_id) => {
+  post_message('download_finished', transfer_id);
 })
 
 ipcMain.on('custom_upload_multiple:generate_exp_label', (e, row) => {
@@ -691,6 +765,7 @@ ipcMain.on('force_reauthenticate', (e, login_data) => {
 
 // shell.showItemInFolder only brings opened window to front if called from main process
 ipcMain.on('shell.showItemInFolder', (e, full_path) => {
+  log({full_path})
   shell.showItemInFolder(full_path)
 })
 
@@ -711,29 +786,113 @@ ipcMain.on('print_pdf', (e, html, destination, pdf_settings, filename_base, show
   }
 
   const window_to_PDF = new BrowserWindow({show : false})//to just open the browser in background
-  window_to_PDF.loadURL(`file://${html_filepath}`) //give the file link you want to display
+  window_to_PDF.loadFile(html_filepath) //give the file link you want to display
 
-  window_to_PDF.webContents.once('did-finish-load', () => {
-    window_to_PDF.webContents.printToPDF(pdf_settings, function(err, data) {
-      if (err) {
-        devToolsLog(err)
-      } else {
-        try {
-          fs.writeFileSync(pdf_filepath, data)
-          fs.unlinkSync(html_filepath)
-        } catch (err) {
-          devToolsLog(err)
+  window_to_PDF.webContents.on('did-finish-load', () => {
+    window_to_PDF.webContents.printToPDF(pdf_settings).then(data => {
+      try {
+        fs.writeFileSync(pdf_filepath, data)
+        fs.unlinkSync(html_filepath)
+        console.log(`Wrote PDF successfully to ${pdf_filepath}`)
+
+        if (show_in_folder) {
+          shell.showItemInFolder(pdf_filepath)
         }
+      } catch (err) {
+        devToolsLog(err)
       }
-      
-      window_to_PDF.close()
 
-      if (show_in_folder) {
-        shell.showItemInFolder(pdf_filepath)
-      }
+      window_to_PDF.close()
+    }).catch(error => {
+      console.log(`Failed to write PDF to ${pdf_filepath}: `, error)
+
+      window_to_PDF.close()
     })
+  });
+})
+
+ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
+  console.log('------- init_upload_single -------');
+
+  const uploadWindowSingle = new BrowserWindow({
+    show: false,
+    webPreferences: setWebPreferences()
+  })//to just open the browser in background
+  enableRemoteModule(uploadWindowSingle.webContents);
+
+  uploadWindowSingle.on('close', function() {
+    console.log('close: ', uploadWindowSingle.id)
+    global.windows.remove(uploadWindowSingle.id)
+  })
+
+  
+  uploadWindowSingle.webContents.on('dom-ready', function() {
+    console.log('dom-ready:' + uploadWindowSingle.id)
+  })
+
+  uploadWindowSingle.webContents.on('console-message', function(event, level, message, line, sourceId) {
+    if (level === 2) {
+      console.log(`renderer console.error (win: ${uploadWindowSingle.id}): ${message}`)
+      console.log(message)
+    }
+
+    const distinctError = 'Uncaught Error: EPERM: operation not permitted, rename';
+    const distinctError2 = 'Uncaught ReferenceError: require is not defined';
+    const distinctError3 = "Uncaught (in promise) TypeError: Cannot read property 'canceled' of null";
     
+    if ( level === 2 && ( 
+        message.startsWith(distinctError) || 
+        message.startsWith(distinctError2) || 
+        message.startsWith(distinctError3) 
+      ) 
+    ) {
+      console.log('console-message (TARGETED ERROR):' + uploadWindowSingle.id)
+      uploadWindowSingle.close()
+      uploadWindow.webContents.send('single_upload_load_error', transfer_id, series_id, segment_index);
+    }
+  })
+
+  
+  uploadWindowSingle.loadURL(path.join('file://', __dirname, '/sections/_upload-single.html'));
+  updateUserAgentString(uploadWindowSingle);
+
+  // uploadWindowSingle.showInactive()
+  // uploadWindowSingle.webContents.openDevTools()
+  // uploadWindowSingle.maximize()
+
+  uploadWindowSingle.webContents.once('did-finish-load', () => {
+    console.log('did-finish-load:' + uploadWindowSingle.id)
+    uploadWindowSingle.webContents.send('set_window_id', uploadWindowSingle.id);
+    uploadWindowSingle.webContents.send('single_upload_data', transfer_id, series_id, segment_index);
+  });
+
+
+  uploadWindowSingle.webContents.once('plugin-crashed', () => {
+    console.log('plugin-crashed:' + uploadWindowSingle.id)
+  });
+
+  uploadWindowSingle.webContents.once('crashed', () => {
+    console.log('crashed:' + uploadWindowSingle.id)
   });
   
 })
 
+ipcMain.on('scan_segment_done', (e, transfer_id, series_id, segment_index) => {
+  uploadWindow.webContents.send('scan_segment_done', transfer_id, series_id, segment_index);
+})
+
+ipcMain.on('single_upload_finished', (e, window_id) => {
+  uploadWindow.webContents.send('single_upload_finished', window_id);
+})
+
+ipcMain.on('respawn_transfer', (e, transfer_id, series_id, segment_index, success) => {
+  uploadWindow.webContents.send('respawn_transfer', transfer_id, series_id, segment_index, success);
+})
+
+ipcMain.handle('get-app-info', () => {
+  return {
+    appPath: app.getAppPath(),
+    version: app.getVersion(),
+    userDataPath: app.getPath('userData')
+  };
+});

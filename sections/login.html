@@ -95,9 +95,9 @@
         
 
         <script type="text/javascript">
-            require('./renderer-process/login')
-
-            //$('#login-section').trigger('page:load');
+            const path = require('path');
+            const modulePath = path.join(__dirname, '..', 'renderer-process', 'login');
+            require(modulePath);
             Helper.pageLoadTrigger('#login-section'); 
         </script>
         

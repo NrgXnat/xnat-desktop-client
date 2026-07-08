@@ -2,111 +2,34 @@ const mizer = exports;
 const path = require('path');
 
 
-// const { app } = require('@electron/remote');
-const appIsPackaged = path.extname(__dirname) === '.asar'
+const _app_path = __dirname;
 
-const basePath = appIsPackaged
-  ? path.join(process.resourcesPath, 'app.asar.unpacked')
-  : __dirname;
+let java, jarDir, importClass, appendClasspath, mizerService;
 
-const jarDir = path.join(basePath, 'libs/');
-
-const javaBridge = appIsPackaged ? require(path.join(basePath, 'node_modules', 'java-bridge')) : require('java-bridge');
-const { importClass, appendClasspath, ensureJvm, getJavaLibPath, JavaVersion } = javaBridge;
-// const { importClass, appendClasspath, ensureJvm, getJavaLibPath, JavaVersion } = require('java-bridge');
-
-
-
-
-
-const { simpleLog } = require('./services/app_utils');
-
-function console_log(log_this) {
-    simpleLog(log_this, 'xdc--log-custom-fixed');
-    console.log('Logging: ', log_this);
-}
-
-
-
-let mizerService;
 let initJava = false
 
-console_log(__filename)
-
-if (appIsPackaged) {
-    try {
-        console_log('PACKAGED App')
-
-        let libPath;
-
-        switch (require('os').platform()) {
-            case 'win32':
-                libPath = path.join(process.resourcesPath, 'jre', 'bin', 'server', 'jvm.dll')
-                break
-            case 'darwin':
-                libPath = path.join(process.resourcesPath, 'jre', 'lib', 'server', 'libjvm.dylib')
-                break
-            case 'linux':
-                libPath = path.join(process.resourcesPath, 'jre', 'lib', 'amd64', 'server', 'libjvm.so')
-                break
-        }
-
-        console_log(`${require('os').platform()} jvm: ${libPath}`)
-        
-        ensureJvm({
-            isPackagedElectron: true,
-            libPath: libPath,
-            version: JavaVersion.VER_1_8,
-            opts: [
-                '-Xms2048m',     // 2GB initial heap
-                '-Xmx4096m',     // 4GB max heap
-                '-XX:+UseG1GC'   // G1 Garbage Collector - better for large heaps
-            ],
-        });
-
-        // ensureJvm({
-        //     isPackagedElectron: true,
-        //     libPath: 'C:\\Program Files\\XNAT-Desktop-Client\\resources\\jre\\bin\\server\\jvm.dll',
-        //     version: JavaVersion.VER_1_8
-        // });
-
-        initJava = true
-
-        console_log('initJava PACKAGED: true')
-    } catch (err) {
-        console_log('initJava PACKAGED: false')
-        let errorString = JSON.stringify(err, Object.getOwnPropertyNames(err));
-        console_log(errorString)
-    }
-
+if (path.extname(_app_path) === '.asar') {
+  const java_node_modules_dir = path.resolve(_app_path, '..', 'app.asar.unpacked', 'node_modules', 'java')
+  java = require(java_node_modules_dir)
+  jarDir = path.resolve(_app_path, '..', 'app.asar.unpacked', 'libs') + "/"
 } else {
-    // ensureJvm()
-    // console_log(`libPath: ${path.join(__dirname, 'build_resources', 'jre', 'win-x64', 'bin', 'server', 'jvm.dll')}`)
+  ensureJvm = require('java-bridge').ensureJvm
+
+  try {
     ensureJvm({
-        // isPackagedElectron: false,
-        // libPath: 'C:\\Program Files\\XNAT-Desktop-Client\\resources\\jre\\bin\\server\\jvm.dll',
-        // libPath: path.join(__dirname, 'build_resources', 'jre', 'win-x64', 'bin', 'server', 'jvm.dll'),
-        // version: JavaVersion.VER_1_8
+        isPackagedElectron: true
     });
     initJava = true
+  } catch (err) {
+    console.log(err);
+  }
+  
+  importClass = require('java-bridge').importClass
+  appendClasspath = require('java-bridge').appendClasspath
+  jarDir = _app_path + "/libs/"
 }
 
-console_log('jarDir: ' + jarDir)
-
-async function getAndStoreJavaVersion() {
-    try {
-        const javaVersion = await javaBridge.getJavaVersion();
-        console_log(`getJavaLibPath: ${getJavaLibPath()}`)
-        console_log(`Java version: ${javaVersion}`);
-    } catch (err) {
-        let errorString = JSON.stringify(err, Object.getOwnPropertyNames(err));
-        console_log(`Error getting Java version: ${errorString}`);
-    }
-}
-
-// Call the function
-getAndStoreJavaVersion();
-
+console.log(jarDir);
 
 if (initJava) {
     const jarClassPaths = ["classes",
@@ -119,17 +42,18 @@ if (initJava) {
         "dcm4che-core-2.0.29.jar",
         "dcm4che-iod-2.0.29.jar",
         "dcm4che-net-2.0.29.jar",
-        "dicom-edit4-1.8.10.jar",
-        "dicom-edit6-6.6.1.jar",
-        "dicomtools-1.8.10.jar",
-        "framework-1.8.10.jar",
+        "dicom-edit4-1.1.0.jar",
+        "dicom-edit6-6.5.0.jar",
+        "dicomtools-1.8.8.jar",
+        "framework-1.8.8.jar",
         "guava-20.0.jar",
         "jai-imageio-core-1.3.0.jar",
         "jai-imageio-jpeg2000-1.3.0.jar",
         "java-uuid-generator-3.1.4.jar",
         "jcl-over-slf4j-1.7.30.jar",
         "log4j-1.2.17.jar",
-        "mizer-1.8.10.1.jar",
+        "mizer-1.2.4.jar",
+        "pixelEditor-1.3.0.jar",
         "pixelmed-nrg-20200327.jar",
         "pixelmed-codec-20200328.jar",
         "pixelmed-imageio-20200328.jar",
@@ -137,7 +61,7 @@ if (initJava) {
         "slf4j-api-1.7.30.jar",
         "slf4j-log4j12-1.7.30.jar",
         "spring-core-4.3.30.RELEASE.jar",
-        "transaction-1.8.10.jar"].map(jar => jarDir + jar);
+        "transaction-1.8.8.jar"].map(jar => jarDir + jar);
 
     appendClasspath(jarClassPaths);
 
@@ -150,12 +74,8 @@ if (initJava) {
 
     const scriptFactoryClass = importClass("org.nrg.dicom.dicomedit.DE6ScriptFactory");
     const scriptFactory = new scriptFactoryClass()
-
-    const scriptApplicatorFactory = importClass("org.nrg.dicom.dicomedit.ScriptApplicatorFactory");
-    const applicatorFactory = new scriptApplicatorFactory(scriptFactory)
-
     const de6MizerClass = importClass("org.nrg.dicom.dicomedit.mizer.DE6Mizer")
-    mizers.addSync(new de6MizerClass(applicatorFactory));
+    mizers.addSync(new de6MizerClass(scriptFactory));
 
     // console.log({ROOT__mizers: mizers});
 
@@ -163,8 +83,6 @@ if (initJava) {
     mizerService = new mizerServiceClass(mizers);
 
     // console.log({ROOT__mizerService: mizerService});
-} else {
-    console_log('initJava is FALSE')
 }
 
 
@@ -181,7 +99,7 @@ if (initJava) {
  *
  * @return A Java Properties object containing the submitted names and values.
  */
-mizer.getVariables = async (variables) => {
+mizer.getVariables = (variables) => {
     const PropertiesClass = importClass("java.util.Properties");
     const properties = new PropertiesClass()
 
@@ -193,7 +111,7 @@ mizer.getVariables = async (variables) => {
     if (variables) {
         for (let key in variables) {
             // console.log(`${key} => ${variables[key]}`);
-            await properties.setPropertySync(key, variables[key]);
+            properties.setPropertySync(key, variables[key]);
         }
         // Object.keys(variables).forEach(key => {
         //     properties.setPropertySync(key, variables[key]);
@@ -211,14 +129,14 @@ mizer.getVariables = async (variables) => {
  *
  * @return A script context.
  */
-mizer.getScriptContext = async (script) => {
+mizer.getScriptContext = (script) => {
     const ContextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
     const context = new ContextClass();
 
     // console.log({getScriptContext__context: context});
 
     // context.setScriptSync(script);
-    await context.setScriptSync(script);
+    context.setScriptSync(script);
 
     return context;
 };
@@ -231,7 +149,7 @@ mizer.getScriptContext = async (script) => {
  *
  * @return A list of script contexts.
  */
-mizer.getScriptContexts = async (scripts) => {
+mizer.getScriptContexts = (scripts) => {
     const ArrayListClass = importClass("java.util.ArrayList");
     const arrayList = new ArrayListClass();
 
@@ -241,8 +159,8 @@ mizer.getScriptContexts = async (scripts) => {
     // });
 
     for (let i = 0; i < scripts.length; i++) {
-        const context = await mizer.getScriptContext(scripts[i]);
-        await arrayList.addSync(context);
+        const context = mizer.getScriptContext(scripts[i]);
+        arrayList.addSync(context);
     }
 
     return arrayList;
@@ -297,14 +215,7 @@ mizer.anonymize_old = (source, contexts, variables) => {
  * @param contexts  The script contexts to use for anonymization.
  * @param variables A Java Properties object to pass for variable substitution.
  */
-let isMizerAnonBusy = false;
-mizer.anonymize = async (source, contexts, variables) => {
-
-    if (isMizerAnonBusy) {
-        await waitForNotBusy();
-    }
-    isMizerAnonBusy = true
-    
+mizer.anonymize = (source, contexts, variables) => {
     const FileClass = importClass("java.io.File");
     const dicom = new FileClass(source);
 
@@ -314,55 +225,12 @@ mizer.anonymize = async (source, contexts, variables) => {
     while (itr.hasNextSync()) {
         let context = itr.nextSync();
         //console.log({context__0: context});
-        await context.addSync(variables);
+        context.addSync(variables);
     }
 
-    /*
-    mizerService.anonymizeSync(dicom, contexts);
-    isMizerAnonBusy = false
-    */
-    
     try {
-        const resultX = await mizerService.anonymize(dicom, contexts);
-
-        const anonMessages = resultX.getMessageSync().split("\n")
-
-        for (const anonMsg of anonMessages) {
-            if (anonMsg.startsWith("Rejected:")) {
-                throw new Error(`AnonymizationRejected - ${anonMsg}`);
-            }
-        }
-
-        simpleLog(`Anonymized: ${path.basename(source)}`);
-        console.log(`Anonymized: ${path.basename(source)}`);
-        isMizerAnonBusy = false
-        return resultX
-    } catch (err) {
-        console.log(`==== ANON_ERR ====> ${source}`);
-        console.log({ANON_ERR: err});
-        isMizerAnonBusy = false
-        throw err
-    }
-    
-};
-
-function waitForNotBusy() {
-    return new Promise(resolve => {
-        const interval = setInterval(() => {
-            if (!isMizerAnonBusy) {
-                clearInterval(interval);
-                resolve();
-            }
-        }, 50);
-    });
-}
-
-mizer.anonymizeSimple = async (source, contexts) => {
-    const FileClass = importClass("java.io.File");
-    const dicom = new FileClass(source);
-
-    try {
-        const resultX = await mizerService.anonymize(dicom, contexts);
+        console.log({mizerService});
+        mizerService.anonymize(dicom, contexts);
         console.log(`Anonymized: ${source}`);
     } catch (err) {
         console.log(`==== ANON_ERR ====> ${source}`);
@@ -397,9 +265,8 @@ mizer.anonymize_single = (source, script, variables) => {
     mizerService.anonymize(file, list);
 };
 
-mizer.get_scripts_anon_vars = async (scripts) => {
-    console.log('==========****** mizer.get_scripts_anon_vars ******===============')
-    const contexts = await mizer.getScriptContexts(scripts);
+mizer.get_scripts_anon_vars = (scripts) => {
+    const contexts = mizer.getScriptContexts(scripts);
     return mizer.getReferencedVariables(contexts);
 }
 
@@ -417,8 +284,4 @@ mizer.generateAlterPixelCode = (rectangles) => {
 
 mizer.isMizerError = (error_message) => {
     return error_message && error_message.indexOf('org.nrg.dicom.mizer.exceptions.MizerException') >= 0
-}
-
-mizer.isMizerRejected = (error_message) => {
-    return error_message && error_message.indexOf('AnonymizationRejected') >= 0
 }
