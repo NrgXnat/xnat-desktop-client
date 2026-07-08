@@ -103,6 +103,19 @@ jobs:
           Copy-Item -Recurse "$env:RUNNER_TEMP\zulu\$target\jre" "build_resources/jre/win-x64"
           & "build_resources/jre/win-x64/bin/java.exe" -version
 
+      # SSL.com eSigner CodeSignTool, used by scripts/esigner-sign.js (the
+      # electron-builder custom sign hook) to cloud-sign Windows binaries.
+      # The Windows download bundles its own Java runtime.
+      - name: Install CodeSignTool (Windows signing)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://www.ssl.com/download/codesigntool-for-windows/" -OutFile "$env:RUNNER_TEMP\CodeSignTool.zip"
+          Expand-Archive "$env:RUNNER_TEMP\CodeSignTool.zip" -DestinationPath "$env:RUNNER_TEMP\CodeSignTool"
+          $bat = Get-ChildItem -Path "$env:RUNNER_TEMP\CodeSignTool" -Recurse -Filter CodeSignTool.bat | Select-Object -First 1
+          if (-not $bat) { throw "CodeSignTool.bat not found in downloaded archive" }
+          "CODE_SIGN_TOOL_PATH=$($bat.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Install dependencies
         run: yarn install
 
@@ -121,6 +134,12 @@ jobs:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
           APPLETEAMID: ${{ secrets.APPLETEAMID }}
+          # Windows code signing via SSL.com eSigner; all optional. Without
+          # these, scripts/esigner-sign.js skips signing (unsigned build).
+          ES_USERNAME: ${{ secrets.ES_USERNAME }}
+          ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
+          ES_CREDENTIAL_ID: ${{ secrets.ES_CREDENTIAL_ID }}
+          ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
         run: yarn electron-builder ${{ matrix.args }} --publish never
 
       - name: Upload build artifacts
