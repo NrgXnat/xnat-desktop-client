@@ -1,6 +1,6 @@
 {
   "name": "xnat-desktop-client",
-  "version": "3.2.6",
+  "version": "3.2.6-alpha.1",
   "description": "XNAT Desktop Client",
   "main": "main.js",
   "extraMetadata": {
