@@ -38,7 +38,7 @@ jobs:
             args: --linux --x64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Enable Corepack (Yarn 4)
         shell: bash
@@ -50,13 +50,13 @@ jobs:
           fi
           corepack enable
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: yarn
 
       - name: Cache bundled JRE
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build_resources/jre
           key: jre-${{ matrix.name }}-${{ env.JAVA_VERSION }}
@@ -158,7 +158,7 @@ jobs:
         run: yarn electron-builder ${{ matrix.args }} --publish never
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}
           if-no-files-found: error
@@ -180,7 +180,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
