@@ -1,4 +1,4 @@
-name: Build
+name: Build XNAT Desktop Client (all builds)
 
 # Builds run on demand (workflow_dispatch), or automatically when a canonical
 # release tag is pushed (v3.2.6 builds; pre-release tags like v3.2.6-alpha.1
