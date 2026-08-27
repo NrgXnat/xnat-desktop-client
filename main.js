@@ -61,6 +61,15 @@ function parseConsoleMessage(...args) {
   return { isError: level === 2, message: message || '' }
 }
 
+// A failed loadFile/loadURL renders a blank window with no other symptom, and the
+// production file-log level is 'warn', so log at error level to make it visible.
+function logLoadFailures(win, label) {
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    if (!isMainFrame) return
+    electron_log.error(`${label} failed to load: ${errorCode} ${errorDescription} <${validatedURL}>`)
+  })
+}
+
 if (isDevEnv()) {
   setInterval(function() {
     console.log(`Queue items: ${global.shared._queue_.items.length}`)
@@ -134,7 +143,8 @@ function initialize_usr_local_lib_app() {
 
     mainWindow = new BrowserWindow(windowOptions);
     enableRemoteModule(mainWindow.webContents);
-    mainWindow.loadURL(path.join('file://', __dirname, '/index_alt.html'));
+    logLoadFailures(mainWindow, 'mainWindow')
+    mainWindow.loadFile(path.join(__dirname, 'index_alt.html'));
     updateUserAgentString(mainWindow);
 
     if (isDevEnv()) {
@@ -203,7 +213,8 @@ function initialize () {
     
     mainWindow = new BrowserWindow(windowOptions);
     enableRemoteModule(mainWindow.webContents);
-    mainWindow.loadURL(path.join('file://', __dirname, '/index.html'));
+    logLoadFailures(mainWindow, 'mainWindow')
+    mainWindow.loadFile(path.join(__dirname, 'index.html'));
     updateUserAgentString(mainWindow);
 
 
@@ -285,7 +296,8 @@ function initialize () {
       }
     })
 
-    uploadWindow.loadURL(path.join('file://', __dirname, '/sections/_upload-manager.html'));
+    logLoadFailures(uploadWindow, 'uploadWindow')
+    uploadWindow.loadFile(path.join(__dirname, 'sections/_upload-manager.html'));
     updateUserAgentString(uploadWindow);
 
     // Download window
@@ -305,7 +317,8 @@ function initialize () {
       }
     })
 
-    downloadWindow.loadURL(path.join('file://', __dirname, '/sections/_download.html'));
+    logLoadFailures(downloadWindow, 'downloadWindow')
+    downloadWindow.loadFile(path.join(__dirname, 'sections/_download.html'));
     updateUserAgentString(downloadWindow);
 
     
@@ -869,7 +882,8 @@ ipcMain.on('init_upload_single', (e, transfer_id, series_id, segment_index) => {
   })
 
   
-  uploadWindowSingle.loadURL(path.join('file://', __dirname, '/sections/_upload-single.html'));
+  logLoadFailures(uploadWindowSingle, 'uploadWindowSingle')
+  uploadWindowSingle.loadFile(path.join(__dirname, 'sections/_upload-single.html'));
   updateUserAgentString(uploadWindowSingle);
 
   // uploadWindowSingle.showInactive()
