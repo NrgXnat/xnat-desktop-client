@@ -13,6 +13,10 @@ env:
   JDK_ROOT: https://cdn.azul.com/zulu/bin
   JAVA_VERSION: zulu8.78.0.19-ca-jdk8.0.412
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     # On-demand runs always build; tag pushes only build canonical (non-pre-release) versions
@@ -136,6 +140,11 @@ jobs:
 
       - name: Build stylesheets
         run: yarn sass:build
+
+      - name: Setup macOS keychain (macOS only)
+        if: runner.os == 'macOS'
+        run: |
+          security unlock-keychain -p "" $RUNNER_KEYCHAIN_PATH || true
 
       - name: Build application
         shell: bash

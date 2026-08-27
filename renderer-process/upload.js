@@ -1892,39 +1892,85 @@ function cornerstone_disable_element(element) {
 
 $on('click', '#save-scan-btn', async function(e) {
     e.preventDefault()
-    let series_id = get_current_series_id();
-    let rectangle_state = find_registry_state(series_id);
 
-    if (rectangle_state !== undefined) {
-        rectangle_state.saved = true;
+    try {
+        let series_id = get_current_series_id();
+
+        // No highlighted thumbnail -> undefined id -> findIndex() returns -1 ->
+        // image_thumbnails[-1] is undefined and the save dies silently.
+        if (series_id === undefined) {
+            pixel_anon_error('Cannot save: no scan is currently selected (no highlighted thumbnail)',
+                new Error('get_current_series_id() returned undefined'))
+            return
+        }
+
+        let rectangle_state = find_registry_state(series_id);
+
+        if (rectangle_state !== undefined) {
+            rectangle_state.saved = true;
+        }
+
+        let index = image_thumbnails.findIndex(series => series.series_id == series_id)
+
+        if (index === -1) {
+            pixel_anon_error(`Cannot save: scan ${series_id} is not in the current thumbnail list (${image_thumbnails.length} entries)`,
+                new Error('image_thumbnails.findIndex() returned -1'))
+            return
+        }
+
+        await display_series_thumb(image_thumbnails[index], index, cornerstone)
+
+        $('#stack-scroll-btn').trigger('click')
+    } catch (err) {
+        pixel_anon_error('Saving the scan failed', err)
     }
-
-    let index = image_thumbnails.findIndex(series => series.series_id == series_id)
-    await display_series_thumb(image_thumbnails[index], index, cornerstone)
-
-    $('#stack-scroll-btn').trigger('click')
 })
 
 
 $on('click', '#reset-scan-btn', async function(e) {
     e.preventDefault()
-    const $context = $(this).closest('#topBarCustom').closest('div').find('#imgGalleryPreview')
-    const element = $('#dicom_image_container', $context).get(0);
 
-    // let toolState = cornerstoneTools.getToolState(element, 'RectangleOverlay')
+    try {
+        const $context = $(this).closest('#topBarCustom').closest('div').find('#imgGalleryPreview')
+        const element = $('#dicom_image_container', $context).get(0);
 
-    cornerstoneTools.clearToolState(element, 'RectangleOverlay')
+        if (element === undefined) {
+            pixel_anon_error('Cannot reset: the image viewport was not found',
+                new Error('#dicom_image_container not found in #imgGalleryPreview context'))
+            return
+        }
 
-    //cornerstone.updateImage(element)
-    registry_remove_series_state(get_current_series_id());
-    
-    redraw_rectangles({
-        srcElement: element
-    })
+        // let toolState = cornerstoneTools.getToolState(element, 'RectangleOverlay')
 
-    let series_id = get_current_series_id();
-    let index = image_thumbnails.findIndex(series => series.series_id == series_id)
-    await display_series_thumb(image_thumbnails[index], index, cornerstone)
+        cornerstoneTools.clearToolState(element, 'RectangleOverlay')
+
+        //cornerstone.updateImage(element)
+        registry_remove_series_state(get_current_series_id());
+
+        redraw_rectangles({
+            srcElement: element
+        })
+
+        let series_id = get_current_series_id();
+
+        if (series_id === undefined) {
+            pixel_anon_error('Cannot reset: no scan is currently selected (no highlighted thumbnail)',
+                new Error('get_current_series_id() returned undefined'))
+            return
+        }
+
+        let index = image_thumbnails.findIndex(series => series.series_id == series_id)
+
+        if (index === -1) {
+            pixel_anon_error(`Cannot reset: scan ${series_id} is not in the current thumbnail list (${image_thumbnails.length} entries)`,
+                new Error('image_thumbnails.findIndex() returned -1'))
+            return
+        }
+
+        await display_series_thumb(image_thumbnails[index], index, cornerstone)
+    } catch (err) {
+        pixel_anon_error('Resetting the scan failed', err)
+    }
 })
 
 
@@ -1967,6 +2013,38 @@ function clear_main_tool_state(image_path) {
     });
 }
 
+// Pixel anonymization diagnostics.
+//
+// Failures in this flow used to be completely silent: display_series_thumb()
+// discarded its rejection, the click handlers are async so jQuery drops any
+// rejection they produce, and most of the remaining work runs inside
+// setTimeout callbacks. Route failures through here so they reach the user and
+// the production log file (whose level is 'warn', so this must log at 'error').
+function report_ui_error(area, title, context, err, notify = true) {
+    const detail = err && err.stack ? err.stack : String(err)
+
+    console.error(`[${area}] ${context}:`, err)
+    electron_log.error(`[${area}] ${context}: ${detail}`)
+
+    if (notify) {
+        Helper.pnotify(title, context, 'error')
+    }
+}
+
+function pixel_anon_error(context, err, notify = true) {
+    report_ui_error('pixel-anon', 'Pixel Anonymization Error', context, err, notify)
+}
+
+// Backstop for anything the explicit handling below still misses.
+window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason
+    electron_log.error(`[renderer] unhandled promise rejection: ${reason && reason.stack ? reason.stack : reason}`)
+})
+
+window.addEventListener('error', (event) => {
+    electron_log.error(`[renderer] uncaught error: ${event.message} (${event.filename}:${event.lineno}:${event.colno})`)
+})
+
 async function display_series_thumb(series, index, cornerstone) {
     return new Promise((resolve, reject) => {
         $$('#series_thumbs').each(function() {
@@ -1976,9 +2054,26 @@ async function display_series_thumb(series, index, cornerstone) {
             })
         })
 
+        // A synchronous throw inside this executor rejects the promise, and every
+        // caller either awaits it from an async jQuery handler or ignores it, so an
+        // unguarded dereference here is invisible. Report and resolve instead.
+        if (series === undefined) {
+            pixel_anon_error('Could not render thumbnail: no series was passed (thumbnail index lookup failed)',
+                new Error('display_series_thumb() called with undefined series'))
+            resolve(false)
+            return
+        }
+
         const current_series = get_series_by_id(series.series_id);
 
-        if (DISABLE_IMAGE_ANONYMIZATION_FOR_MODALITIES.includes(current_series.modality.toUpperCase())) {
+        if (current_series === undefined) {
+            pixel_anon_error(`Could not render thumbnail: series ${series.series_id} was not found in the loaded sessions`,
+                new Error('get_series_by_id() returned undefined'))
+            resolve(false)
+            return
+        }
+
+        if (DISABLE_IMAGE_ANONYMIZATION_FOR_MODALITIES.includes((current_series.modality || '').toUpperCase())) {
             resolve(false)
             return
         }
@@ -2011,7 +2106,24 @@ async function display_series_thumb(series, index, cornerstone) {
     
             setTimeout(function() {
                 let $img = $('<img>');
-                let img_data_src = $(element).find("canvas").get(0).toDataURL();
+
+                const thumb_canvas = $(element).find("canvas").get(0);
+
+                if (thumb_canvas === undefined) {
+                    pixel_anon_error(`Could not render thumbnail for series ${series.series_id}: cornerstone produced no canvas`,
+                        new Error('No canvas element in the enabled cornerstone element'))
+                    return
+                }
+
+                let img_data_src;
+
+                try {
+                    img_data_src = thumb_canvas.toDataURL();
+                } catch (err) {
+                    pixel_anon_error(`Could not render thumbnail for series ${series.series_id}: reading the canvas failed`, err)
+                    return
+                }
+
                 $img.attr('src', img_data_src);
                 
                 $img.attr('id', 'ID_' + alNum(series.series_id, '_'));
@@ -2069,6 +2181,9 @@ async function display_series_thumb(series, index, cornerstone) {
         })
         .catch(err => {
             imageIsLoaded = false
+            // Previously discarded outright. Log it (the caller already shows an
+            // aggregate "some series do not contain image data" notice, so no toast).
+            pixel_anon_error(`Thumbnail image failed to load for series ${series.series_id} <${imageId}>`, err, false)
         })
         .finally(() => {
             setTimeout(function() {
@@ -2106,8 +2221,32 @@ $(document).on('drop', '#dicom_image_container', function(event) {
     drop_dicom(event.originalEvent)
 })
 
-$(document).on('click', '#series_thumbs:visible img', function() {
-    console.log(this.id);
+// Selecting a series was drag-and-drop only (see drop_dicom below); this handler
+// previously just logged, so clicking a thumbnail appeared to do nothing and the
+// first series stayed selected. Clicking is the expected interaction, so make it
+// select the series as well. Dragging still works.
+$(document).on('click', '#series_thumbs:visible img[data-series_id]', function(e) {
+    e.preventDefault();
+
+    const series_id = $(this).attr('data-series_id');
+    const $li = $(this).closest('li');
+
+    if ($li.hasClass('highlite-outline')) {
+        return // already the selected series
+    }
+
+    $li.addClass('highlite-outline').siblings().removeClass('highlite-outline');
+
+    // The inline step and the masking-template modal share element ids, so
+    // resolve the viewer belonging to this thumbnail rather than taking the
+    // first #dicom_image_container in the document.
+    const $context = $(this).closest('#imgGalleryPreview');
+    const element = $('#dicom_image_container', $context).get(0) || false;
+
+    const $modal = $(this).closest('#create-masking-template');
+    const session_id = $modal.length ? $modal.data('session-id') : undefined;
+
+    load_dicom_image(series_id, session_id, element);
 });
 
 function dragstart_dicom(ev) {
@@ -2286,63 +2425,83 @@ function redraw_rectangles(e) {
     const element = e.srcElement;
     
     setTimeout((series_id, element) => {
-        const rectangle_state = find_registry_state(series_id);
+        // Runs on the timer queue, so a throw here escapes every enclosing try.
+        try {
+            const rectangle_state = find_registry_state(series_id);
 
-        cornerstoneTools.clearToolState(element, 'RectangleOverlay');
-    
-        if (rectangle_state !== undefined) {
-            rectangle_state.data.forEach(state => {
-                // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
-                add_tool_state(element, 'RectangleOverlay', state)
-            });
+            cornerstoneTools.clearToolState(element, 'RectangleOverlay');
+
+            if (rectangle_state !== undefined) {
+                rectangle_state.data.forEach(state => {
+                    // cornerstoneTools.addToolState(element, 'RectangleOverlay', state)
+                    add_tool_state(element, 'RectangleOverlay', state)
+                });
+            }
+
+            cornerstone.updateImage(element)
+        } catch (err) {
+            pixel_anon_error('Redrawing the saved rectangles failed', err)
         }
-
-        cornerstone.updateImage(element)
     }, 20, series_id, element)
 }
 
 function handle_measurement_update(e) {
     clearTimeout(event_timeout);
     event_timeout = setTimeout(() => {
-        console.log(`EVENT DATA:`, e);
-        console.log(`TYPE: ${e.type}`);
-        console.log('DATA:', e.detail.measurementData);
+        // Runs on the timer queue, so a throw here escapes every enclosing try.
+        // If this fails, rectangle_state_registry is never populated and the
+        // subsequent save has nothing to record.
+        try {
+            console.log(`EVENT DATA:`, e);
+            console.log(`TYPE: ${e.type}`);
+            console.log('DATA:', e.detail.measurementData);
 
 
-        let series_id = get_current_series_id();
-        let element = e.srcElement;
-        
-        let toolState = get_tool_state(element, 'RectangleOverlay');
+            let series_id = get_current_series_id();
+            let element = e.srcElement;
 
-        if (toolState !== undefined) {
-            let state_data = {
-                series_id: series_id,
-                data: toolState.data,
-                rectangles: toolStateDataToRect(toolState.data),
-                saved: false
-            };
-
-            let rectangle_state = find_registry_state(series_id);
-            
-            if (rectangle_state !== undefined) { // if defined -> update
-                rectangle_state.data = state_data.data
-                rectangle_state.rectangles = state_data.rectangles
-                rectangle_state.saved = state_data.saved
-                // rectangle_state = {...rectangle_state, ...state_data} // merge
-            } else { // if not defined -> insert
-                rectangle_state_registry.push(state_data)
+            // Diagnostic only - keep the original control flow. An undefined id
+            // here is recorded against an undefined key, which is why the later
+            // save cannot find the scan in image_thumbnails.
+            if (series_id === undefined) {
+                pixel_anon_error('Drawn rectangles are being recorded without a scan id (no highlighted thumbnail)',
+                    new Error('get_current_series_id() returned undefined'), false)
             }
 
-            console.log({rectangles: state_data});
+            let toolState = get_tool_state(element, 'RectangleOverlay');
 
-            
-            $('#series_thumbs:visible li.highlite-outline').find('.green_mark').toggle(state_data.saved && state_data.rectangles > 0);
-            $('#series_thumbs:visible li.highlite-outline').find('.yellow_mark').toggle(!state_data.saved);
+            if (toolState !== undefined) {
+                let state_data = {
+                    series_id: series_id,
+                    data: toolState.data,
+                    rectangles: toolStateDataToRect(toolState.data),
+                    saved: false
+                };
+
+                let rectangle_state = find_registry_state(series_id);
+
+                if (rectangle_state !== undefined) { // if defined -> update
+                    rectangle_state.data = state_data.data
+                    rectangle_state.rectangles = state_data.rectangles
+                    rectangle_state.saved = state_data.saved
+                    // rectangle_state = {...rectangle_state, ...state_data} // merge
+                } else { // if not defined -> insert
+                    rectangle_state_registry.push(state_data)
+                }
+
+                console.log({rectangles: state_data});
+
+
+                $('#series_thumbs:visible li.highlite-outline').find('.green_mark').toggle(state_data.saved && state_data.rectangles > 0);
+                $('#series_thumbs:visible li.highlite-outline').find('.yellow_mark').toggle(!state_data.saved);
+            }
+
+            //const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
+            //toolStateManager.clearToolState(element, 'RectangleOverlay')
+            //cornerstoneTools.addToolState(element, 'RectangleOverlay', new_data)
+        } catch (err) {
+            pixel_anon_error('Recording the drawn rectangles failed', err)
         }
-        
-        //const toolStateManager = cornerstoneTools.getElementToolStateManager(element);
-        //toolStateManager.clearToolState(element, 'RectangleOverlay')
-        //cornerstoneTools.addToolState(element, 'RectangleOverlay', new_data)
     }, 100);
 }
 
@@ -2509,17 +2668,32 @@ function generate_project_list(projects) {
 }
 
 $(document).on('click', '#upload-section a[data-project_id]', async function(e){
-    FlowReset.execFrom('project_selection');
+    // This handler disables the Browse button (via the 'disable_session_upload'
+    // reset) and only re-enables it after every await below has settled. If one
+    // of them never settles there is no error and no dialog - Browse just stays
+    // disabled. Track the last completed step and raise a watchdog so that state
+    // is reported instead of being invisible.
+    let step = 'project_selection reset'
 
-    $(this).addClass('selected');
-
-    // set Review data
-    $('#var_project').val(get_form_value('project_id', 'project_id'));
-    
-    let project_id = '' + $(this).data('project_id'); // must be a string
+    const watchdog = setTimeout(() => {
+        report_ui_error('upload', 'Project Load Stalled',
+            `Loading the project settings has not completed (last step finished: ${step}). The Browse button stays disabled until it does.`,
+            new Error('Project settings load exceeded 30s without settling or throwing'))
+    }, 30000)
 
     try {
+        FlowReset.execFrom('project_selection');
+
+        $(this).addClass('selected');
+
+        // set Review data
+        $('#var_project').val(get_form_value('project_id', 'project_id'));
+
+        let project_id = '' + $(this).data('project_id'); // must be a string
+        step = `project_id resolved (${project_id})`
+
         project_settings = await fetch_project_settings(project_id, xnat_server, user_auth);
+        step = 'fetch_project_settings'
 
         const scripts = XNATAPI._aggregate_script(site_wide_settings.anon_script, project_settings.anon_script)
 
@@ -2528,6 +2702,7 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
 
         // CALC existing project labels (currently in the queue) ****************
         let all_uploads = await db_uploads._listAll()
+        step = 'db_uploads._listAll'
 
         let db_project_uploads = all_uploads.filter(transfer => {
             return transfer.xnat_server === xnat_server && 
@@ -2543,6 +2718,7 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
         // **********************************************************************
 
         const anon_variables = await mizer.get_scripts_anon_vars(scripts)
+        step = 'mizer.get_scripts_anon_vars'
 
         project_settings.computed = {
             scripts: scripts,
@@ -2569,15 +2745,18 @@ $(document).on('click', '#upload-section a[data-project_id]', async function(e){
         $('#project_settings_tbl_wrap').html(tbl)
 
         $('#file_upload_folder').prop('disabled', false).closest('.btn').removeClass('disabled')
+        step = 'browse enabled'
 
         FlowReset.execAfter('disable_session_upload')
 
         // -----------------------------------------------------
         // if needed - generate warning modal (about no anon script) and suppress warning logic
         suppress_anon_script_warning(scripts, xnat_server, project_id, user_settings)
-        
+
     } catch (err) {
         handle_error(err)
+    } finally {
+        clearTimeout(watchdog)
     }
 
 });
@@ -3040,6 +3219,9 @@ async function handle_upload_multi(_sessions, project_settings, overwrite) {
 
 
 $(document).on('click', '.js_upload', async function() {
+  // async jQuery handler: without this, any failure below is an unhandled
+  // rejection and the button simply appears to do nothing.
+  try {
     let upload_method = $('#nav-verify').data('upload_method')
     console.log({upload_method});
     if (upload_method === 'quick_upload') {
@@ -3076,7 +3258,9 @@ $(document).on('click', '.js_upload', async function() {
             })
         }
     }
-
+  } catch (err) {
+    report_ui_error('upload', 'Upload Error', 'Starting the upload failed', err)
+  }
 });
 
 function validate_required_inputs($container) {
@@ -4576,6 +4760,8 @@ function get_pet_tracers(project_pts, server_pts, user_defined_pts) {
 
 function handle_error(err) {
     console.error({err})
+    // swal() may fail to render; the log must record the error regardless.
+    electron_log.error(`[upload] ${err && err.stack ? err.stack : err}`)
 
     let message = err.message;
 
