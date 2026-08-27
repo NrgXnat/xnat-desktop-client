@@ -120,6 +120,7 @@
     "appId": "com.xnatapp.app",
     "productName": "XNAT-Desktop-Client",
     "generateUpdatesFilesForAllChannels": true,
+    "beforePack": "scripts/verify-jre.js",
     "afterSign": "scripts/notarize.js",
     "asarUnpack": [
       "node_modules/async/**/*",

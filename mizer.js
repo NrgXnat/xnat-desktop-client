@@ -11,6 +11,45 @@ const basePath = appIsPackaged
 
 const jarDir = path.join(basePath, 'libs/');
 
+// DicomEdit's alterPixels[] locates its pixel-edit handler through
+// java.util.ServiceLoader, which resolves against the *thread context*
+// classloader. appendClasspath() puts these jars in java-bridge's own
+// URLClassLoader, which that lookup never consults - so no handler was found,
+// alterPixels failed, and DicomEdit wrote a 0-byte file. Passing the same jars
+// as -Djava.class.path puts them on the system classloader, which is the
+// default context classloader on every thread (including the worker threads
+// java-bridge uses for async calls).
+const JAR_CLASSPATH = ["classes",
+        "antlr-runtime-3.5.2.jar",
+        "antlr4-runtime-4.7.1.jar",
+        "commons-compress-1.20.jar",
+        "commons-codec-1.10.jar",
+        "commons-io-2.6.jar",
+        "commons-lang3-3.11.jar",
+        "dcm4che-core-2.0.29.jar",
+        "dcm4che-iod-2.0.29.jar",
+        "dcm4che-net-2.0.29.jar",
+        "dicom-edit4-1.8.10.jar",
+        "dicom-edit6-6.6.1.jar",
+        "dicomtools-1.8.10.jar",
+        "framework-1.8.10.jar",
+        "guava-20.0.jar",
+        "jai-imageio-core-1.3.0.jar",
+        "jai-imageio-jpeg2000-1.3.0.jar",
+        "java-uuid-generator-3.1.4.jar",
+        "jcl-over-slf4j-1.7.30.jar",
+        "log4j-1.2.17.jar",
+        "mizer-1.8.10.1.jar",
+        "pixelmed-nrg-20200327.jar",
+        "pixelmed-codec-20200328.jar",
+        "pixelmed-imageio-20200328.jar",
+        "reflections-0.9.11.jar",
+        "slf4j-api-1.7.30.jar",
+        "slf4j-log4j12-1.7.30.jar",
+        "spring-core-4.3.30.RELEASE.jar",
+        "transaction-1.8.10.jar"].map(jar => jarDir + jar);
+
+
 const javaBridge = appIsPackaged ? require(path.join(basePath, 'node_modules', 'java-bridge')) : require('java-bridge');
 const { importClass, appendClasspath, ensureJvm, getJavaLibPath, JavaVersion } = javaBridge;
 // const { importClass, appendClasspath, ensureJvm, getJavaLibPath, JavaVersion } = require('java-bridge');
@@ -30,6 +69,9 @@ function console_log(log_this) {
 
 let mizerService;
 let initJava = false
+// Retained so the failure can be reported instead of silently disabling
+// anonymization. See assertJavaReady() and mizer.isJavaAvailable() below.
+let javaInitError = null
 
 console_log(__filename)
 
@@ -60,7 +102,11 @@ if (appIsPackaged) {
             opts: [
                 '-Xms2048m',     // 2GB initial heap
                 '-Xmx4096m',     // 4GB max heap
-                '-XX:+UseG1GC'   // G1 Garbage Collector - better for large heaps
+                '-XX:+UseG1GC',  // G1 Garbage Collector - better for large heaps
+                // Required for alterPixels[] - see JAR_CLASSPATH above.
+                `-Djava.class.path=${JAR_CLASSPATH.join(path.delimiter)}`,
+                // PixelMed's image handling pulls in AWT; there is no display here.
+                '-Djava.awt.headless=true'
             ],
         });
 
@@ -74,6 +120,7 @@ if (appIsPackaged) {
 
         console_log('initJava PACKAGED: true')
     } catch (err) {
+        javaInitError = err
         console_log('initJava PACKAGED: false')
         let errorString = JSON.stringify(err, Object.getOwnPropertyNames(err));
         console_log(errorString)
@@ -82,13 +129,24 @@ if (appIsPackaged) {
 } else {
     // ensureJvm()
     // console_log(`libPath: ${path.join(__dirname, 'build_resources', 'jre', 'win-x64', 'bin', 'server', 'jvm.dll')}`)
-    ensureJvm({
-        // isPackagedElectron: false,
-        // libPath: 'C:\\Program Files\\XNAT-Desktop-Client\\resources\\jre\\bin\\server\\jvm.dll',
-        // libPath: path.join(__dirname, 'build_resources', 'jre', 'win-x64', 'bin', 'server', 'jvm.dll'),
-        // version: JavaVersion.VER_1_8
-    });
-    initJava = true
+    try {
+        ensureJvm({
+            // isPackagedElectron: false,
+            // libPath: 'C:\\Program Files\\XNAT-Desktop-Client\\resources\\jre\\bin\\server\\jvm.dll',
+            // libPath: path.join(__dirname, 'build_resources', 'jre', 'win-x64', 'bin', 'server', 'jvm.dll'),
+            // version: JavaVersion.VER_1_8
+            opts: [
+                // Required for alterPixels[] - see JAR_CLASSPATH above.
+                `-Djava.class.path=${JAR_CLASSPATH.join(path.delimiter)}`,
+                '-Djava.awt.headless=true'
+            ]
+        });
+        initJava = true
+    } catch (err) {
+        javaInitError = err
+        console_log('initJava UNPACKAGED: false')
+        console_log(JSON.stringify(err, Object.getOwnPropertyNames(err)))
+    }
 }
 
 console_log('jarDir: ' + jarDir)
@@ -109,64 +167,107 @@ getAndStoreJavaVersion();
 
 
 if (initJava) {
-    const jarClassPaths = ["classes",
-        "antlr-runtime-3.5.2.jar",
-        "antlr4-runtime-4.7.1.jar",
-        "commons-compress-1.20.jar",
-        "commons-codec-1.10.jar",
-        "commons-io-2.6.jar",
-        "commons-lang3-3.11.jar",
-        "dcm4che-core-2.0.29.jar",
-        "dcm4che-iod-2.0.29.jar",
-        "dcm4che-net-2.0.29.jar",
-        "dicom-edit4-1.8.10.jar",
-        "dicom-edit6-6.6.1.jar",
-        "dicomtools-1.8.10.jar",
-        "framework-1.8.10.jar",
-        "guava-20.0.jar",
-        "jai-imageio-core-1.3.0.jar",
-        "jai-imageio-jpeg2000-1.3.0.jar",
-        "java-uuid-generator-3.1.4.jar",
-        "jcl-over-slf4j-1.7.30.jar",
-        "log4j-1.2.17.jar",
-        "mizer-1.8.10.1.jar",
-        "pixelmed-nrg-20200327.jar",
-        "pixelmed-codec-20200328.jar",
-        "pixelmed-imageio-20200328.jar",
-        "reflections-0.9.11.jar",
-        "slf4j-api-1.7.30.jar",
-        "slf4j-log4j12-1.7.30.jar",
-        "spring-core-4.3.30.RELEASE.jar",
-        "transaction-1.8.10.jar"].map(jar => jarDir + jar);
+    // importClass()/appendClasspath() reach into the JVM. If any of this
+    // fails, mizerService is left undefined and every anonymization call
+    // downstream fails in a way that does not surface, so record it here.
+    try {
+        const jarClassPaths = JAR_CLASSPATH;
 
-    appendClasspath(jarClassPaths);
+        appendClasspath(jarClassPaths);
 
 
-    const mizersClass = importClass("java.util.ArrayList");
-    const mizers = new mizersClass()
+        const mizersClass = importClass("java.util.ArrayList");
+        const mizers = new mizersClass()
 
-    const de4MizerClass = importClass("org.nrg.dcm.edit.mizer.DE4Mizer")
-    mizers.addSync(new de4MizerClass());
+        const de4MizerClass = importClass("org.nrg.dcm.edit.mizer.DE4Mizer")
+        mizers.addSync(new de4MizerClass());
 
-    const scriptFactoryClass = importClass("org.nrg.dicom.dicomedit.DE6ScriptFactory");
-    const scriptFactory = new scriptFactoryClass()
+        const scriptFactoryClass = importClass("org.nrg.dicom.dicomedit.DE6ScriptFactory");
+        const scriptFactory = new scriptFactoryClass()
 
-    const scriptApplicatorFactory = importClass("org.nrg.dicom.dicomedit.ScriptApplicatorFactory");
-    const applicatorFactory = new scriptApplicatorFactory(scriptFactory)
+        const scriptApplicatorFactory = importClass("org.nrg.dicom.dicomedit.ScriptApplicatorFactory");
+        const applicatorFactory = new scriptApplicatorFactory(scriptFactory)
 
-    const de6MizerClass = importClass("org.nrg.dicom.dicomedit.mizer.DE6Mizer")
-    mizers.addSync(new de6MizerClass(applicatorFactory));
+        const de6MizerClass = importClass("org.nrg.dicom.dicomedit.mizer.DE6Mizer")
+        mizers.addSync(new de6MizerClass(applicatorFactory));
 
-    // console.log({ROOT__mizers: mizers});
+        // console.log({ROOT__mizers: mizers});
 
-    const mizerServiceClass = importClass("org.nrg.dicom.mizer.service.impl.BaseMizerService")
-    mizerService = new mizerServiceClass(mizers);
+        // Secondary guard for the calling thread, in case a future java-bridge
+        // version stops honouring -Djava.class.path.
+        try {
+            const Thread = importClass('java.lang.Thread')
+            Thread.currentThreadSync().setContextClassLoaderSync(javaBridge.getClassLoader())
+        } catch (tcclErr) {
+            console_log(`could not set the thread context classloader: ${tcclErr.message}`)
+        }
 
-    // console.log({ROOT__mizerService: mizerService});
+        const mizerServiceClass = importClass("org.nrg.dicom.mizer.service.impl.BaseMizerService")
+        mizerService = new mizerServiceClass(mizers);
+
+        // console.log({ROOT__mizerService: mizerService});
+    } catch (err) {
+        javaInitError = err
+        initJava = false
+        mizerService = undefined
+        console_log('mizer service init FAILED')
+        console_log(JSON.stringify(err, Object.getOwnPropertyNames(err)))
+    }
+
 } else {
     console_log('initJava is FALSE')
 }
 
+
+
+// ---------------------------------------------------------------------------
+// Java runtime availability
+//
+// When the bundled JRE is missing from the package, ensureJvm() throws, this
+// module still loads, and mizerService is never created. Every anonymization
+// call then fails in the main process without the rejection reaching the
+// renderer, so the UI simply hangs. Anonymization is a PHI-removal feature:
+// failing silently is the worst possible outcome, so make it loud and explicit.
+// ---------------------------------------------------------------------------
+
+function javaInitErrorMessage() {
+    if (!javaInitError) return 'The Java runtime was not initialized.'
+    return javaInitError.message || String(javaInitError)
+}
+
+// Synchronous, so callers (including renderers, over @electron/remote) can
+// check availability without awaiting a call that may never settle.
+mizer.isJavaAvailable = () => initJava && mizerService !== undefined
+
+mizer.getJavaInitError = () => (initJava && mizerService !== undefined) ? null : javaInitErrorMessage()
+
+// Throws a plain Error (serializable across @electron/remote) rather than
+// letting the call disappear into an unresolved promise.
+function assertJavaReady(operation) {
+    if (initJava && mizerService !== undefined) return
+
+    const message =
+        `Anonymization is unavailable: the Java runtime failed to initialize, so "${operation}" cannot run. ` +
+        `This usually means the bundled JRE is missing from the application package. ` +
+        `Underlying error: ${javaInitErrorMessage()}`
+
+    console_log(`assertJavaReady FAILED (${operation}): ${javaInitErrorMessage()}`)
+
+    throw new Error(message)
+}
+
+if (!initJava || mizerService === undefined) {
+    const summary = `Java runtime unavailable - anonymization is disabled. ${javaInitErrorMessage()}`
+    console_log(summary)
+    console.error(summary)
+
+    try {
+        // Route it to the production log too; console output is not retained.
+        require('./services/electron_log').error(`[mizer] ${summary}`)
+    } catch (e) {
+        // logging must never be the reason startup fails
+    }
+}
 
 
 /**
@@ -182,6 +283,8 @@ if (initJava) {
  * @return A Java Properties object containing the submitted names and values.
  */
 mizer.getVariables = async (variables) => {
+    assertJavaReady('getVariables');
+
     const PropertiesClass = importClass("java.util.Properties");
     const properties = new PropertiesClass()
 
@@ -212,6 +315,8 @@ mizer.getVariables = async (variables) => {
  * @return A script context.
  */
 mizer.getScriptContext = async (script) => {
+    assertJavaReady('getScriptContext');
+
     const ContextClass = importClass("org.nrg.dicom.mizer.service.impl.MizerContextWithScript");
     const context = new ContextClass();
 
@@ -232,6 +337,8 @@ mizer.getScriptContext = async (script) => {
  * @return A list of script contexts.
  */
 mizer.getScriptContexts = async (scripts) => {
+    assertJavaReady('getScriptContexts');
+
     const ArrayListClass = importClass("java.util.ArrayList");
     const arrayList = new ArrayListClass();
 
@@ -252,6 +359,8 @@ mizer.getScriptContexts = async (scripts) => {
  * Gets variables that are referenced in the contexts.
  */
 mizer.getReferencedVariables = (contexts) => {
+    assertJavaReady('getReferencedVariables');
+
     const variableMap = {};
     const variables = mizerService.getReferencedVariablesSync(contexts);
 
@@ -282,6 +391,8 @@ mizer.getReferencedVariables = (contexts) => {
  * @param variables A Java Properties object to pass for variable substitution.
  */
 mizer.anonymize_old = (source, contexts, variables) => {
+    assertJavaReady('anonymize_old');
+
     const FileClass = importClass("java.io.File");
     const dicom = new FileClass(source);
 
@@ -299,6 +410,7 @@ mizer.anonymize_old = (source, contexts, variables) => {
  */
 let isMizerAnonBusy = false;
 mizer.anonymize = async (source, contexts, variables) => {
+    assertJavaReady('anonymize');
 
     if (isMizerAnonBusy) {
         await waitForNotBusy();
@@ -358,6 +470,8 @@ function waitForNotBusy() {
 }
 
 mizer.anonymizeSimple = async (source, contexts) => {
+    assertJavaReady('anonymizeSimple');
+
     const FileClass = importClass("java.io.File");
     const dicom = new FileClass(source);
 
@@ -373,6 +487,8 @@ mizer.anonymizeSimple = async (source, contexts) => {
 };
 
 mizer.anonymize_single = (source, script, variables) => {
+    assertJavaReady('anonymize_single');
+
     const PropertiesClass = importClass("java.util.Properties");
     const properties = new PropertiesClass();
 
@@ -398,6 +514,8 @@ mizer.anonymize_single = (source, script, variables) => {
 };
 
 mizer.get_scripts_anon_vars = async (scripts) => {
+    assertJavaReady('get_scripts_anon_vars');
+
     console.log('==========****** mizer.get_scripts_anon_vars ******===============')
     const contexts = await mizer.getScriptContexts(scripts);
     return mizer.getReferencedVariables(contexts);
@@ -409,7 +527,12 @@ mizer.generateAlterPixelCode = (rectangles) => {
     })
     
     if (lines.length) {
-      lines.unshift(`version "6.1"`)
+      // alterPixels[] is documented as DicomEdit 6.3+, so declare 6.3 rather than
+      // the 6.1 this used to emit. Note this was NOT the cause of the 0-byte
+      // output - that was the ServiceLoader classpath problem described at
+      // JAR_CLASSPATH; with that fixed, 6.1 works too. Declaring 6.3 simply
+      // matches the documented minimum for the function being used.
+      lines.unshift(`version "6.3"`)
     }
     
     return lines.join("\n");

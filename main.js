@@ -457,6 +457,8 @@ function initialize () {
     log(log_paths)
     
     devToolsLog('app.ready DONE')
+
+    verifyJavaRuntime()
   })
 
   app.on('window-all-closed', () => {
@@ -531,6 +533,43 @@ function initialTasks() {
 
   app.setAsDefaultProtocolClient(app.app_protocol);
   app.setAsDefaultProtocolClient(app.app_protocol + 's');
+}
+
+// DICOM anonymization runs on the bundled JRE. When that JRE is missing from the
+// package, mizer.js still loads but silently disables itself, and the failure
+// only shows up much later as a hung UI. Check for the runtime up front.
+//
+// This deliberately checks for the library file rather than loading mizer: doing
+// the latter would start the JVM (which requests a 2GB initial heap) at launch
+// for every user, including those who never upload.
+function verifyJavaRuntime() {
+  if (!app.isPackaged) {
+    return // development uses the system JDK
+  }
+
+  const libPaths = {
+    win32: path.join(process.resourcesPath, 'jre', 'bin', 'server', 'jvm.dll'),
+    darwin: path.join(process.resourcesPath, 'jre', 'lib', 'server', 'libjvm.dylib'),
+    linux: path.join(process.resourcesPath, 'jre', 'lib', 'amd64', 'server', 'libjvm.so')
+  }
+
+  const libPath = libPaths[process.platform]
+
+  if (libPath && fs.existsSync(libPath)) {
+    return
+  }
+
+  electron_log.error(`Bundled Java runtime is missing - anonymization will be disabled. Expected: ${libPath}`)
+
+  dialog.showMessageBox(mainWindow, {
+    type: 'error',
+    title: 'Anonymization Unavailable',
+    message: 'The bundled Java runtime is missing, so DICOM anonymization is disabled.',
+    detail: `Do not use this installation to upload data that requires anonymization.\n\n` +
+      `Expected the runtime at:\n${libPath}\n\n` +
+      `This build was packaged without its bundled JRE. Reinstall from a complete build.`,
+    buttons: ['OK']
+  })
 }
 
 // Require each JS file in the main-process dir

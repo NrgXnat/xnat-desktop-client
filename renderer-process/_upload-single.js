@@ -627,10 +627,37 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
                         const mizerAnonymizeResult = await mizer.anonymize(target, contexts, variables);
                         console.log({mizerAnonymizeResult})
                         console.count('anonymized')
-                        
+
+                        const newFilesize = getFilesizeInBytes(target)
+
+                        // A failing DicomEdit script does not always come back as an
+                        // error - it can leave an empty or truncated file behind. That
+                        // file used to be zipped and uploaded, and the server rejected
+                        // it with "Not a DICOM Stream" (HTTP 400). A file this small
+                        // cannot hold even a DICOM preamble, so treat it as what it is:
+                        // an anonymization failure, which cancels the transfer.
+                        if (newFilesize < 132) {
+                            let anonMessage = ''
+                            try {
+                                anonMessage = mizerAnonymizeResult.getMessageSync()
+                            } catch (msgErr) {
+                                anonMessage = `(could not read the anonymization result message: ${msgErr.message})`
+                            }
+
+                            simpleLog(`(window: ${WINDOW_ID}) - ANON PRODUCED INVALID FILE: ${path.basename(target)}: ${oldFilesize}b ===> ${newFilesize}b`, 'xdc--anonsize')
+                            electron_log.error(`Anonymization produced an invalid DICOM file (${newFilesize} bytes) for ${source}. Mizer message: ${anonMessage}`)
+
+                            throw new MizerError(
+                                `Anonymization produced an invalid DICOM file (${newFilesize} bytes, expected roughly ${oldFilesize}).\n\n` +
+                                `Uploading it would fail on the server with "Not a DICOM Stream".\n\n` +
+                                `Anonymization result: ${anonMessage}`,
+                                source
+                            )
+                        }
+
                         fileData.anon_checksum = await file_checksum(target)
                         checksumIndex.push(fileData)
-                        simpleLog(`(window: ${WINDOW_ID}) - ${path.basename(target)}: ${oldFilesize}b ===> ${getFilesizeInBytes(target)}b`, 'xdc--anonsize')
+                        simpleLog(`(window: ${WINDOW_ID}) - ${path.basename(target)}: ${oldFilesize}b ===> ${newFilesize}b`, 'xdc--anonsize')
                         archive.file(target, { name: path.basename(target) });
 
                         resolve(false)
@@ -642,7 +669,10 @@ async function copy_and_anonymize(transfer, series_id, segment_index, filePaths,
                         electron_log.error(error)
                         electron_log.error(error.message)
     
-                        if (mizer.isMizerError(error.message)) {
+                        if (error instanceof MizerError) {
+                            console_red('MizerError (raised locally)')
+                            reject(error);
+                        } else if (mizer.isMizerError(error.message)) {
                             console_red('MizerError')
                             reject(new MizerError(error.message, source));
                         } else if (mizer.isMizerRejected(error.message)) {
