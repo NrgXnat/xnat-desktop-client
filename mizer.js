@@ -19,35 +19,42 @@ const jarDir = path.join(basePath, 'libs/');
 // as -Djava.class.path puts them on the system classloader, which is the
 // default context classloader on every thread (including the worker threads
 // java-bridge uses for async calls).
+//
+// This regressed in commit 3a8a4f3 ("Initial migration", 2024-02-14), which
+// swapped node-java's java.classpath.push() - a pre-JVM-start classpath that
+// the system classloader saw - for java-bridge's appendClasspath(). Passing
+// -Djava.class.path restores the behaviour node-java had. appendClasspath() is
+// kept as well so java-bridge resolves importClass() through its own loader.
+// See mizer--ORIG.js for the pre-migration original.
 const JAR_CLASSPATH = ["classes",
-        "antlr-runtime-3.5.2.jar",
-        "antlr4-runtime-4.7.1.jar",
-        "commons-compress-1.20.jar",
+        "antlr-runtime-3.5.3.jar",
+        "antlr4-runtime-4.9.3.jar",
+        "commons-compress-1.26.0.jar",
         "commons-codec-1.10.jar",
-        "commons-io-2.6.jar",
+        "commons-io-2.15.1.jar",
         "commons-lang3-3.11.jar",
         "dcm4che-core-2.0.29.jar",
         "dcm4che-iod-2.0.29.jar",
         "dcm4che-net-2.0.29.jar",
-        "dicom-edit4-1.8.10.jar",
-        "dicom-edit6-6.6.1.jar",
-        "dicomtools-1.8.10.jar",
-        "framework-1.8.10.jar",
-        "guava-20.0.jar",
+        "dicom-edit4-1.9.3.jar",
+        "dicom-edit6-6.8.0.jar",
+        "dicomtools-1.9.3.jar",
+        "framework-1.9.3.jar",
+        "guava-32.1.3-jre.jar",
         "jai-imageio-core-1.3.0.jar",
         "jai-imageio-jpeg2000-1.3.0.jar",
         "java-uuid-generator-3.1.4.jar",
         "jcl-over-slf4j-1.7.30.jar",
         "log4j-1.2.17.jar",
-        "mizer-1.8.10.1.jar",
+        "mizer-1.9.3.jar",
         "pixelmed-nrg-20200327.jar",
         "pixelmed-codec-20200328.jar",
         "pixelmed-imageio-20200328.jar",
-        "reflections-0.9.11.jar",
+        "reflections-0.10.2.jar",
         "slf4j-api-1.7.30.jar",
         "slf4j-log4j12-1.7.30.jar",
-        "spring-core-4.3.30.RELEASE.jar",
-        "transaction-1.8.10.jar"].map(jar => jarDir + jar);
+        "spring-core-5.3.39.jar",
+        "transaction-1.9.3.jar"].map(jar => jarDir + jar);
 
 
 const javaBridge = appIsPackaged ? require(path.join(basePath, 'node_modules', 'java-bridge')) : require('java-bridge');
@@ -182,14 +189,11 @@ if (initJava) {
         const de4MizerClass = importClass("org.nrg.dcm.edit.mizer.DE4Mizer")
         mizers.addSync(new de4MizerClass());
 
-        const scriptFactoryClass = importClass("org.nrg.dicom.dicomedit.DE6ScriptFactory");
-        const scriptFactory = new scriptFactoryClass()
-
-        const scriptApplicatorFactory = importClass("org.nrg.dicom.dicomedit.ScriptApplicatorFactory");
-        const applicatorFactory = new scriptApplicatorFactory(scriptFactory)
-
+        // DicomEdit 6.8 removed DE6ScriptFactory and ScriptApplicatorFactory.
+        // DE6Mizer now builds its own applicator and takes no constructor
+        // arguments; before 6.8 it required a ScriptApplicatorFactory.
         const de6MizerClass = importClass("org.nrg.dicom.dicomedit.mizer.DE6Mizer")
-        mizers.addSync(new de6MizerClass(applicatorFactory));
+        mizers.addSync(new de6MizerClass());
 
         // console.log({ROOT__mizers: mizers});
 

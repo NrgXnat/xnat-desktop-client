@@ -1,3 +1,24 @@
+// PRE-MIGRATION REFERENCE - NOT LOADED BY THE APP.
+//
+// This is mizer.js as it stood before commit 3a8a4f3 ("Initial migration",
+// 2024-02-14) replaced node-java with java-bridge. It is kept for one reason:
+// the classpath mechanism below.
+//
+// node-java required java.classpath.push() to be called before the JVM started,
+// and fed the accumulated list to the JVM as its classpath, so these jars landed
+// on the SYSTEM classloader. java.util.ServiceLoader resolves against the thread
+// context classloader, which defaults to that same system classloader - so
+// DicomEdit's alterPixels[] could find its PixelEditHandler service, and pixel
+// anonymization worked.
+//
+// java-bridge's appendClasspath() puts the jars in a separate URLClassLoader
+// instead, which ServiceLoader never consults. That is what silently broke pixel
+// anonymization: alterPixels failed and DicomEdit wrote 0-byte files. See the
+// JAR_CLASSPATH comment in mizer.js for the fix.
+//
+// The jar names here have been kept current so nothing references a jar that no
+// longer exists; the node-java API calls are deliberately left as they were.
+
 const mizer = exports;
 const path = require('path');
 const fs = require('fs');
@@ -29,35 +50,34 @@ if (path.extname(_app_path) === '.asar') {
 console.log(jarDir);
 
 ["classes",
-    "antlr-runtime-3.5.2.jar",
-    "antlr4-runtime-4.7.1.jar",
-    "commons-compress-1.20.jar",
+    "antlr-runtime-3.5.3.jar",
+    "antlr4-runtime-4.9.3.jar",
+    "commons-compress-1.26.0.jar",
     "commons-codec-1.10.jar",
-    "commons-io-2.6.jar",
+    "commons-io-2.15.1.jar",
     "commons-lang3-3.11.jar",
     "dcm4che-core-2.0.29.jar",
     "dcm4che-iod-2.0.29.jar",
     "dcm4che-net-2.0.29.jar",
-    "dicom-edit4-1.1.0.jar",
-    "dicom-edit6-6.5.0.jar",
-    "dicomtools-1.8.8.jar",
-    "framework-1.8.8.jar",
-    "guava-20.0.jar",
+    "dicom-edit4-1.9.3.jar",
+    "dicom-edit6-6.8.0.jar",
+    "dicomtools-1.9.3.jar",
+    "framework-1.9.3.jar",
+    "guava-32.1.3-jre.jar",
     "jai-imageio-core-1.3.0.jar",
     "jai-imageio-jpeg2000-1.3.0.jar",
     "java-uuid-generator-3.1.4.jar",
     "jcl-over-slf4j-1.7.30.jar",
     "log4j-1.2.17.jar",
-    "mizer-1.2.4.jar",
-    "pixelEditor-1.3.0.jar",
+    "mizer-1.9.3.jar",
     "pixelmed-nrg-20200327.jar",
     "pixelmed-codec-20200328.jar",
     "pixelmed-imageio-20200328.jar",
-    "reflections-0.9.11.jar",
+    "reflections-0.10.2.jar",
     "slf4j-api-1.7.30.jar",
     "slf4j-log4j12-1.7.30.jar",
-    "spring-core-4.3.30.RELEASE.jar",
-    "transaction-1.8.8.jar"].forEach(jar => java.classpath.push(jarDir + jar))
+    "spring-core-5.3.39.jar",
+    "transaction-1.9.3.jar"].forEach(jar => java.classpath.push(jarDir + jar))
 
 const mizers = java.newInstanceSync("java.util.ArrayList");
 mizers.addSync(java.newInstanceSync("org.nrg.dcm.edit.mizer.DE4Mizer"));
