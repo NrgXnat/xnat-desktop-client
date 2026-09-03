@@ -144,7 +144,15 @@ jobs:
       - name: Setup macOS keychain (macOS only)
         if: runner.os == 'macOS'
         run: |
-          security unlock-keychain -p "" $RUNNER_KEYCHAIN_PATH || true
+          # Unlock the default keychain with empty password
+          security unlock-keychain -p "" $RUNNER_KEYCHAIN_PATH
+          
+          # Set the keychain to not lock automatically during builds
+          security set-keychain-settings -t 3600 -u $RUNNER_KEYCHAIN_PATH
+          
+          # Import the certificate into the keychain (electron-builder will handle this)
+          # Set the partition list to allow codesign access without prompts
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" $RUNNER_KEYCHAIN_PATH || true
 
       - name: Build application
         shell: bash

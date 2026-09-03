@@ -6,9 +6,8 @@ const settings = new ElectronStore();
 const ipcRenderer = require('electron').ipcRenderer
 const swal = require('sweetalert');
 const fs = require('fs');
-const getFilePath = require('../services/get_file_path');
 
-const { require: nodeRequire, app } = require('@electron/remote')
+const { require: nodeRequire, app, dialog, getCurrentWindow } = require('@electron/remote')
 
 const electron_log = nodeRequire('./services/electron_log');
 
@@ -483,8 +482,33 @@ $(document).on('click', '#save_default_email_address', function(e) {
     $(this).prop('disabled', true);
 });
 
-$(document).on('change', '#file_default_local_storage', function(e) {
-    const selectedPath = getFilePath(this.files[0]);
+// Directory <input> elements cannot pick a folder: they hand back the files
+// inside it (so files[0] is a file, not the folder), they return nothing at all
+// for an empty folder, and Chromium labels that dialog for uploading. Use the
+// native directory dialog instead. Matches renderer-process/home.js.
+async function pickDirectory(title, defaultPath) {
+    try {
+        const result = await dialog.showOpenDialog(getCurrentWindow(), {
+            title: title,
+            buttonLabel: 'Select Folder',
+            properties: ['openDirectory', 'createDirectory'],
+            defaultPath: defaultPath || app.getPath('documents')
+        });
+
+        return (result.canceled || !result.filePaths.length) ? null : result.filePaths[0];
+    } catch (err) {
+        electron_log.error(`Folder selection dialog failed (${title}): ${err && err.stack ? err.stack : err}`);
+        Helper.pnotify(null, 'Could not open the folder selection dialog.', 'error', 3000);
+        return null;
+    }
+}
+
+$(document).on('click', '#browse_default_local_storage', async function(e) {
+    e.preventDefault();
+
+    const selectedPath = await pickDirectory('Select Default Local Storage Folder', $('#default_local_storage').val());
+    if (!selectedPath) return;
+
     settings.set('default_local_storage', selectedPath);
     $('#default_local_storage').val(selectedPath);
 
@@ -584,8 +608,10 @@ $(document).on('click', '.js_remove_suppress_anon_warning', function(e){
 
 
 
-$(document).on('change', '#file_temp_folder_alt', function(e) {
-    let alt_path = getFilePath(this.files[0]);
+$(document).on('click', '#browse_temp_folder_alt', async function(e) {
+    e.preventDefault();
+
+    let alt_path = await pickDirectory('Select Temporary Upload Folder', $('#temp_folder_alt').val());
     if (alt_path) {
         if (isReallyWritable(alt_path)) {
             console.log('WRITABLE', alt_path);
@@ -654,10 +680,12 @@ $on('click', '#change-pdf-receipt-settings', function() {
 });
 
 
-$on('change', '#pdf_destination_folder', function(e) {
-    if (this.files.length) {
-        let pth = getFilePath(this.files[0]);
+$on('click', '#browse_pdf_destination', async function(e) {
+    e.preventDefault();
 
+    const pth = await pickDirectory('Select PDF Receipt Destination', $$('#pdf_destination').val());
+
+    if (pth) {
         $$('#pdf_destination').val(pth);
     }
 });

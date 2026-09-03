@@ -1,9 +1,8 @@
 const electron = require('electron');
 const ElectronStore = require('electron-store');
-const getFilePath = require('../services/get_file_path');
 const settings = new ElectronStore();
 const ipcRenderer = electron.ipcRenderer
-const { app, require: nodeRequire } = require('@electron/remote');
+const { app, require: nodeRequire, dialog, getCurrentWindow } = require('@electron/remote');
 const shell = electron.shell
 const isOnline = require('is-online');
 const auth = require('../services/auth');
@@ -515,10 +514,32 @@ $(document).on('show.bs.modal', '#alt_upload_method_modal', function(e) {
     $('#default_temp_location').text(dicom_temp_folder_path)
 });
 
-$(document).on('change', '#file_temp_folder_alternative', function(e) {
-    if (this.files.length) {
-        $('#temp_folder_alternative').val(getFilePath(this.files[0]));
+// A directory <input> returns the files inside the folder, not the folder
+// itself, and returns nothing at all for an empty one - so this set a file path
+// that the isReallyWritable() check in #confirm_temp_folder then rejected. Use
+// the native directory dialog. Matches renderer-process/home.js and settings.js.
+$(document).on('click', '#browse_temp_folder_alternative', async function(e) {
+    e.preventDefault();
+
+    let result;
+
+    try {
+        result = await dialog.showOpenDialog(getCurrentWindow(), {
+            title: 'Select Temporary Upload Folder',
+            buttonLabel: 'Select Folder',
+            properties: ['openDirectory', 'createDirectory'],
+            defaultPath: $('#temp_folder_alternative').val() || app.getPath('documents')
+        });
+    } catch (err) {
+        electron_log.error(`Folder selection dialog failed (temp folder): ${err && err.stack ? err.stack : err}`);
+        return;
     }
+
+    if (result.canceled || !result.filePaths.length) {
+        return;
+    }
+
+    $('#temp_folder_alternative').val(result.filePaths[0]);
 })
 
 $(document).on('click', '#confirm_temp_folder', function() {
