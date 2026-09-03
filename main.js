@@ -626,10 +626,27 @@ function isSecondInstance() {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
 
-      // Protocol handler for win32
-      // argv: An array of the second instance’s (command line / deep linked) arguments
+      // Protocol handler for win32/linux.
+      //
+      // The Electron 42 migration replaced app.makeSingleInstance((argv, cwd))
+      // with the 'second-instance' event, whose argument is commandLine. The
+      // body kept referencing argv, which no longer exists in this scope, so
+      // every browser-initiated download threw "ReferenceError: argv is not
+      // defined" out of this handler.
+      //
+      // The renderer only inspects element [0] of what it receives
+      // (protocol_request in renderer-process/index3.js), so pick out the
+      // argument actually carrying the protocol rather than assuming it is the
+      // first one after the executable - a launch switch ahead of the URL would
+      // otherwise silently break this again.
       if (process.platform == 'win32' || process.platform == 'linux') {
-        handle_protocol_request(argv.slice(1), 'app.makeSingleInstance');
+        const base = app.app_protocol || 'xnat';
+        const prefixes = [base + '://', base + 's://'];
+        const protocolArg = commandLine.find(arg =>
+          typeof arg === 'string' && prefixes.some(prefix => arg.toLowerCase().startsWith(prefix))
+        );
+
+        handle_protocol_request(protocolArg ? [protocolArg] : commandLine.slice(1), 'second-instance');
       }
     }
   });
