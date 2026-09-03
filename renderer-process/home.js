@@ -14,7 +14,7 @@ require('promise.prototype.finally').shim();
 const xml2js = require('xml2js');
 const swal = require('sweetalert');
 
-const { require: nodeRequire, app } = require('@electron/remote')
+const { require: nodeRequire, app, dialog, getCurrentWindow } = require('@electron/remote')
 const electron_log = nodeRequire('./services/electron_log');
 
 const FileSaver = require('file-saver');
@@ -95,23 +95,54 @@ $(document).on('show.bs.modal', '#download_modal', function(e) {
     }
 });
 
-$(document).on('change', '#download_destination_file', function(e) {
-    let $input = $$('#download_destination_text');
-    let $ds = $$('#set_default_local_storage')
+// A directory <input> cannot serve as a destination picker.
+//
+// It hands back the files *inside* the chosen folder, so files[0] is the first
+// file rather than the folder itself - isReallyWritable() then tried to mkdir
+// inside a file and failed, leaving the field empty. An empty folder, which is
+// the normal choice for a download destination, yields no files at all, so the
+// handler never even ran. Chromium also titles that dialog "Select Folder to
+// Upload" with an "Upload" button, which is wrong for a download.
+//
+// The native directory dialog avoids all three: it returns the folder, it
+// handles empty and newly created folders, and it is labelled correctly.
+$(document).on('click', '#download_destination_browse', async function(e) {
+    e.preventDefault();
 
-    if (this.files.length) {
-        const selectedPath = getFilePath(this.files[0]);
-        if (isReallyWritable(selectedPath)) {
-            $input.val(selectedPath);
+    const $input = $$('#download_destination_text');
+    const $ds = $$('#set_default_local_storage');
 
-            let not_default_dir = selectedPath !== settings.get('default_local_storage')
-            $ds.toggle(not_default_dir)
-        } else {
-            Helper.pnotify(null, `Selected location "${selectedPath}" is not accessible.`, 'error', 3000);
-        }
+    const current = $.trim($input.val());
+    const startIn = current || settings.get('default_local_storage') || app.getPath('downloads');
+
+    let result;
+
+    try {
+        result = await dialog.showOpenDialog(getCurrentWindow(), {
+            title: 'Select Download Destination',
+            buttonLabel: 'Select Folder',
+            properties: ['openDirectory', 'createDirectory'],
+            defaultPath: startIn
+        });
+    } catch (err) {
+        electron_log.error(`Download destination dialog failed: ${err && err.stack ? err.stack : err}`);
+        Helper.pnotify(null, 'Could not open the folder selection dialog.', 'error', 3000);
+        return;
     }
 
-    $(this).val('');
+    if (result.canceled || !result.filePaths.length) {
+        return;
+    }
+
+    const selectedPath = result.filePaths[0];
+
+    if (!isReallyWritable(selectedPath)) {
+        Helper.pnotify(null, `Selected location "${selectedPath}" is not accessible.`, 'error', 3000);
+        return;
+    }
+
+    $input.val(selectedPath);
+    $ds.toggle(selectedPath !== settings.get('default_local_storage'));
 });
 
 $(document).on('change', '#xnt_manifest_file', function(e) {
