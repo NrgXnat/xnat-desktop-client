@@ -28,13 +28,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Both mac arches build in one job on purpose: electron-builder emits
-          # one channel file per invocation, so splitting them produced two
-          # colliding *-mac.yml files. One invocation yields a single channel
-          # file listing both arches, which is what the updater needs.
-          - name: mac
+          # The two mac arches build in parallel. electron-builder emits one
+          # channel file per invocation, so each produces its own *-mac.yml;
+          # the release job merges them, because macOS channel filenames carry
+          # no arch component and every Mac requests the same *-mac.yml.
+          - name: mac-x64
             os: macos-latest
-            args: --mac --x64 --arm64
+            args: --mac --x64
+          - name: mac-arm64
+            os: macos-latest
+            args: --mac --arm64
           - name: win-x64
             os: windows-latest
             args: --win --x64
@@ -73,9 +76,9 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          # The mac job builds both arches, so it stages both mac JREs.
           case "${{ matrix.name }}" in
-            mac)       PAIRS="${JAVA_VERSION}-macosx_x64:mac-x64 ${JAVA_VERSION}-macosx_aarch64:mac-arm64" ;;
+            mac-x64)   PAIRS="${JAVA_VERSION}-macosx_x64:mac-x64" ;;
+            mac-arm64) PAIRS="${JAVA_VERSION}-macosx_aarch64:mac-arm64" ;;
             linux-x64) PAIRS="${JAVA_VERSION}-linux_x64:linux-x64" ;;
           esac
 
@@ -194,9 +197,19 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Needed for scripts/merge-mac-channel.py below.
+      - uses: actions/checkout@v7
+
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
+
+      # macOS channel filenames carry no arch component, so both mac jobs emit
+      # a *-mac.yml of the same name. Combine them into one file listing both
+      # architectures before anything is uploaded; the updater then picks an
+      # entry per arch by matching "arm64" in the file name.
+      - name: Merge macOS channel files
+        run: python3 scripts/merge-mac-channel.py artifacts/mac-x64 artifacts/mac-arm64
 
       - name: Create release
         env:
@@ -204,8 +217,8 @@ jobs:
           TAG: ${{ github.ref_name }}
         # Channel .yml files MUST be uploaded: with the github publish provider,
         # electron-updater fetches <channel>.yml from the release's own assets
-        # (ERR_UPDATER_CHANNEL_FILE_NOT_FOUND otherwise). Each platform now
-        # produces exactly one, so there is nothing left to collide.
+        # (ERR_UPDATER_CHANNEL_FILE_NOT_FOUND otherwise). The merge step above
+        # leaves exactly one *-mac.yml, so there is nothing left to collide.
         run: |
           shopt -s nullglob
           files=(artifacts/*/*.dmg artifacts/*/*.zip artifacts/*/*.exe artifacts/*/*.AppImage artifacts/*/*.blockmap artifacts/*/*.yml)
