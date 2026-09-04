@@ -28,12 +28,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: mac-x64
+          # Both mac arches build in one job on purpose: electron-builder emits
+          # one channel file per invocation, so splitting them produced two
+          # colliding *-mac.yml files. One invocation yields a single channel
+          # file listing both arches, which is what the updater needs.
+          - name: mac
             os: macos-latest
-            args: --mac --x64
-          - name: mac-arm64
-            os: macos-latest
-            args: --mac --arm64
+            args: --mac --x64 --arm64
           - name: win-x64
             os: windows-latest
             args: --win --x64
@@ -72,34 +73,40 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
+          # The mac job builds both arches, so it stages both mac JREs.
           case "${{ matrix.name }}" in
-            mac-x64)   TARGET="${JAVA_VERSION}-macosx_x64";     DEST=mac-x64 ;;
-            mac-arm64) TARGET="${JAVA_VERSION}-macosx_aarch64"; DEST=mac-arm64 ;;
-            linux-x64) TARGET="${JAVA_VERSION}-linux_x64";      DEST=linux-x64 ;;
+            mac)       PAIRS="${JAVA_VERSION}-macosx_x64:mac-x64 ${JAVA_VERSION}-macosx_aarch64:mac-arm64" ;;
+            linux-x64) PAIRS="${JAVA_VERSION}-linux_x64:linux-x64" ;;
           esac
 
-          if [[ -f "build_resources/jre/${DEST}/bin/java" ]]; then
-            echo "Using cached JRE at build_resources/jre/${DEST}"
-            exit 0
-          fi
-
           mkdir -p build_resources/jre
-          curl -fsSL -o "${RUNNER_TEMP}/jdk.tar.gz" "${JDK_ROOT}/${TARGET}.tar.gz"
-          tar xf "${RUNNER_TEMP}/jdk.tar.gz" -C "${RUNNER_TEMP}"
 
-          if [[ "${RUNNER_OS}" == "macOS" ]]; then
-            if [[ -d "${RUNNER_TEMP}/${TARGET}/zulu-8.jdk/Contents/Home/jre" ]]; then
-              cp -R "${RUNNER_TEMP}/${TARGET}/zulu-8.jdk/Contents/Home/jre" "build_resources/jre/${DEST}"
-            else
-              cp -R "${RUNNER_TEMP}/${TARGET}/Contents/Home/jre" "build_resources/jre/${DEST}"
+          for pair in ${PAIRS}; do
+            TARGET="${pair%%:*}"
+            DEST="${pair##*:}"
+
+            if [[ -f "build_resources/jre/${DEST}/bin/java" ]]; then
+              echo "Using cached JRE at build_resources/jre/${DEST}"
+              continue
             fi
-          else
-            cp -R "${RUNNER_TEMP}/${TARGET}/jre" "build_resources/jre/${DEST}"
-          fi
 
-          # Read-only files break the app's auto-update process
-          chmod -R u+w "build_resources/jre/${DEST}"
-          "build_resources/jre/${DEST}/bin/java" -version 2>&1 | head -3 || true
+            curl -fsSL -o "${RUNNER_TEMP}/jdk-${DEST}.tar.gz" "${JDK_ROOT}/${TARGET}.tar.gz"
+            tar xf "${RUNNER_TEMP}/jdk-${DEST}.tar.gz" -C "${RUNNER_TEMP}"
+
+            if [[ "${RUNNER_OS}" == "macOS" ]]; then
+              if [[ -d "${RUNNER_TEMP}/${TARGET}/zulu-8.jdk/Contents/Home/jre" ]]; then
+                cp -R "${RUNNER_TEMP}/${TARGET}/zulu-8.jdk/Contents/Home/jre" "build_resources/jre/${DEST}"
+              else
+                cp -R "${RUNNER_TEMP}/${TARGET}/Contents/Home/jre" "build_resources/jre/${DEST}"
+              fi
+            else
+              cp -R "${RUNNER_TEMP}/${TARGET}/jre" "build_resources/jre/${DEST}"
+            fi
+
+            # Read-only files break the app's auto-update process
+            chmod -R u+w "build_resources/jre/${DEST}"
+            "build_resources/jre/${DEST}/bin/java" -version 2>&1 | head -3 || true
+          done
 
       - name: Download Zulu JRE (Windows)
         if: runner.os == 'Windows'
@@ -195,14 +202,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        # Channel .yml files are excluded here: the two mac jobs each produce a
-        # latest-mac.yml so the names collide, and update metadata is served
-        # from the app's own update host (the generic publish URL in
-        # package.json) rather than from GitHub releases. They remain available
-        # in the per-platform workflow artifacts.
+        # Channel .yml files MUST be uploaded: with the github publish provider,
+        # electron-updater fetches <channel>.yml from the release's own assets
+        # (ERR_UPDATER_CHANNEL_FILE_NOT_FOUND otherwise). Each platform now
+        # produces exactly one, so there is nothing left to collide.
         run: |
           shopt -s nullglob
-          files=(artifacts/*/*.dmg artifacts/*/*.zip artifacts/*/*.exe artifacts/*/*.AppImage artifacts/*/*.blockmap)
+          files=(artifacts/*/*.dmg artifacts/*/*.zip artifacts/*/*.exe artifacts/*/*.AppImage artifacts/*/*.blockmap artifacts/*/*.yml)
 
           if [ ${#files[@]} -eq 0 ]; then
             echo "No installers found in the downloaded artifacts" >&2

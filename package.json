@@ -203,8 +203,9 @@
     },
     "publish": [
       {
-        "provider": "generic",
-        "url": "https://bitbucket.org/xnatdev/xnat-desktop-client/downloads"
+        "provider": "github",
+        "owner": "NrgXnat",
+        "repo": "xnat-desktop-client"
       }
     ],
     "fileAssociations": [
