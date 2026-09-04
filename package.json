@@ -20,6 +20,8 @@
     "sass": "npm-run-all -s sass:build sass:watch",
     "sass:build": "sass XNAT/scss/style.scss assets/css/style.css --style=compressed --source-map",
     "sass:watch": "sass XNAT/scss/:assets/css/ --watch --style=compressed --source-map",
+    "dist:ci": "electron-builder --publish never",
+    "dist:ci:publish": "electron-builder --publish always",
     "pack-win": "electron-builder --win --dir",
     "pack-win-x64": "electron-builder --win --x64 --dir",
     "pack-linux": "electron-builder --linux --dir",

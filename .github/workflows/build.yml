@@ -1,8 +1,10 @@
 name: Build XNAT Desktop Client (all builds)
 
-# Builds run on demand (workflow_dispatch), or automatically when a canonical
-# release tag is pushed (v3.2.6 builds; pre-release tags like v3.2.6-alpha.1
-# are skipped by the job-level condition below).
+# Builds run on demand (workflow_dispatch), or automatically when a release tag
+# is pushed. Any v* tag builds and publishes a GitHub release: v3.2.6 becomes a
+# normal release, while a tag carrying a pre-release suffix (v3.2.6-alpha.1,
+# v3.2.6-beta.1) becomes a GitHub pre-release. Pushing to a branch never builds;
+# use workflow_dispatch for that.
 on:
   workflow_dispatch:
   push:
@@ -19,8 +21,6 @@ concurrency:
 
 jobs:
   build:
-    # On-demand runs always build; tag pushes only build canonical (non-pre-release) versions
-    if: github.event_name == 'workflow_dispatch' || !contains(github.ref_name, '-')
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -163,7 +163,7 @@ jobs:
           ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
           ES_CREDENTIAL_ID: ${{ secrets.ES_CREDENTIAL_ID }}
           ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
-        run: yarn electron-builder ${{ matrix.args }} --publish never
+        run: yarn dist:ci ${{ matrix.args }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
@@ -178,12 +178,11 @@ jobs:
             dist/*.blockmap
             dist/*.yml
 
-  # When a canonical release tag triggered the build, collect the installers
-  # into a draft GitHub release for review before publishing.
+  # A tag push collects the installers into a published GitHub release.
   release:
-    name: Draft GitHub release
+    name: Publish GitHub release
     needs: build
-    if: github.event_name == 'push' && !contains(github.ref_name, '-')
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -192,19 +191,36 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create draft release
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         # Channel .yml files are excluded here: the two mac jobs each produce a
-        # latest-mac.yml so the names collide, and update metadata is published
-        # through the app's own update host rather than GitHub releases. They
-        # remain available in the per-platform workflow artifacts.
+        # latest-mac.yml so the names collide, and update metadata is served
+        # from the app's own update host (the generic publish URL in
+        # package.json) rather than from GitHub releases. They remain available
+        # in the per-platform workflow artifacts.
         run: |
           shopt -s nullglob
           files=(artifacts/*/*.dmg artifacts/*/*.zip artifacts/*/*.exe artifacts/*/*.AppImage artifacts/*/*.blockmap)
-          gh release create "${{ github.ref_name }}" \
+
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No installers found in the downloaded artifacts" >&2
+            exit 1
+          fi
+
+          # A pre-release suffix (v3.2.6-alpha.1, v3.2.6-beta.1) marks the
+          # GitHub release as a pre-release, so it is not served as "latest".
+          # A bare version (v3.2.6) becomes the latest release.
+          case "$TAG" in
+            *-*) prerelease=(--prerelease) ;;
+            *)   prerelease=(--latest) ;;
+          esac
+
+          gh release create "$TAG" \
             --repo "${{ github.repository }}" \
-            --draft \
-            --title "${{ github.ref_name }}" \
+            --title "$TAG" \
             --verify-tag \
+            --generate-notes \
+            "${prerelease[@]}" \
             "${files[@]}"
