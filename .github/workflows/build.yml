@@ -291,15 +291,42 @@ jobs:
         # Channel .yml files MUST be uploaded: with the github publish provider,
         # electron-updater fetches <channel>.yml from the release's own assets
         # (ERR_UPDATER_CHANNEL_FILE_NOT_FOUND otherwise). The merge step above
-        # leaves exactly one *-mac.yml, so there is nothing left to collide.
+        # leaves exactly one *-mac.yml, so those no longer collide.
         run: |
           shopt -s nullglob
-          files=(artifacts/*/*.dmg artifacts/*/*.zip artifacts/*/*.exe artifacts/*/*.AppImage artifacts/*/*.blockmap artifacts/*/*.yml)
+          candidates=(artifacts/*/*.dmg artifacts/*/*.zip artifacts/*/*.exe artifacts/*/*.AppImage artifacts/*/*.blockmap artifacts/*/*.yml)
+
+          # Every platform emits its own dist/builder-debug.yml, which is
+          # electron-builder's debug dump rather than update metadata. Uploading
+          # them all made the second one fail with "ReleaseAsset.name already
+          # exists" partway through the upload. They stay in the per-platform
+          # workflow artifacts, where they are actually useful.
+          files=()
+          for f in "${candidates[@]}"; do
+            case "$(basename "$f")" in
+              builder-debug.yml|builder-effective-config.yaml) continue ;;
+            esac
+            files+=("$f")
+          done
 
           if [ ${#files[@]} -eq 0 ]; then
             echo "No installers found in the downloaded artifacts" >&2
             exit 1
           fi
+
+          # A release asset name must be unique. Catch a collision here, where
+          # the message names the offending files, rather than part way through
+          # the upload with a release already half created.
+          dupes=$(printf '%s\n' "${files[@]}" | xargs -n1 basename | sort | uniq -d)
+          if [ -n "$dupes" ]; then
+            echo "Duplicate release asset names:" >&2
+            echo "$dupes" >&2
+            printf '%s\n' "${files[@]}" >&2
+            exit 1
+          fi
+
+          echo "Uploading ${#files[@]} assets:"
+          printf '  %s\n' "${files[@]}"
 
           # A pre-release suffix (v3.2.6-alpha.1, v3.2.6-beta.1) marks the
           # GitHub release as a pre-release, so it is not served as "latest".
@@ -309,10 +336,20 @@ jobs:
             *)   prerelease=(--latest) ;;
           esac
 
-          gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
-            --title "$TAG" \
-            --verify-tag \
-            --generate-notes \
-            "${prerelease[@]}" \
-            "${files[@]}"
+          # Re-runnable: if a previous attempt already created the release (or
+          # left it partly populated), add to it rather than failing outright.
+          if gh release view "$TAG" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+            echo "Release $TAG already exists; uploading assets into it."
+            gh release upload "$TAG" \
+              --repo "${{ github.repository }}" \
+              --clobber \
+              "${files[@]}"
+          else
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "$TAG" \
+              --verify-tag \
+              --generate-notes \
+              "${prerelease[@]}" \
+              "${files[@]}"
+          fi
