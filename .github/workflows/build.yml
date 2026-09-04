@@ -149,6 +149,77 @@ jobs:
           if (-not $bat) { throw "CodeSignTool.bat not found in downloaded archive" }
           "CODE_SIGN_TOOL_PATH=$($bat.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      # Import the signing certificate into a keychain this workflow controls.
+      #
+      # electron-builder can do this itself from CSC_LINK, but its createKeychain
+      # creates the keychain with a random password and then passes
+      # CSC_KEY_PASSWORD - the CERTIFICATE password - to
+      # `security set-key-partition-list -k`, where -k means the KEYCHAIN
+      # password (app-builder-lib/out/codeSign/macCodeSign.js, importCerts).
+      # That call only succeeds while the temp keychain happens to still be
+      # unlocked, so it fails intermittently with "SecKeychainUnlock: The user
+      # name or passphrase you entered is not correct" even though the
+      # certificate and its password are perfectly valid.
+      #
+      # Leaving CSC_LINK unset makes MacPackager skip createKeychain entirely
+      # (codeSigningInfo returns null when getCscLink() is null) and fall back to
+      # CSC_KEYCHAIN, which is exported below.
+      - name: Import signing certificate (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          if [ -z "${CSC_LINK}" ]; then
+            echo "CSC_LINK is not set; the macOS build will be unsigned."
+            exit 0
+          fi
+
+          KEYCHAIN="${RUNNER_TEMP}/xdc-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+          CERT="${RUNNER_TEMP}/certificate.p12"
+
+          # CSC_LINK may be base64-encoded PKCS#12, a URL, or a path on disk.
+          case "${CSC_LINK}" in
+            https://*|http://*) curl -fsSL -o "${CERT}" "${CSC_LINK}" ;;
+            *)
+              if [ -f "${CSC_LINK}" ]; then
+                cp "${CSC_LINK}" "${CERT}"
+              else
+                printf '%s' "${CSC_LINK}" | base64 --decode > "${CERT}"
+              fi
+              ;;
+          esac
+
+          security create-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}"
+          # 6h timeout, far longer than the job, so it cannot lock mid-build.
+          security set-keychain-settings -t 21600 -u "${KEYCHAIN}"
+          security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}"
+
+          security import "${CERT}" -k "${KEYCHAIN}" -P "${CSC_KEY_PASSWORD}" \
+            -T /usr/bin/codesign -T /usr/bin/productbuild
+
+          # This is the call electron-builder gets wrong: -k takes the KEYCHAIN
+          # password, not the certificate password.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}" > /dev/null
+
+          # Put it on the user search list so identity auto-discovery finds it.
+          security list-keychains -d user -s "${KEYCHAIN}" \
+            $(security list-keychains -d user | tr -d '"')
+
+          rm -f "${CERT}"
+
+          if ! security find-identity -v -p codesigning "${KEYCHAIN}" | grep -q "Developer ID Application"; then
+            echo "No 'Developer ID Application' identity found in ${KEYCHAIN} after import" >&2
+            security find-identity -v -p codesigning "${KEYCHAIN}" >&2
+            exit 1
+          fi
+
+          security find-identity -v -p codesigning "${KEYCHAIN}"
+          echo "CSC_KEYCHAIN=${KEYCHAIN}" >> "${GITHUB_ENV}"
+
       - name: Install dependencies
         run: yarn install
 
@@ -158,11 +229,13 @@ jobs:
       - name: Build application
         shell: bash
         env:
-          # macOS code signing + notarization; all optional. Without CSC_LINK the
-          # build is unsigned, and scripts/notarize.js skips notarization unless
-          # APPLEID, APPLEIDPASS and APPLETEAMID are all set.
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # macOS code signing + notarization; all optional. The certificate is
+          # imported by the step above, which exports CSC_KEYCHAIN; CSC_LINK is
+          # deliberately NOT set here, because setting it makes electron-builder
+          # build its own keychain through the broken code path described there.
+          # Without a certificate the build is unsigned, and scripts/notarize.js
+          # skips notarization unless APPLEID, APPLEIDPASS and APPLETEAMID are
+          # all set.
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
