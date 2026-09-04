@@ -11,7 +11,7 @@ on:
 
 env:
   JDK_ROOT: https://cdn.azul.com/zulu/bin
-  JAVA_VERSION: zulu8.78.0.19-ca-jdk8.0.412
+  JAVA_VERSION: zulu8.96.0.205-ca-jdk8.0.504
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -88,7 +88,11 @@ jobs:
           tar xf "${RUNNER_TEMP}/jdk.tar.gz" -C "${RUNNER_TEMP}"
 
           if [[ "${RUNNER_OS}" == "macOS" ]]; then
-            cp -R "${RUNNER_TEMP}/${TARGET}/zulu-8.jdk/Contents/Home/jre" "build_resources/jre/${DEST}"
+            if [[ -d "${RUNNER_TEMP}/${TARGET}/zulu-8.jdk/Contents/Home/jre" ]]; then
+              cp -R "${RUNNER_TEMP}/${TARGET}/zulu-8.jdk/Contents/Home/jre" "build_resources/jre/${DEST}"
+            else
+              cp -R "${RUNNER_TEMP}/${TARGET}/Contents/Home/jre" "build_resources/jre/${DEST}"
+            fi
           else
             cp -R "${RUNNER_TEMP}/${TARGET}/jre" "build_resources/jre/${DEST}"
           fi
@@ -140,19 +144,6 @@ jobs:
 
       - name: Build stylesheets
         run: yarn sass:build
-
-      - name: Setup macOS keychain (macOS only)
-        if: runner.os == 'macOS'
-        run: |
-          # Unlock the default keychain with empty password
-          security unlock-keychain -p "" $RUNNER_KEYCHAIN_PATH
-          
-          # Set the keychain to not lock automatically during builds
-          security set-keychain-settings -t 3600 -u $RUNNER_KEYCHAIN_PATH
-          
-          # Import the certificate into the keychain (electron-builder will handle this)
-          # Set the partition list to allow codesign access without prompts
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" $RUNNER_KEYCHAIN_PATH || true
 
       - name: Build application
         shell: bash
