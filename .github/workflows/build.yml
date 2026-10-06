@@ -1,8 +1,10 @@
 name: Build XNAT Desktop Client (all builds)
 
-# Builds run on demand (workflow_dispatch), or automatically when a canonical
-# release tag is pushed (v3.2.6 builds; pre-release tags like v3.2.6-alpha.1
-# are skipped by the job-level condition below).
+# Builds run on demand (workflow_dispatch), or automatically when a release tag
+# is pushed. Any v* tag builds and publishes a GitHub release: v3.2.6 becomes a
+# normal release, while a tag carrying a pre-release suffix (v3.2.6-alpha.1,
+# v3.2.6-beta.1) becomes a GitHub pre-release. Pushing to a branch never builds;
+# use workflow_dispatch for that.
 on:
   workflow_dispatch:
   push:
@@ -11,12 +13,14 @@ on:
 
 env:
   JDK_ROOT: https://cdn.azul.com/zulu/bin
-  JAVA_VERSION: zulu8.78.0.19-ca-jdk8.0.412
+  JAVA_VERSION: zulu8.96.0.205-ca-jdk8.0.504
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    # On-demand runs always build; tag pushes only build canonical (non-pre-release) versions
-    if: github.event_name == 'workflow_dispatch' || !contains(github.ref_name, '-')
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -24,6 +28,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # The two mac arches build in parallel. electron-builder emits one
+          # channel file per invocation, so each produces its own *-mac.yml;
+          # the release job merges them, because macOS channel filenames carry
+          # no arch component and every Mac requests the same *-mac.yml.
           - name: mac-x64
             os: macos-latest
             args: --mac --x64
@@ -69,45 +77,63 @@ jobs:
         shell: bash
         run: |
           case "${{ matrix.name }}" in
-            mac-x64)   TARGET="${JAVA_VERSION}-macosx_x64";     DEST=mac-x64 ;;
-            mac-arm64) TARGET="${JAVA_VERSION}-macosx_aarch64"; DEST=mac-arm64 ;;
-            linux-x64) TARGET="${JAVA_VERSION}-linux_x64";      DEST=linux-x64 ;;
+            mac-x64)   PAIRS="${JAVA_VERSION}-macosx_x64:mac-x64" ;;
+            mac-arm64) PAIRS="${JAVA_VERSION}-macosx_aarch64:mac-arm64" ;;
+            linux-x64) PAIRS="${JAVA_VERSION}-linux_x64:linux-x64" ;;
           esac
 
-          if [[ -f "build_resources/jre/${DEST}/bin/java" ]]; then
-            echo "Using cached JRE at build_resources/jre/${DEST}"
-            exit 0
-          fi
-
           mkdir -p build_resources/jre
-          curl -fsSL -o "${RUNNER_TEMP}/jdk.tar.gz" "${JDK_ROOT}/${TARGET}.tar.gz"
-          tar xf "${RUNNER_TEMP}/jdk.tar.gz" -C "${RUNNER_TEMP}"
 
-          if [[ "${RUNNER_OS}" == "macOS" ]]; then
-            cp -R "${RUNNER_TEMP}/${TARGET}/zulu-8.jdk/Contents/Home/jre" "build_resources/jre/${DEST}"
-          else
-            cp -R "${RUNNER_TEMP}/${TARGET}/jre" "build_resources/jre/${DEST}"
-          fi
+          for pair in ${PAIRS}; do
+            TARGET="${pair%%:*}"
+            DEST="${pair##*:}"
 
-          # Read-only files break the app's auto-update process
-          chmod -R u+w "build_resources/jre/${DEST}"
-          "build_resources/jre/${DEST}/bin/java" -version 2>&1 | head -3 || true
+            if [[ -f "build_resources/jre/${DEST}/bin/java" ]]; then
+              echo "Using cached JRE at build_resources/jre/${DEST}"
+              continue
+            fi
+
+            curl -fsSL -o "${RUNNER_TEMP}/jdk-${DEST}.tar.gz" "${JDK_ROOT}/${TARGET}.tar.gz"
+            tar xf "${RUNNER_TEMP}/jdk-${DEST}.tar.gz" -C "${RUNNER_TEMP}"
+
+            if [[ "${RUNNER_OS}" == "macOS" ]]; then
+              if [[ -d "${RUNNER_TEMP}/${TARGET}/zulu-8.jdk/Contents/Home/jre" ]]; then
+                cp -R "${RUNNER_TEMP}/${TARGET}/zulu-8.jdk/Contents/Home/jre" "build_resources/jre/${DEST}"
+              else
+                cp -R "${RUNNER_TEMP}/${TARGET}/Contents/Home/jre" "build_resources/jre/${DEST}"
+              fi
+            else
+              cp -R "${RUNNER_TEMP}/${TARGET}/jre" "build_resources/jre/${DEST}"
+            fi
+
+            # Read-only files break the app's auto-update process
+            chmod -R u+w "build_resources/jre/${DEST}"
+            "build_resources/jre/${DEST}/bin/java" -version 2>&1 | head -3 || true
+          done
 
       - name: Download Zulu JRE (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $target = "$env:JAVA_VERSION-win_x64"
-
+      
           if (Test-Path "build_resources/jre/win-x64/bin/java.exe") {
             Write-Host "Using cached JRE at build_resources/jre/win-x64"
             exit 0
           }
-
+      
           New-Item -ItemType Directory -Force -Path build_resources/jre | Out-Null
           Invoke-WebRequest -Uri "$env:JDK_ROOT/$target.zip" -OutFile "$env:RUNNER_TEMP\jdk.zip"
-          Expand-Archive "$env:RUNNER_TEMP\jdk.zip" -DestinationPath "$env:RUNNER_TEMP\zulu"
-          Copy-Item -Recurse "$env:RUNNER_TEMP\zulu\$target\jre" "build_resources/jre/win-x64"
+          Expand-Archive "$env:RUNNER_TEMP\jdk.zip" -DestinationPath "$env:RUNNER_TEMP"
+          
+          # Find the extracted JDK directory and copy its jre subfolder
+          $jdkDir = Get-ChildItem "$env:RUNNER_TEMP" -Directory -Filter "*zulu*" | Select-Object -First 1
+          if ($jdkDir -and (Test-Path "$($jdkDir.FullName)\jre")) {
+            Copy-Item -Recurse "$($jdkDir.FullName)\jre" "build_resources/jre/win-x64"
+          } else {
+            throw "JRE not found in extracted archive"
+          }
+          
           & "build_resources/jre/win-x64/bin/java.exe" -version
 
       # SSL.com eSigner CodeSignTool, used by scripts/esigner-sign.js (the
@@ -123,6 +149,77 @@ jobs:
           if (-not $bat) { throw "CodeSignTool.bat not found in downloaded archive" }
           "CODE_SIGN_TOOL_PATH=$($bat.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      # Import the signing certificate into a keychain this workflow controls.
+      #
+      # electron-builder can do this itself from CSC_LINK, but its createKeychain
+      # creates the keychain with a random password and then passes
+      # CSC_KEY_PASSWORD - the CERTIFICATE password - to
+      # `security set-key-partition-list -k`, where -k means the KEYCHAIN
+      # password (app-builder-lib/out/codeSign/macCodeSign.js, importCerts).
+      # That call only succeeds while the temp keychain happens to still be
+      # unlocked, so it fails intermittently with "SecKeychainUnlock: The user
+      # name or passphrase you entered is not correct" even though the
+      # certificate and its password are perfectly valid.
+      #
+      # Leaving CSC_LINK unset makes MacPackager skip createKeychain entirely
+      # (codeSigningInfo returns null when getCscLink() is null) and fall back to
+      # CSC_KEYCHAIN, which is exported below.
+      - name: Import signing certificate (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          if [ -z "${CSC_LINK}" ]; then
+            echo "CSC_LINK is not set; the macOS build will be unsigned."
+            exit 0
+          fi
+
+          KEYCHAIN="${RUNNER_TEMP}/xdc-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+          CERT="${RUNNER_TEMP}/certificate.p12"
+
+          # CSC_LINK may be base64-encoded PKCS#12, a URL, or a path on disk.
+          case "${CSC_LINK}" in
+            https://*|http://*) curl -fsSL -o "${CERT}" "${CSC_LINK}" ;;
+            *)
+              if [ -f "${CSC_LINK}" ]; then
+                cp "${CSC_LINK}" "${CERT}"
+              else
+                printf '%s' "${CSC_LINK}" | base64 --decode > "${CERT}"
+              fi
+              ;;
+          esac
+
+          security create-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}"
+          # 6h timeout, far longer than the job, so it cannot lock mid-build.
+          security set-keychain-settings -t 21600 -u "${KEYCHAIN}"
+          security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}"
+
+          security import "${CERT}" -k "${KEYCHAIN}" -P "${CSC_KEY_PASSWORD}" \
+            -T /usr/bin/codesign -T /usr/bin/productbuild
+
+          # This is the call electron-builder gets wrong: -k takes the KEYCHAIN
+          # password, not the certificate password.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}" > /dev/null
+
+          # Put it on the user search list so identity auto-discovery finds it.
+          security list-keychains -d user -s "${KEYCHAIN}" \
+            $(security list-keychains -d user | tr -d '"')
+
+          rm -f "${CERT}"
+
+          if ! security find-identity -v -p codesigning "${KEYCHAIN}" | grep -q "Developer ID Application"; then
+            echo "No 'Developer ID Application' identity found in ${KEYCHAIN} after import" >&2
+            security find-identity -v -p codesigning "${KEYCHAIN}" >&2
+            exit 1
+          fi
+
+          security find-identity -v -p codesigning "${KEYCHAIN}"
+          echo "CSC_KEYCHAIN=${KEYCHAIN}" >> "${GITHUB_ENV}"
+
       - name: Install dependencies
         run: yarn install
 
@@ -132,11 +229,13 @@ jobs:
       - name: Build application
         shell: bash
         env:
-          # macOS code signing + notarization; all optional. Without CSC_LINK the
-          # build is unsigned, and scripts/notarize.js skips notarization unless
-          # APPLEID, APPLEIDPASS and APPLETEAMID are all set.
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # macOS code signing + notarization; all optional. The certificate is
+          # imported by the step above, which exports CSC_KEYCHAIN; CSC_LINK is
+          # deliberately NOT set here, because setting it makes electron-builder
+          # build its own keychain through the broken code path described there.
+          # Without a certificate the build is unsigned, and scripts/notarize.js
+          # skips notarization unless APPLEID, APPLEIDPASS and APPLETEAMID are
+          # all set.
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
@@ -147,7 +246,7 @@ jobs:
           ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
           ES_CREDENTIAL_ID: ${{ secrets.ES_CREDENTIAL_ID }}
           ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
-        run: yarn electron-builder ${{ matrix.args }} --publish never
+        run: yarn dist:ci ${{ matrix.args }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
@@ -162,33 +261,95 @@ jobs:
             dist/*.blockmap
             dist/*.yml
 
-  # When a canonical release tag triggered the build, collect the installers
-  # into a draft GitHub release for review before publishing.
+  # A tag push collects the installers into a published GitHub release.
   release:
-    name: Draft GitHub release
+    name: Publish GitHub release
     needs: build
-    if: github.event_name == 'push' && !contains(github.ref_name, '-')
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      # Needed for scripts/merge-mac-channel.py below.
+      - uses: actions/checkout@v7
+
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
-      - name: Create draft release
+      # macOS channel filenames carry no arch component, so both mac jobs emit
+      # a *-mac.yml of the same name. Combine them into one file listing both
+      # architectures before anything is uploaded; the updater then picks an
+      # entry per arch by matching "arm64" in the file name.
+      - name: Merge macOS channel files
+        run: python3 scripts/merge-mac-channel.py artifacts/mac-x64 artifacts/mac-arm64
+
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-        # Channel .yml files are excluded here: the two mac jobs each produce a
-        # latest-mac.yml so the names collide, and update metadata is published
-        # through the app's own update host rather than GitHub releases. They
-        # remain available in the per-platform workflow artifacts.
+          TAG: ${{ github.ref_name }}
+        # Channel .yml files MUST be uploaded: with the github publish provider,
+        # electron-updater fetches <channel>.yml from the release's own assets
+        # (ERR_UPDATER_CHANNEL_FILE_NOT_FOUND otherwise). The merge step above
+        # leaves exactly one *-mac.yml, so those no longer collide.
         run: |
           shopt -s nullglob
-          files=(artifacts/*/*.dmg artifacts/*/*.zip artifacts/*/*.exe artifacts/*/*.AppImage artifacts/*/*.blockmap)
-          gh release create "${{ github.ref_name }}" \
-            --repo "${{ github.repository }}" \
-            --draft \
-            --title "${{ github.ref_name }}" \
-            --verify-tag \
-            "${files[@]}"
+          candidates=(artifacts/*/*.dmg artifacts/*/*.zip artifacts/*/*.exe artifacts/*/*.AppImage artifacts/*/*.blockmap artifacts/*/*.yml)
+
+          # Every platform emits its own dist/builder-debug.yml, which is
+          # electron-builder's debug dump rather than update metadata. Uploading
+          # them all made the second one fail with "ReleaseAsset.name already
+          # exists" partway through the upload. They stay in the per-platform
+          # workflow artifacts, where they are actually useful.
+          files=()
+          for f in "${candidates[@]}"; do
+            case "$(basename "$f")" in
+              builder-debug.yml|builder-effective-config.yaml) continue ;;
+            esac
+            files+=("$f")
+          done
+
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No installers found in the downloaded artifacts" >&2
+            exit 1
+          fi
+
+          # A release asset name must be unique. Catch a collision here, where
+          # the message names the offending files, rather than part way through
+          # the upload with a release already half created.
+          dupes=$(printf '%s\n' "${files[@]}" | xargs -n1 basename | sort | uniq -d)
+          if [ -n "$dupes" ]; then
+            echo "Duplicate release asset names:" >&2
+            echo "$dupes" >&2
+            printf '%s\n' "${files[@]}" >&2
+            exit 1
+          fi
+
+          echo "Uploading ${#files[@]} assets:"
+          printf '  %s\n' "${files[@]}"
+
+          # A pre-release suffix (v3.2.6-alpha.1, v3.2.6-beta.1) marks the
+          # GitHub release as a pre-release, so it is not served as "latest".
+          # A bare version (v3.2.6) becomes the latest release.
+          case "$TAG" in
+            *-*) prerelease=(--prerelease) ;;
+            *)   prerelease=(--latest) ;;
+          esac
+
+          # Re-runnable: if a previous attempt already created the release (or
+          # left it partly populated), add to it rather than failing outright.
+          if gh release view "$TAG" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+            echo "Release $TAG already exists; uploading assets into it."
+            gh release upload "$TAG" \
+              --repo "${{ github.repository }}" \
+              --clobber \
+              "${files[@]}"
+          else
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "$TAG" \
+              --verify-tag \
+              --generate-notes \
+              "${prerelease[@]}" \
+              "${files[@]}"
+          fi

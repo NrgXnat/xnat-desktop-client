@@ -1,9 +1,8 @@
 const ipc = require('electron').ipcRenderer
-const app = require('electron').remote.app
+const { app } = require('@electron/remote')
 const sudo = require('sudo-prompt')
 const fs = require('fs')
 const shell = require('electron').shell
-
 
 // ===============
 $(document).on('click', '#allow_local_lib_access', function(e) {

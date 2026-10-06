@@ -1,4 +1,4 @@
-const { app } = require('electron').remote
+const { app } = require('@electron/remote');
 const ejs = require('ejs')
 const path = require('path')
 const fs = require('fs')

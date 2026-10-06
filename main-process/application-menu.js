@@ -1,6 +1,6 @@
 const electron = require('electron');
 const path = require('path')
-const {app, BrowserWindow, Menu, shell, Tray} = electron;
+const {app, BrowserWindow, Menu, shell, Tray, ipcMain} = electron;
 
 const download_log = require('../services/download_log')
 
@@ -124,8 +124,24 @@ if (process.env.NODE_ENV !== 'production') {
                 }
             },
             {
-                role: 'reload'
-            }
+                label: 'Reload Custom',
+                accelerator: 'F5',
+                click: function(item, focusedWindow){
+                    console.log('Reload F5');
+                    if (focusedWindow) {
+                        console.log('focusedWindow.id: ' + focusedWindow.id);
+                        // ipcMain.send('reload_window_id', focusedWindow.id)
+                        // focusedWindow.reload();
+                        focusedWindow.webContents.executeJavaScript('location.reload();');
+                        // focusedWindow.webContents.reload()
+                        // focusedWindow.webContents.reloadIgnoringCache()
+                    }
+                    
+                    
+                }
+            },
+            { type: 'separator' },
+            { role: 'togglefullscreen' }
         ]
     })
 }

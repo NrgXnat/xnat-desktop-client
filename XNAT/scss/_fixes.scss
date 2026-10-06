@@ -645,3 +645,31 @@ span[data-toggle="popover"] {
 #upload_restrictions_modal {
     text-align: center;
 }
+
+#settings-section input[type=number] {
+    width: 85px;
+}
+
+input[type="checkbox"] {
+    &, &:not(:checked) {
+        /* Base Styles and Explicit Unchecked Styles */
+        ~ label {
+            .checked-label {
+                display: none;
+            }
+            .unchecked-label {
+                display: inline;
+            }
+        }
+    }
+    &:checked {
+        ~ label {
+            .checked-label {
+                display: inline;
+            }
+            .unchecked-label {
+                display: none;
+            }
+        }
+    }
+}

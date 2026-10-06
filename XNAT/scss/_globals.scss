@@ -1,3 +1,5 @@
+@use "sass:math";
+
 body {
 	font-family: $ptsans;
 	margin-top: $header_height;
@@ -428,6 +430,8 @@ $track-shadow-blur: 1px !default;
 $track-shadow-color: rgba(0, 0, 0, .2) !default;
 $track-border-width: 2px !default;
 $track-border-color: #cfd8dc !default;
+// $track-slider-thumb-margin-top: ((-$track-border-width * 2 + $track-height) / 2 - $thumb-height / 2);
+$track-slider-thumb-margin-top: math.div(($track-height - $thumb-height - $track-border-width * 2), 2);
 
 $track-radius: 5px !default;
 $contrast: 5% !default;
@@ -467,7 +471,7 @@ $range-label-width: 38px !default;
 		[type='range'] {
 			-webkit-appearance: none;
 			background: transparent;
-			margin: $thumb-height / 2 0;
+			margin: math.div($thumb-height, 2) 0;
 			width: $track-width;
 
 			&::-moz-focus-outer {
@@ -501,7 +505,7 @@ $range-label-width: 38px !default;
 			&::-webkit-slider-thumb {
 				@include thumb;
 				-webkit-appearance: none;
-				margin-top: ((-$track-border-width * 2 + $track-height) / 2 - $thumb-height / 2);
+				margin-top: $track-slider-thumb-margin-top;
 
 				&:hover {
 					border-color: $thumb-border-color-active;
@@ -523,7 +527,7 @@ $range-label-width: 38px !default;
 				background: $track-color;
 				border: $track-border-width solid $track-border-color;
 				border-radius: $track-radius;
-				height: $track-height / 2;
+				height: math.div($track-height, 2);
 			}
 
 			&::-moz-range-thumb {
@@ -534,7 +538,7 @@ $range-label-width: 38px !default;
 				@include track;
 				background: transparent;
 				border-color: transparent;
-				border-width: ($thumb-height / 2) 0;
+				border-width: math.div($thumb-height, 2) 0;
 				color: transparent;
 			}
 
@@ -554,7 +558,7 @@ $range-label-width: 38px !default;
 
 			&::-ms-thumb {
 				@include thumb;
-				margin-top: $track-height / 4;
+				margin-top: math.div($track-height, 4);
 			}
 
 			&:disabled {

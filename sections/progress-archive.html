@@ -120,6 +120,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-gray" data-dismiss="modal">Close</button>
+                        <button data-js-save-session-as-json class="btn btn-blue" data-app-testing>Export JSON</button>
                         <button data-js-view-receipt-link type="button" class="btn btn-gray">View Receipt</button>
                         <button id="upload-archive-details-link" type="button" class="btn btn-blue" data-dismiss="modal" 
                             data-toggle="modal" 
@@ -196,7 +197,9 @@
 
 
         <script type="text/javascript">
-            require('./renderer-process/progress-archive');
+            const path = require('path');
+            const modulePath = path.join(__dirname, '..', 'renderer-process', 'progress-archive');
+            require(modulePath);
             Helper.pageLoadTrigger('#progress-archive-section');
         </script>
 

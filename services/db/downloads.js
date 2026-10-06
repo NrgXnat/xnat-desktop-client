@@ -11,9 +11,9 @@ module.exports.listAll = (callback) => { // callback(err, docs)
     db().find({}, callback);
 }
 
-module.exports._listAll = () => {
+module.exports._listAll = (filter = {}) => {
     return new Promise((resolve, reject) => {
-        db().find({}, (err, doc) => {
+        db().find(filter, (err, doc) => {
             if (err) reject(err)
             resolve(doc)
         });

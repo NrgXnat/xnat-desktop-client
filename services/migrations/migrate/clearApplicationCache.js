@@ -2,15 +2,15 @@ const fs = require('fs')
 const path = require('path')
 const rimraf = require('rimraf')
 
-const { getApp } = require('../../app_utils')
+const { getAppInfo } = require('../../app_utils')
 const { CLEAR_APPLICATION_CACHE_FILENAME } = require('../../constants')
 
 const skipThese = ['config.json', 'FirstRun', 'Local Storage']
 
 
 module.exports = async () => {
-    const app = getApp()
-    const appDataDir = app.getPath('userData')
+    const appInfo = await getAppInfo()
+    const appDataDir = appInfo.userDataPath
 
     const clear_cache_flag_file = path.join(appDataDir, CLEAR_APPLICATION_CACHE_FILENAME)
 

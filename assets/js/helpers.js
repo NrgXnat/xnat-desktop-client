@@ -14,7 +14,7 @@ let Helper = {
         $(modal_id).find('.modal-content').unblock()
     },
     pageLoadTrigger: (page_id) => {
-        console.log(document.readyState);
+        console.log(page_id + '----- document.readyState: ' + document.readyState);
     
         switch (document.readyState) {
             case 'complete':
@@ -25,6 +25,21 @@ let Helper = {
                 // page:load on DOM-ready
                 $(function(){
                     $(page_id).trigger('page:load');
+                });
+        }
+    },
+    pageLoadLog: (message) => {
+        console.log(message + '----- document.readyState: ' + document.readyState);
+    
+        switch (document.readyState) {
+            case 'complete':
+                console.log('complete')
+                break;
+    
+            default:
+                // page:load on DOM-ready
+                $(function(){
+                    console.log('DOM-ready')
                 });
         }
     },
@@ -59,7 +74,8 @@ let Helper = {
             //console.log(error.response.data);
             //console.log(error.response.headers);
             
-            let error_response = auth.anonymize_response(error.response, '***ANON***')
+            // let error_response = auth.anonymize_response(error.response, '***ANON***')
+            let error_response = error.response
             
             switch (error_response.status) {
                 case 401:

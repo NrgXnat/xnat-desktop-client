@@ -15,6 +15,15 @@ module.exports.getById = (id, callback) => { // callback(err, doc)
     db().findOne({id: id}, callback);
 }
 
+module.exports._getById = (id) => { // callback(err, doc)
+    return new Promise((resolve, reject) => {
+        db().findOne({id: id}, (err, doc) => {
+            if (err) reject(err)
+            resolve(doc)
+        });
+    })
+}
+
 module.exports.replaceDoc = (id, doc, callback) => { // callback(err, num)
     // just in case
     if (doc._id) {

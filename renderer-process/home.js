@@ -2,6 +2,7 @@ const ipcRenderer = require('electron').ipcRenderer;
 const shell = require('electron').shell;
 
 const fs = require('fs');
+const getFilePath = require('../services/get_file_path');
 
 const path = require('path');
 const ElectronStore = require('electron-store');
@@ -13,8 +14,8 @@ require('promise.prototype.finally').shim();
 const xml2js = require('xml2js');
 const swal = require('sweetalert');
 
-const remote = require('electron').remote;
-const electron_log = remote.require('./services/electron_log');
+const { require: nodeRequire, app, dialog, getCurrentWindow } = require('@electron/remote')
+const electron_log = nodeRequire('./services/electron_log');
 
 const FileSaver = require('file-saver');
 const zlib = require('zlib');
@@ -22,12 +23,10 @@ const zlib = require('zlib');
 const unzipper = require('unzipper');
 const sha1 = require('sha1');
 
-const app = remote.app;
+const db_downloads = nodeRequire('./services/db/downloads')
 
-const db_downloads = remote.require('./services/db/downloads')
-
-const nedb_logger = remote.require('./services/db/nedb_logger')
-const nedb_log_reader = remote.require('./services/db/nedb_log_reader')
+const nedb_logger = nodeRequire('./services/db/nedb_logger')
+const nedb_log_reader = nodeRequire('./services/db/nedb_log_reader')
 
 const dom_context = '#home-section';
 const { $$, $on } = require('./../services/selector_factory')(dom_context)
@@ -96,22 +95,54 @@ $(document).on('show.bs.modal', '#download_modal', function(e) {
     }
 });
 
-$(document).on('change', '#download_destination_file', function(e) {
-    let $input = $$('#download_destination_text');
-    let $ds = $$('#set_default_local_storage')
+// A directory <input> cannot serve as a destination picker.
+//
+// It hands back the files *inside* the chosen folder, so files[0] is the first
+// file rather than the folder itself - isReallyWritable() then tried to mkdir
+// inside a file and failed, leaving the field empty. An empty folder, which is
+// the normal choice for a download destination, yields no files at all, so the
+// handler never even ran. Chromium also titles that dialog "Select Folder to
+// Upload" with an "Upload" button, which is wrong for a download.
+//
+// The native directory dialog avoids all three: it returns the folder, it
+// handles empty and newly created folders, and it is labelled correctly.
+$(document).on('click', '#download_destination_browse', async function(e) {
+    e.preventDefault();
 
-    if (this.files.length) {
-        if (isReallyWritable(this.files[0].path)) {
-            $input.val(this.files[0].path);
+    const $input = $$('#download_destination_text');
+    const $ds = $$('#set_default_local_storage');
 
-            let not_default_dir = this.files[0].path !== settings.get('default_local_storage')
-            $ds.toggle(not_default_dir)
-        } else {
-            Helper.pnotify(null, `Selected location "${this.files[0].path}" is not accessible.`, 'error', 3000);
-        }
+    const current = $.trim($input.val());
+    const startIn = current || settings.get('default_local_storage') || app.getPath('downloads');
+
+    let result;
+
+    try {
+        result = await dialog.showOpenDialog(getCurrentWindow(), {
+            title: 'Select Download Destination',
+            buttonLabel: 'Select Folder',
+            properties: ['openDirectory', 'createDirectory'],
+            defaultPath: startIn
+        });
+    } catch (err) {
+        electron_log.error(`Download destination dialog failed: ${err && err.stack ? err.stack : err}`);
+        Helper.pnotify(null, 'Could not open the folder selection dialog.', 'error', 3000);
+        return;
     }
 
-    $(this).val('');
+    if (result.canceled || !result.filePaths.length) {
+        return;
+    }
+
+    const selectedPath = result.filePaths[0];
+
+    if (!isReallyWritable(selectedPath)) {
+        Helper.pnotify(null, `Selected location "${selectedPath}" is not accessible.`, 'error', 3000);
+        return;
+    }
+
+    $input.val(selectedPath);
+    $ds.toggle(selectedPath !== settings.get('default_local_storage'));
 });
 
 $(document).on('change', '#xnt_manifest_file', function(e) {
@@ -120,7 +151,7 @@ $(document).on('change', '#xnt_manifest_file', function(e) {
     let $input = $('#xnt_manifest_text');
 
     if (this.files.length) {
-        $input.val(this.files[0].path);
+        $input.val(getFilePath(this.files[0]));
     }
 
     $(this).val('');

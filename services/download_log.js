@@ -10,10 +10,14 @@ const { objArrayToCSV } = require('./app_utils');
 
 module.exports = function() {
     let date_string = moment().format('YYYY-MM-DD--HH-mm-ss')
+    // Electron 10 removed the callback form of dialog.showSaveDialog; it now
+    // returns a Promise<{ canceled, filePath }>.
     dialog.showSaveDialog({
         title: 'Save Log File',
         defaultPath: `xnat-desktop-client--${date_string}.log.zip`
-    }, dialog_callback)
+    }).then(result => {
+        dialog_callback(result.canceled ? undefined : result.filePath)
+    })
 }
 
 function dialog_callback(filename) {

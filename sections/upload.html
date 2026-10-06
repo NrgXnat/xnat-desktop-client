@@ -175,8 +175,7 @@
                                                 <label class="input-group-btn">
                                                     <span class="btn btn-blue">
                                                         Browse
-                                                        <input type="file" id="file_upload_folder" style="display: none" webkitdirectory
-                                                            directory>
+                                                        <input type="file" id="file_upload_folder" style="display: none" webkitdirectory />
                                                     </span>
                                                 </label>
                                             </div>
@@ -812,6 +811,11 @@
                                 <input type="checkbox" class="magic-checkbox" name="skip_session_date_validation" id="skip_session_date_validation">
                                 <label for="skip_session_date_validation">I don't know the dates of these sessions</label>
                             </div>
+
+                            <div class="ml-auto mr-5">
+                                <input type="checkbox" class="magic-checkbox" name="skip_session_pixel_anon" id="skip_session_pixel_anon">
+                                <label for="skip_session_pixel_anon">Skip pixel anonymization</label>
+                            </div>
                             <button type="button" class="btn btn-gray js_cancel_session_selection" type="button" data-dismiss="modal">Cancel</button>
                             <button type="button" class="btn btn-gray js_custom_upload" type="button" disabled>Upload</button>
                             <button type="button" class="btn btn-blue js_quick_upload hidden" type="button" disabled>Quick Upload</button>
@@ -1043,8 +1047,9 @@
 
 
         <script type="text/javascript">
-            require('./renderer-process/upload')
-
+            const path = require('path');
+            const modulePath = path.join(__dirname, '..', 'renderer-process', 'upload');
+            require(modulePath);
             Helper.pageLoadTrigger('#upload-section'); 
         </script>
 

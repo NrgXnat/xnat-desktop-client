@@ -64,7 +64,7 @@
     <script>
         require('./renderer-process/index_alt')
         
-        var app = require('electron').remote.app
+        const { app } = require('@electron/remote')
         $('#version-number').text('v' + app.getVersion())
         
     </script>

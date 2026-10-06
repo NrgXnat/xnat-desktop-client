@@ -30,7 +30,9 @@
         </div>
 
         <script type="text/javascript">
-            require('./renderer-process/version')
+            const path = require('path');
+            const modulePath = path.join(__dirname, '..', 'renderer-process', 'version');
+            require(modulePath);
             Helper.pageLoadTrigger('#version-section');
         </script>
 

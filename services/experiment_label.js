@@ -80,7 +80,7 @@ class ExperimentLabel {
     }
 
     getModality() {
-        let modality;
+        let modality = '';
         if (this.series_modalities.indexOf('PT') >= 0) {
             modality = this.pet_tracer === 'OTHER' ? this.custom_pet_tracer : this.pet_tracer
         } else if (this.series_modalities.length == 1) {
