@@ -247,12 +247,17 @@ async function protocol_request(e, url) {
     
                 let last_download_index = url_object.pathname.lastIndexOf('/download/');
                 let upload_slash_index = url_object.pathname.lastIndexOf('/upload/')
-                let last_upload_index = upload_slash_index === -1 ? url_object.pathname.lastIndexOf('/upload') : upload_slash_index 
+                let last_upload_index = upload_slash_index === -1 ? url_object.pathname.lastIndexOf('/upload') : upload_slash_index
+                let auth_match = url_object.pathname.match(/^(.*)\/auth\/?$/);
                 let is_upload;
+                let is_browser_auth = false;
                 let rest_xml = '';
-    
-                // is it upload or download
-                if (last_download_index >= 0) {
+
+                // is it a browser login callback, upload or download
+                if (auth_match) {
+                    server += auth_match[1];
+                    is_browser_auth = true;
+                } else if (last_download_index >= 0) {
                     server += url_object.pathname.substr(0, last_download_index);
                     is_upload = false;
                     rest_xml = server + '/xapi/archive' + url_object.pathname.substr(last_download_index, url_object.pathname.length - last_download_index - 4) + '/xml'
@@ -284,11 +289,22 @@ async function protocol_request(e, url) {
                     password: url_params.s
                 };
 
-                console_log({server, my_user_auth});
-                
+                console_log({server, username: my_user_auth.username});
+
+                // Only accept a login the user started from this app (see auth.start_pending_browser_auth).
+                let pending_browser_auth = null;
+                if (is_browser_auth) {
+                    pending_browser_auth = auth.take_pending_browser_auth(server);
+                    if (!pending_browser_auth) {
+                        throw_new_error('Unexpected Login', `A login for ${server} was received, but no browser login to that server was started from XNAT Desktop Client. Please start the login from the app.`);
+                    }
+                    // keep the scheme the user connected with (XNAT may report http behind a TLS proxy)
+                    server = pending_browser_auth.server;
+                }
+
                 let real_username;
                 try {
-                    app.allow_insecure_ssl = auth.is_insecure_ssl_allowed(server);
+                    app.allow_insecure_ssl = (pending_browser_auth && pending_browser_auth.allow_insecure_ssl) || auth.is_insecure_ssl_allowed(server);
 
                     let resp = await auth.login_promise(server, my_user_auth); // wait till the promise resolves (*);
                     real_username = resp.data.split("'")[1];
@@ -314,9 +330,19 @@ async function protocol_request(e, url) {
                     PARAMS: url_params
                 };
 
-                console_log({url_data});
+                console_log({url_data: { ...url_data, SECRET: '***', PARAMS: '***' }});
 
-                
+                if (is_browser_auth) {
+                    reset_user_data();
+                    handleTokenLogin(url_data, {
+                        allow_insecure_ssl: pending_browser_auth.allow_insecure_ssl,
+                        auth_method: 'browser'
+                    });
+
+                    $('#login').modal('hide');
+                    ipcRenderer.send('redirect', 'home.html');
+                    return;
+                }
 
                 // logged in
                 if (settings.has('xnat_server')) {
@@ -359,7 +385,7 @@ async function protocol_request(e, url) {
 
 }
 
-function handleTokenLogin(url_data) {
+function handleTokenLogin(url_data, options = {}) {
     let user_auth = {
         username: url_data.USERNAME
     };
@@ -369,10 +395,10 @@ function handleTokenLogin(url_data) {
         password: url_data.SECRET
     };
 
-    let allow_insecure_ssl = auth.is_insecure_ssl_allowed(url_data.SERVER);
+    let allow_insecure_ssl = options.allow_insecure_ssl || auth.is_insecure_ssl_allowed(url_data.SERVER);
 
     //already confirmed login data so save (logins array)
-    auth.save_login_data(url_data.SERVER, user_auth, allow_insecure_ssl);
+    auth.save_login_data(url_data.SERVER, user_auth, allow_insecure_ssl, false, options.auth_method);
     
     // TODO: REFACTOR
     settings.set('xnat_server', url_data.SERVER);
@@ -687,10 +713,12 @@ ipcRenderer.on('force_reauthenticate', (e, login_data) => {
 
         $('#remove_login').toggle(login_data.username !== null)
 
+        $form.find('input[name="auth_method"]').val(login_data.auth_method || 'password').trigger('change');
+
         $('#session_fail').removeClass('hidden');
-        
+
         setTimeout(function(){
-            $('#password').focus();
+            $(login_data.auth_method === 'browser' ? '#loginForm [type="submit"]' : '#password').focus();
         }, 500);
 
     }, 200);
