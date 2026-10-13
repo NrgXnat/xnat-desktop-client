@@ -69,7 +69,8 @@
                                         Allow unverified certificates
                                     </label>
                                 </div>
-                                <div class="row">
+                                <input type="hidden" name="auth_method" id="auth_method" value="browser">
+                                <div class="row hidden" id="password_auth_fields">
                                     <div class="form-group col-6">
                                         <label for="username" class="col-form-label">Username:</label>
                                         <input type="text" class="form-control" name="username" id="username">
@@ -79,7 +80,21 @@
                                         <input type="password" class="form-control" name="password" id="password">
                                     </div>
                                 </div>
-                            
+                                <div id="browser_auth_fields">
+                                    <p class="text-muted">
+                                        You'll log in on the XNAT website in your default browser and then be returned here automatically.
+                                        <span id="browser_auth_user" class="hidden"><br>User: <strong></strong></span>
+                                    </p>
+                                    <div class="alert alert-info hidden" id="browser_auth_waiting" role="status">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                        Waiting for you to finish logging in in your browser&hellip;
+                                        If the browser didn't open, click <strong>Login</strong> again.
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <button type="button" class="btn btn-link" id="toggle_auth_method">Log in with username and password</button>
+                                </div>
+
                         </div>
                         <div class="modal-footer">
                             <button type="button" id="remove_login" class="btn btn-link mr-auto">Remove From List</button>

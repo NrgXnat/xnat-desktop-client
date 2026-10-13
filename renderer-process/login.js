@@ -1,7 +1,7 @@
 const path = require('path');
 const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
-const ipc = require('electron').ipcRenderer
+const { ipcRenderer: ipc, shell } = require('electron')
 const auth = require('../services/auth');
 const api = require('../services/api');
 
@@ -31,11 +31,12 @@ $(document).on('page:load', '#login-section', async function(e){
             var server_name = el.server.split('//');
             $('#known-users').append(`
                 <button data-username="${el.username}" data-server="${el.server}" data-allow_insecure_ssl="${el.allow_insecure_ssl ? 'true' : 'false'}"
+                    data-auth_method="${el.auth_method || 'password'}"
                     class="connect btn btn-known-user btn-lg btn-block" type="button" 
                     data-toggle="modal" data-target="#login">
                     <span class="login_logo"><img src="${api.get_logo_path(el.server)}" /></span>
                     <div>${server_name[1]}</br>
-                        <span class="user-name">User: ${el.username}</span>
+                        <span class="user-name">${el.username ? `User: ${el.username}` : 'Log in with your browser'}</span>
                     </div>
                 </button>
             `)
@@ -59,7 +60,12 @@ $(document).on('show.bs.modal', '#login', function(e) {
     $form.find('input[name="allow_insecure_ssl"]').prop('checked', allow_insecure_ssl);
     $('.form-check', $form).toggleClass('hidden', !allow_insecure_ssl)
 
-    let focused_field = server && username ? '#password' : '#server';
+    // new servers default to browser login; force_reauthenticate (index3.js) opens the modal without a
+    // button and sets the method itself
+    let auth_method = $button.length ? ($button.data('auth_method') || 'browser') : 'browser';
+    set_auth_method(auth_method);
+
+    let focused_field = !server ? '#server' : (auth_method === 'password' && username ? '#password' : '#loginForm [type="submit"]');
     setTimeout(function(){
         $(focused_field).focus();
     }, 500);
@@ -73,12 +79,42 @@ $(document).on('show.bs.modal', '#login', function(e) {
 
 $(document).on('hide.bs.modal', '#login', function(e) {
     $('#login .modal-body > .alert').addClass('hidden');
+    $('#browser_auth_waiting').addClass('hidden');
     $(e.currentTarget).find('input[name="password"]').val('');
+    auth.cancel_pending_browser_auth();
 });
 
-$(document).on('submit', '#loginForm', function(e){
-    Helper.blockModal('#login');
+$(document).on('click', '#toggle_auth_method', function(e) {
     e.preventDefault();
+    set_auth_method($('#auth_method').val() === 'browser' ? 'password' : 'browser');
+});
+
+// index3.js (force_reauthenticate) sets the hidden field and triggers change
+$(document).on('change', '#auth_method', function() {
+    set_auth_method($(this).val());
+});
+
+function set_auth_method(auth_method) {
+    const is_browser = auth_method !== 'password';
+    const username = $('#username').val();
+
+    $('#auth_method').val(is_browser ? 'browser' : 'password');
+    $('#password_auth_fields').toggleClass('hidden', is_browser);
+    $('#browser_auth_fields').toggleClass('hidden', !is_browser);
+    $('#browser_auth_waiting').addClass('hidden');
+    $('#browser_auth_user').toggleClass('hidden', !username).find('strong').text(username || '');
+    $('#toggle_auth_method').text(is_browser ? 'Log in with username and password' : 'Log in with your browser');
+}
+
+$(document).on('submit', '#loginForm', function(e){
+    e.preventDefault();
+
+    if ($('#auth_method').val() === 'browser') {
+        browser_login();
+        return;
+    }
+
+    Helper.blockModal('#login');
 
     $('#login .modal-body > .alert').addClass('hidden');
 
@@ -153,6 +189,51 @@ $(document).on('click', '#remove_login', function(e){
 });
 
 
+// Opens XNAT in the system browser. The login completes when XNAT calls back through the xnat(s)://
+// protocol, which is handled by protocol_request() in index3.js.
+async function browser_login() {
+    $('#login .modal-body > .alert').addClass('hidden');
+
+    let entered_server = $('#server').val().trim().replace(/\/$/, '');
+    if (!entered_server) {
+        $('#server').focus();
+        return;
+    }
+
+    allow_insecure_ssl = $('#allow_insecure_ssl').is(':checked');
+
+    Helper.blockModal('#login');
+    let xnat_server;
+    try {
+        xnat_server = await auth.resolve_server_url(entered_server, allow_insecure_ssl);
+    } catch (err) {
+        handleLoginFail(err);
+        return;
+    } finally {
+        Helper.unblockModal('#login');
+    }
+
+    let login_url;
+    try {
+        login_url = auth.browser_login_url(xnat_server, $('#username').val().trim());
+    } catch (err) {
+        handleLoginFail(new Error(`"${entered_server}" is not a valid server address.`));
+        return;
+    }
+
+    auth.start_pending_browser_auth(xnat_server, allow_insecure_ssl);
+
+    try {
+        await shell.openExternal(login_url);
+    } catch (err) {
+        auth.cancel_pending_browser_auth();
+        handleLoginFail(new Error(`Could not open your browser: ${err.message}`));
+        return;
+    }
+
+    $('#browser_auth_waiting').removeClass('hidden');
+}
+
 function login_attempt(xnat_server, user_auth) {
     auth.login_promise(xnat_server, user_auth)
         .then(res => {
@@ -198,7 +279,7 @@ function handleLoginSuccess(xnat_server, user_auth) {
     // reset temporary update
     app.allow_insecure_ssl = false;
     
-    auth.save_login_data(xnat_server, user_auth, allow_insecure_ssl);
+    auth.save_login_data(xnat_server, user_auth, allow_insecure_ssl, false, 'password');
     auth.save_current_user(xnat_server, user_auth);
     
     auth.set_allow_insecure_ssl(allow_insecure_ssl);

@@ -244,6 +244,7 @@ function render_users() {
             server: el.server,
             user: el.username,
             allow_insecure_ssl: el.allow_insecure_ssl ? true : false,
+            auth_method: el.auth_method || 'password',
             action: ''
         });
     });
@@ -272,7 +273,19 @@ function render_users() {
                 field: 'user',
                 title: 'User',
                 sortable: true,
-                filterControl: 'input'
+                filterControl: 'input',
+                formatter: function(value, row, index, field) {
+                    return value ? value : '<em class="text-muted">Set at first login</em>';
+                }
+            }, 
+            {
+                field: 'auth_method',
+                title: 'Login',
+                sortable: true,
+                width: '110px',
+                formatter: function(value, row, index, field) {
+                    return value === 'browser' ? 'Browser' : 'Password';
+                }
             }, 
             {
                 field: 'allow_insecure_ssl',
@@ -295,6 +308,7 @@ function render_users() {
                     <a href="#" 
                         class="edit"
                         data-username="${row.user}" data-server="${row.server}" data-allow_insecure_ssl="${row.allow_insecure_ssl}"
+                        data-auth_method="${row.auth_method}"
                         data-toggle="modal" data-target="#user_connection"
                         ><i class="fas fa-edit"></i></a>
                 
@@ -332,17 +346,17 @@ function test_login(xnat_server, user_auth, old_user_data) {
     
 }
 
-function handleLoginSuccess(xnat_server, user_auth, old_user_data) {
-    auth.save_login_data(xnat_server, user_auth, allow_insecure_ssl, old_user_data);
+function handleLoginSuccess(xnat_server, user_auth, old_user_data, auth_method = 'password') {
+    auth.save_login_data(xnat_server, user_auth, allow_insecure_ssl, old_user_data, auth_method);
 
     $('#user_connection').modal('hide')
     render_users();
 
-    Helper.pnotify(null, `User connection is ${old_user_data.username ? 'updated': 'added'}.`);
+    Helper.pnotify(null, `Connection is ${old_user_data.server ? 'updated': 'added'}.`);
 
     // swal({
     //     title: "Success!",
-    //     text: `User connection is ${old_user_data.username ? 'updated': 'added'}.`,
+    //     text: `Connection is ${old_user_data.server ? 'updated': 'added'}.`,
     //     icon: "success",
     //     button: "Okay",
     // });
@@ -521,6 +535,11 @@ $(document).on('submit', '#userForm', function(e) {
     e.preventDefault();
     $('#login_feedback').addClass('hidden')
 
+    if ($('#conn_auth_method').val() === 'browser') {
+        save_browser_connection();
+        return;
+    }
+
     let xnat_server = $('#server').val().replace(/\/$/, '');
     let user_auth = {
         username: $('#username').val(),
@@ -551,8 +570,11 @@ $(document).on('show.bs.modal', '#user_connection', function(e) {
     $form.find('input[name="allow_insecure_ssl"]').prop('checked', allow_insecure_ssl);
     $('.form-check', $form).toggleClass('hidden', !allow_insecure_ssl)
 
+    // new connections default to browser login
+    let auth_method = $button.data('auth_method') || 'browser';
+    set_connection_auth_method(auth_method);
 
-    let focused_field = server && username ? '#password' : '#server';
+    let focused_field = server && username && auth_method === 'password' ? '#password' : '#server';
     setTimeout(function(){
         $(focused_field).focus();
     }, 500);
@@ -567,6 +589,60 @@ $(document).on('show.bs.modal', '#user_connection', function(e) {
     }
 });
 
+$(document).on('hide.bs.modal', '#user_connection', function(e) {
+    $('#old_server').val('');
+    $('#old_username').val('');
+    $('#login_feedback').addClass('hidden');
+});
+
+$(document).on('click', '#conn_toggle_auth_method', function(e) {
+    e.preventDefault();
+    set_connection_auth_method($('#conn_auth_method').val() === 'browser' ? 'password' : 'browser');
+});
+
+function set_connection_auth_method(auth_method) {
+    const is_browser = auth_method !== 'password';
+
+    $('#conn_auth_method').val(is_browser ? 'browser' : 'password');
+    $('#conn_password_auth_fields').toggleClass('hidden', is_browser);
+    $('#conn_browser_auth_info').toggleClass('hidden', !is_browser);
+    $('#conn_toggle_auth_method').text(is_browser ? 'Add a username and password' : 'Log in with your browser instead');
+    $('#conn_submit').text(is_browser ? 'Check and Save connection' : 'Verify and Save connection');
+}
+
+// A browser login connection has no password to verify, so only check that the server responds. An
+// existing connection's username is kept; a new one gets its username at the first browser login.
+async function save_browser_connection() {
+    const entered_server = $('#server').val().trim().replace(/\/$/, '');
+    const user_auth = {
+        username: $('#username').val().trim()
+    };
+    const old_user_data = {
+        server: $('#old_server').val(),
+        username: $('#old_username').val()
+    };
+    allow_insecure_ssl = $('#allow_insecure_ssl').is(':checked');
+
+    let xnat_server;
+    try {
+        xnat_server = await auth.resolve_server_url(entered_server, allow_insecure_ssl);
+    } catch (error) {
+        electron_log.error(`Couldn't reach ${entered_server}: ${error.message}`);
+        $('#login_error_details').text(error.message);
+        $('#login_feedback').removeClass('hidden');
+        $('#login_error_message').html(`
+            Connection was not saved!<br>
+            Couldn't reach XNAT server: ${$('<div>').text(entered_server).html()}<br><br>
+            ${Helper.errorMessage(error)}
+        `);
+        Helper.unblockModal('#user_connection');
+        return;
+    }
+
+    Helper.unblockModal('#user_connection');
+    handleLoginSuccess(xnat_server, user_auth, old_user_data, 'browser');
+}
+
 $(document).on('click', '.js_remove_login', function(e){
     let $this = $(this);
     swal({
@@ -574,7 +650,7 @@ $(document).on('click', '.js_remove_login', function(e){
         text: `Are you sure you want to remove it from the list?
             
             Server: ${$this.data('server')}
-            Username: ${$this.data('username')}
+            Username: ${$this.data('username') || '(set at first login)'}
         `,
         icon: "warning",
         buttons: [true, 'Remove'],
