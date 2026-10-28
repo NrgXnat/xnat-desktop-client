@@ -648,7 +648,10 @@ ipcRenderer.on('update-error', (e, ...args) => {
     //let str = args.join(' | ')
     //Helper.pnotify('Naslov', 'Poruka: ' + str);
     console_log('update-error')
-    const reason = args[0] && args[0].message ? `\n\n${args[0].message}` : ''
+    // electron-updater messages can go on with a stack trace and the response
+    // headers. The first line has the reason; the full error is in the log.
+    const message = args[0] && args[0].message ? args[0].message.split('\n')[0].trim() : ''
+    const reason = message ? `\n\n${message}` : ''
     swal('Update error', `The update could not be downloaded or installed.${reason}`, 'error');
     electron_log.error('update-error', ...args)
     console_log(args);
