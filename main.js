@@ -12,6 +12,7 @@ const { autoUpdater } = require('electron-updater')
 const electron_log = require('./services/electron_log')
 
 const { isDevEnv, getUpdateChannel, parseSetCookieHeader } = require('./services/app_utils')
+const { appImageUpdateBlocker, releaseUrl } = require('./services/appimage_update')
 
 const { allow_insecure_ssl } = require('./services/auth_main')
 
@@ -400,22 +401,30 @@ function initialize () {
     // debugging with autoUpdater.logger not required but still useful
     autoUpdater.logger = electron_log;
     //autoUpdater.logger.transports.file.level = 'info';
+    // Updates are installed right after download via quitAndInstall(). If that
+    // fails, retrying on quit only repeats the failure after the windows are
+    // gone, where it can't be reported.
+    autoUpdater.autoInstallOnAppQuit = false;
 
     autoUpdater.on('checking-for-update', () => {
       devToolsLog('Checking for update...');
     })
     autoUpdater.on('update-available', (info) => {
       devToolsLog('Update available.');
-      post_message('update-available', info);
+      post_message('update-available', info, {
+        blockedReason: appImageUpdateBlocker(),
+        releaseUrl: releaseUrl(info.version)
+      });
     })
     autoUpdater.on('update-not-available', (info) => {
       devToolsLog('Update not available.');
       post_message('update-not-available', info);
     })
     autoUpdater.on('error', (err) => {
-      post_message('update-error', err);
-      devToolsLog('Error in auto-updater. ' + err);
+      // Log first, so the cause is recorded even if reporting it fails.
       electron_log.error(`Auto-updater error.`, err);
+      devToolsLog('Error in auto-updater. ' + err);
+      post_message('update-error', { message: err && err.message ? err.message : String(err) });
     })
     autoUpdater.on('download-progress', (progressObj) => {
       post_message('download-progress', progressObj);
@@ -594,12 +603,18 @@ function log(...args) {
 }
 
 function post_message(type, ...args) {
+  const send = () => {
+    // The main window is gone while the app is quitting; anything sent then
+    // (e.g. an updater error) has nowhere to go and must not throw.
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send(type, ...args)
+    }
+  }
+
   if (app.isReallyReady) {
-    mainWindow.webContents.send(type, ...args)
+    send()
   } else {
-    ipcMain.once('appIsReady', () => {
-      mainWindow.webContents.send(type, ...args);
-    })
+    ipcMain.once('appIsReady', send)
   }
 }
 
@@ -711,6 +726,12 @@ const showMessageBox = (options) => {
 };
 
 ipcMain.on('download_and_install', (e) => {
+  const blockedReason = appImageUpdateBlocker()
+  if (blockedReason) {
+    electron_log.error(`Auto-update not installable. ${blockedReason}`)
+    post_message('update-error', { message: blockedReason })
+    return
+  }
   autoUpdater.downloadUpdate();
 })
 
