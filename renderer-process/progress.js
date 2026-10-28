@@ -35,6 +35,7 @@ const ejs_template = require('../services/ejs_template')
 const path = require('path')
 
 const { objArrayToCSV, objToJsonFile, simpleLog, uuidv4 } = require('../services/app_utils');
+const { redact, redactText } = require('../services/redact');
 const { getScanFilesProperty } = require('../services/db/utils');
 
 const { console_red } = require('../services/logger');
@@ -660,8 +661,9 @@ function downloadCsvLog(id) {
                 type: obj.type, 
                 status: obj.level,
                 transfer_id: obj.transfer_id,
-                message: obj.message,
-                details: JSON.parse(obj.details)
+                // older versions logged credentials (see services/redact.js)
+                message: redactText(obj.message),
+                details: redact(JSON.parse(obj.details))
             });
         });
 

@@ -268,7 +268,9 @@ async function attempt_download(file_path, destination) {
 
             let download_digest = {
                 id: Helper.uuidv4(),
-                basename: path.basename(file_path),
+                // drop the query: for a web-launched download, file_path is the
+                // xnat:// link, whose query holds the alias token (a=, s=)
+                basename: path.basename(file_path).split('?')[0],
                 destination: destination,
                 server: xnat_server,
                 user: user_auth.username,

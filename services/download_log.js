@@ -7,6 +7,7 @@ const path = require('path')
 
 const nedb_log_reader = require('./db/nedb_log_reader');
 const { objArrayToCSV } = require('./app_utils');
+const { redact, redactText } = require('./redact');
 
 module.exports = function() {
     let date_string = moment().format('YYYY-MM-DD--HH-mm-ss')
@@ -66,7 +67,12 @@ function dialog_callback(filename) {
 
         let xlectric_log = path.join(app.getAppPath(), 'xlectric.log');
 
-        archive.file(electron_log.transports.file.findLogPath(), { name: 'xnat-desktop-client.log' });
+        // This zip goes to support. Redact both logs as they are added, in case
+        // an older version left credentials in them (see services/redact.js).
+        const log_path = electron_log.transports.file.findLogPath();
+        if (fs.existsSync(log_path)) {
+            archive.append(redactText(fs.readFileSync(log_path, 'utf8')), { name: 'xnat-desktop-client.log' });
+        }
         archive.file(xlectric_log, { name: 'xlectric.log' });
 
         
@@ -78,19 +84,15 @@ function dialog_callback(filename) {
                     type: obj.type, 
                     status: obj.level,
                     transfer_id: obj.transfer_id,
-                    message: obj.message,
-                    details: JSON.parse(obj.details)
+                    message: redactText(obj.message),
+                    details: redact(JSON.parse(obj.details))
                 });
             });
 
             let csv = relevant_data.length ? objArrayToCSV(relevant_data) : 'No data';
 
-            let user_transfer_log = path.join(app.getPath('temp'), `user-transfer-log-${new Date()/1}.csv`);
-            fs.writeFileSync(user_transfer_log, csv)
-
-            //fs.writeFileSync(filename, fs.readFileSync(electron_log.transports.file.findLogPath()))
-
-            archive.file(user_transfer_log, { name: 'user-transfer-log.csv' });
+            // Added from memory: the temp file this used to write was never deleted.
+            archive.append(csv, { name: 'user-transfer-log.csv' });
 
             archive.finalize();
             shell.showItemInFolder(filename)

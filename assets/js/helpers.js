@@ -85,11 +85,12 @@ let Helper = {
                     msg = 'Invalid XNAT server address!';
                     break;
                 default:
-                try {
-                    msg =  `An error occured. Please try again. (${JSON.stringify(error_response, undefined, 2)})`;
-                } catch (e) {
+                    // Status only. The whole response used to be included, which
+                    // put the request's login, session cookie and CSRF token on
+                    // screen, into download records and into the transfer log.
+                    // Callers insert this as HTML, so it must not carry the
+                    // server's error page either.
                     msg =  `An error occured. Please try again. (${error_response.status})`;
-                }
             }
 
         } else if (error.request) {
