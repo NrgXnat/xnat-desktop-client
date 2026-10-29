@@ -34,9 +34,8 @@ const ejs_template = require('../services/ejs_template')
 
 const path = require('path')
 
-const { objArrayToCSV, objToJsonFile, simpleLog, uuidv4 } = require('../services/app_utils');
-const { redact, redactText } = require('../services/redact');
-const { getScanFilesProperty } = require('../services/db/utils');
+const { objToJsonFile, simpleLog, uuidv4 } = require('../services/app_utils');
+const { getScanFilesProperty, transferLogCsv } = require('../services/db/utils');
 
 const { console_red } = require('../services/logger');
 const auth = require('../services/auth')
@@ -655,19 +654,7 @@ $on('click', '#upload_session_to_json', function() {
 function downloadCsvLog(id) {
     nedb_log_reader.fetch_log(id, (err, docs) => {
 
-        let relevant_data = docs.map(obj => {
-            return Object.assign({}, {
-                timestamp: obj.timestamp,
-                type: obj.type, 
-                status: obj.level,
-                transfer_id: obj.transfer_id,
-                // older versions logged credentials (see services/redact.js)
-                message: redactText(obj.message),
-                details: redact(JSON.parse(obj.details))
-            });
-        });
-
-        let csv = objArrayToCSV(relevant_data);
+        let csv = transferLogCsv(docs);
 
         var file = new File([csv], `log_export-${id}.csv`, {type: "text/csv;charset=utf-8"});
         FileSaver.saveAs(file);

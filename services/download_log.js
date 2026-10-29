@@ -6,8 +6,8 @@ const archiver = require('archiver');
 const path = require('path')
 
 const nedb_log_reader = require('./db/nedb_log_reader');
-const { objArrayToCSV } = require('./app_utils');
-const { redact, redactText } = require('./redact');
+const { transferLogCsv } = require('./db/utils');
+const { redactText } = require('./redact');
 
 module.exports = function() {
     let date_string = moment().format('YYYY-MM-DD--HH-mm-ss')
@@ -78,18 +78,7 @@ function dialog_callback(filename) {
         
         nedb_log_reader.fetch_user_log((err, docs) => {
 
-            let relevant_data = docs.map(obj => {
-                return Object.assign({}, {
-                    timestamp: obj.timestamp,
-                    type: obj.type, 
-                    status: obj.level,
-                    transfer_id: obj.transfer_id,
-                    message: redactText(obj.message),
-                    details: redact(JSON.parse(obj.details))
-                });
-            });
-
-            let csv = relevant_data.length ? objArrayToCSV(relevant_data) : 'No data';
+            let csv = docs.length ? transferLogCsv(docs) : 'No data';
 
             // Added from memory: the temp file this used to write was never deleted.
             archive.append(csv, { name: 'user-transfer-log.csv' });
