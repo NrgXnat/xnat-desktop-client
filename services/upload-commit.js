@@ -135,6 +135,35 @@ exports.uploadCommit = async (transfer, res, series_id = '') => {
             // TODO: else what??
 
         } catch (err) {
+            if (!err.response) {
+                xnat_api.heartbeat_stop();
+
+                if (!err.isAxiosError) {
+                    throw err
+                }
+
+                // The commit got no response: the connection dropped or timed
+                // out. XNAT may still archive the session, so report it rather
+                // than commit again.
+                console_log(`COMMIT::NO_RESPONSE ${transfer_signature(transfer)}::${series_id}`)
+                electron_log.error('commit_error', err.code, err.message)
+
+                let error_message = `[${getCurrentWindow().id}: ]` + `Session commit failed: no response from XNAT (${err.code || err.message}). Check in XNAT whether session ${expt_label} was archived.`;
+                nedb_logger.error(transfer.id, 'upload', error_message);
+
+                await db_uploads._updateProperty(transfer.id, 'status', 'xnat_error');
+
+                ipcRenderer.send('progress_cell', {
+                    table: '#upload_monitor_table',
+                    id: transfer.id,
+                    field: 'status',
+                    value: 'xnat_error'
+                });
+                console_log(`UploadStatus: xnat_error. ${transfer_signature(transfer)}`)
+
+                return true
+            }
+
             console_log('--- XCOMMIT_ERR ---: ' + err.response.status)
             if (err.response && err.response.data) {
                 console_log({XCOMMIT_ERR_DATA: stripTags(err.response.data)});
