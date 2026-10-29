@@ -5430,13 +5430,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sudo-prompt@npm:^8.2.5":
-  version: 8.2.5
-  resolution: "sudo-prompt@npm:8.2.5"
-  checksum: 10c0/c17bcc852112c11addcdfb8630fad1a236823887959f133ba47de9fcec22c03aafc49bbb35184ab7f13a78e625fb8324b86d5aa21b73b15d601aee71fb9b976e
-  languageName: node
-  linkType: hard
-
 "sumchecker@npm:^3.0.1":
   version: 3.0.1
   resolution: "sumchecker@npm:3.0.1"
@@ -6091,7 +6084,6 @@ __metadata:
     sha1: "npm:^1.1.1"
     store2: "npm:^2.7.0"
     stream-throttle: "npm:^0.1.3"
-    sudo-prompt: "npm:^8.2.5"
     sweetalert: "npm:^2.1.0"
     sweetalert2: "npm:^9.15.1"
     temp-dir: "npm:^1.0.0"

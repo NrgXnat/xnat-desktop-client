@@ -11,7 +11,7 @@ $on('page:load', '#version-section', async function(e){
     await updateChannelSelectionDropdown()
     await getAutoUpdateInfo()
 
-    $('#semver').text('XXX: ' + app.getVersion())
+    $('#semver').text(app.getVersion())
 })
 
 $on('change', '#auto_update_channel', async function(e) {

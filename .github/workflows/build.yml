@@ -284,6 +284,26 @@ jobs:
       - name: Merge macOS channel files
         run: python3 scripts/merge-mac-channel.py artifacts/mac-x64 artifacts/mac-arm64
 
+      # A client on the Beta or Alpha channel whose own version is stable
+      # (allowPrerelease off) asks the Latest release for beta*.yml or
+      # alpha*.yml, with no fallback to latest*.yml. electron-builder writes
+      # only latest*.yml here: with the github provider it ignores both
+      # generateUpdatesFilesForAllChannels and the channel in the version. A
+      # stable release without the copies made every such client report
+      # "Cannot find beta-mac.yml in the latest release artifacts".
+      # Pre-releases don't need them: only clients with allowPrerelease on see
+      # those, and they fall back to latest*.yml.
+      - name: Add Beta and Alpha channel files
+        if: ${{ !contains(github.ref_name, '-') }}
+        run: |
+          shopt -s nullglob
+          for f in artifacts/*/latest*.yml; do
+            name=$(basename "$f")
+            for channel in beta alpha; do
+              cp -v "$f" "$(dirname "$f")/${channel}${name#latest}"
+            done
+          done
+
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}

@@ -620,6 +620,16 @@ ipcRenderer.on('update-available', (e, ...args) => {
     $('#auto_update_current').text('v' + app.getVersion())
     $('#auto_update_available').text('v' + args[0].version)
 
+    // The update can't be installed here (e.g. an AppImage in a folder the
+    // user can't write to), so point to a manual install instead.
+    const install = args[1] || {}
+    const blocked = !!install.blockedReason
+    $('#auto_update_manual_reason').text(install.blockedReason || '')
+    $('#auto_update_release_link').attr('href', install.releaseUrl || '#')
+    $('#auto_update_manual').toggleClass('hidden', !blocked)
+    $('#download_and_install').toggleClass('hidden', blocked).prop('disabled', false)
+    $('#auto_update_progress').addClass('hidden').attr('value', 0)
+
     $('#auto_update_modal').modal({
         keyboard: false,
         backdrop: 'static'
@@ -638,11 +648,19 @@ ipcRenderer.on('update-error', (e, ...args) => {
     //let str = args.join(' | ')
     //Helper.pnotify('Naslov', 'Poruka: ' + str);
     console_log('update-error')
-    swal('Update error', 'An error occurred during update download.', 'error');
-    electron_log.error('update-error', e)
+    // electron-updater messages can go on with a stack trace and the response
+    // headers. The first line has the reason; the full error is in the log.
+    const message = args[0] && args[0].message ? args[0].message.split('\n')[0].trim() : ''
+    const reason = message ? `\n\n${message}` : ''
+    swal('Update error', `The update could not be downloaded or installed.${reason}`, 'error');
+    electron_log.error('update-error', ...args)
     console_log(args);
 
-    store.set('version-info-update', 'An error occurred during update download.')
+    // let the user retry from the update dialog
+    $('#download_and_install').prop('disabled', false)
+    $('#auto_update_progress').addClass('hidden')
+
+    store.set('version-info-update', 'The last update attempt failed.')
 })
 
 ipcRenderer.on('download-progress', (e, ...args) => {

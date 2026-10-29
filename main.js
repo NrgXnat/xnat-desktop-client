@@ -12,6 +12,7 @@ const { autoUpdater } = require('electron-updater')
 const electron_log = require('./services/electron_log')
 
 const { isDevEnv, getUpdateChannel, parseSetCookieHeader } = require('./services/app_utils')
+const { appImageUpdateBlocker, releaseUrl } = require('./services/appimage_update')
 
 const { allow_insecure_ssl } = require('./services/auth_main')
 
@@ -100,11 +101,7 @@ async function initApp() {
     app.quit()
   } else {
     await runMigrations()
-    if (is_usr_local_lib_writable()) {
-      initialize()
-    } else {
-      initialize_usr_local_lib_app()
-    }
+    initialize()
   }
 }
 
@@ -122,71 +119,6 @@ function setWebPreferences() {
     additionalArguments 
   }
 }
-
-function initialize_usr_local_lib_app() {
-  devToolsLog('initialize_usr_local_lib_app triggered')
-
-  let iconSource = process.platform === 'linux' ? 'assets/icons/png/XDC.png' : 'assets/icons/png/XDC-tray-256.png';
-  const iconPath = path.join(__dirname, iconSource);
-
-  async function createWindow() {
-    var windowOptions = {
-      width: 800,
-      minWidth: 768,
-      height: 640,
-      title: app.getName(),
-      icon: iconPath,
-      show: true,
-      frame: false,
-      webPreferences: setWebPreferences()
-    };
-
-    mainWindow = new BrowserWindow(windowOptions);
-    enableRemoteModule(mainWindow.webContents);
-    logLoadFailures(mainWindow, 'mainWindow')
-    mainWindow.loadFile(path.join(__dirname, 'index_alt.html'));
-    updateUserAgentString(mainWindow);
-
-    if (isDevEnv()) {
-      mainWindow.webContents.openDevTools()
-      mainWindow.maximize()
-      // require('devtron').install()
-      // const devtronPath = path.join(__dirname, 'node_modules', 'devtron');
-      // await session.defaultSession.loadExtension(devtronPath);
-    }
-
-    mainWindow.on('closed', function () {
-      mainWindow = null
-    });
-
-    // handle crash events
-    mainWindow.webContents.on('render-process-gone', (event, details) => {
-      mainWindow.webContents.reload()
-      electron_log.error('mainWindow render process gone: ' + (details && details.reason))
-    });
-  }
-
-
-  app.on('ready', () => {
-    createWindow();
-  })
-
-  app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-      app.quit()
-    }
-  })
-
-  // only MacOS
-  app.on('activate', (event, hasVisibleWindows) => {
-    if (mainWindow === null) {
-      createWindow()
-    }
-  })
-
-}
-
-
 
 function initialize () {
   devToolsLog('initialize triggered')
@@ -400,22 +332,30 @@ function initialize () {
     // debugging with autoUpdater.logger not required but still useful
     autoUpdater.logger = electron_log;
     //autoUpdater.logger.transports.file.level = 'info';
+    // Updates are installed right after download via quitAndInstall(). If that
+    // fails, retrying on quit only repeats the failure after the windows are
+    // gone, where it can't be reported.
+    autoUpdater.autoInstallOnAppQuit = false;
 
     autoUpdater.on('checking-for-update', () => {
       devToolsLog('Checking for update...');
     })
     autoUpdater.on('update-available', (info) => {
       devToolsLog('Update available.');
-      post_message('update-available', info);
+      post_message('update-available', info, {
+        blockedReason: appImageUpdateBlocker(),
+        releaseUrl: releaseUrl(info.version)
+      });
     })
     autoUpdater.on('update-not-available', (info) => {
       devToolsLog('Update not available.');
       post_message('update-not-available', info);
     })
     autoUpdater.on('error', (err) => {
-      post_message('update-error', err);
-      devToolsLog('Error in auto-updater. ' + err);
+      // Log first, so the cause is recorded even if reporting it fails.
       electron_log.error(`Auto-updater error.`, err);
+      devToolsLog('Error in auto-updater. ' + err);
+      post_message('update-error', { message: err && err.message ? err.message : String(err) });
     })
     autoUpdater.on('download-progress', (progressObj) => {
       post_message('download-progress', progressObj);
@@ -594,12 +534,18 @@ function log(...args) {
 }
 
 function post_message(type, ...args) {
+  const send = () => {
+    // The main window is gone while the app is quitting; anything sent then
+    // (e.g. an updater error) has nowhere to go and must not throw.
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send(type, ...args)
+    }
+  }
+
   if (app.isReallyReady) {
-    mainWindow.webContents.send(type, ...args)
+    send()
   } else {
-    ipcMain.once('appIsReady', () => {
-      mainWindow.webContents.send(type, ...args);
-    })
+    ipcMain.once('appIsReady', send)
   }
 }
 
@@ -675,24 +621,6 @@ function updateUserAgentString(window) {
   window.webContents.setUserAgent(userAgentString)
 }
 
-function is_usr_local_lib_writable() {
-	if (process.platform === 'darwin') {
-		try {
-      const usr_local_lib_path = '/usr/local/lib';
-
-		  fs.accessSync(usr_local_lib_path, fs.constants.F_OK | fs.constants.W_OK);
-      
-      // path exists, and it is writable - ALL OK
-      return true;
-
-		} catch (err) {
-		  return false;
-		}
-	}
-	
-	return true;
-}
-
 const showErrorBox = (title, msg) => {
   dialog.showErrorBox(title, msg)
 };
@@ -711,6 +639,12 @@ const showMessageBox = (options) => {
 };
 
 ipcMain.on('download_and_install', (e) => {
+  const blockedReason = appImageUpdateBlocker()
+  if (blockedReason) {
+    electron_log.error(`Auto-update not installable. ${blockedReason}`)
+    post_message('update-error', { message: blockedReason })
+    return
+  }
   autoUpdater.downloadUpdate();
 })
 
@@ -831,11 +765,6 @@ ipcMain.on('reload_download_window', (e, item) => {
   downloadWindow.reload(true);
 })
 
-
-ipcMain.on('relaunch_app', (e, data) => {
-  app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
-  app.exit(0);
-})
 
 ipcMain.on('update_global_variable', (e, varname, value) => {
   global[varname] = value;
