@@ -36,6 +36,8 @@ const {
     getFilesizeInBytes
 } = require('../services/app_utils')
 
+const { redactText } = require('../services/redact')
+
 const { optimizeUploadDigest } = require('../services/db/utils')
 const { selected_sessions_table, custom_upload_multiple_table, validate_custom_upload_multiple_details, selected_scans_table } = require('../services/tables/upload-prepare')
 const { findSOPClassUID } = require('../services/upload/sop_class_uids')
@@ -4767,7 +4769,8 @@ function handle_error(err) {
 
     // AXIOS?
     if (err.config && err.config.url) {
-        message += "\n" + err.config.url 
+        // the URL can carry the XNAT_CSRF token
+        message += "\n" + redactText(err.config.url)
     }
     message += "\n\n STACK:\n" + err.stack
 

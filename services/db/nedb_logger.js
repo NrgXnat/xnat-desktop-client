@@ -7,6 +7,7 @@ const ElectronStore = require('electron-store');
 const settings = new ElectronStore();
 const auth = require('../auth_main')
 const sha1 = require('sha1')
+const { redact, redactText } = require('../redact')
 
 // const app = require('electron').remote ? require('electron').remote.app : require('electron').app
 let app;
@@ -45,8 +46,10 @@ function insert_log(transfer_id, type, level, message, details_object) {
         type: type, // upload/download
         transfer_id: transfer_id,
         level: level, // debug, info, error, success ?
-        message: message, // '... string' 
-        details: JSON.stringify(details_object),
+        // Callers pass failed requests, which carry the login; this log is
+        // exported by Help > Save Log File (see services/redact.js).
+        message: redactText(message), // '... string'
+        details: JSON.stringify(redact(details_object)),
         timestamp: new Date()
     };
 

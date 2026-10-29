@@ -8,6 +8,7 @@ const CONSTANTS = require('./constants');
 const XNATAPI = require('./xnat-api')
 const auth = require('./auth');
 const { jsonStringify, stripTags } = require('../services/app_utils')
+const { redact, redactText } = require('../services/redact')
 
 const db_uploads = nodeRequire('./services/db/uploads')
 const nedb_logger = nodeRequire('./services/db/nedb_logger')
@@ -144,11 +145,14 @@ exports.uploadCommit = async (transfer, res, series_id = '') => {
 
             if (err.response.status != 301) {
                 console_log(`COMMIT::ERROR ${transfer_signature(transfer)}::${series_id}`)
-                electron_log.error('commit_error', commit_url, jsonStringify(err.response))
+                // The response carries the request's login, session cookie and
+                // CSRF token; remove them before it leaves this window as text.
+                const response_details = jsonStringify(redact(err.response))
+                electron_log.error('commit_error', redactText(commit_url), response_details)
 
                 const errorDataMessage = stripTags(err.response.data)
                 let error_message = `[${getCurrentWindow().id}: ]` + `Session commit failed (status code: ${err.response.status} - "${err.response.statusText}"). ${errorDataMessage}`;
-                nedb_logger.error(transfer.id, 'upload', error_message, jsonStringify(err.response));
+                nedb_logger.error(transfer.id, 'upload', error_message, response_details);
 
                 await db_uploads._updateProperty(transfer.id, 'status', 'xnat_error');
 

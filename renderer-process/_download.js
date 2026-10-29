@@ -31,6 +31,7 @@ const prettyBytes = require('pretty-bytes');
 const humanizeDuration = require('humanize-duration');
 
 const { console_red } = require('../services/logger');
+const { redact } = require('../services/redact');
 
 const db_downloads = nodeRequire('./services/db/downloads');
 
@@ -502,7 +503,7 @@ async function download_items(transfer, manifest_urls, create_dir_structure = fa
             settings.set('transfering_download', false);
 
             console_red('Request canceled', {err});
-            electron_log.error('Download error:', xnat_server + uri, JSON.stringify(err));
+            electron_log.error('Download error:', xnat_server + uri, JSON.stringify(redact(err)));
             nedb_logger.error(transfer_id, 'download', 'Request canceled!' + err.message, err);
         } else {
             electron_log.error('Download error:', xnat_server + uri, Helper.errorMessage(err));

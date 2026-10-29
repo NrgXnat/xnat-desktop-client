@@ -42,6 +42,7 @@ const nedb_logger = nodeRequire('./services/db/nedb_logger')
 // const { copy_anonymize_stream } = require('../services/upload/copy_anonymize_stream');
 const { file_checksum, uuidv4, isEmptyObject, promiseSerial, arrayUnique, isDevEnv, currentVersionChannel, getFilesizeInBytes, simpleLog, jsonStringify, stripTags } = require('../services/app_utils')
 const { MizerError } = require('../services/errors');
+const { redactText } = require('../services/redact');
 
 const CONSTANTS = require('../services/constants');
 const rimraf = require('rimraf');
@@ -1061,7 +1062,8 @@ function handleUploadError(transfer, series_id, segment_index, err) {
                         data: `${err.code}: [URL: ${err.config.url}] ${err.message}`
                     });
 
-                    let subtitle = `Request error occurred.\nURL:${err.config.url}\nError code: ${err.code}\nSession: ${transfer.url_data.expt_label}\n\nTransfer was canceled.`
+                    // the URL carries the XNAT_CSRF token
+                    let subtitle = `Request error occurred.\nURL:${redactText(err.config.url)}\nError code: ${err.code}\nSession: ${transfer.url_data.expt_label}\n\nTransfer was canceled.`
 
                     ipcRenderer.send('custom_error_with_details', 'API Request Error', subtitle, err.message)
                     ipcRenderer.send('upload_finished', transfer.id);

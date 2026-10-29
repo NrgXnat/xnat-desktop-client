@@ -3,6 +3,7 @@ const migrateStorageFormat = require('./migrate/migrateStorageFormat')
 const optimizeUploadDataFormat = require('./migrate/optimizeUploadDataFormat')
 const clearApplicationCache = require('./migrate/clearApplicationCache')
 const clearDefaultTempDir = require('./migrate/clearDefaultTempDir')
+const redactStoredCredentials = require('./migrate/redactStoredCredentials')
 
 const { ipcMain } = require('electron')
 
@@ -14,6 +15,10 @@ exports.runMigrations = async () => {
     if (clearedDbFiles) {
         ipcMain.emit('clearVersion2DbFiles')
     }
+
+    // before anything loads the NeDB files: a loaded datastore can write its
+    // in-memory copy back over them
+    redactStoredCredentials()
 
     await migrateStorageFormat()
     
