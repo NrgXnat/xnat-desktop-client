@@ -56,7 +56,9 @@ class XNATAPI {
         if (!config) {
             config = this.axios_config()
         }
-        return axios.put(this.xnat_server + url_path, config)
+        // no body: the config used to be passed in its place, which sent the
+        // login in the request body and left the request without its settings
+        return axios.put(this.xnat_server + url_path, null, config)
     }
 
     axios_delete(url_path) {

@@ -5,7 +5,7 @@ const firstRun = require('electron-first-run')
 const electron_log = require('../../electron_log')
 const { redactText } = require('../../redact')
 
-// Versions before 3.2.8 logged failed requests together with the login,
+// Versions before 3.2.9 logged failed requests together with the login,
 // session cookie and CSRF token they carried (see services/redact.js), and
 // stored the alias token of web-launched downloads. Remove those from what is
 // already on disk: the transfer log and transfer databases, the log files, and
@@ -42,8 +42,14 @@ module.exports = () => {
 
     const tempDir = app.getPath('temp')
     for (const name of listFiles(tempDir, /^user-transfer-log-\d+\.csv$/)) {
+        const file = path.join(tempDir, name)
         try {
-            fs.unlinkSync(path.join(tempDir, name))
+            // a shared temp folder (/tmp on Linux) can hold other accounts'
+            // exports, which can't be deleted; skip them rather than retry forever
+            if (process.getuid && fs.statSync(file).uid !== process.getuid()) {
+                continue
+            }
+            fs.unlinkSync(file)
         } catch (err) {
             electron_log.error(err)
             ok = false
