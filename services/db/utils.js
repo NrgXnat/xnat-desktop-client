@@ -1,4 +1,5 @@
-const { getAppInfo } = require('../app_utils')
+const { getAppInfo, objArrayToCSV } = require('../app_utils')
+const { redact, redactText } = require('../redact')
 const { glob } = require('glob')
 const path = require('path')
 const lodashCloneDeep = require('lodash/cloneDeep')
@@ -38,6 +39,29 @@ function findCommonStartString(paths) {
     }
 
     return common_path;
+}
+
+// Transfer-log entries (from nedb_log_reader) as CSV, for Save Log File and a
+// transfer's log export. Older versions logged credentials (see services/redact.js).
+exports.transferLogCsv = (docs) => {
+    return objArrayToCSV(docs.map(obj => ({
+        timestamp: obj.timestamp,
+        type: obj.type,
+        status: obj.level,
+        transfer_id: obj.transfer_id,
+        message: redactText(obj.message),
+        details: logDetails(obj.details)
+    })))
+}
+
+// Some entries have no details (failed downloads) or '/' (an entry nedb_logger
+// couldn't store as is); JSON.parse throws on both, which stopped the export.
+function logDetails(details) {
+    try {
+        return redact(JSON.parse(details))
+    } catch (err) {
+        return typeof details === 'string' ? redactText(details) : ''
+    }
 }
 
 exports.getScanFilesProperty = (scan, prop) => {
