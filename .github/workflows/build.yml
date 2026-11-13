@@ -13,7 +13,14 @@ on:
 
 env:
   JDK_ROOT: https://cdn.azul.com/zulu/bin
-  JAVA_VERSION: zulu8.96.0.205-ca-jdk8.0.504
+  # 8.98.0.107 and later block the compromised eMudhra intermediate CAs.
+  JAVA_VERSION: zulu8.98.0.111-ca-jdk8.0.512
+  # SHA-256 of each JAVA_VERSION bundle (Azul's metadata API), checked before extraction so the
+  # pin, not the runner's trust store, vouches for the JRE we ship. Update them with JAVA_VERSION.
+  JRE_SHA256_MACOSX_X64: 899e3fef1f60a4792d59b2ba81832176aed8fa4f549fdc0c2ee7fd225fc21c28
+  JRE_SHA256_MACOSX_AARCH64: 523a350b96563e1ff406cf3c55e0211a5816b482a67b5f88a5ea9ba799fd32be
+  JRE_SHA256_LINUX_X64: e4e262c47f1309dd7cbbca50835000e82aa7fac12afbbf0f85da7c948f598213
+  JRE_SHA256_WIN_X64: 68549cc971a00e4407de1cef569c0851c8dee00c71eab461fe9ca62684bb161b
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -77,16 +84,15 @@ jobs:
         shell: bash
         run: |
           case "${{ matrix.name }}" in
-            mac-x64)   PAIRS="${JAVA_VERSION}-macosx_x64:mac-x64" ;;
-            mac-arm64) PAIRS="${JAVA_VERSION}-macosx_aarch64:mac-arm64" ;;
-            linux-x64) PAIRS="${JAVA_VERSION}-linux_x64:linux-x64" ;;
+            mac-x64)   PAIRS="${JAVA_VERSION}-macosx_x64:mac-x64:${JRE_SHA256_MACOSX_X64}" ;;
+            mac-arm64) PAIRS="${JAVA_VERSION}-macosx_aarch64:mac-arm64:${JRE_SHA256_MACOSX_AARCH64}" ;;
+            linux-x64) PAIRS="${JAVA_VERSION}-linux_x64:linux-x64:${JRE_SHA256_LINUX_X64}" ;;
           esac
 
           mkdir -p build_resources/jre
 
           for pair in ${PAIRS}; do
-            TARGET="${pair%%:*}"
-            DEST="${pair##*:}"
+            IFS=: read -r TARGET DEST SHA256 <<< "${pair}"
 
             if [[ -f "build_resources/jre/${DEST}/bin/java" ]]; then
               echo "Using cached JRE at build_resources/jre/${DEST}"
@@ -94,6 +100,7 @@ jobs:
             fi
 
             curl -fsSL -o "${RUNNER_TEMP}/jdk-${DEST}.tar.gz" "${JDK_ROOT}/${TARGET}.tar.gz"
+            echo "${SHA256}  ${RUNNER_TEMP}/jdk-${DEST}.tar.gz" | shasum -a 256 -c -
             tar xf "${RUNNER_TEMP}/jdk-${DEST}.tar.gz" -C "${RUNNER_TEMP}"
 
             if [[ "${RUNNER_OS}" == "macOS" ]]; then
@@ -124,6 +131,8 @@ jobs:
       
           New-Item -ItemType Directory -Force -Path build_resources/jre | Out-Null
           Invoke-WebRequest -Uri "$env:JDK_ROOT/$target.zip" -OutFile "$env:RUNNER_TEMP\jdk.zip"
+          $hash = (Get-FileHash -Algorithm SHA256 "$env:RUNNER_TEMP\jdk.zip").Hash
+          if ($hash -ne $env:JRE_SHA256_WIN_X64) { throw "jdk.zip SHA-256 $hash does not match JRE_SHA256_WIN_X64" }
           Expand-Archive "$env:RUNNER_TEMP\jdk.zip" -DestinationPath "$env:RUNNER_TEMP"
           
           # Find the extracted JDK directory and copy its jre subfolder
