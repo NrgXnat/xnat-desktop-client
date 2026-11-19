@@ -131,7 +131,7 @@ jobs:
       
           New-Item -ItemType Directory -Force -Path build_resources/jre | Out-Null
           Invoke-WebRequest -Uri "$env:JDK_ROOT/$target.zip" -OutFile "$env:RUNNER_TEMP\jdk.zip"
-          $hash = (Get-FileHash -Algorithm SHA256 "$env:RUNNER_TEMP\jdk.zip").Hash
+          $hash = (Get-FileHash -Algorithm SHA256 "$env:RUNNER_TEMP\jdk.zip").Hash.ToLower()
           if ($hash -ne $env:JRE_SHA256_WIN_X64) { throw "jdk.zip SHA-256 $hash does not match JRE_SHA256_WIN_X64" }
           Expand-Archive "$env:RUNNER_TEMP\jdk.zip" -DestinationPath "$env:RUNNER_TEMP"
           

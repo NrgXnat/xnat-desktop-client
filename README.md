@@ -14,11 +14,10 @@ these because the 32-bit restrictions on sizes of data objects could cause issue
 > * `build_resources/jre/mac`
 > * `build_resources/jre/win-x64`
 >
-> The latest version of Java 8 as of this writing is 8.0.322. The Zulu download bundles for each platform are:
->
-> * [Linux](https://cdn.azul.com/zulu/bin/zulu8.62.0.19-ca-jdk8.0.332-linux_x64.tar.gz)
-> * [Mac](https://cdn.azul.com/zulu/bin/zulu8.62.0.19-ca-jdk8.0.332-macosx_x64.tar.gz)
-> * [Windows](https://cdn.azul.com/zulu/bin/zulu8.62.0.19-ca-jdk8.0.332-win_x64.zip)
+> Use the Zulu 8 build pinned as `JAVA_VERSION` in [.github/workflows/build.yml](.github/workflows/build.yml), the one CI bundles. Builds before
+> 8.98.0.107 trust the compromised eMudhra intermediate CAs. Download `https://cdn.azul.com/zulu/bin/<JAVA_VERSION>-<suffix>`, where _suffix_ is
+> `linux_x64.tar.gz`, `macosx_x64.tar.gz`, `macosx_aarch64.tar.gz` or `win_x64.zip`, and check it against the matching `JRE_SHA256_*` value pinned
+> next to `JAVA_VERSION`.
 
 
 > Anyway, the big issue there is that the java package uses a couple of packages, find-java-home, bindings, and node-gyp to build bindings to native code libraries.

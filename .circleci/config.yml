@@ -2,7 +2,11 @@ build_config: &build_config
   CACHE_VERSION: v2
   NODE_VERSION: "18.20.3"
   JDK_ROOT: "https://cdn.azul.com/zulu/bin"
-  JAVA_VERSION: "zulu8.78.0.19-ca-jdk8.0.412"
+  # Same pin and SHA-256 values as .github/workflows/build.yml; update them together.
+  JAVA_VERSION: "zulu8.98.0.111-ca-jdk8.0.512"
+  JRE_SHA256_MACOSX_X64: "899e3fef1f60a4792d59b2ba81832176aed8fa4f549fdc0c2ee7fd225fc21c28"
+  JRE_SHA256_MACOSX_AARCH64: "523a350b96563e1ff406cf3c55e0211a5816b482a67b5f88a5ea9ba799fd32be"
+  JRE_SHA256_LINUX_X64: "e4e262c47f1309dd7cbbca50835000e82aa7fac12afbbf0f85da7c948f598213"
 
 version: 2.1
 
@@ -29,6 +33,7 @@ jobs:
               [[ ! -d build_resources/${JAVA_VERSION}-linux_x64 ]] && {
                 [[ -d build_resources/jre/linux-x64 ]] && { rm -rf build_resources/jre/linux-x64; }
                 wget -nc ${JDK_ROOT}/${JAVA_VERSION}-linux_x64.tar.gz
+                echo "${JRE_SHA256_LINUX_X64}  ${JAVA_VERSION}-linux_x64.tar.gz" | sha256sum -c -
                 tar xf ${JAVA_VERSION}-linux_x64.tar.gz -C build_resources
                 cp -R build_resources/${JAVA_VERSION}-linux_x64/jre build_resources/jre/linux-x64
                 rm -f ${JAVA_VERSION}-linux_x64.tar.gz
@@ -93,11 +98,13 @@ jobs:
             nvm alias default v${NODE_VERSION}
             nvm use default
       - checkout
+      # The config checksum drops a JRE/JDK cached under an older JAVA_VERSION.
       - restore_cache:
-          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}-{{ checksum ".circleci/config.yml" }}
       - run:
           name: Download and expand JREs for Mac
           command: |
+            # set -e is off inside the `&& { } ||` groups below, so the hash checks exit explicitly.
             for BUILD_ARCH in arm64 x64; do
               [[ -d build_resources/jre/mac-${BUILD_ARCH} ]] && {
                 [[ $(find build_resources/jre/mac-${BUILD_ARCH} -mindepth 1 -maxdepth 1 -type d -name bin | wc -l | tr -d ' ') == 0 ||
@@ -109,13 +116,15 @@ jobs:
               }
               [[ ! -d build_resources/jre/mac-${BUILD_ARCH} ]] && {
                   TARGET_ARCH="${BUILD_ARCH}"
-                  [[ "${BUILD_ARCH}" == "arm64" ]] && { TARGET_ARCH="aarch64"; }
+                  SHA256="${JRE_SHA256_MACOSX_X64}"
+                  [[ "${BUILD_ARCH}" == "arm64" ]] && { TARGET_ARCH="aarch64"; SHA256="${JRE_SHA256_MACOSX_AARCH64}"; }
                   JAVA_TARGET="${JAVA_VERSION}-macosx_${TARGET_ARCH}"
                   echo "No JDK found for ${BUILD_ARCH}, downloading ${JDK_ROOT}/${JAVA_TARGET}.tar.gz"
                   mkdir -p build_resources/jre
                   http --download --output=build_resources/jre/${JAVA_TARGET}.tar.gz ${JDK_ROOT}/${JAVA_TARGET}.tar.gz
+                  echo "${SHA256}  build_resources/jre/${JAVA_TARGET}.tar.gz" | shasum -a 256 -c - || exit 1
                   tar xf build_resources/jre/${JAVA_TARGET}.tar.gz --directory build_resources/jre
-                  cp -R build_resources/jre/${JAVA_TARGET}/zulu-8.jdk/Contents/Home/jre build_resources/jre/mac-${BUILD_ARCH}
+                  cp -R build_resources/jre/${JAVA_TARGET}/Contents/Home/jre build_resources/jre/mac-${BUILD_ARCH}
                   echo "JRE installed, using version: $(build_resources/jre/mac-${BUILD_ARCH}/bin/java -version 2>&1 | grep Server)"
               } || {
                   echo "Existing JRE found, using version: $(build_resources/jre/mac-${BUILD_ARCH}/bin/java -version 2>&1 | grep Server)"
@@ -130,9 +139,10 @@ jobs:
                 JAVA_TARGET="${JAVA_VERSION}-macosx_x64"
                 [[ ! -d build_resources/jre/${JAVA_TARGET} ]] && {
                   http --download --output=build_resources/jre/${JAVA_TARGET}.tar.gz ${JDK_ROOT}/${JAVA_TARGET}.tar.gz
+                  echo "${JRE_SHA256_MACOSX_X64}  build_resources/jre/${JAVA_TARGET}.tar.gz" | shasum -a 256 -c - || exit 1
                   tar xf build_resources/jre/${JAVA_TARGET}.tar.gz --directory build_resources/jre
                 }
-                sudo cp -R build_resources/jre/${JAVA_TARGET}/zulu-8.jdk /Library/Java/JavaVirtualMachines
+                sudo cp -R build_resources/jre/${JAVA_TARGET} /Library/Java/JavaVirtualMachines/zulu-8.jdk
                 echo "JDK ${JAVA_TARGET} installed, using version: $(/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java -version 2>&1 | grep Server)"
             } || {
                 echo "Existing JDK found, using version: $(/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java -version 2>&1 | grep Server)"
@@ -152,7 +162,7 @@ jobs:
             export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home
             yarn install
       - save_cache:
-          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}
+          key: cache-${CACHE_VERSION}-mac-{{ .Branch }}-{{ checksum "package.json" }}-{{ checksum ".circleci/config.yml" }}
           paths:
             - node_modules
             - build_resources/jre/mac-arm64
